@@ -1,33 +1,85 @@
-# New Project Template
+# WPT-Gen: AI-Powered Web Platform Test Generation
 
-This repository contains a template that can be used to seed a repository for a
-new Google open source project.
+![License](https://img.shields.io/badge/License-Apache_2.0-green)
 
-See [go/releasing](http://go/releasing) (available externally at
-https://opensource.google/documentation/reference/releasing) for more information about
-releasing a new Google open source project.
+**WPT-Gen** is a CLI tool designed to increase browser interoperability by
+automating the creation of [Web Platform Tests (WPT)](https://web-platform-tests.org/).
 
-This template uses the Apache license, as is Google's default.  See the
-documentation for instructions on using alternate license.
+It acts as an agentic workflow that connects W3C Specifications with your local
+WPT repository. By leveraging Large Language Models, WPT-Gen proactively
+identifies gaps in test coverage for specific web features and generates
+tests to fill those gaps.
 
-## How to use this template
+---
 
-1. Clone it from GitHub.
-    * There is no reason to fork it.
-1. Create a new local repository and copy the files from this repo into it.
-1. Modify README.md and docs/contributing.md to represent your project, not the
-   template project.
-1. Develop your new project!
+## Key Features
 
-``` shell
-git clone https://github.com/google/new-project
-mkdir my-new-thing
-cd my-new-thing
-git init
-cp -r ../new-project/* ../new-project/.github .
-git add *
-git commit -a -m 'Boilerplate for new Google open source project'
+* **Context Assembly:** Automatically aggregates knowledge by resolving W3C Spec
+  URLs and MDN documentation via `web-features` ID lookups.
+* **Automated Gap Analysis:** Compares the feature's testing requirements
+  against existing test files to identify "Missing Assertions".
+* **Code Generation:** Generates atomic, compliant test files.
+
+---
+
+## Prerequisites
+
+Before installing, ensure you have the following:
+
+1.  **Python 3.10+** installed.
+2.  A local checkout of the
+    **[web-platform-tests](https://github.com/web-platform-tests/wpt)**
+    repository.
+3.  An API Key for a compatible LLM provider.
+
+---
+
+## Installation
+
+TODO
+
+### Configuration
+
+1. **Environment Variables:**
+You must export your LLM API key. This key is never saved to disk.
+
+```bash
+export GEMINI_API_KEY="your_api_key_here"
+
 ```
+
+---
+
+## Usage
+
+The primary interface is the `generate` command. You must provide a
+**Web Feature ID** (as defined in
+[web-features](https://github.com/web-platform-dx/web-features)).
+
+### Basic Generation
+
+```bash
+wpt-gen generate --web-feature-id "counter-set"
+
+```
+
+### Options
+
+TODO
+
+---
+
+## Limitations & Scope
+
+* **Context Limits:** Very large specifications may hit token limits depending
+  on the LLM model used.
+
+---
+
+## License
+
+Apache 2.0. See [LICENSE](https://www.google.com/search?q=LICENSE) for more
+information.
 
 ## Source Code Headers
 
@@ -38,7 +90,7 @@ doesn't comply with the license.)
 
 Apache header:
 
-    Copyright 2024 Google LLC
+    Copyright 2026 Google LLC
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
