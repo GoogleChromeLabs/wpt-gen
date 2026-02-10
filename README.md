@@ -76,10 +76,12 @@ TODO
 
 ---
 
-## 📄 License
+## License
 
 Apache 2.0. See [LICENSE](https://www.google.com/search?q=LICENSE) for more
 information.
+
+## Source Code Headers
 
 Every file containing source code must include copyright and license
 information. This includes any JS/CSS files that you might be serving out to
