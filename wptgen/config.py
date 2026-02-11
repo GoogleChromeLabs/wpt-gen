@@ -1,0 +1,58 @@
+import os
+import yaml
+from dataclasses import dataclass
+from pathlib import Path
+
+@dataclass
+class Config:
+  """Configuration object for WPT-Gen."""
+  provider: str
+  model: str
+  api_key: str
+def load_config(
+  config_path: str = 'wpt-gen.yml',
+  provider_override: str|None = None
+) -> Config:
+  """
+  Loads configuration from YAML and environment variables.
+  Selects the active LLM provider and fetches the corresponding API key.
+  """
+  path = Path(config_path)
+  yaml_data: dict = {}
+  
+  if path.exists():
+    with open(path, 'r', encoding='utf-8') as f:
+      yaml_data = yaml.safe_load(f) or {}
+
+  # Determine the active provider
+  # CLI override takes precedence, then YAML default.
+  active_provider = provider_override or yaml_data.get('default_provider', 'gemini')
+  active_provider = active_provider.lower()
+  
+  # Extract provider-specific settings
+  providers_config = yaml_data.get('providers', {})
+  provider_settings = providers_config.get(active_provider, {})
+  
+  # Provide sensible defaults if the YAML is missing the specific provider block
+  if active_provider == 'gemini':
+    model = provider_settings.get('model', 'gemini-3-pro-preview')
+    env_var_name = 'GEMINI_API_KEY'
+  elif active_provider == 'openai':
+    model = provider_settings.get('model', 'gpt-5.2-high')
+    env_var_name = 'OPENAI_API_KEY'
+  else:
+    raise ValueError(f'CRITICAL: Unsupported provider \'{active_provider}\' requested.')
+
+  # Enforce the environment variable constraint for the active provider
+  api_key = os.environ.get(env_var_name)
+  if not api_key:
+    raise ValueError(
+      f'CRITICAL: {env_var_name} environment variable is missing. '
+      f'Required when using the \'{active_provider}\' provider.'
+    )
+
+  return Config(
+    provider=active_provider,
+    model=model,
+    api_key=api_key
+  )

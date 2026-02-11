@@ -1,0 +1,7 @@
+default_provider: gemini
+
+providers:
+  gemini:
+    model: gemini-3-pro-preview
+  openai:
+    model: gpt-5.2-high
