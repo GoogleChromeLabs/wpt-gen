@@ -27,8 +27,8 @@ def generate(
   ] = None,
   config_path: Annotated[
     str, 
-    typer.Option('--config', '-c', help='Path to a custom wpt-gen.yaml file.')
-  ] = 'wpt-gen.yaml',
+    typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = 'wpt-gen.yml',
 ):
   """
   Generate Web Platform Tests for a specific web feature.
