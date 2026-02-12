@@ -184,8 +184,11 @@ class WPTGenEngine:
         test_suggestion_xml_block=suggestion_xml,
       )
 
-      raw_title = self._extract_xml_tag(suggestion_xml, 'title') or "generated_test"
-      safe_filename = re.sub(r'[^a-z0-9_\-]', '_', raw_title.lower()) + ".html"
+      raw_title = self._extract_xml_tag(suggestion_xml, 'title') or 'file'
+      safe_filename = ('test_generated__' +
+                       re.sub(r'[^a-z0-9_\-]', '_', raw_title.lower()) +
+                       '.html'
+      )
 
       tasks.append(self._generate_and_save(final_prompt, safe_filename))
 
