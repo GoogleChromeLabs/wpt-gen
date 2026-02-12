@@ -18,15 +18,15 @@ console = Console()
 @app.command()
 def generate(
   web_feature_id: Annotated[
-    str, 
+    str,
     typer.Argument(help='The web feature ID to generate tests for (e.g., \'grid\', \'popover\').')
   ],
   provider: Annotated[
-    Optional[str], 
+    Optional[str],
     typer.Option('--provider', '-p', help='Override the default LLM provider (e.g., \'gemini\', \'openai\').')
   ] = None,
   config_path: Annotated[
-    str, 
+    str,
     typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = 'wpt-gen.yml',
 ):
@@ -38,7 +38,7 @@ def generate(
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
     config = load_config(config_path=config_path, provider_override=provider)
-    
+
     console.print(
       Panel(
         f'[bold]Provider:[/bold] {config.provider}\n'

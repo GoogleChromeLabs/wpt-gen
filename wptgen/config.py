@@ -19,7 +19,7 @@ def load_config(
   """
   path = Path(config_path)
   yaml_data: dict = {}
-  
+
   if path.exists():
     with open(path, 'r', encoding='utf-8') as f:
       yaml_data = yaml.safe_load(f) or {}
@@ -28,11 +28,11 @@ def load_config(
   # CLI override takes precedence, then YAML default.
   active_provider = provider_override or yaml_data.get('default_provider', 'gemini')
   active_provider = active_provider.lower()
-  
+
   # Extract provider-specific settings
   providers_config = yaml_data.get('providers', {})
   provider_settings = providers_config.get(active_provider, {})
-  
+
   # Provide sensible defaults if the YAML is missing the specific provider block
   if active_provider == 'gemini':
     model = provider_settings.get('model', 'gemini-3-pro-preview')

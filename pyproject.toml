@@ -10,14 +10,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # Core LLM Integration
-    "google-genai>=1.62.0",    
-    
+    "google-genai>=1.62.0",
+
     # Context & Scraping
-    "trafilatura>=2.0.0",     
-    
+    "trafilatura>=2.0.0",
+
     # Prompt Templating
-    "jinja2>=3.1.6",          
-    
+    "jinja2>=3.1.6",
+
     # CLI Infrastructure
     "typer>=0.23.0",
     "rich>=14.3.2",

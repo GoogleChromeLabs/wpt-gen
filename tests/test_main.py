@@ -19,7 +19,7 @@ def mock_config():
 def test_help_menu():
   """Test that the CLI help menu renders correctly without errors."""
   result = runner.invoke(app, ['--help'])
-  
+
   assert result.exit_code == 0
   assert 'AI-Powered Web Platform Test Generation CLI' in result.stdout
 
