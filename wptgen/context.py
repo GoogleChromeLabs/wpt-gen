@@ -15,6 +15,7 @@
 import logging
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,13 @@ import yaml
 from trafilatura import extract, fetch_url
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class WebFeatureMetadata:
+  name: str
+  description: str
+  specs: list[str]
 
 
 def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
@@ -50,32 +58,31 @@ def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
     raise e
 
 
-def extract_spec_url(feature_data: dict[str, Any]) -> str | None:
+def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata:
   """
-  Safely extracts the primary specification URL from the parsed feature data.
+  Extracts the high-level metadata (name and description) from the feature data.
+
+  Returns:
+    Dict containing important feature metadata.
   """
-  spec = feature_data.get('spec')
+  spec_info = feature_data.get('spec')
+  specs = []
+  if isinstance(spec_info, list):
+    specs = spec_info
+  elif isinstance(spec_info, str):
+    specs.append(spec_info)
 
-  if not spec:
-    return None
-
-  # Sometimes the spec field is a single URL string
-  if isinstance(spec, str):
-    return spec
-
-  # Sometimes it might be formatted as a list of URLs
-  # TODO(DanielRyanSmith): Handle multiple specs.
-  if isinstance(spec, list) and len(spec) > 0:
-    return spec[0]
-
-  return None
+  return WebFeatureMetadata(
+    name=str(feature_data.get('name', 'Unknown Feature')),
+    description=str(feature_data.get('description', '')),
+    specs=specs,
+  )
 
 
 def fetch_and_extract_text(url: str) -> str | None:
   """
   Fetches the HTML content from a URL and extracts the core textual content,
   stripping away navigation, footers, and boilerplate.
-
   Returns the content formatted as Markdown.
   """
   logger.info(f'Fetching content from: {url}')
@@ -119,7 +126,6 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     try:
       with open(yaml_path, encoding='utf-8') as f:
         data = yaml.safe_load(f)
-
       if not data or 'features' not in data:
         continue
 
@@ -165,7 +171,6 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
       # We strip `**/` and check if `test.html` matches `*.html`.
       if not is_match and clean_pattern.startswith('**/'):
         is_match = rel_path.match(clean_pattern[3:])
-
       if is_match:
         matches.add(f)
 
