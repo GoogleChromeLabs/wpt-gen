@@ -9,9 +9,13 @@ class Config:
   provider: str
   model: str
   api_key: str
+  wpt_path: str
+
+
 def load_config(
   config_path: str = 'wpt-gen.yml',
-  provider_override: str|None = None
+  provider_override: str|None = None,
+  wpt_dir_override: str|None = None
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -51,8 +55,11 @@ def load_config(
       f'Required when using the \'{active_provider}\' provider.'
     )
 
+  wpt_path = wpt_dir_override or yaml_data.get('wpt_path', '../wpt')
+
   return Config(
     provider=active_provider,
     model=model,
-    api_key=api_key
+    api_key=api_key,
+    wpt_path=wpt_path,
   )

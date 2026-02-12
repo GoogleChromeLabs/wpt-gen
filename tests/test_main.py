@@ -14,6 +14,7 @@ def mock_config():
     provider='gemini',
     model='gemini-3-pro-preview',
     api_key='fake-key',
+    wpt_path='../wpt'
   )
 
 def test_help_menu():
@@ -39,7 +40,11 @@ def test_generate_success(mocker, mock_config):
   assert 'Workflow completed successfully' in result.stdout
 
   # Verify our logic called the underlying functions with the correct CLI arguments
-  mock_load_config.assert_called_once_with(config_path='wpt-gen.yml', provider_override='gemini')
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override='gemini',
+    wpt_dir_override=None
+  )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 

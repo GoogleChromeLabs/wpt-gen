@@ -1,8 +1,8 @@
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from pathlib import Path
 from typing_extensions import Annotated
-from typing import Optional
 
 from wptgen.config import load_config
 from wptgen.engine import WPTGenEngine
@@ -22,8 +22,19 @@ def generate(
     typer.Argument(help='The web feature ID to generate tests for (e.g., \'grid\', \'popover\').')
   ],
   provider: Annotated[
-    Optional[str],
+    str|None,
     typer.Option('--provider', '-p', help='Override the default LLM provider (e.g., \'gemini\', \'openai\').')
+  ] = None,
+  wpt_dir: Annotated[
+    Path|None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
+    )
   ] = None,
   config_path: Annotated[
     str,
@@ -37,7 +48,15 @@ def generate(
 
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
-    config = load_config(config_path=config_path, provider_override=provider)
+
+    # Convert Path object back to string if it was provided, else pass None
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+
+    config = load_config(
+      config_path=config_path,
+      provider_override=provider,
+      wpt_dir_override=wpt_dir_str
+    )
 
     console.print(
       Panel(

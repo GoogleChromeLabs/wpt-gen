@@ -9,6 +9,7 @@ def gemini_config():
     provider='gemini',
     model='gemini-3-pro-preview',
     api_key='mock-gemini-key',
+    wpt_path='../wpt',
   )
 
 @pytest.fixture
@@ -18,6 +19,7 @@ def openai_config():
     provider='openai',
     model='gpt-5.2-high',
     api_key='mock-openai-key',
+    wpt_path='../wpt'
   )
 
 def test_get_llm_client_gemini(mocker, gemini_config):
@@ -44,6 +46,7 @@ def test_get_llm_client_unsupported_provider():
     provider='otherllm',
     model='coolmodel-5',
     api_key='mock-key',
+    wpt_path='../wpt'
   )
   with pytest.raises(ValueError, match='Unsupported provider: otherllm'):
     get_llm_client(bad_config)

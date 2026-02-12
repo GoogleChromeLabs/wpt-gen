@@ -43,7 +43,6 @@ def extract_spec_url(feature_data: dict[str, Any]) -> str|None:
   Safely extracts the primary specification URL from the parsed feature data.
   """
   spec = feature_data.get('spec')
-
   if not spec:
     return None
 
@@ -63,7 +62,6 @@ def fetch_and_extract_text(url: str) -> str|None:
   """
   Fetches the HTML content from a URL and extracts the core textual content,
   stripping away navigation, footers, and boilerplate.
-
   Returns the content formatted as Markdown.
   """
   logger.info(f'Fetching content from: {url}')
@@ -107,7 +105,6 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     try:
       with open(yaml_path, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
-
       if not data or 'features' not in data:
         continue
 
@@ -157,7 +154,6 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
       # We strip `**/` and check if `test.html` matches `*.html`.
       if not is_match and clean_pattern.startswith('**/'):
         is_match = rel_path.match(clean_pattern[3:])
-
       if is_match:
         matches.add(f)
 
