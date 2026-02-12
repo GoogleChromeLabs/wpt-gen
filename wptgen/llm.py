@@ -7,7 +7,7 @@ from wptgen.config import Config
 
 class LLMClient(ABC):
   """Abstract base class for all LLM providers."""
-  
+
   def __init__(self, api_key: str, model: str):
     self.api_key = api_key
     self.model = model
@@ -44,7 +44,7 @@ class GeminiClient(LLMClient):
     config = types.GenerateContentConfig()
     if system_instruction:
       config.system_instruction = system_instruction
-      
+
     response = self.client.models.generate_content(
       model=self.model,
       contents=prompt,
