@@ -1,11 +1,12 @@
 import pytest
 import urllib.error
 from wptgen.context import (
-  extract_spec_url,
+  extract_feature_metadata,
   fetch_feature_yaml,
   fetch_and_extract_text,
   find_feature_tests,
-  _resolve_patterns
+  _resolve_patterns,
+  WebFeatureMetadata
 )
 
 
@@ -56,27 +57,48 @@ def test_fetch_feature_yaml_server_error(mocker):
     fetch_feature_yaml('grid')
 
 
-def test_extract_spec_url_string():
-  """Test extraction when the spec field is a standard string."""
-  assert extract_spec_url({'spec': 'https://example.com'}) == 'https://example.com'
+def test_extract_feature_metadata_single_spec():
+  """Test metadata extraction when the spec field is a single string."""
+  data = {
+    'name': 'popover',
+    'description': 'A popup feature',
+    'spec': 'https://example.com/spec'
+  }
+  result = extract_feature_metadata(data)
+
+  assert isinstance(result, WebFeatureMetadata)
+  assert result.name == 'popover'
+  assert result.description == 'A popup feature'
+  assert result.specs == ['https://example.com/spec']
 
 
-def test_extract_spec_url_list():
-  """Test extraction when the spec field is a list (take the first element)."""
-  assert extract_spec_url(
-    {
-      'spec': [
-        'https://example.com',
-        'https://other.com'
-      ]
-    }
-  ) == 'https://example.com'
+def test_extract_feature_metadata_list_spec():
+  """Test metadata extraction when the spec field is a list of URLs."""
+  data = {
+    'name': 'grid',
+    'description': 'Grid layout',
+    'spec': [
+      'https://example.com/spec1',
+      'https://example.com/spec2'
+    ]
+  }
+  result = extract_feature_metadata(data)
+
+  assert result.name == 'grid'
+  assert result.specs == [
+    'https://example.com/spec1',
+    'https://example.com/spec2'
+  ]
 
 
-def test_extract_spec_url_missing():
-  """Test extraction when the spec field is missing or empty."""
-  assert extract_spec_url({'name': 'popover'}) is None
-  assert extract_spec_url({'spec': []}) is None
+def test_extract_feature_metadata_defaults():
+  """Test that missing fields fall back to safe defaults."""
+  data = {}
+  result = extract_feature_metadata(data)
+
+  assert result.name == 'Unknown Feature'
+  assert result.description == ''
+  assert result.specs == []
 
 
 def test_fetch_and_extract_text_success(mocker):
