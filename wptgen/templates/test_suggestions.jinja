@@ -15,9 +15,10 @@
 **Aggregation Rule:** You must analyze the `<test_suite_summary>` as a whole. Coverage is cumulative. If *any* individual `<test_summary>` covers a specific spec requirement, that requirement is considered **Covered**.
 
 **Output Constraints:**
-* **No Analysis Text:** Do not output a "Summary" or "Coverage Report."
-* **No Conversational Filler:** Start immediately with the output tags.
 * **Format:** Output a `<test_suggestions>` containing individual `<test_suggestion>` blocks.
+* **Be Specific:** The `<steps>` section for each test suggestion should be detailed and describe exactly what is needed to write the new test.
+* **No Conversational Filler:** Start immediately with the output tags.
+* **Strict Output Format:** The output should only contain XML data describing test suggestions.
 
 ---
 
@@ -28,7 +29,7 @@
   <test_suggestion>
     <title>[Short Descriptive Title]</title>
     <category>[Existence | Common Use Case | Error Scenario | Invalidation | Integration]</category>
-    <spec_logic>[Quote or paraphrase the specific spec requirement being tested]</spec_logic>
+    <description>[Paraphrase the specific behavior that will be tested]</spec_logic>
     <pre_conditions>[e.g., "None", "HTML body with <div id='target'>"]</pre_conditions>
     <steps>
       <step>1. [First step...]</step>
