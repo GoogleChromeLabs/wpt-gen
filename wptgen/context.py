@@ -163,7 +163,3 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
       selected_files.update(matches)
 
   return {str(f) for f in selected_files}
-
-
-if __name__ == '__main__':
-  print(find_feature_tests('../wpt', 'counter-set'))
