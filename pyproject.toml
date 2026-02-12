@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     # Core LLM Integration
     "google-genai>=1.62.0",
+    "openai>=2.20.0",
 
     # Context & Scraping
     "trafilatura>=2.0.0",

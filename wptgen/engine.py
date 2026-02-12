@@ -1,8 +1,10 @@
 from wptgen.config import Config
+from wptgen.llm import get_llm_client
 
 class WPTGenEngine:
   def __init__(self, config: Config):
     self.config = config
+    self.llm = get_llm_client(config)
 
   def run_workflow(self, web_feature_id: str):
     """
