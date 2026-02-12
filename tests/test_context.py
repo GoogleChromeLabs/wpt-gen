@@ -12,7 +12,7 @@ from wptgen.context import (
 def test_fetch_feature_yaml_success(mocker):
   """Test the happy path where the YAML file is successfully fetched and parsed."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
-  
+
   # Setup the context manager mock so it returns a byte string when .read() is called
   mock_response = mocker.MagicMock()
   mock_response.read.return_value = b"spec: 'https://example.com/spec'"
@@ -22,7 +22,7 @@ def test_fetch_feature_yaml_success(mocker):
 
   assert result == {'spec': 'https://example.com/spec'}
   mock_urlopen.assert_called_once()
-  
+
   # Verify the constructed URL is correct
   request_obj = mock_urlopen.call_args[0][0]
   assert 'popover.yml' in request_obj.full_url
@@ -32,7 +32,7 @@ def test_fetch_feature_yaml_success(mocker):
 def test_fetch_feature_yaml_not_found(mocker):
   """Test that a 404 error from GitHub safely returns None."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
-  
+
   # Simulate a 404 HTTPError
   mock_urlopen.side_effect = urllib.error.HTTPError(
     url='', code=404, msg='Not Found', hdrs={}, fp=None
@@ -46,7 +46,7 @@ def test_fetch_feature_yaml_not_found(mocker):
 def test_fetch_feature_yaml_server_error(mocker):
   """Test that a 500 error (or rate limit) raises an exception."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
-  
+
   # Simulate a 500 HTTPError
   mock_urlopen.side_effect = urllib.error.HTTPError(
     url='', code=500, msg='Internal Server Error', hdrs={}, fp=None
@@ -89,7 +89,7 @@ def test_fetch_and_extract_text_success(mocker):
 
   assert result == '# Spec Content'
   mock_fetch.assert_called_once_with('https://example.com')
-  
+
   # Verify extract was called with our optimization flags
   call_kwargs = mock_extract.call_args.kwargs
   assert call_kwargs['output_format'] == 'markdown'
@@ -100,9 +100,9 @@ def test_fetch_and_extract_text_success(mocker):
 def test_fetch_and_extract_text_fetch_fails(mocker):
   """Test that if the URL cannot be fetched, the function returns None."""
   mocker.patch('wptgen.context.fetch_url', return_value=None)
-  
+
   result = fetch_and_extract_text('https://example.com')
-  
+
   assert result is None
 
 
@@ -110,9 +110,9 @@ def test_fetch_and_extract_text_extract_fails(mocker):
   """Test that if Trafilatura fails to extract meaningful text, the function returns None."""
   mocker.patch('wptgen.context.fetch_url', return_value='<html></html>')
   mocker.patch('wptgen.context.extract', return_value=None)
-  
+
   result = fetch_and_extract_text('https://example.com')
-  
+
   assert result is None
 
 
@@ -121,11 +121,11 @@ def test_resolve_patterns_basic_and_recursive(tmp_path):
   # Create a mock directory structure
   (tmp_path / 'test1.html').touch()
   (tmp_path / 'test2.txt').touch()
-  
+
   sub_dir = tmp_path / 'subfolder'
   sub_dir.mkdir()
   (sub_dir / 'test3.html').touch()
-  
+
   # Also create a WEB_FEATURES.yml, which should be explicitly ignored
   (tmp_path / 'WEB_FEATURES.yml').touch()
 
@@ -140,14 +140,14 @@ def test_resolve_patterns_basic_and_recursive(tmp_path):
   assert str(tmp_path / 'WEB_FEATURES.yml') not in results
 
 def test_resolve_patterns_negative_exclusion(tmp_path):
-  """Test that negative patterns (!pattern) successfully remove files from the set."""  
+  """Test that negative patterns (!pattern) successfully remove files from the set."""
   (tmp_path / 'include_me.html').touch()
   (tmp_path / 'exclude_me.html').touch()
-  
+
   patterns = ['*.html', '!exclude_me.html']
-  
+
   results = _resolve_patterns(tmp_path, patterns)
-  
+
   assert len(results) == 1
   assert str(tmp_path / 'include_me.html') in results
   assert str(tmp_path / 'exclude_me.html') not in results
@@ -157,7 +157,7 @@ def test_find_feature_tests_happy_path(tmp_path):
   # Build the repository structure
   feat_dir = tmp_path / 'css' / 'css-grid'
   feat_dir.mkdir(parents=True)
-  
+
   # Create the YAML metadata file
   yaml_content = """
 features:
@@ -176,7 +176,7 @@ features:
   (feat_dir / 'skip.html').touch()
 
   results = find_feature_tests(str(tmp_path), 'grid')
-  
+
   assert len(results) == 1
   assert results[0] == str(feat_dir / 'grid_test.html')
 
@@ -193,7 +193,7 @@ def test_find_feature_tests_malformed_yaml(tmp_path):
   feat_dir = tmp_path / 'broken-feature'
   feat_dir.mkdir()
   (feat_dir / 'WEB_FEATURES.yml').write_text("features:\n - name: oops\n  bad_indent: true")
-  
+
   # Create a valid one to ensure the loop continues after the error
   valid_dir = tmp_path / 'valid-feature'
   valid_dir.mkdir()
