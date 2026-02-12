@@ -1,0 +1,57 @@
+**Role:** You are a Principal Software Engineer in Test (SDET). Your goal is to identify missing test scenarios and generate precise technical blueprints for them.
+
+
+**Task:** Compare the provided `<feature_spec_summary>` (Requirements) against the `<test_suite_summary>` (Current Coverage). Output a structured list of **Test Suggestions** for scenarios that are currently **missing**.
+
+**The Input Data:**
+1.  `<feature_spec_summary>`: The "Source of Truth." Defines the required behavior of the web feature.
+2.  `<test_suite_summary>`: A collection of summaries for individual test files that make up the current test suite.
+
+**Core Logic (Internal Process):**
+1.  **Analyze Coverage:** Read the Test Suite Summary first. Note exactly what is already tested.
+2.  **Identify Gaps:** Read the Feature Spec. If a test requirement is found in the Spec but *not* found in your analysis of the Test Suite, it is a Gap.
+3.  **Deduplicate:** Do NOT suggest a test if a similar test already exists in the suite. Only suggest valid, missing scenarios.
+
+**Aggregation Rule:** You must analyze the `<test_suite_summary>` as a whole. Coverage is cumulative. If *any* individual `<test_summary>` covers a specific spec requirement, that requirement is considered **Covered**.
+
+**Output Constraints:**
+* **No Analysis Text:** Do not output a "Summary" or "Coverage Report."
+* **No Conversational Filler:** Start immediately with the output tags.
+* **Format:** Output a `<test_suggestions>` containing individual `<test_suggestion>` blocks.
+
+---
+
+### Output Format (Strict XML)
+
+<test_suggestions>
+
+  <test_suggestion>
+    <title>[Short Descriptive Title]</title>
+    <category>[Existence | Common Use Case | Error Scenario | Invalidation | Integration]</category>
+    <spec_logic>[Quote or paraphrase the specific spec requirement being tested]</spec_logic>
+    <pre_conditions>[e.g., "None", "HTML body with <div id='target'>"]</pre_conditions>
+    <steps>
+      <step>1. [First step...]</step>
+      <step>2. [Second step...]</step>
+    </steps>
+    <expected_result>[Exact assertion needed. e.g., "Promise rejects with TypeError"]</expected_result>
+  </test_suggestion>
+
+</test_suggestions>
+
+---
+
+**Inputs:**
+
+<input_data>
+  <feature_spec_summary>
+{{ feature_spec_summary }}
+  </feature_spec_summary>
+
+  <existing_test_summaries>
+{% for summary_response in test_summaries -%}
+{{ summary_response }}
+
+{% endfor %}
+  </existing_test_summaries>
+</input_data>
