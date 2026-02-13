@@ -13,7 +13,8 @@ from wptgen.context import (
   extract_feature_metadata,
   fetch_feature_yaml,
   fetch_and_extract_text,
-  find_feature_tests
+  find_feature_tests,
+  gather_local_test_context
 )
 
 console = Console()
@@ -64,29 +65,26 @@ class WPTGenEngine:
 
     console.print(f'Fetching spec content from: {metadata.specs[0]}')
     with console.status(f"[blue]Fetching spec content...[/blue]"):
-      spec_content = fetch_and_extract_text(metadata.specs[0])
+      spec_contents = fetch_and_extract_text(metadata.specs[0])
 
-    if not spec_content:
+    if not spec_contents:
       console.print('[bold red]Error:[/bold red] Failed to extract spec content.')
       return None
 
-    console.print('Scanning local WPT repository for existing tests...')
+    console.print('Scanning local WPT repository for existing tests and dependencies...')
     test_paths = find_feature_tests(self.config.wpt_path, web_feature_id)
+    wpt_context = gather_local_test_context(test_paths, self.config.wpt_path)
 
-    test_files = []
-    for path in test_paths:
-      try:
-        content = Path(path).read_text(encoding='utf-8')
-        test_files.append({'path': path, 'content': content})
-      except Exception as e:
-        console.print(f'[yellow]Warning:[/yellow] Skipped {path}: {e}')
-
-    console.print(f'✔ Context gathered: {len(spec_content)} chars of spec, {len(test_files)} existing tests.')
+    console.print(
+      f'✔ Context gathered: {len(spec_contents)} chars of spec, '
+      f'{len(wpt_context.test_contents)} tests, '
+      f'{len(wpt_context.dependency_contents)} dependency files.'
+    )
 
     return {
       'metadata': metadata,
-      'spec_content': spec_content,
-      'test_files': test_files
+      'spec_contents': spec_contents,
+      'wpt_context': wpt_context
     }
 
   async def _phase_requirements_analysis(
@@ -100,12 +98,12 @@ class WPTGenEngine:
       feature_name=context['metadata'].name,
       feature_description=context['metadata'].description,
       spec_url=context['metadata'].specs[0],
-      spec_content=context['spec_content']
+      spec_contents=context['spec_contents']
     )
 
     test_prompt = self.jinja_env.get_template('test_analysis.jinja').render(
       feature_id=web_feature_id,
-      existing_tests=context['test_files']
+      wpt_context=context['wpt_context']
     )
 
     console.print('Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...')

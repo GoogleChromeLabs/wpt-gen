@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 from wptgen.engine import WPTGenEngine
 from wptgen.config import Config
-from wptgen.context import WebFeatureMetadata
+from wptgen.context import WebFeatureMetadata, WPTContext
 
 @pytest.fixture
 def mock_config():
@@ -92,13 +92,18 @@ async def test_phase_context_assembly_success(engine, mocker):
   mocker.patch("wptgen.engine.fetch_and_extract_text", return_value="Spec Text")
   mocker.patch("wptgen.engine.find_feature_tests", return_value=["/path/to/test.html"])
 
-  with patch("wptgen.engine.Path.read_text", return_value="existing test content"):
-    context = await engine._phase_context_assembly("feat-id")
+  mock_context = WPTContext(
+    test_contents={"/path/to/test.html": "existing test content"},
+    dependency_contents={},
+    test_to_deps={"/path/to/test.html": set()}
+  )
+  mocker.patch("wptgen.engine.gather_local_test_context", return_value=mock_context)
+
+  context = await engine._phase_context_assembly("feat-id")
 
   assert context["metadata"] == metadata
-  assert context["spec_content"] == "Spec Text"
-  assert len(context["test_files"]) == 1
-  assert context["test_files"][0]["path"] == "/path/to/test.html"
+  assert context["spec_contents"] == "Spec Text"
+  assert context["wpt_context"] == mock_context
 
 @pytest.mark.asyncio
 async def test_phase_context_assembly_no_feature(engine, mocker):
@@ -133,8 +138,8 @@ async def test_phase_requirements_analysis_success(engine, mock_llm):
   """Successful concurrent generation of spec synthesis and test analysis."""
   context = {
     "metadata": MagicMock(specs=["http://spec"]),
-    "spec_content": "spec",
-    "test_files": []
+    "spec_contents": "spec",
+    "wpt_context": MagicMock()
   }
   mock_llm.generate_content.side_effect = ["Spec Synthesis", "Test Analysis"]
 
@@ -146,8 +151,8 @@ async def test_phase_requirements_analysis_failure(engine, mock_llm):
   """Requirements analysis returns None if any part of the analysis fails."""
   context = {
     "metadata": MagicMock(specs=["http://spec"]),
-    "spec_content": "spec",
-    "test_files": []
+    "spec_contents": "spec",
+    "wpt_context": MagicMock()
   }
   mock_llm.generate_content.side_effect = ["Spec Synthesis", Exception("Fail")]
 
@@ -224,20 +229,6 @@ async def test_run_async_workflow_full_path(engine, mocker):
   engine._phase_requirements_analysis.assert_called_once()
   engine._phase_test_suggestions.assert_called_once()
   engine._phase_test_generation.assert_called_once()
-
-@pytest.mark.asyncio
-async def test_phase_context_assembly_read_test_fails(engine, mocker):
-  """Tests that context assembly continues even if reading an individual test file fails."""
-  mocker.patch("wptgen.engine.fetch_feature_yaml", return_value={"name": "feat"})
-  metadata = WebFeatureMetadata(name="Feature", description="Desc", specs=["http://spec"])
-  mocker.patch("wptgen.engine.extract_feature_metadata", return_value=metadata)
-  mocker.patch("wptgen.engine.fetch_and_extract_text", return_value="Spec Text")
-  mocker.patch("wptgen.engine.find_feature_tests", return_value=["/path/to/test.html"])
-
-  with patch("wptgen.engine.Path.read_text", side_effect=Exception("Read Error")):
-    context = await engine._phase_context_assembly("feat-id")
-
-  assert len(context["test_files"]) == 0
 
 @pytest.mark.asyncio
 async def test_generate_and_save_markdown_variants(engine, mock_llm, tmp_path):
@@ -410,8 +401,8 @@ async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm):
   """Verifies that the engine handles cases where both concurrent analysis tasks return empty strings."""
   context = {
     "metadata": MagicMock(specs=["http://spec"]),
-    "spec_content": "spec",
-    "test_files": []
+    "spec_contents": "spec",
+    "wpt_context": MagicMock()
   }
   # Both LLM calls return empty (failure mode of _generate_safe)
   mock_llm.generate_content.side_effect = ["", ""]

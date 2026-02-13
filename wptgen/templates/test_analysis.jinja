@@ -35,17 +35,17 @@ For every test file, examine its code to identify which dependencies it imports 
 
 <test_suite>
     <test_batch>
-    {% for test in test_files %}
-        <test_file path="{{ test.path }}">
-{{ test.contents }}
+    {% for path, contents in wpt_context.test_contents.items() %}
+        <test_file path="{{ path }}">
+{{ contents }}
         </test_file>
     {% endfor %}
     </test_batch>
 
     <dependency_library>
-    {% for dep_path, dep_content in dependency_files %}
-        <dependency_file path="{{ dep_path }}">
-{{ dep_content }}
+    {% for path, contents in wpt_context.dependency_contents.items() %}
+        <dependency_file path="{{ path }}">
+{{ contents }}
         </dependency_file>
     {% endfor %}
     </dependency_library>
