@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import logging
+import re
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -24,12 +25,29 @@ from trafilatura import extract, fetch_url
 
 logger = logging.getLogger(__name__)
 
+# Match <script src="...">
+SCRIPT_DEPENDENCY_REGEX = re.compile(r'<script\s+[^>]*src=["\']([^"\']+)["\']')
+
+# Match import/export ... from "..." or import "..."
+IMPORT_DEPENDENCY_REGEX = re.compile(
+  r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
+)
+
 
 @dataclass
 class WebFeatureMetadata:
   name: str
   description: str
   specs: list[str]
+
+
+@dataclass
+class WPTContext:
+  """Holds the results of a local WPT content and dependency fetch operation."""
+
+  test_contents: dict[str, str] = field(default_factory=dict)
+  dependency_contents: dict[str, str] = field(default_factory=dict)
+  test_to_deps: dict[str, set[str]] = field(default_factory=dict)
 
 
 def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
@@ -180,3 +198,113 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
       selected_files.update(matches)
 
   return {str(f) for f in selected_files}
+
+
+def extract_dependencies(content: str) -> list[str]:
+  """
+  Scans file content for references to other files.
+  """
+  dependencies = set()
+  dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, content))
+  dependencies.update(re.findall(IMPORT_DEPENDENCY_REGEX, content))
+  return list(dependencies)
+
+
+def resolve_dependency_path(current_file_path: Path, dep_ref: str, wpt_root: Path) -> Path | None:
+  """
+  Resolves a dependency reference to a concrete local WPT repository path.
+  """
+  if dep_ref.startswith(('http', '//', 'https')):
+    return None
+
+  current_dir = current_file_path.parent
+
+  if dep_ref.startswith('/'):
+    # Absolute path relative to repo root
+    resolved = wpt_root / dep_ref.lstrip('/')
+  else:
+    # Relative path
+    resolved = (current_dir / dep_ref).resolve()
+
+  try:
+    # Ensure it's still inside the WPT root
+    resolved.relative_to(wpt_root)
+    if resolved.is_file():
+      return resolved
+  except (ValueError, OSError):
+    pass
+  return None
+
+
+def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContext:
+  """
+  Recursively gathers the content of test files and all their dependencies from the local disk.
+  """
+  root = Path(wpt_root).resolve()
+  test_contents: dict[str, str] = {}
+  dependency_contents: dict[str, str] = {}
+  test_to_deps: dict[str, set[str]] = {}
+
+  dependency_graph: dict[str, set[str]] = {}
+  visited: set[str] = set()
+
+  # Initialize queue with (absolute_path, is_test)
+  queue: list[tuple[str, bool]] = []
+  for p in test_paths:
+    abs_p = str(Path(p).resolve())
+    queue.append((abs_p, True))
+    visited.add(abs_p)
+
+  MAX_DEPS = 100
+  idx = 0
+  while idx < len(queue):
+    curr_p_str, is_test = queue[idx]
+    idx += 1
+
+    curr_p = Path(curr_p_str)
+    try:
+      content = curr_p.read_text(encoding='utf-8')
+      if is_test:
+        test_contents[curr_p_str] = content
+      else:
+        dependency_contents[curr_p_str] = content
+
+      deps = extract_dependencies(content)
+      for dep_ref in deps:
+        resolved = resolve_dependency_path(curr_p, dep_ref, root)
+        if resolved:
+          resolved_str = str(resolved)
+
+          if curr_p_str not in dependency_graph:
+            dependency_graph[curr_p_str] = set()
+          dependency_graph[curr_p_str].add(resolved_str)
+
+          if resolved_str not in visited:
+            if len(visited) < (len(test_paths) + MAX_DEPS):
+              visited.add(resolved_str)
+              queue.append((resolved_str, False))
+    except Exception as e:
+      logger.warning(f'Error reading dependency {curr_p_str}: {e}')
+
+  # Build the reachability map
+  for test_p_str in test_contents:
+    relevant_deps = set()
+    stack = [test_p_str]
+    seen_in_traversal = {test_p_str}
+
+    while stack:
+      curr = stack.pop()
+      if curr != test_p_str:
+        relevant_deps.add(curr)
+
+      if curr in dependency_graph:
+        for child in dependency_graph[curr]:
+          if child not in seen_in_traversal:
+            seen_in_traversal.add(child)
+            stack.append(child)
+
+    test_to_deps[test_p_str] = relevant_deps
+
+  return WPTContext(
+    test_contents=test_contents, dependency_contents=dependency_contents, test_to_deps=test_to_deps
+  )
