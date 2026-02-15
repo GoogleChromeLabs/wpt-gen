@@ -10,8 +10,8 @@ from wptgen.engine import WPTGenEngine
 
 # Initialize Typer app and Rich console
 app = typer.Typer(
-  name="wpt-gen",
-  help="AI-Powered Web Platform Test Generation CLI",
+  name='wpt-gen',
+  help='AI-Powered Web Platform Test Generation CLI',
   add_completion=False,
 )
 console = Console()
@@ -26,32 +26,32 @@ def generate(
   provider: Annotated[
     str | None,
     typer.Option(
-      "--provider", "-p", help="Override the default LLM provider (e.g., 'gemini', 'openai')."
+      '--provider', '-p', help="Override the default LLM provider (e.g., 'gemini', 'openai')."
     ),
   ] = None,
   wpt_dir: Annotated[
     Path | None,
     typer.Option(
-      "--wpt-dir",
-      "-w",
-      help="Path to the local web-platform-tests repository.",
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
       exists=True,
       dir_okay=True,
       resolve_path=True,
     ),
   ] = None,
   config_path: Annotated[
-    str, typer.Option("--config", "-c", help="Path to a custom wpt-gen.yml file.")
-  ] = "wpt-gen.yml",
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = 'wpt-gen.yml',
   verbose: Annotated[
     bool,
-    typer.Option("--verbose", "-v", help="Display every LLM-generated response to the user."),
+    typer.Option('--verbose', '-v', help='Display every LLM-generated response to the user.'),
   ] = False,
 ):
   """
   Generate Web Platform Tests for a specific web feature.
   """
-  console.print(f"[bold blue]Starting WPT-Gen for feature:[/bold blue] {web_feature_id}")
+  console.print(f'[bold blue]Starting WPT-Gen for feature:[/bold blue] {web_feature_id}')
 
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
@@ -68,10 +68,10 @@ def generate(
 
     console.print(
       Panel(
-        f"[bold]Provider:[/bold] {config.provider}\n[bold]Model:[/bold] {config.model}",
-        title="Active Configuration",
+        f'[bold]Provider:[/bold] {config.provider}\n[bold]Model:[/bold] {config.model}',
+        title='Active Configuration',
         expand=False,
-        border_style="green",
+        border_style='green',
       )
     )
 
@@ -82,15 +82,15 @@ def generate(
     # Note: In Phase 1, this will just print the skeleton output
     engine.run_workflow(web_feature_id)
 
-    console.print("[bold green]✔ Workflow completed successfully.[/bold green]")
+    console.print('[bold green]✔ Workflow completed successfully.[/bold green]')
 
   except ValueError as e:
     # Catch configuration errors (like missing API keys) and exit gracefully
-    console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
   except Exception as e:
     # Catch unexpected runtime errors
-    console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
 
 
@@ -102,5 +102,5 @@ def main_callback():
   pass
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   app()

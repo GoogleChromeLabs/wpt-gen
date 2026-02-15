@@ -57,8 +57,8 @@ class OpenAIClient(LLMClient):
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     messages = []
     if system_instruction:
-      messages.append({"role": "system", "content": system_instruction})
-    messages.append({"role": "user", "content": prompt})
+      messages.append({'role': 'system', 'content': system_instruction})
+    messages.append({'role': 'user', 'content': prompt})
 
     response = self.client.chat.completions.create(model=self.model, messages=messages)
     return response.choices[0].message.content
@@ -66,9 +66,9 @@ class OpenAIClient(LLMClient):
 
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
-  if config.provider == "gemini":
+  if config.provider == 'gemini':
     return GeminiClient(api_key=config.api_key, model=config.model)
-  elif config.provider == "openai":
+  elif config.provider == 'openai':
     return OpenAIClient(api_key=config.api_key, model=config.model)
   else:
-    raise ValueError(f"Unsupported provider: {config.provider}")
+    raise ValueError(f'Unsupported provider: {config.provider}')
