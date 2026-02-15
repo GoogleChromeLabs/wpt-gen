@@ -149,7 +149,9 @@ class WPTGenEngine:
     spec_analysis, test_analysis = analysis
 
     suggestions_prompt = self.jinja_env.get_template('test_suggestions.jinja').render(
-      feature_id=web_feature_id, feature_spec_summary=spec_analysis, test_summaries=[test_analysis]
+      feature_id=web_feature_id,
+      feature_spec_summary=spec_analysis,
+      test_summaries=[test_analysis],
     )
 
     with self.console.status('[blue]Brainstorming test scenarios...[/blue]'):

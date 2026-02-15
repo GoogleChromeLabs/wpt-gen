@@ -137,10 +137,10 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     raise ValueError(f'The directory provided does not exist: {base_dir}')
 
   relevant_files: set[str] = set()
-  TARGET_METADATA_FILE = 'WEB_FEATURES.yml'
+  target_metadata_file = 'WEB_FEATURES.yml'
 
   # rglob recursively finds all WEB_FEATURES.yml files in the entire repository
-  for yaml_path in base_dir.rglob(TARGET_METADATA_FILE):
+  for yaml_path in base_dir.rglob(target_metadata_file):
     try:
       with open(yaml_path, encoding='utf-8') as f:
         data = yaml.safe_load(f)
@@ -309,5 +309,7 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
     test_to_deps[test_p_str] = relevant_deps
 
   return WPTContext(
-    test_contents=test_contents, dependency_contents=dependency_contents, test_to_deps=test_to_deps
+    test_contents=test_contents,
+    dependency_contents=dependency_contents,
+    test_to_deps=test_to_deps,
   )
