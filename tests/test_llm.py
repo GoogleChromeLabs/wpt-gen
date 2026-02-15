@@ -1,6 +1,8 @@
 import pytest
+
 from wptgen.config import Config
-from wptgen.llm import get_llm_client, GeminiClient, OpenAIClient
+from wptgen.llm import GeminiClient, OpenAIClient, get_llm_client
+
 
 @pytest.fixture
 def gemini_config():

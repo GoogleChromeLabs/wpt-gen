@@ -43,3 +43,27 @@ include = ["wptgen*"]
 
 [tool.setuptools.package-data]
 wptgen = ["templates/*.jinja", "templates/*.xml", "templates/*.txt"]
+
+[tool.ruff]
+# Target Python 3.10+
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# Enable a wide set of rules for "strict" linting
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "PT",   # flake8-pytest-style
+]
+ignore = [
+    "E501", # Line too long (already handled by line-length and formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wptgen"]

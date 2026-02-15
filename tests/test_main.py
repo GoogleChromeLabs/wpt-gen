@@ -1,8 +1,8 @@
 import pytest
 from typer.testing import CliRunner
 
-from wptgen.main import app
 from wptgen.config import Config
+from wptgen.main import app
 
 # The CliRunner simulates a user typing commands into the terminal
 runner = CliRunner()

@@ -1,21 +1,22 @@
 import asyncio
 import re
 from pathlib import Path
-from jinja2 import Environment, FileSystemLoader
-from rich.console import Console
-from rich.prompt import Prompt
-from rich.panel import Panel
 from typing import Any
 
+from jinja2 import Environment, FileSystemLoader
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+
 from wptgen.config import Config
-from wptgen.llm import get_llm_client
 from wptgen.context import (
   extract_feature_metadata,
-  fetch_feature_yaml,
   fetch_and_extract_text,
+  fetch_feature_yaml,
   find_feature_tests,
-  gather_local_test_context
+  gather_local_test_context,
 )
+from wptgen.llm import get_llm_client
 
 console = Console()
 
@@ -35,21 +36,24 @@ class WPTGenEngine:
     """Orchestrates the end-to-end WPT generation workflow."""
     # Phase 1: Context Assembly
     context = await self._phase_context_assembly(web_feature_id)
-    if not context: return
+    if not context:
+      return
 
     # Phase 2: Requirements Analysis
     analysis = await self._phase_requirements_analysis(web_feature_id, context)
-    if not analysis: return
+    if not analysis:
+      return
 
     # Phase 3: Test Suggestions
     suggestions = await self._phase_test_suggestions(web_feature_id, analysis)
-    if not suggestions: return
+    if not suggestions:
+      return
 
     # Phase 4: User Selection & Generation
     await self._phase_test_generation(context, suggestions)
 
   async def _phase_context_assembly(self, web_feature_id: str) -> dict[str, Any] | None:
-    console.print(f'\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
+    console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
 
     feature_data = fetch_feature_yaml(web_feature_id)
     if not feature_data:
@@ -64,7 +68,7 @@ class WPTGenEngine:
     console.print(f'Web Feature Name: {metadata.name}\nDescription: {metadata.description}')
 
     console.print(f'Fetching spec content from: {metadata.specs[0]}')
-    with console.status(f"[blue]Fetching spec content...[/blue]"):
+    with console.status("[blue]Fetching spec content...[/blue]"):
       spec_contents = fetch_and_extract_text(metadata.specs[0])
 
     if not spec_contents:
@@ -92,7 +96,7 @@ class WPTGenEngine:
     web_feature_id: str,
     context: dict[str, Any]
   ) -> tuple[str, str] | None:
-    console.print(f'\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
+    console.print('\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
 
     spec_prompt = self.jinja_env.get_template('spec_synthesis.jinja').render(
       feature_name=context['metadata'].name,
@@ -124,7 +128,7 @@ class WPTGenEngine:
     return (spec_analysis, test_analysis)
 
   async def _phase_test_suggestions(self, web_feature_id: str, analysis: tuple[str, str]) -> str | None:
-    console.print(f'\n[bold cyan]--- Phase 3: Test Suggestions ---[/bold cyan]')
+    console.print('\n[bold cyan]--- Phase 3: Test Suggestions ---[/bold cyan]')
 
     spec_analysis, test_analysis = analysis
 
@@ -148,7 +152,7 @@ class WPTGenEngine:
     context: dict[str, Any],
     suggestions_response: str
   ):
-    console.print(f'\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
+    console.print('\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
     suggestions = self._parse_suggestions(suggestions_response)
 
     if not suggestions:
@@ -193,7 +197,7 @@ class WPTGenEngine:
     with console.status(f"[blue]Generating {len(tasks)} tests...[/blue]"):
       await asyncio.gather(*tasks)
 
-    console.print(f'\n[bold green]✔ All selected tests generated successfully.[/bold green]')
+    console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
 
   def _parse_suggestions(self, raw_text: str) -> list[str]:
     return re.findall(r'<test_suggestion>.*?</test_suggestion>', raw_text, re.DOTALL)

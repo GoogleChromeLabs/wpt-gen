@@ -1,14 +1,13 @@
-from dataclasses import dataclass, field
-import fnmatch
 import logging
 import re
-import urllib.request
 import urllib.error
-import yaml
+import urllib.request
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from trafilatura import fetch_url, extract
 
+import yaml
+from trafilatura import extract, fetch_url
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +120,12 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     raise ValueError(f"The directory provided does not exist: {base_dir}")
 
   relevant_files: set[str] = set()
-  TARGET_METADATA_FILE = 'WEB_FEATURES.yml'
+  target_metadata_file = 'WEB_FEATURES.yml'
 
   # rglob recursively finds all WEB_FEATURES.yml files in the entire repository
-  for yaml_path in base_dir.rglob(TARGET_METADATA_FILE):
+  for yaml_path in base_dir.rglob(target_metadata_file):
     try:
-      with open(yaml_path, 'r', encoding='utf-8') as f:
+      with open(yaml_path, encoding='utf-8') as f:
         data = yaml.safe_load(f)
       if not data or 'features' not in data:
         continue
@@ -148,7 +147,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
       print(f"Error processing {yaml_path}: {e}")
 
   # Convert back to a sorted list of absolute string paths
-  return sorted(list(relevant_files))
+  return sorted(relevant_files)
 
 
 def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:

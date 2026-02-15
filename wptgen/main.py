@@ -1,8 +1,9 @@
+from pathlib import Path
+from typing import Annotated
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from pathlib import Path
-from typing_extensions import Annotated
 
 from wptgen.config import load_config
 from wptgen.engine import WPTGenEngine
@@ -85,11 +86,11 @@ def generate(
   except ValueError as e:
     # Catch configuration errors (like missing API keys) and exit gracefully
     console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1)
+    raise typer.Exit(code=1) from e
   except Exception as e:
     # Catch unexpected runtime errors
     console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1)
+    raise typer.Exit(code=1) from e
 
 
 @app.callback()

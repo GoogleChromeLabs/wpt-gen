@@ -1,7 +1,9 @@
 import os
-import yaml
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
+
 
 @dataclass
 class Config:
@@ -27,7 +29,7 @@ def load_config(
   yaml_data: dict = {}
 
   if path.exists():
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, encoding='utf-8') as f:
       yaml_data = yaml.safe_load(f) or {}
 
   # Determine the active provider

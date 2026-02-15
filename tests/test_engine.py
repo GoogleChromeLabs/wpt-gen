@@ -1,8 +1,11 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from wptgen.engine import WPTGenEngine
+
+import pytest
+
 from wptgen.config import Config
 from wptgen.context import WebFeatureMetadata, WPTContext
+from wptgen.engine import WPTGenEngine
+
 
 @pytest.fixture
 def mock_config():

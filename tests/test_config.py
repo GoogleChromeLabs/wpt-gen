@@ -1,5 +1,7 @@
 import pytest
-from wptgen.config import load_config, Config
+
+from wptgen.config import Config, load_config
+
 
 def test_load_config_default_gemini_happy_path(monkeypatch):
   """Test the happy path: default provider (gemini) with a valid API key."""

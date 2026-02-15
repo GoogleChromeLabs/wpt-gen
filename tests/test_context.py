@@ -1,15 +1,17 @@
-import pytest
 import urllib.error
+
+import pytest
+
 from wptgen.context import (
-  extract_feature_metadata,
-  fetch_feature_yaml,
-  fetch_and_extract_text,
-  find_feature_tests,
+  WebFeatureMetadata,
   _resolve_patterns,
   extract_dependencies,
-  resolve_dependency_path,
+  extract_feature_metadata,
+  fetch_and_extract_text,
+  fetch_feature_yaml,
+  find_feature_tests,
   gather_local_test_context,
-  WebFeatureMetadata
+  resolve_dependency_path,
 )
 
 
