@@ -208,6 +208,8 @@ class WPTGenEngine:
       loop = asyncio.get_running_loop()
       response = await loop.run_in_executor(None, self.llm.generate_content, prompt)
       console.print(f'✔ {task_name} finished.')
+      if self.config.verbose:
+        console.print(Panel(response, title=f"LLM Response: {task_name}", border_style="cyan"))
       return response
     except Exception as e:
       console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')

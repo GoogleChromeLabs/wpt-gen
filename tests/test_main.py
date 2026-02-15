@@ -43,10 +43,27 @@ def test_generate_success(mocker, mock_config):
   mock_load_config.assert_called_once_with(
     config_path='wpt-gen.yml',
     provider_override='gemini',
-    wpt_dir_override=None
+    wpt_dir_override=None,
+    verbose_override=False
   )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
+
+def test_generate_verbose(mocker, mock_config):
+  """Test that the --verbose flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --verbose
+  result = runner.invoke(app, ['generate', 'grid', '--verbose'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override=None,
+    wpt_dir_override=None,
+    verbose_override=True
+  )
 
 def test_generate_config_error(mocker):
   """Test that configuration errors (like missing API keys) are caught and exit gracefully."""

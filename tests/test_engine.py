@@ -34,11 +34,32 @@ def test_engine_init(engine, mock_config):
   assert engine.jinja_env is not None
 
 @pytest.mark.asyncio
-async def test_generate_safe_success(engine, mock_llm):
-  """Tests that _generate_safe returns the expected content on a successful LLM call."""
-  mock_llm.generate_content.return_value = "Generated Content"
+async def test_generate_safe_verbose(engine, mock_llm, mocker):
+  """Tests that _generate_safe prints the LLM response when verbose is enabled."""
+  engine.config.verbose = True
+  mock_llm.generate_content.return_value = "Verbose Response"
+  mock_console_print = mocker.patch("wptgen.engine.console.print")
+
   result = await engine._generate_safe("prompt", "Task")
-  assert result == "Generated Content"
+
+  assert result == "Verbose Response"
+  # Check that console.print was called with the response in a Panel
+  # We can't easily check the Panel object equality, but we can check if it was called.
+  assert mock_console_print.call_count >= 2 # "✔ Task finished." and the Panel
+
+@pytest.mark.asyncio
+async def test_generate_safe_not_verbose(engine, mock_llm, mocker):
+  """Tests that _generate_safe does NOT print the LLM response when verbose is disabled."""
+  engine.config.verbose = False
+  mock_llm.generate_content.return_value = "Quiet Response"
+  mock_console_print = mocker.patch("wptgen.engine.console.print")
+
+  result = await engine._generate_safe("prompt", "Task")
+
+  assert result == "Quiet Response"
+  # Should only print the success message
+  assert mock_console_print.call_count == 1
+  assert "finished" in mock_console_print.call_args[0][0]
 
 @pytest.mark.asyncio
 async def test_generate_safe_failure(engine, mock_llm):
