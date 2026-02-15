@@ -16,7 +16,9 @@ SCRIPT_DEPENDENCY_REGEX = re.compile(r'<script\s+[^>]*src=["\']([^"\']+)["\']')
 
 # Match import/export ... from "..." or import "..."
 IMPORT_DEPENDENCY_REGEX = re.compile(
-  r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']')
+  r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
+)
+
 
 @dataclass
 class WebFeatureMetadata:
@@ -28,25 +30,26 @@ class WebFeatureMetadata:
 @dataclass
 class WPTContext:
   """Holds the results of a local WPT content and dependency fetch operation."""
+
   test_contents: dict[str, str] = field(default_factory=dict)
   dependency_contents: dict[str, str] = field(default_factory=dict)
   test_to_deps: dict[str, set[str]] = field(default_factory=dict)
 
 
-def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any]|None:
+def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
   """
   Fetches the YAML definition for a given web feature ID from the
   web-platform-dx/web-features repository.
 
   Returns the parsed YAML dictionary, or None if the feature ID is not found.
   """
-  url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml'
+  url = f"https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml"
 
   try:
     # Use standard library to avoid bloating dependencies
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as response:
-      yaml_content = response.read().decode('utf-8')
+      yaml_content = response.read().decode("utf-8")
 
       # Use safe_load to securely parse the YAML string into a Python dictionary
       return yaml.safe_load(yaml_content)
@@ -66,7 +69,7 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata
   Returns:
     Dict containing important feature metadata.
   """
-  spec_info = feature_data.get('spec')
+  spec_info = feature_data.get("spec")
   specs = []
   if isinstance(spec_info, list):
     specs = spec_info
@@ -74,38 +77,38 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata
     specs.append(spec_info)
 
   return WebFeatureMetadata(
-    name=str(feature_data.get('name', 'Unknown Feature')),
-    description=str(feature_data.get('description', '')),
+    name=str(feature_data.get("name", "Unknown Feature")),
+    description=str(feature_data.get("description", "")),
     specs=specs,
   )
 
 
-def fetch_and_extract_text(url: str) -> str|None:
+def fetch_and_extract_text(url: str) -> str | None:
   """
   Fetches the HTML content from a URL and extracts the core textual content,
   stripping away navigation, footers, and boilerplate.
   Returns the content formatted as Markdown.
   """
-  logger.info(f'Fetching content from: {url}')
+  logger.info(f"Fetching content from: {url}")
 
   # Fetch the raw HTML
   downloaded_html = fetch_url(url)
 
   if not downloaded_html:
-    logger.error(f'Failed to download HTML from {url}')
+    logger.error(f"Failed to download HTML from {url}")
     return None
 
   # Extract the core content
   content = extract(
     downloaded_html,
-    output_format='markdown',
+    output_format="markdown",
     include_comments=False,
-    include_tables=True, # Specs rely heavily on tables for state definitions
-    include_links=False  # Strip hyperlinks to save tokens
+    include_tables=True,  # Specs rely heavily on tables for state definitions
+    include_links=False,  # Strip hyperlinks to save tokens
   )
 
   if not content:
-    logger.warning(f'Could not extract meaningful text from {url}')
+    logger.warning(f"Could not extract meaningful text from {url}")
     return None
 
   return content
@@ -120,23 +123,20 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     raise ValueError(f"The directory provided does not exist: {base_dir}")
 
   relevant_files: set[str] = set()
-  target_metadata_file = 'WEB_FEATURES.yml'
+  target_metadata_file = "WEB_FEATURES.yml"
 
   # rglob recursively finds all WEB_FEATURES.yml files in the entire repository
   for yaml_path in base_dir.rglob(target_metadata_file):
     try:
-      with open(yaml_path, encoding='utf-8') as f:
+      with open(yaml_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
-      if not data or 'features' not in data:
+      if not data or "features" not in data:
         continue
 
-      feature_config = next(
-        (f for f in data['features'] if f.get('name') == feature_id),
-        None
-      )
+      feature_config = next((f for f in data["features"] if f.get("name") == feature_id), None)
 
       if feature_config:
-        patterns = feature_config.get('files', [])
+        patterns = feature_config.get("files", [])
         # Pass the directory containing the YAML file
         matched_files = _resolve_patterns(yaml_path.parent, patterns)
         relevant_files.update(matched_files)
@@ -155,14 +155,13 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
   Helper function to match file patterns recursively against files in a directory.
   """
   all_files = [
-    p for p in directory.rglob('*')
-    if p.is_file() and p.suffix.lower() not in ('.yml', '.yaml')
+    p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() not in (".yml", ".yaml")
   ]
 
   selected_files: set[Path] = set()
 
   for pattern in patterns:
-    is_negative = pattern.startswith('!')
+    is_negative = pattern.startswith("!")
     clean_pattern = pattern[1:] if is_negative else pattern
 
     matches = set()
@@ -174,7 +173,7 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
 
       # If pattern is `**/*.html`, it misses root files like `test.html`.
       # We strip `**/` and check if `test.html` matches `*.html`.
-      if not is_match and clean_pattern.startswith('**/'):
+      if not is_match and clean_pattern.startswith("**/"):
         is_match = rel_path.match(clean_pattern[3:])
       if is_match:
         matches.add(f)
@@ -201,14 +200,14 @@ def resolve_dependency_path(current_file_path: Path, dep_ref: str, wpt_root: Pat
   """
   Resolves a dependency reference to a concrete local WPT repository path.
   """
-  if dep_ref.startswith(('http', '//', 'https')):
+  if dep_ref.startswith(("http", "//", "https")):
     return None
 
   current_dir = current_file_path.parent
 
-  if dep_ref.startswith('/'):
+  if dep_ref.startswith("/"):
     # Absolute path relative to repo root
-    resolved = wpt_root / dep_ref.lstrip('/')
+    resolved = wpt_root / dep_ref.lstrip("/")
   else:
     # Relative path
     resolved = (current_dir / dep_ref).resolve()
@@ -250,7 +249,7 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
 
     curr_p = Path(curr_p_str)
     try:
-      content = curr_p.read_text(encoding='utf-8')
+      content = curr_p.read_text(encoding="utf-8")
       if is_test:
         test_contents[curr_p_str] = content
       else:
@@ -295,5 +294,5 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
   return WPTContext(
     test_contents=test_contents,
     dependency_contents=dependency_contents,
-    test_to_deps=test_to_deps
+    test_to_deps=test_to_deps,
   )

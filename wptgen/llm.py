@@ -20,11 +20,7 @@ class LLMClient(ABC):
     pass
 
   @abstractmethod
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str|None = None
-  ) -> str:
+  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     """Generates a response from the LLM."""
     pass
 
@@ -36,22 +32,15 @@ class GeminiClient(LLMClient):
     self.client = genai.Client(api_key=self.api_key)
 
   def count_tokens(self, prompt: str) -> int:
-    response = self.client.models.count_tokens(
-      model=self.model,
-      contents=prompt
-    )
+    response = self.client.models.count_tokens(model=self.model, contents=prompt)
     return response.total_tokens
 
-  def generate_content(self, prompt: str, system_instruction: str|None = None) -> str:
+  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     config = types.GenerateContentConfig()
     if system_instruction:
       config.system_instruction = system_instruction
 
-    response = self.client.models.generate_content(
-      model=self.model,
-      contents=prompt,
-      config=config
-    )
+    response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
     return response.text
 
 
@@ -65,28 +54,21 @@ class OpenAIClient(LLMClient):
     # For MVP, we can return a rough estimate (1 token ~= 4 chars) or integrate tiktoken later.
     return len(prompt) // 4
 
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str|None = None
-  ) -> str:
+  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     messages = []
     if system_instruction:
-      messages.append({'role': 'system', 'content': system_instruction})
-    messages.append({'role': 'user', 'content': prompt})
+      messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": prompt})
 
-    response = self.client.chat.completions.create(
-      model=self.model,
-      messages=messages
-    )
+    response = self.client.chat.completions.create(model=self.model, messages=messages)
     return response.choices[0].message.content
 
 
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
-  if config.provider == 'gemini':
+  if config.provider == "gemini":
     return GeminiClient(api_key=config.api_key, model=config.model)
-  elif config.provider == 'openai':
+  elif config.provider == "openai":
     return OpenAIClient(api_key=config.api_key, model=config.model)
   else:
-    raise ValueError(f'Unsupported provider: {config.provider}')
+    raise ValueError(f"Unsupported provider: {config.provider}")

@@ -48,6 +48,7 @@ wptgen = ["templates/*.jinja", "templates/*.xml", "templates/*.txt"]
 # Target Python 3.10+
 target-version = "py310"
 line-length = 100
+indent-width = 2
 
 [tool.ruff.lint]
 # Enable a wide set of rules for "strict" linting
