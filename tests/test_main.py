@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import pytest
 from typer.testing import CliRunner
 
@@ -26,7 +28,10 @@ runner = CliRunner()
 def mock_config():
   """Provides a dummy configuration object for successful test runs."""
   return Config(
-    provider='gemini', model='gemini-3-pro-preview', api_key='fake-key', wpt_path='../wpt'
+    provider='gemini',
+    model='gemini-3-pro-preview',
+    api_key='fake-key',
+    wpt_path=os.path.join('..', 'wpt'),
   )
 
 

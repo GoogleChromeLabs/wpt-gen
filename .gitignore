@@ -1,14 +1,11 @@
 .venv/
 pycache/
 *.pyc
-<<<<<<< new-prompts
-.env
-=======
 .env*
 !.env.example
->>>>>>> context-gathering
 .pytest_cache/
 *.egg-info/
 .eggs/
 build/
 dist/
+.coverage

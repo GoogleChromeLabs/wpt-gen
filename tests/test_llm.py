@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import pytest
 
 from wptgen.config import Config
@@ -25,7 +27,7 @@ def gemini_config():
     provider='gemini',
     model='gemini-3-pro-preview',
     api_key='mock-gemini-key',
-    wpt_path='../wpt',
+    wpt_path=os.path.join('..', 'wpt'),
   )
 
 
@@ -33,9 +35,7 @@ def gemini_config():
 def openai_config():
   """Provides a valid OpenAI configuration."""
   return Config(
-    provider='openai',
-    model='gpt-5.2-high',
-    api_key='mock-openai-key',
+    provider='openai', model='gpt-5.2-high', api_key='mock-openai-key', wpt_path='dummy'
   )
 
 
@@ -61,11 +61,7 @@ def test_get_llm_client_openai(mocker, openai_config):
 
 def test_get_llm_client_unsupported_provider():
   """Test that the factory raises an error for unknown providers."""
-  bad_config = Config(
-    provider='otherllm',
-    model='coolmodel-5',
-    api_key='mock-key',
-  )
+  bad_config = Config(provider='otherllm', model='coolmodel-5', api_key='mock-key', wpt_path='dummy')
   with pytest.raises(ValueError, match='Unsupported provider: otherllm'):
     get_llm_client(bad_config)
 
