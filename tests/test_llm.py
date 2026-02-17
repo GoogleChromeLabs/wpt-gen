@@ -25,6 +25,7 @@ def gemini_config():
     provider='gemini',
     model='gemini-3-pro-preview',
     api_key='mock-gemini-key',
+    wpt_path='../wpt',
   )
 
 

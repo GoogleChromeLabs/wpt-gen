@@ -1,6 +1,6 @@
 version: "1"
 default_provider: gemini
-
+wpt_path: ../wpt  # Add this line (update with your actual path)
 providers:
   gemini:
     model: gemini-3-pro-preview

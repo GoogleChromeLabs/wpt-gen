@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -40,9 +41,18 @@ def generate(
   provider: Annotated[
     str | None,
     typer.Option(
-      '--provider',
-      '-p',
-      help="Override the default LLM provider (e.g., 'gemini', 'openai').",
+      '--provider', '-p', help="Override the default LLM provider (e.g., 'gemini', 'openai')."
+    ),
+  ] = None,
+  wpt_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
     ),
   ] = None,
   config_path: Annotated[
@@ -56,7 +66,13 @@ def generate(
 
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
-    config = load_config(config_path=config_path, provider_override=provider)
+
+    # Convert Path object back to string if it was provided, else pass None
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+
+    config = load_config(
+      config_path=config_path, provider_override=provider, wpt_dir_override=wpt_dir_str
+    )
 
     console.print(
       Panel(
