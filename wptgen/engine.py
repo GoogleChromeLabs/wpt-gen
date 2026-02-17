@@ -48,6 +48,9 @@ class WPTGenEngine:
     template_dir = Path(__file__).parent.joinpath('templates')
     self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
 
+    self.spec_synthesis_cache_dir = Path(self.config.cache_path) / 'spec_synthesis'
+    self.spec_synthesis_cache_dir.mkdir(parents=True, exist_ok=True)
+
   def run_workflow(self, web_feature_id: str):
     """Entry point for the synchronous CLI to launch the async workflow."""
     asyncio.run(self._run_async_workflow(web_feature_id))
@@ -112,6 +115,15 @@ class WPTGenEngine:
   ) -> tuple[str, str] | None:
     self.console.print('\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
 
+    cache_file = self.spec_synthesis_cache_dir / f'{web_feature_id}.md'
+    spec_analysis = None
+
+    if cache_file.exists():
+      self.console.print(f'[yellow]Found cached Spec Synthesis for {web_feature_id}.[/yellow]')
+      if Confirm.ask('Use cached Spec Synthesis?'):
+        spec_analysis = cache_file.read_text(encoding='utf-8')
+        self.console.print('✔ Using cached Spec Synthesis.')
+
     spec_prompt = self.jinja_env.get_template('spec_synthesis.jinja').render(
       feature_name=context['metadata'].name,
       feature_description=context['metadata'].description,
@@ -123,25 +135,33 @@ class WPTGenEngine:
       feature_id=web_feature_id, wpt_context=context['wpt_context']
     )
 
-    await self._confirm_prompts(
-      [(spec_prompt, 'Spec Synthesis'), (test_prompt, 'Test Analysis')],
-      'Requirements Analysis',
-    )
+    prompts_to_confirm = []
+    if not spec_analysis:
+      prompts_to_confirm.append((spec_prompt, 'Spec Synthesis'))
+    prompts_to_confirm.append((test_prompt, 'Test Analysis'))
 
-    self.console.print(
-      'Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...'
-    )
+    await self._confirm_prompts(prompts_to_confirm, 'Requirements Analysis')
 
-    results = await asyncio.gather(
-      self._generate_safe(spec_prompt, 'Spec Synthesis'),
-      self._generate_safe(test_prompt, 'Test Analysis'),
-    )
-
-    spec_analysis, test_analysis = results
+    if spec_analysis:
+      self.console.print('Submitting [bold]Test Analysis[/bold] task...')
+      test_analysis = await self._generate_safe(test_prompt, 'Test Analysis')
+    else:
+      self.console.print(
+        'Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...'
+      )
+      results = await asyncio.gather(
+        self._generate_safe(spec_prompt, 'Spec Synthesis'),
+        self._generate_safe(test_prompt, 'Test Analysis'),
+      )
+      spec_analysis, test_analysis = results
 
     if not spec_analysis or not test_analysis:
       self.console.print('[bold red]Critical Error:[/bold red] One or more analysis steps failed.')
       return None
+
+    # Save to cache if it was newly generated
+    if not cache_file.exists() or (spec_analysis and not cache_file.read_text() == spec_analysis):
+      cache_file.write_text(spec_analysis, encoding='utf-8')
 
     self.console.print('\n[bold green]✔ Requirements Analysis Complete.[/bold green]')
     return (spec_analysis, test_analysis)
