@@ -29,6 +29,9 @@ class Config:
   wpt_path: str
 
 
+WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
+
+
 def load_config(
   config_path: str = 'wpt-gen.yml',
   provider_override: str | None = None,
@@ -72,7 +75,7 @@ def load_config(
       f"Required when using the '{active_provider}' provider."
     )
 
-  wpt_path = wpt_dir_override or yaml_data.get('wpt_path', '../wpt')
+  wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
 
   return Config(
     provider=active_provider,
