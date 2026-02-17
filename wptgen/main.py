@@ -64,6 +64,10 @@ def generate(
       '--show-responses', '-s', help='Display every LLM-generated response to the user.'
     ),
   ] = False,
+  yes_tokens: Annotated[
+    bool,
+    typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
+  ] = False,
 ):
   """
   Generate Web Platform Tests for a specific web feature.
@@ -81,6 +85,7 @@ def generate(
       provider_override=provider,
       wpt_dir_override=wpt_dir_str,
       show_responses=show_responses,
+      yes_tokens_override=yes_tokens,
     )
 
     console.print(

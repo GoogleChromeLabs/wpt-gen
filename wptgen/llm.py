@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from abc import ABC, abstractmethod
 
+import tiktoken
 from google import genai
 from google.genai import types
 from openai import OpenAI
@@ -38,6 +40,11 @@ class LLMClient(ABC):
     """Generates a response from the LLM."""
     pass
 
+  @abstractmethod
+  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+    """Checks if the prompt exceeds the model's input token limit."""
+    pass
+
 
 class GeminiClient(LLMClient):
   def __init__(self, api_key: str, model: str):
@@ -57,6 +64,25 @@ class GeminiClient(LLMClient):
     response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
     return response.text
 
+  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+    """Checks the token size of a prompt and checks if it exceeds the input
+       limit of the Gemini model.
+
+    Args:
+      prompt: The input prompt string.
+
+    Returns:
+      Boolean value of whether the input token limit is exceeded.
+    """
+    token_count = self.count_tokens(prompt)
+    model_info = self.client.models.get(model=self.model)
+    limit = model_info.input_token_limit or 1_000_000  # Fallback to 1M if not specified
+
+    logging.info(f'Prompt token count: {token_count}')
+    logging.info(f"Model's context limit token count: {limit}")
+
+    return token_count > limit
+
 
 class OpenAIClient(LLMClient):
   def __init__(self, api_key: str, model: str):
@@ -64,9 +90,13 @@ class OpenAIClient(LLMClient):
     self.client = OpenAI(api_key=self.api_key)
 
   def count_tokens(self, prompt: str) -> int:
-    # MVP Note: OpenAI does not have a lightweight token counting API like Gemini.
-    # For MVP, we can return a rough estimate (1 token ~= 4 chars) or integrate tiktoken later.
-    return len(prompt) // 4
+    """Returns the total number of tokens for the given prompt using tiktoken."""
+    try:
+      encoding = tiktoken.encoding_for_model(self.model)
+    except KeyError:
+      # Fallback for unknown models
+      encoding = tiktoken.get_encoding('cl100k_base')
+    return len(encoding.encode(prompt))
 
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     messages = []
@@ -76,6 +106,28 @@ class OpenAIClient(LLMClient):
 
     response = self.client.chat.completions.create(model=self.model, messages=messages)
     return response.choices[0].message.content
+
+  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+    """Checks the token size of a prompt and checks if it exceeds the input
+       limit of the OpenAI model.
+
+    Args:
+      prompt: The input prompt string.
+
+    Returns:
+      Boolean value of whether the input token limit is exceeded.
+    """
+    token_count = self.count_tokens(prompt)
+
+    # There is no way to programmatically check model token limits for OpenAI
+    # models. GPT-5.2 has a 400,000 token context limit according to:
+    # https://developers.openai.com/api/docs/models/gpt-5.2
+    limit = 400_000
+
+    logging.info(f'Prompt token count (estimated): {token_count}')
+    logging.info(f"Model's assumed context limit token count: {limit}")
+
+    return token_count > limit
 
 
 def get_llm_client(config: Config) -> LLMClient:

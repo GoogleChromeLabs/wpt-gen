@@ -16,6 +16,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer
 
 from wptgen.config import Config
 from wptgen.context import WebFeatureMetadata, WPTContext
@@ -30,6 +31,7 @@ def mock_config():
     model='discountmodel',
     api_key='fake-key',
     wpt_path=os.path.abspath(os.sep + 'fake' + os.sep + 'wpt'),
+    yes_tokens=False,
   )
 
 
@@ -38,6 +40,8 @@ def mock_llm():
   """Provides a mocked LLM client."""
   llm = MagicMock()
   llm.generate_content.return_value = 'Mocked LLM Response'
+  llm.count_tokens.return_value = 100
+  llm.prompt_exceeds_input_token_limit.return_value = False
   return llm
 
 
@@ -46,6 +50,114 @@ def engine(mock_config, mock_llm):
   """Provides a WPTGenEngine instance with a mocked LLM client."""
   with patch('wptgen.engine.get_llm_client', return_value=mock_llm):
     return WPTGenEngine(mock_config)
+
+
+@pytest.mark.asyncio
+async def test_confirm_prompts_yes_tokens_enabled(engine, mocker):
+  """If yes_tokens is True, _confirm_prompts should return without calling Confirm.ask."""
+  engine.config.yes_tokens = True
+  mock_confirm = mocker.patch('wptgen.engine.Confirm.ask')
+
+  await engine._confirm_prompts([('prompt', 'Task')], 'Phase')
+
+  mock_confirm.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_confirm_prompts_user_accepts(engine, mocker):
+  """If user accepts, _confirm_prompts should return normally."""
+  engine.config.yes_tokens = False
+  mock_confirm = mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
+
+  await engine._confirm_prompts([('prompt', 'Task')], 'Phase')
+
+  mock_confirm.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_confirm_prompts_user_rejects(engine, mocker):
+  """If user rejects, _confirm_prompts should raise typer.Abort."""
+  engine.config.yes_tokens = False
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
+
+  with pytest.raises(typer.Abort):
+    await engine._confirm_prompts([('prompt', 'Task')], 'Phase')
+
+
+@pytest.mark.asyncio
+async def test_confirm_prompts_batch_calculation(engine, mocker):
+  """Verify that multiple prompts are summarized together and warnings are shown."""
+  engine.config.yes_tokens = False
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
+  mock_console = mocker.patch.object(engine.console, 'print')
+
+  # Mock token counting to return different values
+  engine.llm.count_tokens.side_effect = [100, 200]
+  engine.llm.prompt_exceeds_input_token_limit.side_effect = [False, True]
+
+  await engine._confirm_prompts([('p1', 'T1'), ('p2', 'T2')], 'Phase')
+
+  # Check that it printed total tokens (100 + 200 = 300)
+  found_total = False
+  for call in mock_console.call_args_list:
+    if '300' in str(call):
+      found_total = True
+      break
+  assert found_total
+
+  # Check that it warned about limit (at least one prompt exceeded)
+  assert any('Warning' in str(call) for call in mock_console.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_phase_requirements_analysis_calls_confirm(engine, mocker, mock_llm):
+  """Verify that Phase 2 calls _confirm_prompts before generation."""
+  context = {
+    'metadata': MagicMock(specs=['http://spec']),
+    'spec_contents': 'spec',
+    'wpt_context': MagicMock(),
+  }
+  mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
+  mock_llm.generate_content.side_effect = ['Spec', 'Test']
+
+  await engine._phase_requirements_analysis('feat-id', context)
+
+  mock_confirm.assert_called_once()
+  # It should have passed both prompts to confirm
+  passed_prompts = mock_confirm.call_args[0][0]
+  assert len(passed_prompts) == 2
+
+
+@pytest.mark.asyncio
+async def test_phase_test_suggestions_calls_confirm(engine, mocker, mock_llm):
+  """Verify that Phase 3 calls _confirm_prompts before generation."""
+  analysis = ('Spec', 'Test')
+  mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
+  mock_llm.generate_content.return_value = 'Suggestions'
+
+  await engine._phase_test_suggestions('feat-id', analysis)
+
+  mock_confirm.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_phase_test_generation_calls_confirm(engine, mocker, mock_llm):
+  """Verify that Phase 4 calls _confirm_prompts with all approved tests."""
+  context = {'metadata': MagicMock(name='Feat', description='Desc')}
+  suggestions_response = (
+    '<test_suggestion><title>T1</title></test_suggestion>'
+    '<test_suggestion><title>T2</title></test_suggestion>'
+  )
+
+  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
+  mocker.patch.object(engine, '_generate_and_save', return_value=None)
+
+  await engine._phase_test_generation(context, suggestions_response)
+
+  mock_confirm.assert_called_once()
+  # Both T1 and T2 should be in the confirmation list
+  assert len(mock_confirm.call_args[0][0]) == 2
 
 
 def test_engine_init(engine, mock_config):
@@ -187,13 +299,14 @@ async def test_phase_context_assembly_fetch_spec_fails(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_success(engine, mock_llm):
+async def test_phase_requirements_analysis_success(engine, mock_llm, mocker):
   """Successful concurrent generation of spec synthesis and test analysis."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_llm.generate_content.side_effect = ['Spec Synthesis', 'Test Analysis']
 
   result = await engine._phase_requirements_analysis('feat-id', context)
@@ -201,13 +314,14 @@ async def test_phase_requirements_analysis_success(engine, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_failure(engine, mock_llm):
+async def test_phase_requirements_analysis_failure(engine, mock_llm, mocker):
   """Requirements analysis returns None if any part of the analysis fails."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_llm.generate_content.side_effect = ['Spec Synthesis', Exception('Fail')]
 
   result = await engine._phase_requirements_analysis('feat-id', context)
@@ -215,9 +329,10 @@ async def test_phase_requirements_analysis_failure(engine, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_success(engine, mock_llm):
+async def test_phase_test_suggestions_success(engine, mock_llm, mocker):
   """Test suggestions are successfully generated from the analysis results."""
   analysis = ('Spec', 'Test')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_llm.generate_content.return_value = 'Suggestions'
 
   result = await engine._phase_test_suggestions('feat-id', analysis)
@@ -225,9 +340,10 @@ async def test_phase_test_suggestions_success(engine, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_failure(engine, mock_llm):
+async def test_phase_test_suggestions_failure(engine, mock_llm, mocker):
   """Test suggestion phase returns None if the LLM call fails."""
   analysis = ('Spec', 'Test')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_llm.generate_content.side_effect = Exception('Fail')
 
   result = await engine._phase_test_suggestions('feat-id', analysis)
@@ -243,6 +359,7 @@ async def test_phase_test_generation_success(engine, mocker):
   )
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -343,6 +460,7 @@ async def test_phase_test_generation_filename_sanitization(engine, mocker):
   suggestions_response = '<test_suggestion><title>Test: My Cool Feature!</title></test_suggestion>'
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -364,6 +482,7 @@ async def test_phase_test_generation_mixed_approval(engine, mocker):
 
   # User says 'y' to first, 'n' to second
   mocker.patch('wptgen.engine.Prompt.ask', side_effect=['y', 'n'])
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -381,6 +500,7 @@ async def test_phase_test_generation_tag_fallbacks(engine, mocker):
   suggestions_response = '<test_suggestion>empty</test_suggestion>'
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -410,6 +530,7 @@ async def test_phase_test_generation_duplicate_titles(engine, mocker):
   )
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -433,6 +554,7 @@ async def test_phase_test_generation_partial_failure(engine, mocker):
   )
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
   # Mock _generate_and_save to succeed for one and fail for another
   async def side_effect(prompt, filename):
@@ -460,6 +582,7 @@ async def test_phase_test_generation_unicode_stability(engine, mocker):
   suggestions_response = '<test_suggestion><title>Test 🚀 & 中文</title></test_suggestion>'
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -484,13 +607,14 @@ async def test_run_async_workflow_short_circuit(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm):
+async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm, mocker):
   """Verifies that the engine handles cases where both concurrent analysis tasks return empty strings."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   # Both LLM calls return empty (failure mode of _generate_safe)
   mock_llm.generate_content.side_effect = ['', '']
 
@@ -533,6 +657,7 @@ async def test_phase_test_generation_long_title(engine, mocker):
   suggestions_response = f'<test_suggestion><title>{long_title}</title></test_suggestion>'
 
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
