@@ -28,11 +28,8 @@ from wptgen.context import (
   fetch_and_extract_text,
   fetch_feature_yaml,
   find_feature_tests,
-  gather_local_test_context,
 )
 from wptgen.llm import get_llm_client
-
-console = Console()
 
 # Regular expressions for parsing and sanitization
 SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>', re.DOTALL)
@@ -43,9 +40,10 @@ MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$', re.MULTILINE
 class WPTGenEngine:
   def __init__(self, config: Config):
     self.config = config
+    self.console = Console()
     self.llm = get_llm_client(config)
 
-    template_dir = Path(__file__).parent / 'templates'
+    template_dir = Path(__file__).parent.joinpath('templates')
     self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
 
   def run_workflow(self, web_feature_id: str):
@@ -73,61 +71,66 @@ class WPTGenEngine:
     await self._phase_test_generation(context, suggestions)
 
   async def _phase_context_assembly(self, web_feature_id: str) -> dict[str, Any] | None:
-    console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
+    self.console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
 
     feature_data = fetch_feature_yaml(web_feature_id)
     if not feature_data:
-      console.print(f'[bold red]Error:[/bold red] Feature {web_feature_id} not found.')
+      self.console.print(f'[bold red]Error:[/bold red] Feature {web_feature_id} not found.')
       return None
 
     metadata = extract_feature_metadata(feature_data)
     if not metadata.specs:
-      console.print('[bold red]Error:[/bold red] No specification URL found.')
+      self.console.print('[bold red]Error:[/bold red] No specification URL found.')
       return None
 
-    console.print(f'Web Feature Name: {metadata.name}\nDescription: {metadata.description}')
+    self.console.print(f'Web Feature Name: {metadata.name}\nDescription: {metadata.description}')
 
-    console.print(f'Fetching spec content from: {metadata.specs[0]}')
-    with console.status('[blue]Fetching spec content...[/blue]'):
-      spec_contents = fetch_and_extract_text(metadata.specs[0])
+    self.console.print(f'Fetching spec content from: {metadata.specs[0]}')
+    with self.console.status('[blue]Fetching spec content...[/blue]'):
+      spec_content = fetch_and_extract_text(metadata.specs[0])
 
-    if not spec_contents:
-      console.print('[bold red]Error:[/bold red] Failed to extract spec content.')
+    if not spec_content:
+      self.console.print('[bold red]Error:[/bold red] Failed to extract spec content.')
       return None
 
-    console.print('Scanning local WPT repository for existing tests and dependencies...')
+    self.console.print('Scanning local WPT repository for existing tests...')
     test_paths = find_feature_tests(self.config.wpt_path, web_feature_id)
-    wpt_context = gather_local_test_context(test_paths, self.config.wpt_path)
 
-    console.print(
-      f'✔ Context gathered: {len(spec_contents)} chars of spec, '
-      f'{len(wpt_context.test_contents)} tests, '
-      f'{len(wpt_context.dependency_contents)} dependency files.'
+    test_files = []
+    for path in test_paths:
+      try:
+        content = Path(path).read_text(encoding='utf-8')
+        test_files.append({'path': path, 'content': content})
+      except Exception as e:
+        self.console.print(f'[yellow]Warning:[/yellow] Skipped {path}: {e}')
+
+    self.console.print(
+      f'✔ Context gathered: {len(spec_content)} chars of spec, {len(test_files)} existing tests.'
     )
 
-    return {'metadata': metadata, 'spec_contents': spec_contents, 'wpt_context': wpt_context}
+    return {'metadata': metadata, 'spec_content': spec_content, 'test_files': test_files}
 
   async def _phase_requirements_analysis(
     self, web_feature_id: str, context: dict[str, Any]
   ) -> tuple[str, str] | None:
-    console.print('\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
+    self.console.print('\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
 
     spec_prompt = self.jinja_env.get_template('spec_synthesis.jinja').render(
       feature_name=context['metadata'].name,
       feature_description=context['metadata'].description,
       spec_url=context['metadata'].specs[0],
-      spec_contents=context['spec_contents'],
+      spec_content=context['spec_content'],
     )
 
     test_prompt = self.jinja_env.get_template('test_analysis.jinja').render(
-      feature_id=web_feature_id, wpt_context=context['wpt_context']
+      feature_id=web_feature_id, existing_tests=context['test_files']
     )
 
-    console.print(
+    self.console.print(
       'Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...'
     )
 
-    with console.status('[blue]Analyzing test suite and test requirements... [/blue]'):
+    with self.console.status('[blue]Analyzing test suite and test requirements... [/blue]'):
       results = await asyncio.gather(
         self._generate_safe(spec_prompt, 'Spec Synthesis'),
         self._generate_safe(test_prompt, 'Test Analysis'),
@@ -136,16 +139,16 @@ class WPTGenEngine:
     spec_analysis, test_analysis = results
 
     if not spec_analysis or not test_analysis:
-      console.print('[bold red]Critical Error:[/bold red] One or more analysis steps failed.')
+      self.console.print('[bold red]Critical Error:[/bold red] One or more analysis steps failed.')
       return None
 
-    console.print('\n[bold green]✔ Requirements Analysis Complete.[/bold green]')
+    self.console.print('\n[bold green]✔ Requirements Analysis Complete.[/bold green]')
     return (spec_analysis, test_analysis)
 
   async def _phase_test_suggestions(
     self, web_feature_id: str, analysis: tuple[str, str]
   ) -> str | None:
-    console.print('\n[bold cyan]--- Phase 3: Test Suggestions ---[/bold cyan]')
+    self.console.print('\n[bold cyan]--- Phase 3: Test Suggestions ---[/bold cyan]')
 
     spec_analysis, test_analysis = analysis
 
@@ -153,39 +156,39 @@ class WPTGenEngine:
       feature_id=web_feature_id, feature_spec_summary=spec_analysis, test_summaries=[test_analysis]
     )
 
-    with console.status('[blue]Brainstorming test scenarios...[/blue]'):
+    with self.console.status('[blue]Brainstorming test scenarios...[/blue]'):
       response = await self._generate_safe(suggestions_prompt, 'Test Suggestions')
 
     if not response:
-      console.print('[bold red]Critical Error:[/bold red] Failed to generate test suggestions.')
+      self.console.print('[bold red]Critical Error:[/bold red] Failed to generate test suggestions.')
       return None
 
     return response
 
   async def _phase_test_generation(self, context: dict[str, Any], suggestions_response: str):
-    console.print('\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
+    self.console.print('\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
     suggestions = self._parse_suggestions(suggestions_response)
 
     if not suggestions:
-      console.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
+      self.console.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
       return
 
-    console.print(f'{len(suggestions)} new test suggestions found!')
+    self.console.print(f'{len(suggestions)} new test suggestions found!')
     approved_suggestions = []
 
     for idx, xml_block in enumerate(suggestions):
       title = self._extract_xml_tag(xml_block, 'title') or f'Suggestion #{idx + 1}'
       desc = self._extract_xml_tag(xml_block, 'description') or 'No description available'
 
-      console.print(Panel(f'[bold]{title}[/bold]\nDescription: {desc}', border_style='blue'))
+      self.console.print(Panel(f'[bold]{title}[/bold]\nDescription: {desc}', border_style='blue'))
       if Prompt.ask('Generate this test?', choices=['y', 'n'], default='y') == 'y':
         approved_suggestions.append(xml_block)
 
     if not approved_suggestions:
-      console.print('[yellow]No tests selected. Exiting.[/yellow]')
+      self.console.print('[yellow]No tests selected. Exiting.[/yellow]')
       return
 
-    console.print(f'\nGenerating [bold]{len(approved_suggestions)}[/bold] tests in parallel...')
+    self.console.print(f'\nGenerating [bold]{len(approved_suggestions)}[/bold] tests in parallel...')
 
     tasks = []
     gen_template = self.jinja_env.get_template('test_generation.jinja')
@@ -204,10 +207,10 @@ class WPTGenEngine:
 
       tasks.append(self._generate_and_save(final_prompt, safe_filename))
 
-    with console.status(f'[blue]Generating {len(tasks)} tests...[/blue]'):
+    with self.console.status(f'[blue]Generating {len(tasks)} tests...[/blue]'):
       await asyncio.gather(*tasks)
 
-    console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
+    self.console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
 
   def _parse_suggestions(self, raw_text: str) -> list[str]:
     return SUGGESTION_BLOCK_RE.findall(raw_text)
@@ -222,19 +225,19 @@ class WPTGenEngine:
     try:
       loop = asyncio.get_running_loop()
       response = await loop.run_in_executor(None, self.llm.generate_content, prompt)
-      console.print(f'✔ {task_name} finished.')
+      self.console.print(f'✔ {task_name} finished.')
       return response
     except Exception as e:
-      console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
+      self.console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
       return ''
 
   async def _generate_and_save(self, prompt: str, filename: str):
     """Helper to generate a specific test and save it to disk."""
-    console.print(f'Starting generation for: {filename}...')
+    self.console.print(f'Starting generation for: {filename}...')
     content = await self._generate_safe(prompt, f'Gen: {filename}')
 
     if content:
       # Strip Markdown code blocks if the LLM added them (common behavior)
       clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
       Path(filename).write_text(clean_content, encoding='utf-8')
-      console.print(f'[green]Saved:[/green] {Path(filename).absolute()}')
+      self.console.print(f'[green]Saved:[/green] {Path(filename).absolute()}')
