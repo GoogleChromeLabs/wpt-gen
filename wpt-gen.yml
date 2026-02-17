@@ -1,3 +1,4 @@
+version: "1"
 default_provider: gemini
 wpt_path: ../wpt  # Add this line (update with your actual path)
 providers:
