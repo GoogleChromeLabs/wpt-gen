@@ -1,8 +1,23 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from abc import ABC, abstractmethod
 
 from google import genai
 from google.genai import types
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from wptgen.config import Config
 
@@ -33,7 +48,7 @@ class GeminiClient(LLMClient):
 
   def count_tokens(self, prompt: str) -> int:
     response = self.client.models.count_tokens(model=self.model, contents=prompt)
-    return response.total_tokens
+    return response.total_tokens or 0
 
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     config = types.GenerateContentConfig()
@@ -41,7 +56,7 @@ class GeminiClient(LLMClient):
       config.system_instruction = system_instruction
 
     response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
-    return response.text
+    return response.text or ''
 
 
 class OpenAIClient(LLMClient):
@@ -55,13 +70,13 @@ class OpenAIClient(LLMClient):
     return len(prompt) // 4
 
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
-    messages = []
+    messages: list[ChatCompletionMessageParam] = []
     if system_instruction:
       messages.append({'role': 'system', 'content': system_instruction})
     messages.append({'role': 'user', 'content': prompt})
 
     response = self.client.chat.completions.create(model=self.model, messages=messages)
-    return response.choices[0].message.content
+    return response.choices[0].message.content or ''
 
 
 def get_llm_client(config: Config) -> LLMClient:
