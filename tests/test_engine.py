@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +12,10 @@ from wptgen.engine import WPTGenEngine
 def mock_config():
   """Provides a basic Config object for testing."""
   return Config(
-    provider='llmbargainbin', model='discountmodel', api_key='fake-key', wpt_path='/fake/wpt'
+    provider='llmbargainbin',
+    model='discountmodel',
+    api_key='fake-key',
+    wpt_path=os.path.abspath(os.sep + 'fake' + os.sep + 'wpt'),
   )
 
 
@@ -99,7 +103,8 @@ async def test_phase_context_assembly_success(engine, mocker):
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
   mocker.patch('wptgen.engine.extract_feature_metadata', return_value=metadata)
   mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Spec Text')
-  mocker.patch('wptgen.engine.find_feature_tests', return_value=['/path/to/test.html'])
+  test_path = os.path.abspath(os.sep + 'path' + os.sep + 'to' + os.sep + 'test.html')
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=[test_path])
 
   with patch('wptgen.engine.Path.read_text', return_value='existing test content'):
     context = await engine._phase_context_assembly('feat-id')
@@ -107,7 +112,7 @@ async def test_phase_context_assembly_success(engine, mocker):
   assert context['metadata'] == metadata
   assert context['spec_content'] == 'Spec Text'
   assert len(context['test_files']) == 1
-  assert context['test_files'][0]['path'] == '/path/to/test.html'
+  assert context['test_files'][0]['path'] == test_path
 
 
 @pytest.mark.asyncio
@@ -247,7 +252,8 @@ async def test_phase_context_assembly_read_test_fails(engine, mocker):
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
   mocker.patch('wptgen.engine.extract_feature_metadata', return_value=metadata)
   mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Spec Text')
-  mocker.patch('wptgen.engine.find_feature_tests', return_value=['/path/to/test.html'])
+  test_path = os.path.abspath(os.sep + 'path' + os.sep + 'to' + os.sep + 'test.html')
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=[test_path])
 
   with patch('wptgen.engine.Path.read_text', side_effect=Exception('Read Error')):
     context = await engine._phase_context_assembly('feat-id')
