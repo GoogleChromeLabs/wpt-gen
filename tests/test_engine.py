@@ -394,11 +394,27 @@ async def test_phase_test_generation_rejected(engine, mocker):
 async def test_run_async_workflow_full_path(engine, mocker):
   """Full asynchronous workflow orchestration, ensuring each phase is called."""
   # Mock all phases
-  context = {'metadata': 'meta'}
+  mock_metadata = MagicMock()
+  mock_metadata.name = 'Test Feature'
+  mock_metadata.description = 'Test Description'
+  mock_metadata.specs = ['http://spec']
+
+  mock_wpt_context = MagicMock()
+  mock_wpt_context.test_contents = {}
+  mock_wpt_context.dependency_contents = {}
+
+  context = {
+    'metadata': mock_metadata,
+    'spec_contents': 'spec content',
+    'wpt_context': mock_wpt_context,
+  }
   analysis = ('spec', 'test')
   suggestions = 'sugg'
 
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
+  # Mock token check to force multi-step flow (default behavior for this test)
+  engine.llm.prompt_exceeds_input_token_limit.return_value = True
+
   mocker.patch.object(engine, '_phase_requirements_analysis', return_value=analysis)
   mocker.patch.object(engine, '_phase_test_suggestions', return_value=suggestions)
   mocker.patch.object(engine, '_phase_test_generation', return_value=None)
