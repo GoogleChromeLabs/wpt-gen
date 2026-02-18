@@ -204,9 +204,12 @@ def extract_dependencies(content: str) -> list[str]:
   """
   Scans file content for references to other files.
   """
+  # Strip HTML comments to avoid picking up commented-out dependencies
+  clean_content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+
   dependencies = set()
-  dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, content))
-  dependencies.update(re.findall(IMPORT_DEPENDENCY_REGEX, content))
+  dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, clean_content))
+  dependencies.update(re.findall(IMPORT_DEPENDENCY_REGEX, clean_content))
   return list(dependencies)
 
 

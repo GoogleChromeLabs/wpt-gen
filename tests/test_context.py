@@ -245,12 +245,14 @@ def test_extract_dependencies():
   content = """
   <script src="a.js"></script>
   <script src='/b.js'></script>
+  <script module="test" src='/y.js'></script>
+  <!-- <script src="z.js"> -->
   import { x } from "./c.js";
   import "./d.js";
   export { y } from "../e.js";
   """
   deps = extract_dependencies(content)
-  assert set(deps) == {'a.js', '/b.js', './c.js', './d.js', '../e.js'}
+  assert set(deps) == {'a.js', '/b.js', './c.js', './d.js', '../e.js', '/y.js'}
 
 
 def test_resolve_dependency_path(tmp_path):
