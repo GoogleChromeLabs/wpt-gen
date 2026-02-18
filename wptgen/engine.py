@@ -97,8 +97,30 @@ class WPTGenEngine:
     if not suggestions:
       return
 
+    # Skip Phase 4 if the user only wants the suggestions.
+    if self.config.suggestions_only:
+      await self._provide_test_suggestions(context, suggestions)
+      return
+
     # Phase 4: User Selection & Generation
     await self._phase_test_generation(context, suggestions)
+
+  async def _provide_test_suggestions(
+    self, context: dict[str, Any], suggestions_response: str
+  ) -> None:
+    """Prints the test suggestions response and optionally saves it to a file."""
+    self.console.print('\n[bold cyan]--- Test Suggestions ---[/bold cyan]')
+    self.console.print(suggestions_response)
+
+    if Confirm.ask('\nSave suggestions to a file?'):
+      # Create a sanitized filename from the feature ID
+      safe_id = FILENAME_SANITIZATION_RE.sub('_', context['feature_id'].lower())
+      filename = f'{safe_id}_test_suggestions.md'
+      try:
+        Path(filename).write_text(suggestions_response, encoding='utf-8')
+        self.console.print(f'[green]Saved:[/green] {Path(filename).absolute()}')
+      except Exception as e:
+        self.console.print(f'[bold red]Error saving file:[/bold red] {e}')
 
   async def _phase_unified_suggestions(self, prompt: str) -> str | None:
     self.console.print('\n[bold cyan]--- Phase 2: Consolidated Test Suggestions ---[/bold cyan]')
@@ -146,7 +168,12 @@ class WPTGenEngine:
       f'{len(wpt_context.dependency_contents)} dependency files.'
     )
 
-    return {'metadata': metadata, 'spec_contents': spec_contents, 'wpt_context': wpt_context}
+    return {
+      'feature_id': web_feature_id,
+      'metadata': metadata,
+      'spec_contents': spec_contents,
+      'wpt_context': wpt_context,
+    }
 
   async def _phase_requirements_analysis(
     self, web_feature_id: str, context: dict[str, Any]

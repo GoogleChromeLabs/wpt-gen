@@ -30,6 +30,7 @@ def engine(mocker: MockerFixture) -> WPTGenEngine:
   mock_config.api_key = 'fake-key'
   mock_config.wpt_path = '/fake/wpt'
   mock_config.yes_tokens = False
+  mock_config.suggestions_only = False
   mock_config.cache_path = '/tmp/cache'
 
   mock_llm = MagicMock()
