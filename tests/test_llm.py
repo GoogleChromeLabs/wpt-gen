@@ -143,3 +143,62 @@ def test_openai_generate_content(mocker, openai_config):
       {'role': 'user', 'content': 'Test prompt'},
     ],
   )
+
+
+def test_gemini_prompt_exceeds_limit(mocker, gemini_config):
+  """Test token limit checking for Gemini."""
+  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+  mock_instance = mock_client_class.return_value
+
+  # Mock count_tokens
+  mock_count_response = mocker.MagicMock()
+  mock_count_response.total_tokens = 500
+  mock_instance.models.count_tokens.return_value = mock_count_response
+
+  # Mock models.get
+  mock_model_info = mocker.MagicMock()
+  mock_model_info.input_token_limit = 1000
+  mock_instance.models.get.return_value = mock_model_info
+
+  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.model)
+
+  # Case 1: Under limit
+  assert client.prompt_exceeds_input_token_limit('some prompt') is False
+
+  # Case 2: Over limit
+  mock_count_response.total_tokens = 1500
+  assert client.prompt_exceeds_input_token_limit('huge prompt') is True
+
+  # Case 3: No limit specified in model info (fallback)
+  mock_model_info.input_token_limit = None
+  mock_count_response.total_tokens = 500000
+  assert client.prompt_exceeds_input_token_limit('prompt') is False
+  mock_count_response.total_tokens = 1500000
+  assert client.prompt_exceeds_input_token_limit('huge prompt') is True
+
+
+def test_openai_count_tokens(mocker, openai_config):
+  """Test that OpenAIClient correctly maps token counting using tiktoken."""
+  mocker.patch('wptgen.llm.OpenAI')
+  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.model)
+
+  # Test with a known string. "Hello, world!" is 4 tokens in cl100k_base:
+  # ['Hello', ',', ' world', '!']
+  token_count = client.count_tokens('Hello, world!')
+  assert token_count == 4
+
+
+def test_openai_prompt_exceeds_limit(mocker, openai_config):
+  """Test token limit checking for OpenAI."""
+  mocker.patch('wptgen.llm.OpenAI')
+  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.model)
+
+  # Case 1: Under limit (400k)
+  # A short prompt should definitely be under the 400k limit
+  assert client.prompt_exceeds_input_token_limit('short prompt') is False
+
+  # Case 2: Over limit
+  # Generate a very large prompt that exceeds 400k tokens.
+  # "a " is usually 1 token. 400,001 "a "s should exceed the limit.
+  huge_prompt = 'a ' * 400001
+  assert client.prompt_exceeds_input_token_limit(huge_prompt) is True

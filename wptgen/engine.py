@@ -17,10 +17,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+import typer
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 
 from wptgen.config import Config
 from wptgen.context import (
@@ -122,15 +123,19 @@ class WPTGenEngine:
       feature_id=web_feature_id, wpt_context=context['wpt_context']
     )
 
+    await self._confirm_prompts(
+      [(spec_prompt, 'Spec Synthesis'), (test_prompt, 'Test Analysis')],
+      'Requirements Analysis',
+    )
+
     self.console.print(
       'Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...'
     )
 
-    with self.console.status('[blue]Analyzing test suite and test requirements... [/blue]'):
-      results = await asyncio.gather(
-        self._generate_safe(spec_prompt, 'Spec Synthesis'),
-        self._generate_safe(test_prompt, 'Test Analysis'),
-      )
+    results = await asyncio.gather(
+      self._generate_safe(spec_prompt, 'Spec Synthesis'),
+      self._generate_safe(test_prompt, 'Test Analysis'),
+    )
 
     spec_analysis, test_analysis = results
 
@@ -154,8 +159,9 @@ class WPTGenEngine:
       test_summaries=[test_analysis],
     )
 
-    with self.console.status('[blue]Brainstorming test scenarios...[/blue]'):
-      response = await self._generate_safe(suggestions_prompt, 'Test Suggestions')
+    await self._confirm_prompts([(suggestions_prompt, 'Test Suggestions')], 'Test Suggestions')
+
+    response = await self._generate_safe(suggestions_prompt, 'Test Suggestions')
 
     if not response:
       self.console.print(
@@ -176,7 +182,7 @@ class WPTGenEngine:
       return
 
     self.console.print(f'{len(suggestions)} new test suggestions found!')
-    approved_suggestions = []
+    approved_suggestions_xml: list[str] = []
 
     for idx, xml_block in enumerate(suggestions):
       title = self._extract_xml_tag(xml_block, 'title') or f'Suggestion #{idx + 1}'
@@ -184,20 +190,17 @@ class WPTGenEngine:
 
       self.console.print(Panel(f'[bold]{title}[/bold]\nDescription: {desc}', border_style='blue'))
       if Prompt.ask('Generate this test?', choices=['y', 'n'], default='y') == 'y':
-        approved_suggestions.append(xml_block)
+        approved_suggestions_xml.append(xml_block)
 
-    if not approved_suggestions:
+    if not approved_suggestions_xml:
       self.console.print('[yellow]No tests selected. Exiting.[/yellow]')
       return
 
-    self.console.print(
-      f'\nGenerating [bold]{len(approved_suggestions)}[/bold] tests in parallel...'
-    )
-
-    tasks = []
+    # Prepare all generation prompts for batch confirmation
     gen_template = self.jinja_env.get_template('test_generation.jinja')
+    prompts_to_confirm: list[tuple[str, str]] = []
 
-    for idx, suggestion_xml in enumerate(approved_suggestions):
+    for idx, suggestion_xml in enumerate(approved_suggestions_xml):
       final_prompt = gen_template.render(
         feature_name=context['metadata'].name,
         feature_description=context['metadata'].description,
@@ -209,10 +212,15 @@ class WPTGenEngine:
       slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
       safe_filename = f'test_generated_{idx + 1:02d}_{slug}.html'
 
-      tasks.append(self._generate_and_save(final_prompt, safe_filename))
+      prompts_to_confirm.append((final_prompt, safe_filename))
 
-    with self.console.status(f'[blue]Generating {len(tasks)} tests...[/blue]'):
-      await asyncio.gather(*tasks)
+    # Single confirmation for ALL tests
+    await self._confirm_prompts(prompts_to_confirm, f'Generate {len(prompts_to_confirm)} Tests')
+
+    self.console.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
+
+    tasks = [self._generate_and_save(prompt, filename) for prompt, filename in prompts_to_confirm]
+    await asyncio.gather(*tasks)
 
     self.console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
 
@@ -224,11 +232,55 @@ class WPTGenEngine:
     match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
     return match.group(1).strip() if match else None
 
+  async def _confirm_prompts(self, prompt_data: list[tuple[str, str]], phase_name: str):
+    """Calculates tokens for a list of prompts and asks for a single user confirmation."""
+    loop = asyncio.get_running_loop()
+
+    total_tokens = 0
+    any_limit_exceeded = False
+
+    with self.console.status(f'[yellow]Calculating token usage for {phase_name}...[/yellow]'):
+      # We do token counting concurrently for speed
+      async def get_info(prompt, name):
+        tokens = await loop.run_in_executor(None, self.llm.count_tokens, prompt)
+        limit_exceeded = await loop.run_in_executor(
+          None, self.llm.prompt_exceeds_input_token_limit, prompt
+        )
+        return tokens, limit_exceeded, name
+
+      results = await asyncio.gather(*(get_info(p, n) for p, n in prompt_data))
+
+    self.console.print(f'[bold underline]Token Usage Summary ({phase_name}):[/bold underline]')
+    for tokens, limit_exceeded, name in results:
+      total_tokens += tokens
+      status_icon = '[bold red]⚠[/bold red]' if limit_exceeded else '[green]✔[/green]'
+      self.console.print(f'  {status_icon} [bold]{name}[/bold]: [cyan]{tokens}[/cyan] tokens')
+      if limit_exceeded:
+        any_limit_exceeded = True
+
+    if len(prompt_data) > 1:
+      self.console.print(f'  [bold]Total Estimate:[/bold] [cyan]{total_tokens}[/cyan] tokens')
+
+    if any_limit_exceeded:
+      self.console.print(
+        '\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!'
+      )
+
+    if self.config.yes_tokens:
+      self.console.print('\n[yellow]Auto-confirming token usage (--yes-tokens).[/yellow]')
+      return
+
+    if not Confirm.ask('\nProceed with these LLM requests?'):
+      self.console.print('[yellow]Aborting workflow due to user cancellation.[/yellow]')
+      raise typer.Abort()
+
   async def _generate_safe(self, prompt: str, task_name: str) -> str:
     """Helper to run LLM generation in a thread and handle errors gracefully."""
     try:
       loop = asyncio.get_running_loop()
-      response = await loop.run_in_executor(None, self.llm.generate_content, prompt)
+      with self.console.status(f'[blue]Submitting {task_name}...[/blue]'):
+        response = await loop.run_in_executor(None, self.llm.generate_content, prompt)
+
       self.console.print(f'✔ {task_name} finished.')
       if self.config.show_responses:
         self.console.print(Panel(response, title=f'LLM Response: {task_name}', border_style='cyan'))

@@ -64,6 +64,7 @@ def test_generate_success(mocker, mock_config):
     provider_override='gemini',
     wpt_dir_override=None,
     show_responses=False,
+    yes_tokens_override=False,
   )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
@@ -83,6 +84,25 @@ def test_generate_show_responses(mocker, mock_config):
     provider_override=None,
     wpt_dir_override=None,
     show_responses=True,
+    yes_tokens_override=False,
+  )
+
+
+def test_generate_yes_tokens(mocker, mock_config):
+  """Test that the --yes-tokens flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --yes-tokens
+  result = runner.invoke(app, ['generate', 'grid', '--yes-tokens'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override=None,
+    wpt_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=True,
   )
 
 
