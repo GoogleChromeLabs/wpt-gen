@@ -61,7 +61,9 @@ def test_get_llm_client_openai(mocker, openai_config):
 
 def test_get_llm_client_unsupported_provider():
   """Test that the factory raises an error for unknown providers."""
-  bad_config = Config(provider='otherllm', model='coolmodel-5', api_key='mock-key', wpt_path='dummy')
+  bad_config = Config(
+    provider='otherllm', model='coolmodel-5', api_key='mock-key', wpt_path='dummy'
+  )
   with pytest.raises(ValueError, match='Unsupported provider: otherllm'):
     get_llm_client(bad_config)
 

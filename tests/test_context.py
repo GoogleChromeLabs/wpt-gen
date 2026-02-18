@@ -5,10 +5,13 @@ import pytest
 from wptgen.context import (
   WebFeatureMetadata,
   _resolve_patterns,
+  extract_dependencies,
   extract_feature_metadata,
   fetch_and_extract_text,
   fetch_feature_yaml,
   find_feature_tests,
+  gather_local_test_context,
+  resolve_dependency_path,
 )
 
 
@@ -235,3 +238,78 @@ def test_find_feature_tests_feature_not_found(tmp_path):
   results = find_feature_tests(str(tmp_path), 'non-existent-feature')
 
   assert results == []
+
+
+def test_extract_dependencies():
+  """Test that dependencies are correctly extracted from HTML and JS content."""
+  content = """
+  <script src="a.js"></script>
+  <script src='/b.js'></script>
+  <script module="test" src='/y.js'></script>
+  <!-- <script src="z.js"> -->
+  import { x } from "./c.js";
+  import "./d.js";
+  export { y } from "../e.js";
+  """
+  deps = extract_dependencies(content)
+  assert set(deps) == {'a.js', '/b.js', './c.js', './d.js', '../e.js', '/y.js'}
+
+
+def test_resolve_dependency_path(tmp_path):
+  """Test that dependency references are correctly resolved to local absolute paths."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  (wpt_root / 'resources').mkdir()
+  testharness = (wpt_root / 'resources' / 'testharness.js').resolve()
+  testharness.touch()
+
+  test_dir = wpt_root / 'test'
+  test_dir.mkdir()
+  test_file = (test_dir / 'test.html').resolve()
+  test_file.touch()
+
+  helper = (test_dir / 'helper.js').resolve()
+  helper.touch()
+
+  # Absolute repo path
+  resolved_abs = resolve_dependency_path(test_file, '/resources/testharness.js', wpt_root)
+  assert resolved_abs == testharness
+
+  # Relative path
+  resolved_rel = resolve_dependency_path(test_file, 'helper.js', wpt_root)
+  assert resolved_rel == helper
+
+  # External URL (should be ignored)
+  assert resolve_dependency_path(test_file, 'http://example.com/js.js', wpt_root) is None
+
+  # Missing file
+  assert resolve_dependency_path(test_file, 'missing.js', wpt_root) is None
+
+
+def test_gather_local_test_context(tmp_path):
+  """Test recursive gathering of tests and dependencies from the local disk."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  test_dir = wpt_root / 'feature'
+  test_dir.mkdir()
+
+  test_html = (test_dir / 'test.html').resolve()
+  test_html.write_text('<script src="dep.js"></script>', encoding='utf-8')
+
+  dep_js = (test_dir / 'dep.js').resolve()
+  dep_js.write_text('import "./subdep.js";', encoding='utf-8')
+
+  subdep_js = (test_dir / 'subdep.js').resolve()
+  subdep_js.write_text('// no deps', encoding='utf-8')
+
+  context = gather_local_test_context([str(test_html)], str(wpt_root))
+
+  assert str(test_html) in context.test_contents
+  assert str(dep_js) in context.dependency_contents
+  assert str(subdep_js) in context.dependency_contents
+
+  # Verify the mapping
+  deps_for_test = context.test_to_deps[str(test_html)]
+  assert str(dep_js) in deps_for_test
+  assert str(subdep_js) in deps_for_test

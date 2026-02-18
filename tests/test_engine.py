@@ -1,10 +1,24 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from wptgen.config import Config
-from wptgen.context import WebFeatureMetadata
+from wptgen.context import WebFeatureMetadata, WPTContext
 from wptgen.engine import WPTGenEngine
 
 
@@ -103,16 +117,20 @@ async def test_phase_context_assembly_success(engine, mocker):
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
   mocker.patch('wptgen.engine.extract_feature_metadata', return_value=metadata)
   mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Spec Text')
-  test_path = os.path.abspath(os.sep + 'path' + os.sep + 'to' + os.sep + 'test.html')
-  mocker.patch('wptgen.engine.find_feature_tests', return_value=[test_path])
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=['/path/to/test.html'])
 
-  with patch('wptgen.engine.Path.read_text', return_value='existing test content'):
-    context = await engine._phase_context_assembly('feat-id')
+  mock_context = WPTContext(
+    test_contents={'/path/to/test.html': 'existing test content'},
+    dependency_contents={},
+    test_to_deps={'/path/to/test.html': set()},
+  )
+  mocker.patch('wptgen.engine.gather_local_test_context', return_value=mock_context)
+
+  context = await engine._phase_context_assembly('feat-id')
 
   assert context['metadata'] == metadata
-  assert context['spec_content'] == 'Spec Text'
-  assert len(context['test_files']) == 1
-  assert context['test_files'][0]['path'] == test_path
+  assert context['spec_contents'] == 'Spec Text'
+  assert context['wpt_context'] == mock_context
 
 
 @pytest.mark.asyncio
@@ -149,7 +167,11 @@ async def test_phase_context_assembly_fetch_spec_fails(engine, mocker):
 @pytest.mark.asyncio
 async def test_phase_requirements_analysis_success(engine, mock_llm):
   """Successful concurrent generation of spec synthesis and test analysis."""
-  context = {'metadata': MagicMock(specs=['http://spec']), 'spec_content': 'spec', 'test_files': []}
+  context = {
+    'metadata': MagicMock(specs=['http://spec']),
+    'spec_contents': 'spec',
+    'wpt_context': MagicMock(),
+  }
   mock_llm.generate_content.side_effect = ['Spec Synthesis', 'Test Analysis']
 
   result = await engine._phase_requirements_analysis('feat-id', context)
@@ -159,7 +181,11 @@ async def test_phase_requirements_analysis_success(engine, mock_llm):
 @pytest.mark.asyncio
 async def test_phase_requirements_analysis_failure(engine, mock_llm):
   """Requirements analysis returns None if any part of the analysis fails."""
-  context = {'metadata': MagicMock(specs=['http://spec']), 'spec_content': 'spec', 'test_files': []}
+  context = {
+    'metadata': MagicMock(specs=['http://spec']),
+    'spec_contents': 'spec',
+    'wpt_context': MagicMock(),
+  }
   mock_llm.generate_content.side_effect = ['Spec Synthesis', Exception('Fail')]
 
   result = await engine._phase_requirements_analysis('feat-id', context)
@@ -258,7 +284,7 @@ async def test_phase_context_assembly_read_test_fails(engine, mocker):
   with patch('wptgen.engine.Path.read_text', side_effect=Exception('Read Error')):
     context = await engine._phase_context_assembly('feat-id')
 
-  assert len(context['test_files']) == 0
+  assert len(context['wpt_context'].test_contents) == 0
 
 
 @pytest.mark.asyncio
@@ -438,7 +464,11 @@ async def test_run_async_workflow_short_circuit(engine, mocker):
 @pytest.mark.asyncio
 async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm):
   """Verifies that the engine handles cases where both concurrent analysis tasks return empty strings."""
-  context = {'metadata': MagicMock(specs=['http://spec']), 'spec_content': 'spec', 'test_files': []}
+  context = {
+    'metadata': MagicMock(specs=['http://spec']),
+    'spec_contents': 'spec',
+    'wpt_context': MagicMock(),
+  }
   # Both LLM calls return empty (failure mode of _generate_safe)
   mock_llm.generate_content.side_effect = ['', '']
 
