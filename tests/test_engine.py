@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 import typer
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.context import WebFeatureMetadata, WPTContext
@@ -24,7 +27,7 @@ from wptgen.engine import WPTGenEngine
 
 
 @pytest.fixture
-def mock_config(tmp_path):
+def mock_config(tmp_path: Path) -> Config:
   """Provides a basic Config object for testing."""
   return Config(
     provider='llmbargainbin',
@@ -37,7 +40,7 @@ def mock_config(tmp_path):
 
 
 @pytest.fixture
-def mock_llm():
+def mock_llm() -> MagicMock:
   """Provides a mocked LLM client."""
   llm = MagicMock()
   llm.generate_content.return_value = 'Mocked LLM Response'
@@ -47,14 +50,16 @@ def mock_llm():
 
 
 @pytest.fixture
-def engine(mock_config, mock_llm):
+def engine(mock_config: Config, mock_llm: MagicMock) -> WPTGenEngine:
   """Provides a WPTGenEngine instance with a mocked LLM client."""
   with patch('wptgen.engine.get_llm_client', return_value=mock_llm):
     return WPTGenEngine(mock_config)
 
 
 @pytest.mark.asyncio
-async def test_confirm_prompts_yes_tokens_enabled(engine, mocker):
+async def test_confirm_prompts_yes_tokens_enabled(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """If yes_tokens is True, _confirm_prompts should return without calling Confirm.ask."""
   engine.config.yes_tokens = True
   mock_confirm = mocker.patch('wptgen.engine.Confirm.ask')
@@ -65,7 +70,7 @@ async def test_confirm_prompts_yes_tokens_enabled(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_confirm_prompts_user_accepts(engine, mocker):
+async def test_confirm_prompts_user_accepts(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """If user accepts, _confirm_prompts should return normally."""
   engine.config.yes_tokens = False
   mock_confirm = mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
@@ -76,7 +81,7 @@ async def test_confirm_prompts_user_accepts(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_confirm_prompts_user_rejects(engine, mocker):
+async def test_confirm_prompts_user_rejects(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """If user rejects, _confirm_prompts should raise typer.Abort."""
   engine.config.yes_tokens = False
   mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
@@ -86,15 +91,17 @@ async def test_confirm_prompts_user_rejects(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_confirm_prompts_batch_calculation(engine, mocker):
+async def test_confirm_prompts_batch_calculation(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verify that multiple prompts are summarized together and warnings are shown."""
   engine.config.yes_tokens = False
   mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mock_console = mocker.patch.object(engine.console, 'print')
 
   # Mock token counting to return different values
-  engine.llm.count_tokens.side_effect = [100, 200]
-  engine.llm.prompt_exceeds_input_token_limit.side_effect = [False, True]
+  cast(MagicMock, engine.llm.count_tokens).side_effect = [100, 200]
+  cast(MagicMock, engine.llm.prompt_exceeds_input_token_limit).side_effect = [False, True]
 
   await engine._confirm_prompts([('p1', 'T1'), ('p2', 'T2')], 'Phase')
 
@@ -111,7 +118,9 @@ async def test_confirm_prompts_batch_calculation(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_calls_confirm(engine, mocker, mock_llm):
+async def test_phase_requirements_analysis_calls_confirm(
+  engine: WPTGenEngine, mocker: MockerFixture, mock_llm: MagicMock
+) -> None:
   """Verify that Phase 2 calls _confirm_prompts before generation."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
@@ -130,7 +139,9 @@ async def test_phase_requirements_analysis_calls_confirm(engine, mocker, mock_ll
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_calls_confirm(engine, mocker, mock_llm):
+async def test_phase_test_suggestions_calls_confirm(
+  engine: WPTGenEngine, mocker: MockerFixture, mock_llm: MagicMock
+) -> None:
   """Verify that Phase 3 calls _confirm_prompts before generation."""
   analysis = ('Spec', 'Test')
   mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
@@ -142,7 +153,9 @@ async def test_phase_test_suggestions_calls_confirm(engine, mocker, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_calls_confirm(engine, mocker, mock_llm):
+async def test_phase_test_generation_calls_confirm(
+  engine: WPTGenEngine, mocker: MockerFixture, mock_llm: MagicMock
+) -> None:
   """Verify that Phase 4 calls _confirm_prompts with all approved tests."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = (
@@ -161,7 +174,7 @@ async def test_phase_test_generation_calls_confirm(engine, mocker, mock_llm):
   assert len(mock_confirm.call_args[0][0]) == 2
 
 
-def test_engine_init(engine, mock_config):
+def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
   """Verifies that the engine initializes correctly with the given configuration."""
   assert engine.config == mock_config
   assert engine.llm is not None
@@ -169,7 +182,9 @@ def test_engine_init(engine, mock_config):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_show_responses(engine, mock_llm, mocker):
+async def test_generate_safe_show_responses(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Tests that _generate_safe prints the LLM response when show_responses is enabled."""
   engine.config.show_responses = True
   mock_llm.generate_content.return_value = 'Verbose Response'
@@ -184,7 +199,9 @@ async def test_generate_safe_show_responses(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_not_show_responses(engine, mock_llm, mocker):
+async def test_generate_safe_not_show_responses(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Tests that _generate_safe does NOT print the LLM response when show_responses is disabled."""
   engine.config.show_responses = False
   mock_llm.generate_content.return_value = 'Quiet Response'
@@ -199,14 +216,14 @@ async def test_generate_safe_not_show_responses(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_failure(engine, mock_llm):
+async def test_generate_safe_failure(engine: WPTGenEngine, mock_llm: MagicMock) -> None:
   """Tests that _generate_safe handles LLM exceptions gracefully and returns an empty string."""
   mock_llm.generate_content.side_effect = Exception('API Error')
   result = await engine._generate_safe('prompt', 'Task')
   assert result == ''
 
 
-def test_parse_suggestions(engine):
+def test_parse_suggestions(engine: WPTGenEngine) -> None:
   """Verifies that _parse_suggestions correctly extracts test suggestion blocks from raw text."""
   raw_text = """
   <test_suggestion>
@@ -223,7 +240,7 @@ def test_parse_suggestions(engine):
   assert 'Test 2' in suggestions[1]
 
 
-def test_extract_xml_tag(engine):
+def test_extract_xml_tag(engine: WPTGenEngine) -> None:
   """Tests that _extract_xml_tag accurately extracts content from specific XML-like tags."""
   xml = '<title>My Title</title><desc>My Desc</desc>'
   assert engine._extract_xml_tag(xml, 'title') == 'My Title'
@@ -232,7 +249,9 @@ def test_extract_xml_tag(engine):
 
 
 @pytest.mark.asyncio
-async def test_generate_and_save_success(engine, mock_llm, tmp_path):
+async def test_generate_and_save_success(
+  engine: WPTGenEngine, mock_llm: MagicMock, tmp_path: Path
+) -> None:
   """Generates content and writes it to a file, stripping markdown blocks."""
   mock_llm.generate_content.return_value = '```html\n<html></html>\n```'
   filename = tmp_path / 'test.html'
@@ -246,7 +265,7 @@ async def test_generate_and_save_success(engine, mock_llm, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_success(engine, mocker):
+async def test_phase_context_assembly_success(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Successful assembly of feature context including metadata, spec, and existing tests."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
@@ -262,14 +281,16 @@ async def test_phase_context_assembly_success(engine, mocker):
   mocker.patch('wptgen.engine.gather_local_test_context', return_value=mock_context)
 
   context = await engine._phase_context_assembly('feat-id')
-
+  assert context is not None
   assert context['metadata'] == metadata
   assert context['spec_contents'] == 'Spec Text'
   assert context['wpt_context'] == mock_context
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_no_feature(engine, mocker):
+async def test_phase_context_assembly_no_feature(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Context assembly returns None if the web feature ID is not found."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value=None)
   result = await engine._phase_context_assembly('missing')
@@ -277,7 +298,7 @@ async def test_phase_context_assembly_no_feature(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_no_specs(engine, mocker):
+async def test_phase_context_assembly_no_specs(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Context assembly fails if no specification URLs are found in the metadata."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=[])
@@ -288,7 +309,9 @@ async def test_phase_context_assembly_no_specs(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_fetch_spec_fails(engine, mocker):
+async def test_phase_context_assembly_fetch_spec_fails(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Context assembly fails if the specification content cannot be fetched."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
@@ -300,7 +323,9 @@ async def test_phase_context_assembly_fetch_spec_fails(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_success(engine, mock_llm, mocker):
+async def test_phase_requirements_analysis_success(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Successful concurrent generation of spec synthesis and test analysis."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
@@ -315,7 +340,9 @@ async def test_phase_requirements_analysis_success(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_failure(engine, mock_llm, mocker):
+async def test_phase_requirements_analysis_failure(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Requirements analysis returns None if any part of the analysis fails."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
@@ -330,7 +357,9 @@ async def test_phase_requirements_analysis_failure(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_success(engine, mock_llm, mocker):
+async def test_phase_test_suggestions_success(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Test suggestions are successfully generated from the analysis results."""
   analysis = ('Spec', 'Test')
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
@@ -341,7 +370,9 @@ async def test_phase_test_suggestions_success(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_failure(engine, mock_llm, mocker):
+async def test_phase_test_suggestions_failure(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Test suggestion phase returns None if the LLM call fails."""
   analysis = ('Spec', 'Test')
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
@@ -352,7 +383,7 @@ async def test_phase_test_suggestions_failure(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_success(engine, mocker):
+async def test_phase_test_generation_success(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Test generation proceeds for suggestions approved by the user."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = (
@@ -370,15 +401,15 @@ async def test_phase_test_generation_success(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_no_suggestions(engine):
+async def test_phase_test_generation_no_suggestions(engine: WPTGenEngine) -> None:
   """Verifies that the generation phase handles cases where no valid suggestions are provided."""
-  context = {'metadata': MagicMock()}
+  context: dict[str, Any] = {'metadata': MagicMock()}
   await engine._phase_test_generation(context, 'no suggestions here')
   # No exception should be raised
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_rejected(engine, mocker):
+async def test_phase_test_generation_rejected(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Generation is skipped for suggestions rejected by the user."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = '<test_suggestion><title>Test 1</title></test_suggestion>'
@@ -391,7 +422,7 @@ async def test_phase_test_generation_rejected(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_run_async_workflow_full_path(engine, mocker):
+async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Full asynchronous workflow orchestration, ensuring each phase is called."""
   # Mock all phases
   mock_metadata = MagicMock()
@@ -413,7 +444,7 @@ async def test_run_async_workflow_full_path(engine, mocker):
 
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
   # Mock token check to force multi-step flow (default behavior for this test)
-  engine.llm.prompt_exceeds_input_token_limit.return_value = True
+  cast(MagicMock, engine.llm.prompt_exceeds_input_token_limit).return_value = True
 
   mocker.patch.object(engine, '_phase_requirements_analysis', return_value=analysis)
   mocker.patch.object(engine, '_phase_test_suggestions', return_value=suggestions)
@@ -421,14 +452,16 @@ async def test_run_async_workflow_full_path(engine, mocker):
 
   await engine._run_async_workflow('feat-id')
 
-  engine._phase_context_assembly.assert_called_once()
-  engine._phase_requirements_analysis.assert_called_once()
-  engine._phase_test_suggestions.assert_called_once()
-  engine._phase_test_generation.assert_called_once()
+  cast(MagicMock, engine._phase_context_assembly).assert_called_once()
+  cast(MagicMock, engine._phase_requirements_analysis).assert_called_once()
+  cast(MagicMock, engine._phase_test_suggestions).assert_called_once()
+  cast(MagicMock, engine._phase_test_generation).assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_read_test_fails(engine, mocker):
+async def test_phase_context_assembly_read_test_fails(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that context assembly continues even if reading an individual test file fails."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
@@ -440,11 +473,14 @@ async def test_phase_context_assembly_read_test_fails(engine, mocker):
   with patch('wptgen.engine.Path.read_text', side_effect=Exception('Read Error')):
     context = await engine._phase_context_assembly('feat-id')
 
+  assert context is not None
   assert len(context['wpt_context'].test_contents) == 0
 
 
 @pytest.mark.asyncio
-async def test_generate_and_save_markdown_variants(engine, mock_llm, tmp_path):
+async def test_generate_and_save_markdown_variants(
+  engine: WPTGenEngine, mock_llm: MagicMock, tmp_path: Path
+) -> None:
   """Tests that _generate_and_save handles various markdown block formats correctly."""
   # Variant 1: No markdown blocks
   mock_llm.generate_content.return_value = '<html>No Markdown</html>'
@@ -461,7 +497,7 @@ async def test_generate_and_save_markdown_variants(engine, mock_llm, tmp_path):
   assert file2.read_text() == '<html>No Tag</html>'
 
 
-def test_extract_xml_tag_malformed(engine):
+def test_extract_xml_tag_malformed(engine: WPTGenEngine) -> None:
   """Tests that _extract_xml_tag handles malformed or missing tags gracefully."""
   xml = '<title>Valid</title><desc>Incomplete'
   assert engine._extract_xml_tag(xml, 'title') == 'Valid'
@@ -470,7 +506,9 @@ def test_extract_xml_tag_malformed(engine):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_filename_sanitization(engine, mocker):
+async def test_phase_test_generation_filename_sanitization(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that suggestion titles with special characters are sanitized into safe filenames."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   # Title with spaces, uppercase, and special characters
@@ -489,7 +527,9 @@ async def test_phase_test_generation_filename_sanitization(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_mixed_approval(engine, mocker):
+async def test_phase_test_generation_mixed_approval(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that only suggestions approved by the user (y) are generated when multiple are present."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = (
@@ -510,7 +550,9 @@ async def test_phase_test_generation_mixed_approval(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_tag_fallbacks(engine, mocker):
+async def test_phase_test_generation_tag_fallbacks(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verifies that the engine uses fallback values when title or description tags are missing/empty."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   # Suggestion with no tags at all
@@ -528,7 +570,7 @@ async def test_phase_test_generation_tag_fallbacks(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_generate_and_save_write_error(engine, mock_llm):
+async def test_generate_and_save_write_error(engine: WPTGenEngine, mock_llm: MagicMock) -> None:
   """Tests that a file system error during writing is propagated."""
   mock_llm.generate_content.return_value = '<html></html>'
   with patch('wptgen.engine.Path.write_text', side_effect=OSError('Disk Full')):
@@ -537,7 +579,9 @@ async def test_generate_and_save_write_error(engine, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_duplicate_titles(engine, mocker):
+async def test_phase_test_generation_duplicate_titles(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that multiple suggestions with identical titles now generate unique filenames."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   # Two suggestions with the same title
@@ -562,7 +606,9 @@ async def test_phase_test_generation_duplicate_titles(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_partial_failure(engine, mocker):
+async def test_phase_test_generation_partial_failure(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that a failure in one parallel generation task does not stop others."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = (
@@ -574,10 +620,9 @@ async def test_phase_test_generation_partial_failure(engine, mocker):
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
   # Mock _generate_and_save to succeed for one and fail for another
-  async def side_effect(prompt, filename):
+  async def side_effect(prompt: str, filename: str) -> None:
     if 'fail_test' in filename:
       raise Exception('Random Write Error')
-    return None
 
   mocker.patch.object(engine, '_generate_and_save', side_effect=side_effect)
 
@@ -586,14 +631,16 @@ async def test_phase_test_generation_partial_failure(engine, mocker):
     await engine._phase_test_generation(context, suggestions_response)
 
 
-def test_extract_xml_tag_empty_content(engine):
+def test_extract_xml_tag_empty_content(engine: WPTGenEngine) -> None:
   """Tests that _extract_xml_tag treats empty or whitespace-only tags as None/empty string."""
   assert engine._extract_xml_tag('<title></title>', 'title') == ''
   assert engine._extract_xml_tag('<title>   </title>', 'title') == ''
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_unicode_stability(engine, mocker):
+async def test_phase_test_generation_unicode_stability(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verifies that titles with Unicode/Emoji are sanitized correctly and don't break generation."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = '<test_suggestion><title>Test 🚀 & 中文</title></test_suggestion>'
@@ -611,20 +658,24 @@ async def test_phase_test_generation_unicode_stability(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_run_async_workflow_short_circuit(engine, mocker):
+async def test_run_async_workflow_short_circuit(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verifies that the workflow stops immediately if context assembly fails."""
   mocker.patch.object(engine, '_phase_context_assembly', return_value=None)
   mock_analysis = mocker.patch.object(engine, '_phase_requirements_analysis')
 
   await engine._run_async_workflow('feat-id')
 
-  engine._phase_context_assembly.assert_called_once()
+  cast(MagicMock, engine._phase_context_assembly).assert_called_once()
   # Analysis should never be called if assembly fails
   mock_analysis.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm, mocker):
+async def test_phase_requirements_analysis_concurrent_failure(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Verifies that the engine handles cases where both concurrent analysis tasks return empty strings."""
   context = {
     'metadata': MagicMock(specs=['http://spec']),
@@ -640,7 +691,9 @@ async def test_phase_requirements_analysis_concurrent_failure(engine, mock_llm, 
 
 
 @pytest.mark.asyncio
-async def test_phase_context_assembly_empty_spec_list(engine, mocker):
+async def test_phase_context_assembly_empty_spec_list(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that context assembly handles cases where the spec list is empty in the metadata."""
   mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
   # Metadata with empty specs list
@@ -652,7 +705,9 @@ async def test_phase_context_assembly_empty_spec_list(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_generate_and_save_whitespace_resilience(engine, mock_llm, tmp_path):
+async def test_generate_and_save_whitespace_resilience(
+  engine: WPTGenEngine, mock_llm: MagicMock, tmp_path: Path
+) -> None:
   """Tests that markdown stripping handles markdown blocks when they are at the start of a line."""
   # LLM output with markdown blocks at the start of the line (current engine requirement)
   mock_llm.generate_content.return_value = '\n```html\n<html></html>\n```\n'
@@ -666,7 +721,9 @@ async def test_generate_and_save_whitespace_resilience(engine, mock_llm, tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_phase_test_generation_long_title(engine, mocker):
+async def test_phase_test_generation_long_title(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Tests that extremely long suggestion titles are handled by the sanitization logic."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   # Title longer than 255 chars
@@ -685,7 +742,7 @@ async def test_phase_test_generation_long_title(engine, mocker):
   assert filename.startswith('test_generated_01_')
 
 
-def test_run_workflow(engine, mocker):
+def test_run_workflow(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Verifies that the synchronous run_workflow entry point correctly launches the async workflow."""
   mock_run = mocker.patch('asyncio.run')
   # Use standard MagicMock to avoid automatic AsyncMock wrapping

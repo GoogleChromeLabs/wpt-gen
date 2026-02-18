@@ -15,6 +15,7 @@
 import os
 
 import pytest
+from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
 from wptgen.config import Config
@@ -25,7 +26,7 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def mock_config():
+def mock_config() -> Config:
   """Provides a dummy configuration object for successful test runs."""
   return Config(
     provider='gemini',
@@ -35,7 +36,7 @@ def mock_config():
   )
 
 
-def test_help_menu():
+def test_help_menu() -> None:
   """Test that the CLI help menu renders correctly without errors."""
   result = runner.invoke(app, ['--help'])
 
@@ -43,7 +44,7 @@ def test_help_menu():
   assert 'AI-Powered Web Platform Test Generation CLI' in result.stdout
 
 
-def test_generate_success(mocker, mock_config):
+def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
   """Test the happy path execution of the generate command."""
   # Mock load_config and the Engine so they don't actually execute
   mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
@@ -70,7 +71,7 @@ def test_generate_success(mocker, mock_config):
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
 
-def test_generate_show_responses(mocker, mock_config):
+def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> None:
   """Test that the --show-responses flag is correctly passed to load_config."""
   mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
   mocker.patch('wptgen.main.WPTGenEngine')
@@ -88,7 +89,7 @@ def test_generate_show_responses(mocker, mock_config):
   )
 
 
-def test_generate_yes_tokens(mocker, mock_config):
+def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None:
   """Test that the --yes-tokens flag is correctly passed to load_config."""
   mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
   mocker.patch('wptgen.main.WPTGenEngine')
@@ -106,7 +107,7 @@ def test_generate_yes_tokens(mocker, mock_config):
   )
 
 
-def test_generate_config_error(mocker):
+def test_generate_config_error(mocker: MockerFixture) -> None:
   """Test that configuration errors (like missing API keys) are caught and exit gracefully."""
   # Force load_config to raise a ValueError
   mock_error_message = 'GEMINI_API_KEY environment variable is missing'
@@ -120,7 +121,7 @@ def test_generate_config_error(mocker):
   assert mock_error_message in result.stdout
 
 
-def test_generate_unexpected_error(mocker, mock_config):
+def test_generate_unexpected_error(mocker: MockerFixture, mock_config: Config) -> None:
   """Test that unexpected runtime errors inside the engine are caught and exit gracefully."""
   # Setup mocks but force the engine's run_workflow to crash
   mocker.patch('wptgen.main.load_config', return_value=mock_config)

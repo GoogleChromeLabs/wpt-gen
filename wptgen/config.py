@@ -16,6 +16,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -64,7 +65,7 @@ def load_config(
   Selects the active LLM provider and fetches the corresponding API key.
   """
   path = Path(config_path)
-  yaml_data: dict = {}
+  yaml_data: dict[str, Any] = {}
 
   if path.exists():
     with open(path, encoding='utf-8') as f:

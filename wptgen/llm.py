@@ -19,6 +19,7 @@ import tiktoken
 from google import genai
 from google.genai import types
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from wptgen.config import Config
 
@@ -54,6 +55,8 @@ class GeminiClient(LLMClient):
 
   def count_tokens(self, prompt: str) -> int:
     response = self.client.models.count_tokens(model=self.model, contents=prompt)
+    if response.total_tokens is None:
+      raise ValueError('Gemini API returned no token count.')
     return response.total_tokens
 
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
@@ -62,6 +65,8 @@ class GeminiClient(LLMClient):
       config.system_instruction = system_instruction
 
     response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
+    if response.text is None:
+      raise ValueError('Gemini API returned no text.')
     return response.text
 
   def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
@@ -99,13 +104,16 @@ class OpenAIClient(LLMClient):
     return len(encoding.encode(prompt))
 
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
-    messages = []
+    messages: list[ChatCompletionMessageParam] = []
     if system_instruction:
       messages.append({'role': 'system', 'content': system_instruction})
     messages.append({'role': 'user', 'content': prompt})
 
     response = self.client.chat.completions.create(model=self.model, messages=messages)
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    if content is None:
+      raise ValueError('OpenAI API returned no content.')
+    return content
 
   def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
     """Checks the token size of a prompt and checks if it exceeds the input

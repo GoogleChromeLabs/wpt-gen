@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.engine import WPTGenEngine
 
 
 @pytest.fixture
-def mock_config(tmp_path):
+def mock_config(tmp_path: Path) -> Config:
   """Provides a basic Config object with a temporary cache path."""
   return Config(
     provider='llmbargainbin',
@@ -34,7 +36,7 @@ def mock_config(tmp_path):
 
 
 @pytest.fixture
-def mock_llm():
+def mock_llm() -> MagicMock:
   """Provides a mocked LLM client."""
   llm = MagicMock()
   llm.generate_content.return_value = 'Mocked LLM Response'
@@ -44,14 +46,16 @@ def mock_llm():
 
 
 @pytest.fixture
-def engine(mock_config, mock_llm):
+def engine(mock_config: Config, mock_llm: MagicMock) -> WPTGenEngine:
   """Provides a WPTGenEngine instance with a mocked LLM client."""
   with patch('wptgen.engine.get_llm_client', return_value=mock_llm):
     return WPTGenEngine(mock_config)
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_miss(engine, mock_llm, mocker):
+async def test_requirements_analysis_cache_miss(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Verify that Phase 2 generates and saves cache on a miss."""
   context = {
     'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
@@ -60,7 +64,7 @@ async def test_requirements_analysis_cache_miss(engine, mock_llm, mocker):
   }
 
   # Mock LLM to return distinct responses based on prompt content.
-  def llm_side_effect(prompt):
+  def llm_side_effect(prompt: str) -> str:
     if '<spec_document>' in prompt:
       return 'New Spec Synthesis'
     return 'New Test Analysis'
@@ -87,7 +91,9 @@ async def test_requirements_analysis_cache_miss(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_hit_accept(engine, mock_llm, mocker):
+async def test_requirements_analysis_cache_hit_accept(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Verify that Phase 2 uses cached synthesis when user accepts."""
   web_feature_id = 'cached-feat'
   cache_file = engine.spec_synthesis_cache_dir / f'{web_feature_id}.md'
@@ -114,7 +120,9 @@ async def test_requirements_analysis_cache_hit_accept(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_hit_reject(engine, mock_llm, mocker):
+async def test_requirements_analysis_cache_hit_reject(
+  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+) -> None:
   """Verify that Phase 2 regenerates synthesis when user rejects cache."""
   web_feature_id = 'rejected-cache-feat'
   cache_file = engine.spec_synthesis_cache_dir / f'{web_feature_id}.md'
@@ -130,7 +138,7 @@ async def test_requirements_analysis_cache_hit_reject(engine, mock_llm, mocker):
   mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
 
   # Both should be generated
-  def llm_side_effect(prompt):
+  def llm_side_effect(prompt: str) -> str:
     if '<spec_document>' in prompt:
       return 'New Spec Synthesis'
     return 'New Test Analysis'

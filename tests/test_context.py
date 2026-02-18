@@ -1,6 +1,24 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import urllib.error
+from email.message import Message
+from pathlib import Path
+from typing import Any
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.context import (
   WebFeatureMetadata,
@@ -15,7 +33,7 @@ from wptgen.context import (
 )
 
 
-def test_fetch_feature_yaml_success(mocker):
+def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:
   """Test the happy path where the YAML file is successfully fetched and parsed."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
 
@@ -35,13 +53,13 @@ def test_fetch_feature_yaml_success(mocker):
   assert 'raw.githubusercontent.com' in request_obj.full_url
 
 
-def test_fetch_feature_yaml_not_found(mocker):
+def test_fetch_feature_yaml_not_found(mocker: MockerFixture) -> None:
   """Test that a 404 error from GitHub safely returns None."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
 
   # Simulate a 404 HTTPError
   mock_urlopen.side_effect = urllib.error.HTTPError(
-    url='', code=404, msg='Not Found', hdrs={}, fp=None
+    url='', code=404, msg='Not Found', hdrs=Message(), fp=None
   )
 
   result = fetch_feature_yaml('fake-feature')
@@ -49,20 +67,20 @@ def test_fetch_feature_yaml_not_found(mocker):
   assert result is None
 
 
-def test_fetch_feature_yaml_server_error(mocker):
+def test_fetch_feature_yaml_server_error(mocker: MockerFixture) -> None:
   """Test that a 500 error (or rate limit) raises an exception."""
   mock_urlopen = mocker.patch('urllib.request.urlopen')
 
   # Simulate a 500 HTTPError
   mock_urlopen.side_effect = urllib.error.HTTPError(
-    url='', code=500, msg='Internal Server Error', hdrs={}, fp=None
+    url='', code=500, msg='Internal Server Error', hdrs=Message(), fp=None
   )
 
   with pytest.raises(urllib.error.HTTPError):
     fetch_feature_yaml('grid')
 
 
-def test_extract_feature_metadata_single_spec():
+def test_extract_feature_metadata_single_spec() -> None:
   """Test metadata extraction when the spec field is a single string."""
   data = {'name': 'popover', 'description': 'A popup feature', 'spec': 'https://example.com/spec'}
   result = extract_feature_metadata(data)
@@ -73,7 +91,7 @@ def test_extract_feature_metadata_single_spec():
   assert result.specs == ['https://example.com/spec']
 
 
-def test_extract_feature_metadata_list_spec():
+def test_extract_feature_metadata_list_spec() -> None:
   """Test metadata extraction when the spec field is a list of URLs."""
   data = {
     'name': 'grid',
@@ -86,9 +104,9 @@ def test_extract_feature_metadata_list_spec():
   assert result.specs == ['https://example.com/spec1', 'https://example.com/spec2']
 
 
-def test_extract_feature_metadata_defaults():
+def test_extract_feature_metadata_defaults() -> None:
   """Test that missing fields fall back to safe defaults."""
-  data = {}
+  data: dict[str, Any] = {}
   result = extract_feature_metadata(data)
 
   assert result.name == 'Unknown Feature'
@@ -96,7 +114,7 @@ def test_extract_feature_metadata_defaults():
   assert result.specs == []
 
 
-def test_fetch_and_extract_text_success(mocker):
+def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
   """Test the happy path where HTML is downloaded and successfully converted to Markdown."""
   # Mock the Trafilatura functions
   mock_fetch = mocker.patch(
@@ -116,7 +134,7 @@ def test_fetch_and_extract_text_success(mocker):
   assert call_kwargs['include_tables'] is True
 
 
-def test_fetch_and_extract_text_fetch_fails(mocker):
+def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
   """Test that if the URL cannot be fetched, the function returns None."""
   mocker.patch('wptgen.context.fetch_url', return_value=None)
 
@@ -125,7 +143,7 @@ def test_fetch_and_extract_text_fetch_fails(mocker):
   assert result is None
 
 
-def test_fetch_and_extract_text_extract_fails(mocker):
+def test_fetch_and_extract_text_extract_fails(mocker: MockerFixture) -> None:
   """Test that if Trafilatura fails to extract meaningful text, the function returns None."""
   mocker.patch('wptgen.context.fetch_url', return_value='<html></html>')
   mocker.patch('wptgen.context.extract', return_value=None)
@@ -135,7 +153,7 @@ def test_fetch_and_extract_text_extract_fails(mocker):
   assert result is None
 
 
-def test_resolve_patterns_basic_and_recursive(tmp_path):
+def test_resolve_patterns_basic_and_recursive(tmp_path: Path) -> None:
   """Test that _resolve_patterns correctly handles standard and recursive globs."""
   # Create a mock directory structure
   (tmp_path / 'test1.html').touch()
@@ -159,7 +177,7 @@ def test_resolve_patterns_basic_and_recursive(tmp_path):
   assert str(tmp_path / 'WEB_FEATURES.yml') not in results
 
 
-def test_resolve_patterns_negative_exclusion(tmp_path):
+def test_resolve_patterns_negative_exclusion(tmp_path: Path) -> None:
   """Test that negative patterns (!pattern) successfully remove files from the set."""
   (tmp_path / 'include_me.html').touch()
   (tmp_path / 'exclude_me.html').touch()
@@ -173,7 +191,7 @@ def test_resolve_patterns_negative_exclusion(tmp_path):
   assert str(tmp_path / 'exclude_me.html') not in results
 
 
-def test_find_feature_tests_happy_path(tmp_path):
+def test_find_feature_tests_happy_path(tmp_path: Path) -> None:
   """Test the full end-to-end scan for a specific feature."""
   # Build the repository structure
   feat_dir = tmp_path / 'css' / 'css-grid'
@@ -202,13 +220,13 @@ features:
   assert results[0] == str(feat_dir / 'grid_test.html')
 
 
-def test_find_feature_tests_missing_directory():
+def test_find_feature_tests_missing_directory() -> None:
   """Test that an invalid repository path raises a ValueError."""
   with pytest.raises(ValueError, match='The directory provided does not exist'):
     find_feature_tests('/path/that/absolutely/does/not/exist', 'grid')
 
 
-def test_find_feature_tests_malformed_yaml(tmp_path):
+def test_find_feature_tests_malformed_yaml(tmp_path: Path) -> None:
   """Test that malformed YAML files are gracefully skipped without crashing the loop."""
   # Create a broken YAML file
   feat_dir = tmp_path / 'broken-feature'
@@ -229,7 +247,7 @@ def test_find_feature_tests_malformed_yaml(tmp_path):
   assert results[0] == str(valid_dir / 'test.html')
 
 
-def test_find_feature_tests_feature_not_found(tmp_path):
+def test_find_feature_tests_feature_not_found(tmp_path: Path) -> None:
   """Test that if a feature ID is not in any YAML, it returns an empty list."""
   (tmp_path / 'WEB_FEATURES.yml').write_text(
     "features:\n  - name: grid\n    files:\n      - '*.html'"
@@ -240,7 +258,7 @@ def test_find_feature_tests_feature_not_found(tmp_path):
   assert results == []
 
 
-def test_extract_dependencies():
+def test_extract_dependencies() -> None:
   """Test that dependencies are correctly extracted from HTML and JS content."""
   content = """
   <script src="a.js"></script>
@@ -255,7 +273,7 @@ def test_extract_dependencies():
   assert set(deps) == {'a.js', '/b.js', './c.js', './d.js', '../e.js', '/y.js'}
 
 
-def test_resolve_dependency_path(tmp_path):
+def test_resolve_dependency_path(tmp_path: Path) -> None:
   """Test that dependency references are correctly resolved to local absolute paths."""
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
@@ -286,7 +304,7 @@ def test_resolve_dependency_path(tmp_path):
   assert resolve_dependency_path(test_file, 'missing.js', wpt_root) is None
 
 
-def test_gather_local_test_context(tmp_path):
+def test_gather_local_test_context(tmp_path: Path) -> None:
   """Test recursive gathering of tests and dependencies from the local disk."""
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()

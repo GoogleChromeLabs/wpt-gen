@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.engine import WPTGenEngine
 
 
 @pytest.fixture
-def engine(mocker):
+def engine(mocker: MockerFixture) -> WPTGenEngine:
   """Provides a WPTGenEngine instance with a mocked LLM client."""
   mock_config = MagicMock()
   mock_config.provider = 'gemini'
@@ -39,7 +41,7 @@ def engine(mocker):
 
 
 @pytest.mark.asyncio
-async def test_unified_flow_fits_in_context(engine, mocker):
+async def test_unified_flow_fits_in_context(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Verify that the unified flow is used when the prompt fits in the context window."""
   # Mock context assembly
   mock_metadata = MagicMock()
@@ -59,7 +61,7 @@ async def test_unified_flow_fits_in_context(engine, mocker):
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
 
   # Mock token check to say it FITS (prompt_exceeds_input_token_limit returns False)
-  engine.llm.prompt_exceeds_input_token_limit.return_value = False
+  cast(MagicMock, engine.llm.prompt_exceeds_input_token_limit).return_value = False
 
   # Mock the phases
   mock_unified = mocker.patch.object(
@@ -82,7 +84,7 @@ async def test_unified_flow_fits_in_context(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_unified_flow_exceeds_context(engine, mocker):
+async def test_unified_flow_exceeds_context(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Verify that the multi-step flow is used as fallback when the prompt exceeds the context window."""
   # Mock context assembly
   mock_metadata = MagicMock()
@@ -102,7 +104,7 @@ async def test_unified_flow_exceeds_context(engine, mocker):
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
 
   # Mock token check to say it EXCEEDS (prompt_exceeds_input_token_limit returns True)
-  engine.llm.prompt_exceeds_input_token_limit.return_value = True
+  cast(MagicMock, engine.llm.prompt_exceeds_input_token_limit).return_value = True
 
   # Mock the phases
   mock_unified = mocker.patch.object(engine, '_phase_unified_suggestions')
@@ -127,7 +129,9 @@ async def test_unified_flow_exceeds_context(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_unified_suggestions_execution(engine, mocker):
+async def test_phase_unified_suggestions_execution(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verify that _phase_unified_suggestions correctly calls the LLM."""
   prompt = 'Unified Prompt'
 
@@ -141,7 +145,9 @@ async def test_phase_unified_suggestions_execution(engine, mocker):
 
 
 @pytest.mark.asyncio
-async def test_phase_unified_suggestions_failure(engine, mocker):
+async def test_phase_unified_suggestions_failure(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verify that _phase_unified_suggestions handles failure gracefully."""
   prompt = 'Unified Prompt'
 
