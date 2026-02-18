@@ -56,11 +56,33 @@ def test_engine_init(engine, mock_config):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_success(engine, mock_llm):
-  """Tests that _generate_safe returns the expected content on a successful LLM call."""
-  mock_llm.generate_content.return_value = 'Generated Content'
+async def test_generate_safe_show_responses(engine, mock_llm, mocker):
+  """Tests that _generate_safe prints the LLM response when show_responses is enabled."""
+  engine.config.show_responses = True
+  mock_llm.generate_content.return_value = 'Verbose Response'
+  mock_console_print = mocker.patch.object(engine.console, 'print')
+
   result = await engine._generate_safe('prompt', 'Task')
-  assert result == 'Generated Content'
+
+  assert result == 'Verbose Response'
+  # Check that console.print was called with the response in a Panel
+  # We can't easily check the Panel object equality, but we can check if it was called.
+  assert mock_console_print.call_count >= 2  # "✔ Task finished." and the Panel
+
+
+@pytest.mark.asyncio
+async def test_generate_safe_not_show_responses(engine, mock_llm, mocker):
+  """Tests that _generate_safe does NOT print the LLM response when show_responses is disabled."""
+  engine.config.show_responses = False
+  mock_llm.generate_content.return_value = 'Quiet Response'
+  mock_console_print = mocker.patch.object(engine.console, 'print')
+
+  result = await engine._generate_safe('prompt', 'Task')
+
+  assert result == 'Quiet Response'
+  # Should only print the success message
+  assert mock_console_print.call_count == 1
+  assert 'finished' in mock_console_print.call_args[0][0]
 
 
 @pytest.mark.asyncio

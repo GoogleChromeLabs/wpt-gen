@@ -60,10 +60,30 @@ def test_generate_success(mocker, mock_config):
 
   # Verify our logic called the underlying functions with the correct CLI arguments
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml', provider_override='gemini', wpt_dir_override=None
+    config_path='wpt-gen.yml',
+    provider_override='gemini',
+    wpt_dir_override=None,
+    show_responses=False,
   )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
+
+
+def test_generate_show_responses(mocker, mock_config):
+  """Test that the --show-responses flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --show-responses
+  result = runner.invoke(app, ['generate', 'grid', '--show-responses'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override=None,
+    wpt_dir_override=None,
+    show_responses=True,
+  )
 
 
 def test_generate_config_error(mocker):

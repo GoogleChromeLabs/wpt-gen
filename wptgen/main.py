@@ -58,6 +58,12 @@ def generate(
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = 'wpt-gen.yml',
+  show_responses: Annotated[
+    bool,
+    typer.Option(
+      '--show-responses', '-s', help='Display every LLM-generated response to the user.'
+    ),
+  ] = False,
 ):
   """
   Generate Web Platform Tests for a specific web feature.
@@ -71,7 +77,10 @@ def generate(
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
 
     config = load_config(
-      config_path=config_path, provider_override=provider, wpt_dir_override=wpt_dir_str
+      config_path=config_path,
+      provider_override=provider,
+      wpt_dir_override=wpt_dir_str,
+      show_responses=show_responses,
     )
 
     console.print(

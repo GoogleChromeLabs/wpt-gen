@@ -27,6 +27,7 @@ class Config:
   model: str
   api_key: str
   wpt_path: str
+  show_responses: bool = False
 
 
 WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
@@ -36,6 +37,7 @@ def load_config(
   config_path: str = 'wpt-gen.yml',
   provider_override: str | None = None,
   wpt_dir_override: str | None = None,
+  show_responses: bool = False,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -76,10 +78,12 @@ def load_config(
     )
 
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
+  show_responses = show_responses or yaml_data.get('show_responses', False)
 
   return Config(
     provider=active_provider,
     model=model,
     api_key=api_key,
     wpt_path=wpt_path,
+    show_responses=show_responses,
   )
