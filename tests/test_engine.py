@@ -110,7 +110,7 @@ async def test_phase_context_assembly_success(engine, mocker):
     context = await engine._phase_context_assembly('feat-id')
 
   assert context['metadata'] == metadata
-  assert context['spec_content'] == 'Spec Text'
+  assert context['spec_contents'] == 'Spec Text'
   assert len(context['test_files']) == 1
   assert context['test_files'][0]['path'] == test_path
 

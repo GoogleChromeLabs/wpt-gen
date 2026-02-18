@@ -28,6 +28,7 @@ from wptgen.context import (
   fetch_and_extract_text,
   fetch_feature_yaml,
   find_feature_tests,
+  gather_local_test_context,
 )
 from wptgen.llm import get_llm_client
 
@@ -87,9 +88,9 @@ class WPTGenEngine:
 
     self.console.print(f'Fetching spec content from: {metadata.specs[0]}')
     with self.console.status('[blue]Fetching spec content...[/blue]'):
-      spec_content = fetch_and_extract_text(metadata.specs[0])
+      spec_contents = fetch_and_extract_text(metadata.specs[0])
 
-    if not spec_content:
+    if not spec_contents:
       self.console.print('[bold red]Error:[/bold red] Failed to extract spec content.')
       return None
 
@@ -105,10 +106,10 @@ class WPTGenEngine:
         self.console.print(f'[yellow]Warning:[/yellow] Skipped {path}: {e}')
 
     self.console.print(
-      f'✔ Context gathered: {len(spec_content)} chars of spec, {len(test_files)} existing tests.'
+      f'✔ Context gathered: {len(spec_contents)} chars of spec, {len(test_files)} existing tests.'
     )
 
-    return {'metadata': metadata, 'spec_content': spec_content, 'test_files': test_files}
+    return {'metadata': metadata, 'spec_contents': spec_contents, 'test_files': test_files}
 
   async def _phase_requirements_analysis(
     self, web_feature_id: str, context: dict[str, Any]
@@ -119,7 +120,7 @@ class WPTGenEngine:
       feature_name=context['metadata'].name,
       feature_description=context['metadata'].description,
       spec_url=context['metadata'].specs[0],
-      spec_content=context['spec_content'],
+      spec_contents=context['spec_contents'],
     )
 
     test_prompt = self.jinja_env.get_template('test_analysis.jinja').render(
