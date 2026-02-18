@@ -58,3 +58,13 @@ def test_load_config_unsupported_provider() -> None:
   """Test that requesting a random/unsupported provider raises an error."""
   with pytest.raises(ValueError, match='CRITICAL: Unsupported provider'):
     load_config(config_path='non_existent_dummy.yaml', provider_override='sillyLLM')
+
+
+def test_load_config_spec_urls(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that spec_urls are correctly loaded into the Config object."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+  spec_urls = ['https://example.com/spec1', 'https://example.com/spec2']
+
+  config = load_config(config_path='non_existent_dummy.yaml', spec_urls_override=spec_urls)
+
+  assert config.spec_urls == spec_urls

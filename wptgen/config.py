@@ -33,6 +33,7 @@ class Config:
   yes_tokens: bool = False
   suggestions_only: bool = False
   cache_path: str | None = None
+  spec_urls: list[str] | None = None
 
 
 def _get_default_cache_path() -> str:
@@ -61,6 +62,7 @@ def load_config(
   show_responses: bool = False,
   yes_tokens_override: bool = False,
   suggestions_only: bool = False,
+  spec_urls_override: list[str] | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -115,4 +117,5 @@ def load_config(
     yes_tokens=yes_tokens,
     suggestions_only=suggestions_only,
     cache_path=cache_path,
+    spec_urls=spec_urls_override,
   )

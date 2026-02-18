@@ -67,6 +67,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=False,
+    spec_urls_override=None,
   )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
@@ -88,6 +89,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     show_responses=True,
     yes_tokens_override=False,
     suggestions_only=False,
+    spec_urls_override=None,
   )
 
 
@@ -107,6 +109,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     show_responses=False,
     yes_tokens_override=True,
     suggestions_only=False,
+    spec_urls_override=None,
   )
 
 
@@ -126,6 +129,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=True,
+    spec_urls_override=None,
   )
 
 
@@ -156,3 +160,25 @@ def test_generate_unexpected_error(mocker: MockerFixture, mock_config: Config) -
   assert result.exit_code == 1
   assert 'Unexpected Error' in result.stdout
   assert 'Engine simulation failed' in result.stdout
+
+
+def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --spec-urls flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --spec-urls
+  result = runner.invoke(
+    app, ['generate', 'grid', '--spec-urls', 'https://url1.com, https://url2.com']
+  )
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override=None,
+    wpt_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    suggestions_only=False,
+    spec_urls_override=['https://url1.com', 'https://url2.com'],
+  )

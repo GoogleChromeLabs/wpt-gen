@@ -75,6 +75,14 @@ def generate(
       help='Only show test suggestions and skip the test generation step.',
     ),
   ] = False,
+  spec_urls: Annotated[
+    str | None,
+    typer.Option(
+      '--spec-urls',
+      '-u',
+      help='Comma-separated list of spec URLs to use, bypassing automatic fetching.',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -87,6 +95,9 @@ def generate(
     # Convert Path object back to string if it was provided, else pass None
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
 
+    # Parse comma-separated spec URLs
+    spec_urls_list = [url.strip() for url in spec_urls.split(',')] if spec_urls else None
+
     config = load_config(
       config_path=config_path,
       provider_override=provider,
@@ -94,6 +105,7 @@ def generate(
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       suggestions_only=suggestions_only,
+      spec_urls_override=spec_urls_list,
     )
 
     console.print(
