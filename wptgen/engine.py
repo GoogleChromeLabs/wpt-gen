@@ -94,22 +94,17 @@ class WPTGenEngine:
       self.console.print('[bold red]Error:[/bold red] Failed to extract spec content.')
       return None
 
-    self.console.print('Scanning local WPT repository for existing tests...')
+    self.console.print('Scanning local WPT repository for existing tests and dependencies...')
     test_paths = find_feature_tests(self.config.wpt_path, web_feature_id)
-
-    test_files = []
-    for path in test_paths:
-      try:
-        content = Path(path).read_text(encoding='utf-8')
-        test_files.append({'path': path, 'content': content})
-      except Exception as e:
-        self.console.print(f'[yellow]Warning:[/yellow] Skipped {path}: {e}')
+    wpt_context = gather_local_test_context(test_paths, self.config.wpt_path)
 
     self.console.print(
-      f'✔ Context gathered: {len(spec_contents)} chars of spec, {len(test_files)} existing tests.'
+      f'✔ Context gathered: {len(spec_contents)} chars of spec, '
+      f'{len(wpt_context.test_contents)} tests, '
+      f'{len(wpt_context.dependency_contents)} dependency files.'
     )
 
-    return {'metadata': metadata, 'spec_contents': spec_contents, 'test_files': test_files}
+    return {'metadata': metadata, 'spec_contents': spec_contents, 'wpt_context': wpt_context}
 
   async def _phase_requirements_analysis(
     self, web_feature_id: str, context: dict[str, Any]
@@ -124,7 +119,7 @@ class WPTGenEngine:
     )
 
     test_prompt = self.jinja_env.get_template('test_analysis.jinja').render(
-      feature_id=web_feature_id, existing_tests=context['test_files']
+      feature_id=web_feature_id, wpt_context=context['wpt_context']
     )
 
     self.console.print(
@@ -161,7 +156,9 @@ class WPTGenEngine:
       response = await self._generate_safe(suggestions_prompt, 'Test Suggestions')
 
     if not response:
-      self.console.print('[bold red]Critical Error:[/bold red] Failed to generate test suggestions.')
+      self.console.print(
+        '[bold red]Critical Error:[/bold red] Failed to generate test suggestions.'
+      )
       return None
 
     return response
@@ -171,7 +168,9 @@ class WPTGenEngine:
     suggestions = self._parse_suggestions(suggestions_response)
 
     if not suggestions:
-      self.console.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
+      self.console.print(
+        '[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]'
+      )
       return
 
     self.console.print(f'{len(suggestions)} new test suggestions found!')
@@ -189,7 +188,9 @@ class WPTGenEngine:
       self.console.print('[yellow]No tests selected. Exiting.[/yellow]')
       return
 
-    self.console.print(f'\nGenerating [bold]{len(approved_suggestions)}[/bold] tests in parallel...')
+    self.console.print(
+      f'\nGenerating [bold]{len(approved_suggestions)}[/bold] tests in parallel...'
+    )
 
     tasks = []
     gen_template = self.jinja_env.get_template('test_generation.jinja')

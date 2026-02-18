@@ -1,3 +1,17 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from unittest.mock import MagicMock, patch
 
@@ -103,16 +117,20 @@ async def test_phase_context_assembly_success(engine, mocker):
   metadata = WebFeatureMetadata(name='Feature', description='Desc', specs=['http://spec'])
   mocker.patch('wptgen.engine.extract_feature_metadata', return_value=metadata)
   mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Spec Text')
-  test_path = os.path.abspath(os.sep + 'path' + os.sep + 'to' + os.sep + 'test.html')
-  mocker.patch('wptgen.engine.find_feature_tests', return_value=[test_path])
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=['/path/to/test.html'])
 
-  with patch('wptgen.engine.Path.read_text', return_value='existing test content'):
-    context = await engine._phase_context_assembly('feat-id')
+  mock_context = WPTContext(
+    test_contents={'/path/to/test.html': 'existing test content'},
+    dependency_contents={},
+    test_to_deps={'/path/to/test.html': set()},
+  )
+  mocker.patch('wptgen.engine.gather_local_test_context', return_value=mock_context)
+
+  context = await engine._phase_context_assembly('feat-id')
 
   assert context['metadata'] == metadata
   assert context['spec_contents'] == 'Spec Text'
-  assert len(context['test_files']) == 1
-  assert context['test_files'][0]['path'] == test_path
+  assert context['wpt_context'] == mock_context
 
 
 @pytest.mark.asyncio
