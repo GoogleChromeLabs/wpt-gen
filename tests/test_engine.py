@@ -56,11 +56,11 @@ def test_engine_init(engine, mock_config):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_verbose(engine, mock_llm, mocker):
-  """Tests that _generate_safe prints the LLM response when verbose is enabled."""
-  engine.config.verbose = True
+async def test_generate_safe_show_responses(engine, mock_llm, mocker):
+  """Tests that _generate_safe prints the LLM response when show_responses is enabled."""
+  engine.config.show_responses = True
   mock_llm.generate_content.return_value = 'Verbose Response'
-  mock_console_print = mocker.patch('wptgen.engine.console.print')
+  mock_console_print = mocker.patch.object(engine.console, 'print')
 
   result = await engine._generate_safe('prompt', 'Task')
 
@@ -71,11 +71,11 @@ async def test_generate_safe_verbose(engine, mock_llm, mocker):
 
 
 @pytest.mark.asyncio
-async def test_generate_safe_not_verbose(engine, mock_llm, mocker):
-  """Tests that _generate_safe does NOT print the LLM response when verbose is disabled."""
-  engine.config.verbose = False
+async def test_generate_safe_not_show_responses(engine, mock_llm, mocker):
+  """Tests that _generate_safe does NOT print the LLM response when show_responses is disabled."""
+  engine.config.show_responses = False
   mock_llm.generate_content.return_value = 'Quiet Response'
-  mock_console_print = mocker.patch('wptgen.engine.console.print')
+  mock_console_print = mocker.patch.object(engine.console, 'print')
 
   result = await engine._generate_safe('prompt', 'Task')
 

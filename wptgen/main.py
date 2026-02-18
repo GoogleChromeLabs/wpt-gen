@@ -58,8 +58,11 @@ def generate(
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = 'wpt-gen.yml',
-  verbose: Annotated[
-    bool, typer.Option('--verbose', '-v', help='Display every LLM-generated response to the user.')
+  show_responses: Annotated[
+    bool,
+    typer.Option(
+      '--show-responses', '-s', help='Display every LLM-generated response to the user.'
+    ),
   ] = False,
 ):
   """
@@ -77,7 +80,7 @@ def generate(
       config_path=config_path,
       provider_override=provider,
       wpt_dir_override=wpt_dir_str,
-      verbose_override=verbose,
+      show_responses=show_responses,
     )
 
     console.print(
