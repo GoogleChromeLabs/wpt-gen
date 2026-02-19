@@ -35,6 +35,7 @@ class Config:
   max_retries: int = 3
   cache_path: str | None = None
   spec_urls: list[str] | None = None
+  feature_description: str | None = None
 
 
 def _get_default_cache_path() -> str:
@@ -66,6 +67,7 @@ def load_config(
   suggestions_only: bool = False,
   max_retries_override: int | None = None,
   spec_urls_override: list[str] | None = None,
+  feature_description_override: str | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -123,4 +125,5 @@ def load_config(
     max_retries=max_retries,
     cache_path=cache_path,
     spec_urls=spec_urls_override,
+    feature_description=feature_description_override,
   )

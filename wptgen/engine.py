@@ -25,6 +25,7 @@ from rich.prompt import Confirm, Prompt
 
 from wptgen.config import Config
 from wptgen.context import (
+  WebFeatureMetadata,
   extract_feature_metadata,
   fetch_and_extract_text,
   fetch_feature_yaml,
@@ -140,12 +141,29 @@ class WPTGenEngine:
 
     feature_data = fetch_feature_yaml(web_feature_id)
     if not feature_data:
-      self.console.print(f'[bold red]Error:[/bold red] Feature {web_feature_id} not found.')
-      return None
+      if self.config.spec_urls and self.config.feature_description:
+        self.console.print(
+          f'[yellow]Warning:[/yellow] Feature [bold]{web_feature_id}[/bold] not found in the web-features repository.'
+        )
+        metadata = WebFeatureMetadata(
+          name=web_feature_id,
+          description=self.config.feature_description,
+          specs=self.config.spec_urls,
+        )
+      else:
+        self.console.print(f'[bold red]Error:[/bold red] Feature {web_feature_id} not found.')
+        self.console.print(
+          'To generate tests for an unregistered feature, please provide both a spec URL using [bold]--spec-urls[/bold] '
+          'and a description using [bold]--description[/bold].'
+        )
+        return None
+    else:
+      metadata = extract_feature_metadata(feature_data)
+      if self.config.spec_urls:
+        metadata.specs = self.config.spec_urls
+      if self.config.feature_description:
+        metadata.description = self.config.feature_description
 
-    metadata = extract_feature_metadata(feature_data)
-    if self.config.spec_urls:
-      metadata.specs = self.config.spec_urls
     if not metadata.specs:
       self.console.print('[bold red]Error:[/bold red] No specification URL found.')
       return None

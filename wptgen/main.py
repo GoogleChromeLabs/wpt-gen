@@ -92,6 +92,14 @@ def generate(
       help='Comma-separated list of spec URLs to use, bypassing automatic fetching.',
     ),
   ] = None,
+  description: Annotated[
+    str | None,
+    typer.Option(
+      '--description',
+      '-d',
+      help='Manually provide a description for the web feature.',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -116,6 +124,7 @@ def generate(
       suggestions_only=suggestions_only,
       max_retries_override=max_retries,
       spec_urls_override=spec_urls_list,
+      feature_description_override=description,
     )
 
     console.print(
