@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as app_version
 from pathlib import Path
 from typing import Annotated
 
@@ -20,7 +22,6 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from wptgen import __version__
 from wptgen.config import load_config
 from wptgen.engine import WPTGenEngine
 
@@ -142,7 +143,11 @@ def version() -> None:
   """
   Print the version of wpt-gen.
   """
-  console.print(f'wpt-gen version {__version__}')
+  try:
+    # Replace 'your-package-name' with the name defined in pyproject.toml
+    console.print(f'wpt-gen version {app_version("wpt-gen")}')
+  except PackageNotFoundError:
+    console.print('unknown')
 
 
 @app.callback()
