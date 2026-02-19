@@ -20,6 +20,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from wptgen import __version__
 from wptgen.config import load_config
 from wptgen.engine import WPTGenEngine
 
@@ -134,6 +135,14 @@ def generate(
     # Catch unexpected runtime errors
     console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
+
+
+@app.command()
+def version() -> None:
+  """
+  Print the version of wpt-gen.
+  """
+  console.print(f'wpt-gen version {__version__}')
 
 
 @app.callback()

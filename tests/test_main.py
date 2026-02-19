@@ -18,6 +18,7 @@ import pytest
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
+from wptgen import __version__
 from wptgen.config import Config
 from wptgen.main import app
 
@@ -42,6 +43,14 @@ def test_help_menu() -> None:
 
   assert result.exit_code == 0
   assert 'AI-Powered Web Platform Test Generation CLI' in result.stdout
+
+
+def test_version() -> None:
+  """Test that the version command prints the correct version."""
+  result = runner.invoke(app, ['version'])
+
+  assert result.exit_code == 0
+  assert f'wpt-gen version {__version__}' in result.stdout
 
 
 def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
