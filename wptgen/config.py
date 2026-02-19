@@ -32,6 +32,7 @@ class Config:
   show_responses: bool = False
   yes_tokens: bool = False
   suggestions_only: bool = False
+  max_retries: int = 3
   cache_path: str | None = None
   spec_urls: list[str] | None = None
 
@@ -62,6 +63,7 @@ def load_config(
   show_responses: bool = False,
   yes_tokens_override: bool = False,
   suggestions_only: bool = False,
+  max_retries_override: int | None = None,
   spec_urls_override: list[str] | None = None,
 ) -> Config:
   """
@@ -106,6 +108,7 @@ def load_config(
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
+  max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
   return Config(
@@ -116,6 +119,7 @@ def load_config(
     show_responses=show_responses,
     yes_tokens=yes_tokens,
     suggestions_only=suggestions_only,
+    max_retries=max_retries,
     cache_path=cache_path,
     spec_urls=spec_urls_override,
   )

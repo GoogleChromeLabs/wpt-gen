@@ -77,6 +77,13 @@ def generate(
       help='Only show test suggestions and skip the test generation step.',
     ),
   ] = False,
+  max_retries: Annotated[
+    int,
+    typer.Option(
+      '--max-retries',
+      help='Maximum number of retries for LLM calls.',
+    ),
+  ] = 3,
   spec_urls: Annotated[
     str | None,
     typer.Option(
@@ -107,6 +114,7 @@ def generate(
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       suggestions_only=suggestions_only,
+      max_retries_override=max_retries,
       spec_urls_override=spec_urls_list,
     )
 
