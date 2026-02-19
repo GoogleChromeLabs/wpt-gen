@@ -53,11 +53,12 @@ def _get_default_cache_path() -> str:
     return str(home / '.cache' / 'wpt-gen')
 
 
+DEFAULT_CONFIG_PATH = os.path.abspath('wpt-gen.yml')
 WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
 
 
 def load_config(
-  config_path: str = 'wpt-gen.yml',
+  config_path: str = DEFAULT_CONFIG_PATH,
   provider_override: str | None = None,
   wpt_dir_override: str | None = None,
   show_responses: bool = False,

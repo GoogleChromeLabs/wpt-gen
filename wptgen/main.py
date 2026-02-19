@@ -22,7 +22,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from wptgen.config import load_config
+from wptgen.config import DEFAULT_CONFIG_PATH, load_config
 from wptgen.engine import WPTGenEngine
 
 # Initialize Typer app and Rich console
@@ -59,7 +59,7 @@ def generate(
   ] = None,
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
-  ] = 'wpt-gen.yml',
+  ] = DEFAULT_CONFIG_PATH,
   show_responses: Annotated[
     bool,
     typer.Option(

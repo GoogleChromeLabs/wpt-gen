@@ -19,7 +19,7 @@ import pytest
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
-from wptgen.config import Config
+from wptgen.config import DEFAULT_CONFIG_PATH, Config
 from wptgen.main import app
 
 # The CliRunner simulates a user typing commands into the terminal
@@ -71,7 +71,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
 
   # Verify our logic called the underlying functions with the correct CLI arguments
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override='gemini',
     wpt_dir_override=None,
     show_responses=False,
@@ -94,7 +94,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
 
   assert result.exit_code == 0
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
     show_responses=True,
@@ -115,7 +115,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
 
   assert result.exit_code == 0
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
     show_responses=False,
@@ -136,7 +136,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
 
   assert result.exit_code == 0
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
     show_responses=False,
@@ -157,7 +157,7 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
 
   assert result.exit_code == 0
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
     show_responses=False,
@@ -209,7 +209,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
 
   assert result.exit_code == 0
   mock_load_config.assert_called_once_with(
-    config_path='wpt-gen.yml',
+    config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
     show_responses=False,
