@@ -68,7 +68,7 @@ def generate(
     bool,
     typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
   ] = False,
-):
+) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
   """
@@ -117,7 +117,7 @@ def generate(
 
 
 @app.callback()
-def main_callback():
+def main_callback() -> None:
   """
   AI-Powered Web Platform Test Generation CLI
   """

@@ -27,6 +27,10 @@ jobs:
         ruff check . || (echo "::error::Linting failed. Run 'ruff check --fix .' locally to fix common issues." && exit 1)
         ruff format --check . || (echo "::error::Formatting failed. Run 'ruff format .' locally to fix." && exit 1)
 
+    - name: Run type checking
+      run: |
+        mypy wptgen tests || (echo "::error::Type checking failed. Run 'mypy wptgen tests' locally to identify issues." && exit 1)
+
     - name: Run tests with pytest
       run: |
         pytest

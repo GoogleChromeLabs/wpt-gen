@@ -66,7 +66,10 @@ def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
       yaml_content = response.read().decode('utf-8')
 
       # Use safe_load to securely parse the YAML string into a Python dictionary
-      return yaml.safe_load(yaml_content)
+      data = yaml.safe_load(yaml_content)
+      if data is None or isinstance(data, dict):
+        return data
+      return None
 
   except urllib.error.HTTPError as e:
     if e.code == 404:

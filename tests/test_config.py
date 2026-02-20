@@ -17,7 +17,7 @@ import pytest
 from wptgen.config import Config, load_config
 
 
-def test_load_config_default_gemini_happy_path(monkeypatch):
+def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test the happy path: default provider (gemini) with a valid API key."""
   # Mock the environment variable
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-gemini-key-123')
@@ -31,7 +31,7 @@ def test_load_config_default_gemini_happy_path(monkeypatch):
   assert config.api_key == 'mock-gemini-key-123'
 
 
-def test_load_config_provider_override_openai(monkeypatch):
+def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test overriding the provider via the CLI flag to openai."""
   # Mock the OpenAI key instead
   monkeypatch.setenv('OPENAI_API_KEY', 'mock-openai-key-456')
@@ -44,7 +44,7 @@ def test_load_config_provider_override_openai(monkeypatch):
   assert config.api_key == 'mock-openai-key-456'
 
 
-def test_load_config_missing_api_key_raises_error(monkeypatch):
+def test_load_config_missing_api_key_raises_error(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test that missing the required environment variable raises a ValueError."""
   # Ensure the environment variable is explicitly removed for this test
   monkeypatch.delenv('GEMINI_API_KEY', raising=False)
@@ -54,7 +54,7 @@ def test_load_config_missing_api_key_raises_error(monkeypatch):
     load_config(config_path='non_existent_dummy.yaml')
 
 
-def test_load_config_unsupported_provider():
+def test_load_config_unsupported_provider() -> None:
   """Test that requesting a random/unsupported provider raises an error."""
   with pytest.raises(ValueError, match='CRITICAL: Unsupported provider'):
     load_config(config_path='non_existent_dummy.yaml', provider_override='sillyLLM')

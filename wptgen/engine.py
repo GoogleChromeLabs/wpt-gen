@@ -48,14 +48,15 @@ class WPTGenEngine:
     template_dir = Path(__file__).parent.joinpath('templates')
     self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
 
+    assert self.config.cache_path is not None, 'cache_path must be set in configuration'
     self.spec_synthesis_cache_dir = Path(self.config.cache_path) / 'spec_synthesis'
     self.spec_synthesis_cache_dir.mkdir(parents=True, exist_ok=True)
 
-  def run_workflow(self, web_feature_id: str):
+  def run_workflow(self, web_feature_id: str) -> None:
     """Entry point for the synchronous CLI to launch the async workflow."""
     asyncio.run(self._run_async_workflow(web_feature_id))
 
-  async def _run_async_workflow(self, web_feature_id: str):
+  async def _run_async_workflow(self, web_feature_id: str) -> None:
     """Orchestrates the end-to-end WPT generation workflow."""
     # Phase 1: Context Assembly
     context = await self._phase_context_assembly(web_feature_id)
@@ -228,7 +229,9 @@ class WPTGenEngine:
 
     return response
 
-  async def _phase_test_generation(self, context: dict[str, Any], suggestions_response: str):
+  async def _phase_test_generation(
+    self, context: dict[str, Any], suggestions_response: str
+  ) -> None:
     self.console.print('\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
     suggestions = self._parse_suggestions(suggestions_response)
 
@@ -289,7 +292,7 @@ class WPTGenEngine:
     match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
     return match.group(1).strip() if match else None
 
-  async def _confirm_prompts(self, prompt_data: list[tuple[str, str]], phase_name: str):
+  async def _confirm_prompts(self, prompt_data: list[tuple[str, str]], phase_name: str) -> None:
     """Calculates tokens for a list of prompts and asks for a single user confirmation."""
     loop = asyncio.get_running_loop()
 
@@ -298,7 +301,7 @@ class WPTGenEngine:
 
     with self.console.status(f'[yellow]Calculating token usage for {phase_name}...[/yellow]'):
       # We do token counting concurrently for speed
-      async def get_info(prompt, name):
+      async def get_info(prompt: str, name: str) -> tuple[int, bool, str]:
         tokens = await loop.run_in_executor(None, self.llm.count_tokens, prompt)
         limit_exceeded = await loop.run_in_executor(
           None, self.llm.prompt_exceeds_input_token_limit, prompt
@@ -346,7 +349,7 @@ class WPTGenEngine:
       self.console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
       return ''
 
-  async def _generate_and_save(self, prompt: str, filename: str):
+  async def _generate_and_save(self, prompt: str, filename: str) -> None:
     """Helper to generate a specific test and save it to disk."""
     self.console.print(f'Starting generation for: {filename}...')
     content = await self._generate_safe(prompt, f'Gen: {filename}')

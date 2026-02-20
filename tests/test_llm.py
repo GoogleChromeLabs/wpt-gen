@@ -15,13 +15,14 @@
 import os
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.llm import GeminiClient, OpenAIClient, get_llm_client
 
 
 @pytest.fixture
-def gemini_config():
+def gemini_config() -> Config:
   """Provides a valid Gemini configuration."""
   return Config(
     provider='gemini',
@@ -32,14 +33,14 @@ def gemini_config():
 
 
 @pytest.fixture
-def openai_config():
+def openai_config() -> Config:
   """Provides a valid OpenAI configuration."""
   return Config(
     provider='openai', model='gpt-5.2-high', api_key='mock-openai-key', wpt_path='dummy'
   )
 
 
-def test_get_llm_client_gemini(mocker, gemini_config):
+def test_get_llm_client_gemini(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test that the factory returns a GeminiClient when configured for Gemini."""
   # Prevent the actual SDK from initializing
   mocker.patch('wptgen.llm.genai.Client')
@@ -49,7 +50,7 @@ def test_get_llm_client_gemini(mocker, gemini_config):
   assert client.model == 'gemini-3-pro-preview'
 
 
-def test_get_llm_client_openai(mocker, openai_config):
+def test_get_llm_client_openai(mocker: MockerFixture, openai_config: Config) -> None:
   """Test that the factory returns an OpenAIClient when configured for OpenAI."""
   # Prevent the actual SDK from initializing
   mocker.patch('wptgen.llm.OpenAI')
@@ -59,7 +60,7 @@ def test_get_llm_client_openai(mocker, openai_config):
   assert client.model == 'gpt-5.2-high'
 
 
-def test_get_llm_client_unsupported_provider():
+def test_get_llm_client_unsupported_provider() -> None:
   """Test that the factory raises an error for unknown providers."""
   bad_config = Config(
     provider='otherllm', model='coolmodel-5', api_key='mock-key', wpt_path='dummy'
@@ -68,7 +69,7 @@ def test_get_llm_client_unsupported_provider():
     get_llm_client(bad_config)
 
 
-def test_gemini_generate_content(mocker, gemini_config):
+def test_gemini_generate_content(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test that GeminiClient correctly maps to the Google GenAI SDK."""
   # Arrange: Mock the Client class and its deep method chain
   mock_client_class = mocker.patch('wptgen.llm.genai.Client')
@@ -93,7 +94,7 @@ def test_gemini_generate_content(mocker, gemini_config):
   assert call_kwargs['config'].system_instruction == 'Test instruction'
 
 
-def test_gemini_count_tokens(mocker, gemini_config):
+def test_gemini_count_tokens(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test that GeminiClient correctly maps token counting."""
   mock_client_class = mocker.patch('wptgen.llm.genai.Client')
   mock_instance = mock_client_class.return_value
@@ -112,7 +113,7 @@ def test_gemini_count_tokens(mocker, gemini_config):
   )
 
 
-def test_openai_generate_content(mocker, openai_config):
+def test_openai_generate_content(mocker: MockerFixture, openai_config: Config) -> None:
   """Test that OpenAIClient correctly maps to the OpenAI SDK."""
   # Arrange: Mock the OpenAI class and its deep method chain
   mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
@@ -145,7 +146,7 @@ def test_openai_generate_content(mocker, openai_config):
   )
 
 
-def test_gemini_prompt_exceeds_limit(mocker, gemini_config):
+def test_gemini_prompt_exceeds_limit(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test token limit checking for Gemini."""
   mock_client_class = mocker.patch('wptgen.llm.genai.Client')
   mock_instance = mock_client_class.return_value
@@ -177,7 +178,7 @@ def test_gemini_prompt_exceeds_limit(mocker, gemini_config):
   assert client.prompt_exceeds_input_token_limit('huge prompt') is True
 
 
-def test_openai_count_tokens(mocker, openai_config):
+def test_openai_count_tokens(mocker: MockerFixture, openai_config: Config) -> None:
   """Test that OpenAIClient correctly maps token counting using tiktoken."""
   mocker.patch('wptgen.llm.OpenAI')
   client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.model)
@@ -188,7 +189,7 @@ def test_openai_count_tokens(mocker, openai_config):
   assert token_count == 4
 
 
-def test_openai_prompt_exceeds_limit(mocker, openai_config):
+def test_openai_prompt_exceeds_limit(mocker: MockerFixture, openai_config: Config) -> None:
   """Test token limit checking for OpenAI."""
   mocker.patch('wptgen.llm.OpenAI')
   client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.model)
