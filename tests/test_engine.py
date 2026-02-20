@@ -24,7 +24,7 @@ from wptgen.engine import WPTGenEngine
 
 
 @pytest.fixture
-def mock_config():
+def mock_config(tmp_path):
   """Provides a basic Config object for testing."""
   return Config(
     provider='llmbargainbin',
@@ -32,6 +32,7 @@ def mock_config():
     api_key='fake-key',
     wpt_path=os.path.abspath(os.sep + 'fake' + os.sep + 'wpt'),
     yes_tokens=False,
+    cache_path=str(tmp_path / '.wpt-gen-cache'),
   )
 
 

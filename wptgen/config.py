@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +30,23 @@ class Config:
   wpt_path: str
   show_responses: bool = False
   yes_tokens: bool = False
+  cache_path: str | None = None
+
+
+def _get_default_cache_path() -> str:
+  """Returns a platform-appropriate default cache directory."""
+  home = Path.home()
+  if sys.platform == 'win32':
+    base = Path(os.environ.get('LOCALAPPDATA', home / 'AppData' / 'Local'))
+    return str(base / 'wpt-gen' / 'Cache')
+  elif sys.platform == 'darwin':
+    return str(home / 'Library' / 'Caches' / 'wpt-gen')
+  else:
+    # Linux / Unix - Follow XDG spec if possible
+    xdg_cache = os.environ.get('XDG_CACHE_HOME')
+    if xdg_cache:
+      return str(Path(xdg_cache) / 'wpt-gen')
+    return str(home / '.cache' / 'wpt-gen')
 
 
 WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
@@ -82,6 +100,7 @@ def load_config(
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
+  cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
   return Config(
     provider=active_provider,
@@ -90,4 +109,5 @@ def load_config(
     wpt_path=wpt_path,
     show_responses=show_responses,
     yes_tokens=yes_tokens,
+    cache_path=cache_path,
   )
