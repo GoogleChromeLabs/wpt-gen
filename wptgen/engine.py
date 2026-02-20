@@ -62,18 +62,55 @@ class WPTGenEngine:
     if not context:
       return
 
-    # Phase 2: Requirements Analysis
-    analysis = await self._phase_requirements_analysis(web_feature_id, context)
-    if not analysis:
-      return
+    # Try unified prompt first
+    unified_prompt = self.jinja_env.get_template('test_suggestions_unified.jinja').render(
+      feature_name=context['metadata'].name,
+      feature_description=context['metadata'].description,
+      spec_url=context['metadata'].specs[0],
+      spec_contents=context['spec_contents'],
+      wpt_context=context['wpt_context'],
+    )
 
-    # Phase 3: Test Suggestions
-    suggestions = await self._phase_test_suggestions(web_feature_id, analysis)
+    loop = asyncio.get_running_loop()
+    with self.console.status('[yellow]Checking context window for unified prompt...[/yellow]'):
+      fits = not await loop.run_in_executor(
+        None, self.llm.prompt_exceeds_input_token_limit, unified_prompt
+      )
+
+    if fits:
+      self.console.print('[green]Using unified prompt flow (fits in context window).[/green]')
+      # Phase 2: Consolidated Test Suggestions
+      suggestions = await self._phase_unified_suggestions(unified_prompt)
+    else:
+      self.console.print(
+        '[yellow]Context too large for unified prompt. Using multi-step flow.[/yellow]'
+      )
+      # Phase 2: Requirements Analysis
+      analysis = await self._phase_requirements_analysis(web_feature_id, context)
+      if not analysis:
+        return
+
+      # Phase 3: Test Suggestions
+      suggestions = await self._phase_test_suggestions(web_feature_id, analysis)
+
     if not suggestions:
       return
 
     # Phase 4: User Selection & Generation
     await self._phase_test_generation(context, suggestions)
+
+  async def _phase_unified_suggestions(self, prompt: str) -> str | None:
+    self.console.print('\n[bold cyan]--- Phase 2: Consolidated Test Suggestions ---[/bold cyan]')
+    await self._confirm_prompts([(prompt, 'Consolidated Suggestions')], 'Consolidated Suggestions')
+    response = await self._generate_safe(prompt, 'Consolidated Suggestions')
+
+    if not response:
+      self.console.print(
+        '[bold red]Critical Error:[/bold red] Failed to generate unified suggestions.'
+      )
+      return None
+
+    return response
 
   async def _phase_context_assembly(self, web_feature_id: str) -> dict[str, Any] | None:
     self.console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
