@@ -776,7 +776,12 @@ async def test_phase_test_generation_partial_failure(
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
   # Mock _generate_and_save to succeed for one and fail for another
-  async def side_effect(prompt: str, filename: str, system_instruction: str | None = None) -> None:
+  async def side_effect(
+    prompt: str,
+    filename: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+  ) -> None:
     if 'fail_test' in filename:
       raise Exception('Random Write Error')
 
