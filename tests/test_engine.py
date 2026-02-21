@@ -184,17 +184,16 @@ async def test_provide_test_suggestions_save(
   """Verifies that _provide_test_suggestions saves the response to a file when the user confirms."""
   context = {'feature_id': 'test-feat'}
   suggestions_response = 'Mock Suggestions Content'
+  engine.config.output_dir = str(tmp_path)
 
   mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-  # Default filename will be test_feat_test_suggestions.md
-  expected_filename = tmp_path / 'test_feat_test_suggestions.md'
+  # Default filename will be test-feat_test_suggestions.md
+  expected_path = tmp_path / 'test-feat_test_suggestions.md'
 
-  # Patch Path to use our tmp_path for the specific filename
-  with patch('wptgen.engine.Path.write_text') as mock_write:
-    with patch('wptgen.engine.Path.absolute', return_value=expected_filename):
-      await engine._provide_test_suggestions(context, suggestions_response)
+  await engine._provide_test_suggestions(context, suggestions_response)
 
-  mock_write.assert_called_once_with(suggestions_response, encoding='utf-8')
+  assert expected_path.exists()
+  assert expected_path.read_text(encoding='utf-8') == suggestions_response
 
 
 @pytest.mark.asyncio
@@ -325,15 +324,15 @@ async def test_generate_and_save_success(
 ) -> None:
   """Generates content and writes it to a file, stripping markdown blocks."""
   mock_llm.generate_content.return_value = '```html\n<html></html>\n```'
-  filename = tmp_path / 'test.html'
+  engine.config.output_dir = str(tmp_path)
+  filename = 'test.html'
+  expected_path = tmp_path / filename
 
-  # Patch Path to write to our tmp_path
-  with patch('wptgen.engine.Path', return_value=filename):
-    await engine._generate_and_save('prompt', 'test.html', 'System Instruction')
+  await engine._generate_and_save('prompt', filename, 'System Instruction')
 
   mock_llm.generate_content.assert_called_with('prompt', 'System Instruction', None)
-  assert filename.exists()
-  assert filename.read_text() == '<html></html>'
+  assert expected_path.exists()
+  assert expected_path.read_text() == '<html></html>'
 
 
 @pytest.mark.asyncio
@@ -617,23 +616,40 @@ async def test_phase_context_assembly_read_test_fails(
 
 
 @pytest.mark.asyncio
+async def test_generate_and_save_with_output_dir(
+  engine: WPTGenEngine, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verifies that generated tests are saved to the correct output_dir when configured."""
+  output_dir = tmp_path / 'custom_output'
+  engine.config.output_dir = str(output_dir)
+  mock_llm.generate_content.return_value = '<html></html>'
+  filename = 'test.html'
+  expected_path = output_dir / filename
+
+  await engine._generate_and_save('prompt', filename)
+
+  assert expected_path.exists()
+  assert expected_path.read_text() == '<html></html>'
+
+
+@pytest.mark.asyncio
 async def test_generate_and_save_markdown_variants(
   engine: WPTGenEngine, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
   """Tests that _generate_and_save handles various markdown block formats correctly."""
+  engine.config.output_dir = str(tmp_path)
+
   # Variant 1: No markdown blocks
   mock_llm.generate_content.return_value = '<html>No Markdown</html>'
-  file1 = tmp_path / 'test1.html'
-  with patch('wptgen.engine.Path', return_value=file1):
-    await engine._generate_and_save('prompt', 'test1.html')
-  assert file1.read_text() == '<html>No Markdown</html>'
+  file1 = 'test1.html'
+  await engine._generate_and_save('prompt', file1)
+  assert (tmp_path / file1).read_text() == '<html>No Markdown</html>'
 
   # Variant 2: Markdown without language tag
   mock_llm.generate_content.return_value = '```\n<html>No Tag</html>\n```'
-  file2 = tmp_path / 'test2.html'
-  with patch('wptgen.engine.Path', return_value=file2):
-    await engine._generate_and_save('prompt', 'test2.html')
-  assert file2.read_text() == '<html>No Tag</html>'
+  file2 = 'test2.html'
+  await engine._generate_and_save('prompt', file2)
+  assert (tmp_path / file2).read_text() == '<html>No Tag</html>'
 
 
 def test_extract_xml_tag_malformed(engine: WPTGenEngine) -> None:
@@ -850,13 +866,13 @@ async def test_generate_and_save_whitespace_resilience(
   """Tests that markdown stripping handles markdown blocks when they are at the start of a line."""
   # LLM output with markdown blocks at the start of the line (current engine requirement)
   mock_llm.generate_content.return_value = '\n```html\n<html></html>\n```\n'
-  filename = tmp_path / 'whitespace.html'
+  engine.config.output_dir = str(tmp_path)
+  filename = 'whitespace.html'
 
-  with patch('wptgen.engine.Path', return_value=filename):
-    await engine._generate_and_save('prompt', 'whitespace.html')
+  await engine._generate_and_save('prompt', filename)
 
-  assert '<html></html>' in filename.read_text()
-  assert '```html' not in filename.read_text()
+  assert '<html></html>' in (tmp_path / filename).read_text()
+  assert '```html' not in (tmp_path / filename).read_text()
 
 
 @pytest.mark.asyncio

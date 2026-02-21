@@ -29,6 +29,7 @@ class Config:
   model: str
   api_key: str
   wpt_path: str
+  output_dir: str | None = None
   show_responses: bool = False
   yes_tokens: bool = False
   suggestions_only: bool = False
@@ -62,6 +63,7 @@ def load_config(
   config_path: str = DEFAULT_CONFIG_PATH,
   provider_override: str | None = None,
   wpt_dir_override: str | None = None,
+  output_dir_override: str | None = None,
   show_responses: bool = False,
   yes_tokens_override: bool = False,
   suggestions_only: bool = False,
@@ -108,6 +110,7 @@ def load_config(
     )
 
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
+  output_dir = output_dir_override or yaml_data.get('output_dir', '.')
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
@@ -119,6 +122,7 @@ def load_config(
     model=model,
     api_key=api_key,
     wpt_path=wpt_path,
+    output_dir=output_dir,
     show_responses=show_responses,
     yes_tokens=yes_tokens,
     suggestions_only=suggestions_only,

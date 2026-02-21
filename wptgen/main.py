@@ -57,6 +57,16 @@ def generate(
       resolve_path=True,
     ),
   ] = None,
+  output_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--output-dir',
+      '-o',
+      help='Directory where generated tests will be saved.',
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ] = None,
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = DEFAULT_CONFIG_PATH,
@@ -111,6 +121,7 @@ def generate(
 
     # Convert Path object back to string if it was provided, else pass None
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    output_dir_str = str(output_dir) if output_dir else None
 
     # Parse comma-separated spec URLs
     spec_urls_list = [url.strip() for url in spec_urls.split(',')] if spec_urls else None
@@ -119,6 +130,7 @@ def generate(
       config_path=config_path,
       provider_override=provider,
       wpt_dir_override=wpt_dir_str,
+      output_dir_override=output_dir_str,
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       suggestions_only=suggestions_only,
