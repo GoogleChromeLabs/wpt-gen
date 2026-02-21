@@ -330,7 +330,7 @@ class WPTGenEngine:
       raw_title = self._extract_xml_tag(suggestion_xml, 'title') or 'file'
       # Include index to prevent filename collisions
       slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
-      safe_filename = f'test_generated_{idx + 1:02d}_{slug}.html'
+      safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
 
       prompts_to_confirm.append((final_prompt, safe_filename))
 

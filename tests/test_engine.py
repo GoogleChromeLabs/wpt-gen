@@ -491,7 +491,7 @@ async def test_phase_test_generation_success(engine: WPTGenEngine, mocker: Mocke
   await engine._phase_test_generation(context, suggestions_response)
 
   mock_gen_save.assert_called_once()
-  assert mock_gen_save.call_args[0][1] == 'test_generated_01_test_1.html'
+  assert mock_gen_save.call_args[0][1] == 'test_1__GENERATED_01_.html'
   assert mock_gen_save.call_args[0][2] is not None
   assert 'SYSTEM ROLE' in mock_gen_save.call_args[0][2]
 
@@ -669,6 +669,7 @@ async def test_phase_test_generation_filename_sanitization(
   # Title with spaces, uppercase, and special characters
   suggestions_response = '<test_suggestion><title>Test: My Cool Feature!</title></test_suggestion>'
 
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
@@ -676,7 +677,7 @@ async def test_phase_test_generation_filename_sanitization(
   await engine._phase_test_generation(context, suggestions_response)
 
   # Check the sanitized filename
-  expected_filename = 'test_generated_01_test__my_cool_feature_.html'
+  expected_filename = 'test__my_cool_feature___GENERATED_01_.html'
   mock_gen_save.assert_called_once()
   assert mock_gen_save.call_args[0][1] == expected_filename
 
@@ -701,7 +702,7 @@ async def test_phase_test_generation_mixed_approval(
 
   # Only Test 1 should be generated
   assert mock_gen_save.call_count == 1
-  assert 'test_generated_01_test_1.html' == mock_gen_save.call_args[0][1]
+  assert 'test_1__GENERATED_01_.html' == mock_gen_save.call_args[0][1]
 
 
 @pytest.mark.asyncio
@@ -721,7 +722,7 @@ async def test_phase_test_generation_tag_fallbacks(
 
   # Fallback filename when title tag is missing
   mock_gen_save.assert_called_once()
-  assert mock_gen_save.call_args[0][1] == 'test_generated_01_file.html'
+  assert mock_gen_save.call_args[0][1] == 'file__GENERATED_01_.html'
 
 
 @pytest.mark.asyncio
@@ -808,7 +809,7 @@ async def test_phase_test_generation_unicode_stability(
 
   mock_gen_save.assert_called_once()
   filename = mock_gen_save.call_args[0][1]
-  assert filename.startswith('test_generated_01_')
+  assert '__GENERATED_01_' in filename
   assert filename.endswith('.html')
 
 
@@ -894,7 +895,7 @@ async def test_phase_test_generation_long_title(
   mock_gen_save.assert_called_once()
   filename = mock_gen_save.call_args[0][1]
   assert len(filename) > 300
-  assert filename.startswith('test_generated_01_')
+  assert '__GENERATED_01_' in filename
 
 
 def test_run_workflow(engine: WPTGenEngine, mocker: MockerFixture) -> None:
