@@ -33,6 +33,13 @@ IMPORT_DEPENDENCY_REGEX = re.compile(
   r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
 )
 
+# WPT infrastructure files that should not be aggregated as dependencies
+IGNORED_DEPENDENCIES = {
+  '/resources/testharness.js',
+  '/resources/testharnessreport.js',
+  '/resources/testdriver.js',
+}
+
 
 @dataclass
 class WebFeatureMetadata:
@@ -213,7 +220,9 @@ def extract_dependencies(content: str) -> list[str]:
   dependencies = set()
   dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, clean_content))
   dependencies.update(re.findall(IMPORT_DEPENDENCY_REGEX, clean_content))
-  return list(dependencies)
+
+  # Filter out common WPT infrastructure files that don't need to be aggregated
+  return [d for d in dependencies if d not in IGNORED_DEPENDENCIES]
 
 
 def resolve_dependency_path(current_file_path: Path, dep_ref: str, wpt_root: Path) -> Path | None:
