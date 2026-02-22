@@ -50,8 +50,8 @@ class WPTGenEngine:
     self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
 
     assert self.config.cache_path is not None, 'cache_path must be set in configuration'
-    self.spec_synthesis_cache_dir = Path(self.config.cache_path) / 'spec_synthesis'
-    self.spec_synthesis_cache_dir.mkdir(parents=True, exist_ok=True)
+    self.cache_dir = Path(self.config.cache_path)
+    self.cache_dir.mkdir(parents=True, exist_ok=True)
 
   def run_workflow(self, web_feature_id: str) -> None:
     """Entry point for the synchronous CLI to launch the async workflow."""
@@ -64,89 +64,106 @@ class WPTGenEngine:
     if not context:
       return
 
-    # Try unified prompt first
-    unified_prompt = self.jinja_env.get_template('test_suggestions_unified.jinja').render(
-      feature_name=context['metadata'].name,
-      feature_description=context['metadata'].description,
-      spec_url=', '.join(context['metadata'].specs),
-      spec_contents=context['spec_contents'],
-      wpt_context=context['wpt_context'],
-    )
-    unified_system_prompt = self.jinja_env.get_template(
-      'test_suggestions_unified_system.jinja'
-    ).render()
-
-    loop = asyncio.get_running_loop()
-    with self.console.status('[yellow]Checking context window for unified prompt...[/yellow]'):
-      fits = not await loop.run_in_executor(
-        None, self.llm.prompt_exceeds_input_token_limit, unified_prompt
-      )
-
-    if fits:
-      self.console.print('[green]Using unified prompt flow (fits in context window).[/green]')
-      # Phase 2: Consolidated Test Suggestions
-      suggestions = await self._phase_unified_suggestions(
-        unified_prompt, system_instruction=unified_system_prompt
-      )
-    else:
-      self.console.print(
-        '[yellow]Context too large for unified prompt. Using multi-step flow.[/yellow]'
-      )
-      # Phase 2: Requirements Analysis
-      analysis = await self._phase_requirements_analysis(web_feature_id, context)
-      if not analysis:
-        return
-
-      # Phase 3: Test Suggestions
-      suggestions = await self._phase_test_suggestions(web_feature_id, analysis)
-
-    if not suggestions:
+    # Phase 2: Requirements Extraction
+    requirements_xml = await self._phase_requirements_extraction(context)
+    if not requirements_xml:
       return
 
-    # Skip Phase 4 if the user only wants the suggestions.
+    # Phase 3: Coverage Audit
+    audit_response = await self._phase_coverage_audit(context, requirements_xml)
+    if not audit_response:
+      return
+
+    # Skip Phase 4 if the user only wants the coverage audit report.
     if self.config.suggestions_only:
-      await self._provide_test_suggestions(context, suggestions)
+      await self._provide_coverage_report(context, audit_response)
       return
 
     # Phase 4: User Selection & Generation
-    await self._phase_test_generation(context, suggestions)
+    await self._phase_test_generation(context, audit_response)
 
-  async def _provide_test_suggestions(
-    self, context: dict[str, Any], suggestions_response: str
-  ) -> None:
-    """Prints the test suggestions response and optionally saves it to a file."""
-    self.console.print('\n[bold cyan]--- Test Suggestions ---[/bold cyan]')
-    self.console.print(suggestions_response)
+  async def _provide_coverage_report(self, context: dict[str, Any], audit_response: str) -> None:
+    """Prints the coverage audit report and optionally saves it to a file."""
+    self.console.print('\n[bold cyan]--- Coverage Audit Report ---[/bold cyan]')
+    self.console.print(audit_response)
 
-    if Confirm.ask('\nSave suggestions to a file?'):
+    if Confirm.ask('\nSave report to a file?'):
       # Create a sanitized filename from the feature ID
       safe_id = FILENAME_SANITIZATION_RE.sub('_', context['feature_id'].lower())
-      filename = f'{safe_id}_test_suggestions.md'
+      filename = f'{safe_id}_coverage_audit.md'
 
       output_path = Path(self.config.output_dir or '.') / filename
       try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(suggestions_response, encoding='utf-8')
+        output_path.write_text(audit_response, encoding='utf-8')
         self.console.print(f'[green]Saved:[/green] {output_path.absolute()}')
       except Exception as e:
         self.console.print(f'[bold red]Error saving file:[/bold red] {e}')
 
-  async def _phase_unified_suggestions(
-    self, prompt: str, system_instruction: str | None = None
+  async def _phase_requirements_extraction(self, context: dict[str, Any]) -> str | None:
+    self.console.print('\n[bold cyan]--- Phase 2: Requirements Extraction ---[/bold cyan]')
+
+    web_feature_id = context['feature_id']
+    cache_file = self.cache_dir / f'{web_feature_id}__requirements.xml'
+    requirements_xml = None
+
+    if cache_file.exists():
+      self.console.print(f'[yellow]Found cached requirements for {web_feature_id}.[/yellow]')
+      if Confirm.ask('Use cached requirements?'):
+        requirements_xml = cache_file.read_text(encoding='utf-8')
+        self.console.print('✔ Using cached requirements.')
+
+    if not requirements_xml:
+      extraction_prompt = self.jinja_env.get_template('requirements_extraction.jinja').render(
+        feature_name=context['metadata'].name,
+        feature_description=context['metadata'].description,
+        spec_url=context['metadata'].specs[0],
+        spec_contents=context['spec_contents'],
+      )
+      extraction_system_prompt = self.jinja_env.get_template(
+        'requirements_extraction_system.jinja'
+      ).render()
+
+      await self._confirm_prompts(
+        [(extraction_prompt, 'Requirements Extraction')], 'Requirements Extraction'
+      )
+
+      requirements_xml = await self._generate_safe(
+        extraction_prompt,
+        'Requirements Extraction',
+        system_instruction=extraction_system_prompt,
+        temperature=0.0,
+      )
+
+      if not requirements_xml:
+        return None
+
+      # Save to cache
+      cache_file.write_text(requirements_xml, encoding='utf-8')
+
+    return requirements_xml
+
+  async def _phase_coverage_audit(
+    self, context: dict[str, Any], requirements_xml: str
   ) -> str | None:
-    self.console.print('\n[bold cyan]--- Phase 2: Consolidated Test Suggestions ---[/bold cyan]')
-    await self._confirm_prompts([(prompt, 'Consolidated Suggestions')], 'Consolidated Suggestions')
-    response = await self._generate_safe(
-      prompt, 'Consolidated Suggestions', system_instruction=system_instruction, temperature=0.0
+    self.console.print('\n[bold cyan]--- Phase 3: Coverage Audit ---[/bold cyan]')
+
+    audit_prompt = self.jinja_env.get_template('coverage_audit.jinja').render(
+      requirements_list_xml=requirements_xml,
+      wpt_context=context['wpt_context'],
+    )
+    audit_system_prompt = self.jinja_env.get_template('coverage_audit_system.jinja').render()
+
+    await self._confirm_prompts([(audit_prompt, 'Coverage Audit')], 'Coverage Audit')
+
+    audit_response = await self._generate_safe(
+      audit_prompt,
+      'Coverage Audit',
+      system_instruction=audit_system_prompt,
+      temperature=0.0,
     )
 
-    if not response:
-      self.console.print(
-        '[bold red]Critical Error:[/bold red] Failed to generate unified suggestions.'
-      )
-      return None
-
-    return response
+    return audit_response
 
   async def _phase_context_assembly(self, web_feature_id: str) -> dict[str, Any] | None:
     self.console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
@@ -206,87 +223,6 @@ class WPTGenEngine:
       'spec_contents': spec_contents,
       'wpt_context': wpt_context,
     }
-
-  async def _phase_requirements_analysis(
-    self, web_feature_id: str, context: dict[str, Any]
-  ) -> tuple[str, str] | None:
-    self.console.print('\n[bold cyan]--- Phase 2: Requirements Analysis ---[/bold cyan]')
-
-    cache_file = self.spec_synthesis_cache_dir / f'{web_feature_id}.md'
-    spec_analysis = None
-
-    if cache_file.exists():
-      self.console.print(f'[yellow]Found cached Spec Synthesis for {web_feature_id}.[/yellow]')
-      if Confirm.ask('Use cached Spec Synthesis?'):
-        spec_analysis = cache_file.read_text(encoding='utf-8')
-        self.console.print('✔ Using cached Spec Synthesis.')
-
-    spec_prompt = self.jinja_env.get_template('spec_synthesis.jinja').render(
-      feature_name=context['metadata'].name,
-      feature_description=context['metadata'].description,
-      spec_url=context['metadata'].specs[0],
-      spec_contents=context['spec_contents'],
-    )
-
-    test_prompt = self.jinja_env.get_template('test_analysis.jinja').render(
-      feature_id=web_feature_id, wpt_context=context['wpt_context']
-    )
-
-    prompts_to_confirm = []
-    if not spec_analysis:
-      prompts_to_confirm.append((spec_prompt, 'Spec Synthesis'))
-    prompts_to_confirm.append((test_prompt, 'Test Analysis'))
-
-    await self._confirm_prompts(prompts_to_confirm, 'Requirements Analysis')
-
-    if spec_analysis:
-      self.console.print('Submitting [bold]Test Analysis[/bold] task...')
-      test_analysis = await self._generate_safe(test_prompt, 'Test Analysis')
-    else:
-      self.console.print(
-        'Submitting [bold]Spec Synthesis[/bold] and [bold]Test Analysis[/bold] tasks concurrently...'
-      )
-      results = await asyncio.gather(
-        self._generate_safe(spec_prompt, 'Spec Synthesis'),
-        self._generate_safe(test_prompt, 'Test Analysis'),
-      )
-      spec_analysis, test_analysis = results
-
-    if not spec_analysis or not test_analysis:
-      self.console.print('[bold red]Critical Error:[/bold red] One or more analysis steps failed.')
-      return None
-
-    # Save to cache if it was newly generated
-    if not cache_file.exists() or (spec_analysis and not cache_file.read_text() == spec_analysis):
-      cache_file.write_text(spec_analysis, encoding='utf-8')
-
-    self.console.print('\n[bold green]✔ Requirements Analysis Complete.[/bold green]')
-    return (spec_analysis, test_analysis)
-
-  async def _phase_test_suggestions(
-    self, web_feature_id: str, analysis: tuple[str, str]
-  ) -> str | None:
-    self.console.print('\n[bold cyan]--- Phase 3: Test Suggestions ---[/bold cyan]')
-
-    spec_analysis, test_analysis = analysis
-
-    suggestions_prompt = self.jinja_env.get_template('test_suggestions.jinja').render(
-      feature_id=web_feature_id,
-      feature_spec_summary=spec_analysis,
-      test_summaries=[test_analysis],
-    )
-
-    await self._confirm_prompts([(suggestions_prompt, 'Test Suggestions')], 'Test Suggestions')
-
-    response = await self._generate_safe(suggestions_prompt, 'Test Suggestions')
-
-    if not response:
-      self.console.print(
-        '[bold red]Critical Error:[/bold red] Failed to generate test suggestions.'
-      )
-      return None
-
-    return response
 
   async def _phase_test_generation(
     self, context: dict[str, Any], suggestions_response: str

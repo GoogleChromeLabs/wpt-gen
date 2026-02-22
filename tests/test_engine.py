@@ -121,36 +121,36 @@ async def test_confirm_prompts_batch_calculation(
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_calls_confirm(
+async def test_phase_requirements_extraction_calls_confirm(
   engine: WPTGenEngine, mocker: MockerFixture, mock_llm: MagicMock
 ) -> None:
-  """Verify that Phase 2 calls _confirm_prompts before generation."""
+  """Verify that extraction phase calls _confirm_prompts before generation."""
   context = {
-    'metadata': MagicMock(specs=['http://spec']),
+    'feature_id': 'feat-id',
+    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
   mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.side_effect = ['Spec', 'Test']
+  mock_llm.generate_content.return_value = '<requirements_list></requirements_list>'
 
-  await engine._phase_requirements_analysis('feat-id', context)
+  await engine._phase_requirements_extraction(context)
 
   mock_confirm.assert_called_once()
-  # It should have passed both prompts to confirm
-  passed_prompts = mock_confirm.call_args[0][0]
-  assert len(passed_prompts) == 2
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_calls_confirm(
+async def test_phase_coverage_audit_calls_confirm(
   engine: WPTGenEngine, mocker: MockerFixture, mock_llm: MagicMock
 ) -> None:
-  """Verify that Phase 3 calls _confirm_prompts before generation."""
-  analysis = ('Spec', 'Test')
+  """Verify that audit phase calls _confirm_prompts before generation."""
+  context = {
+    'wpt_context': MagicMock(),
+  }
   mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.return_value = 'Suggestions'
+  mock_llm.generate_content.return_value = 'Audit Response'
 
-  await engine._phase_test_suggestions('feat-id', analysis)
+  await engine._phase_coverage_audit(context, '<requirements_list></requirements_list>')
 
   mock_confirm.assert_called_once()
 
@@ -178,36 +178,34 @@ async def test_phase_test_generation_calls_confirm(
 
 
 @pytest.mark.asyncio
-async def test_provide_test_suggestions_save(
+async def test_provide_coverage_report_save(
   engine: WPTGenEngine, mocker: MockerFixture, tmp_path: Path
 ) -> None:
-  """Verifies that _provide_test_suggestions saves the response to a file when the user confirms."""
+  """Verifies that _provide_coverage_report saves the response to a file when the user confirms."""
   context = {'feature_id': 'test-feat'}
-  suggestions_response = 'Mock Suggestions Content'
+  audit_response = 'Mock Audit Content'
   engine.config.output_dir = str(tmp_path)
 
   mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-  # Default filename will be test-feat_test_suggestions.md
-  expected_path = tmp_path / 'test-feat_test_suggestions.md'
+  # Default filename will be test-feat_coverage_audit.md
+  expected_path = tmp_path / 'test-feat_coverage_audit.md'
 
-  await engine._provide_test_suggestions(context, suggestions_response)
+  await engine._provide_coverage_report(context, audit_response)
 
   assert expected_path.exists()
-  assert expected_path.read_text(encoding='utf-8') == suggestions_response
+  assert expected_path.read_text(encoding='utf-8') == audit_response
 
 
 @pytest.mark.asyncio
-async def test_provide_test_suggestions_no_save(
-  engine: WPTGenEngine, mocker: MockerFixture
-) -> None:
-  """Verifies that _provide_test_suggestions does NOT save if the user declines."""
+async def test_provide_coverage_report_no_save(engine: WPTGenEngine, mocker: MockerFixture) -> None:
+  """Verifies that _provide_coverage_report does NOT save if the user declines."""
   context = {'feature_id': 'test-feat'}
-  suggestions_response = 'Mock Suggestions Content'
+  audit_response = 'Mock Audit Content'
 
   mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
   mock_write = mocker.patch('wptgen.engine.Path.write_text')
 
-  await engine._provide_test_suggestions(context, suggestions_response)
+  await engine._provide_coverage_report(context, audit_response)
 
   mock_write.assert_not_called()
 
@@ -216,7 +214,7 @@ async def test_provide_test_suggestions_no_save(
 async def test_run_async_workflow_suggestions_only(
   engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-  """Verifies that the workflow short-circuits to _provide_test_suggestions when config.suggestions_only is True."""
+  """Verifies that the workflow short-circuits to _provide_coverage_report when config.suggestions_only is True."""
   engine.config.suggestions_only = True
 
   mock_metadata = MagicMock()
@@ -232,15 +230,14 @@ async def test_run_async_workflow_suggestions_only(
   }
 
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
-  # Mock token check to fit in context
-  mocker.patch.object(engine.llm, 'prompt_exceeds_input_token_limit', return_value=False)
-  mocker.patch.object(engine, '_phase_unified_suggestions', return_value='suggestions')
-  mock_provide = mocker.patch.object(engine, '_provide_test_suggestions', return_value=None)
+  mocker.patch.object(engine, '_phase_requirements_extraction', return_value='reqs')
+  mocker.patch.object(engine, '_phase_coverage_audit', return_value='audit')
+  mock_provide = mocker.patch.object(engine, '_provide_coverage_report', return_value=None)
   mock_gen = mocker.patch.object(engine, '_phase_test_generation')
 
   await engine._run_async_workflow('test-feat')
 
-  mock_provide.assert_called_once_with(context, 'suggestions')
+  mock_provide.assert_called_once_with(context, 'audit')
   mock_gen.assert_not_called()
 
 
@@ -417,63 +414,57 @@ async def test_phase_context_assembly_fetch_spec_fails(
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_success(
+async def test_phase_requirements_extraction_success(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Successful concurrent generation of spec synthesis and test analysis."""
+  """Successful generation of requirements."""
   context = {
-    'metadata': MagicMock(specs=['http://spec']),
+    'feature_id': 'feat-id',
+    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.side_effect = ['Spec Synthesis', 'Test Analysis']
+  mock_llm.generate_content.return_value = '<requirements_list>Reqs</requirements_list>'
 
-  result = await engine._phase_requirements_analysis('feat-id', context)
-  assert result == ('Spec Synthesis', 'Test Analysis')
+  result = await engine._phase_requirements_extraction(context)
+  assert result == '<requirements_list>Reqs</requirements_list>'
 
 
 @pytest.mark.asyncio
-async def test_phase_requirements_analysis_failure(
+async def test_phase_requirements_extraction_failure(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Requirements analysis returns None if any part of the analysis fails."""
+  """Returns None if extraction fails."""
   context = {
-    'metadata': MagicMock(specs=['http://spec']),
+    'feature_id': 'feat-id',
+    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
     'spec_contents': 'spec',
     'wpt_context': MagicMock(),
   }
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.side_effect = ['Spec Synthesis', Exception('Fail')]
+  # Extraction fails (returns empty string from _generate_safe)
+  mock_llm.generate_content.return_value = ''
 
-  result = await engine._phase_requirements_analysis('feat-id', context)
+  result = await engine._phase_requirements_extraction(context)
   assert result is None
 
 
 @pytest.mark.asyncio
-async def test_phase_test_suggestions_success(
+async def test_phase_coverage_audit_success(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Test suggestions are successfully generated from the analysis results."""
-  analysis = ('Spec', 'Test')
+  """Successful generation of audit response."""
+  context = {
+    'wpt_context': MagicMock(),
+  }
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.return_value = 'Suggestions'
+  mock_llm.generate_content.return_value = 'Audit Response'
 
-  result = await engine._phase_test_suggestions('feat-id', analysis)
-  assert result == 'Suggestions'
-
-
-@pytest.mark.asyncio
-async def test_phase_test_suggestions_failure(
-  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
-) -> None:
-  """Test suggestion phase returns None if the LLM call fails."""
-  analysis = ('Spec', 'Test')
-  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  mock_llm.generate_content.side_effect = Exception('Fail')
-
-  result = await engine._phase_test_suggestions('feat-id', analysis)
-  assert result is None
+  result = await engine._phase_coverage_audit(
+    context, '<requirements_list>Reqs</requirements_list>'
+  )
+  assert result == 'Audit Response'
 
 
 @pytest.mark.asyncio
@@ -531,26 +522,24 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   mock_wpt_context.dependency_contents = {}
 
   context = {
+    'feature_id': 'feat-id',
     'metadata': mock_metadata,
     'spec_contents': 'spec content',
     'wpt_context': mock_wpt_context,
   }
-  analysis = ('spec', 'test')
-  suggestions = 'sugg'
+  requirements = 'reqs'
+  audit = 'audit'
 
   mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
-  # Mock token check to force multi-step flow (default behavior for this test)
-  cast(MagicMock, engine.llm.prompt_exceeds_input_token_limit).return_value = True
-
-  mocker.patch.object(engine, '_phase_requirements_analysis', return_value=analysis)
-  mocker.patch.object(engine, '_phase_test_suggestions', return_value=suggestions)
+  mocker.patch.object(engine, '_phase_requirements_extraction', return_value=requirements)
+  mocker.patch.object(engine, '_phase_coverage_audit', return_value=audit)
   mocker.patch.object(engine, '_phase_test_generation', return_value=None)
 
   await engine._run_async_workflow('feat-id')
 
   cast(MagicMock, engine._phase_context_assembly).assert_called_once()
-  cast(MagicMock, engine._phase_requirements_analysis).assert_called_once()
-  cast(MagicMock, engine._phase_test_suggestions).assert_called_once()
+  cast(MagicMock, engine._phase_requirements_extraction).assert_called_once()
+  cast(MagicMock, engine._phase_coverage_audit).assert_called_once()
   cast(MagicMock, engine._phase_test_generation).assert_called_once()
 
 
@@ -824,31 +813,13 @@ async def test_run_async_workflow_short_circuit(
 ) -> None:
   """Verifies that the workflow stops immediately if context assembly fails."""
   mocker.patch.object(engine, '_phase_context_assembly', return_value=None)
-  mock_analysis = mocker.patch.object(engine, '_phase_requirements_analysis')
+  mock_extraction = mocker.patch.object(engine, '_phase_requirements_extraction')
 
   await engine._run_async_workflow('feat-id')
 
   cast(MagicMock, engine._phase_context_assembly).assert_called_once()
-  # Analysis should never be called if assembly fails
-  mock_analysis.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_phase_requirements_analysis_concurrent_failure(
-  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
-) -> None:
-  """Verifies that the engine handles cases where both concurrent analysis tasks return empty strings."""
-  context = {
-    'metadata': MagicMock(specs=['http://spec']),
-    'spec_contents': 'spec',
-    'wpt_context': MagicMock(),
-  }
-  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-  # Both LLM calls return empty (failure mode of _generate_safe)
-  mock_llm.generate_content.side_effect = ['', '']
-
-  result = await engine._phase_requirements_analysis('feat-id', context)
-  assert result is None
+  # Extraction should never be called if assembly fails
+  mock_extraction.assert_not_called()
 
 
 @pytest.mark.asyncio
