@@ -68,6 +68,13 @@ def generate(
     bool,
     typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
   ] = False,
+  suggestions_only: Annotated[
+    bool,
+    typer.Option(
+      '--suggestions-only',
+      help='Only show test suggestions and skip the test generation step.',
+    ),
+  ] = False,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -86,6 +93,7 @@ def generate(
       wpt_dir_override=wpt_dir_str,
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
+      suggestions_only=suggestions_only,
     )
 
     console.print(

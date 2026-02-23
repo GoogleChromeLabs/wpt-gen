@@ -31,6 +31,7 @@ class Config:
   wpt_path: str
   show_responses: bool = False
   yes_tokens: bool = False
+  suggestions_only: bool = False
   cache_path: str | None = None
 
 
@@ -59,6 +60,7 @@ def load_config(
   wpt_dir_override: str | None = None,
   show_responses: bool = False,
   yes_tokens_override: bool = False,
+  suggestions_only: bool = False,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -101,6 +103,7 @@ def load_config(
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
+  suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
   return Config(
@@ -110,5 +113,6 @@ def load_config(
     wpt_path=wpt_path,
     show_responses=show_responses,
     yes_tokens=yes_tokens,
+    suggestions_only=suggestions_only,
     cache_path=cache_path,
   )

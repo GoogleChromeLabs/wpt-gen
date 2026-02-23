@@ -66,6 +66,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     wpt_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
+    suggestions_only=False,
   )
   mock_engine_class.assert_called_once_with(config=mock_config)
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
@@ -86,6 +87,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     wpt_dir_override=None,
     show_responses=True,
     yes_tokens_override=False,
+    suggestions_only=False,
   )
 
 
@@ -104,6 +106,26 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     wpt_dir_override=None,
     show_responses=False,
     yes_tokens_override=True,
+    suggestions_only=False,
+  )
+
+
+def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --suggestions-only flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --suggestions-only
+  result = runner.invoke(app, ['generate', 'grid', '--suggestions-only'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path='wpt-gen.yml',
+    provider_override=None,
+    wpt_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    suggestions_only=True,
   )
 
 

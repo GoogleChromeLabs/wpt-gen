@@ -174,6 +174,74 @@ async def test_phase_test_generation_calls_confirm(
   assert len(mock_confirm.call_args[0][0]) == 2
 
 
+@pytest.mark.asyncio
+async def test_provide_test_suggestions_save(
+  engine: WPTGenEngine, mocker: MockerFixture, tmp_path: Path
+) -> None:
+  """Verifies that _provide_test_suggestions saves the response to a file when the user confirms."""
+  context = {'feature_id': 'test-feat'}
+  suggestions_response = 'Mock Suggestions Content'
+
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
+  # Default filename will be test_feat_test_suggestions.md
+  expected_filename = tmp_path / 'test_feat_test_suggestions.md'
+
+  # Patch Path to use our tmp_path for the specific filename
+  with patch('wptgen.engine.Path.write_text') as mock_write:
+    with patch('wptgen.engine.Path.absolute', return_value=expected_filename):
+      await engine._provide_test_suggestions(context, suggestions_response)
+
+  mock_write.assert_called_once_with(suggestions_response, encoding='utf-8')
+
+
+@pytest.mark.asyncio
+async def test_provide_test_suggestions_no_save(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Verifies that _provide_test_suggestions does NOT save if the user declines."""
+  context = {'feature_id': 'test-feat'}
+  suggestions_response = 'Mock Suggestions Content'
+
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
+  mock_write = mocker.patch('wptgen.engine.Path.write_text')
+
+  await engine._provide_test_suggestions(context, suggestions_response)
+
+  mock_write.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_async_workflow_suggestions_only(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Verifies that the workflow short-circuits to _provide_test_suggestions when config.suggestions_only is True."""
+  engine.config.suggestions_only = True
+
+  mock_metadata = MagicMock()
+  mock_metadata.name = 'Test Feature'
+  mock_metadata.description = 'Test Description'
+  mock_metadata.specs = ['http://spec']
+
+  context = {
+    'feature_id': 'test-feat',
+    'metadata': mock_metadata,
+    'spec_contents': 'spec content',
+    'wpt_context': MagicMock(),
+  }
+
+  mocker.patch.object(engine, '_phase_context_assembly', return_value=context)
+  # Mock token check to fit in context
+  mocker.patch.object(engine.llm, 'prompt_exceeds_input_token_limit', return_value=False)
+  mocker.patch.object(engine, '_phase_unified_suggestions', return_value='suggestions')
+  mock_provide = mocker.patch.object(engine, '_provide_test_suggestions', return_value=None)
+  mock_gen = mocker.patch.object(engine, '_phase_test_generation')
+
+  await engine._run_async_workflow('test-feat')
+
+  mock_provide.assert_called_once_with(context, 'suggestions')
+  mock_gen.assert_not_called()
+
+
 def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
   """Verifies that the engine initializes correctly with the given configuration."""
   assert engine.config == mock_config
