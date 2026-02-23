@@ -255,6 +255,27 @@ def test_openai_prompt_exceeds_limit(mocker: MockerFixture, openai_config: Confi
   assert client.prompt_exceeds_input_token_limit(huge_prompt) is True
 
 
+def test_gemini_generate_content_model_override(
+  mocker: MockerFixture, gemini_config: Config
+) -> None:
+  """Test that GeminiClient respects the model override in generate_content."""
+  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+  mock_instance = mock_client_class.return_value
+
+  mock_response = mocker.MagicMock()
+  mock_response.text = 'Override success'
+  mock_instance.models.generate_content.return_value = mock_response
+
+  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.model)
+
+  result = client.generate_content(prompt='Test prompt', model='gemini-3-flash-override')
+
+  assert result == 'Override success'
+  # Verify the internal SDK method was called with the OVERRIDDEN model
+  call_kwargs = mock_instance.models.generate_content.call_args.kwargs
+  assert call_kwargs['model'] == 'gemini-3-flash-override'
+
+
 def test_llm_client_custom_retries(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test that LLM clients respect the custom max_retries setting."""
   mocker.patch('time.sleep')

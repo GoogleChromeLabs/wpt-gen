@@ -49,6 +49,7 @@ def mock_llm() -> MagicMock:
   llm.count_tokens.return_value = 10
   llm.prompt_exceeds_input_token_limit.return_value = False
   llm.generate_content.return_value = 'Mock Response'
+  llm.model = 'mock-model'
   return llm
 
 

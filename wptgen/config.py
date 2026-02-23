@@ -37,6 +37,9 @@ class Config:
   cache_path: str | None = None
   spec_urls: list[str] | None = None
   feature_description: str | None = None
+  requirements_model: str | None = None
+  audit_model: str | None = None
+  generation_model: str | None = None
 
 
 def _get_default_cache_path() -> str:
@@ -140,6 +143,10 @@ def load_config(
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
+  requirements_model = provider_settings.get('requirements_model')
+  audit_model = provider_settings.get('audit_model')
+  generation_model = provider_settings.get('generation_model')
+
   return Config(
     provider=active_provider,
     model=model,
@@ -153,4 +160,7 @@ def load_config(
     cache_path=cache_path,
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
+    requirements_model=requirements_model,
+    audit_model=audit_model,
+    generation_model=generation_model,
   )

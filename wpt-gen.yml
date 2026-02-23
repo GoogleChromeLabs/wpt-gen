@@ -4,5 +4,8 @@ wpt_path: ../wpt  # Add this line (update with your actual path)
 providers:
   gemini:
     model: gemini-3-pro-preview
+    requirements_model: gemini-3-pro-preview
+    audit_model: gemini-3-pro-preview
+    generation_model: gemini-3-flash-preview
   openai:
     model: gpt-5.2-high
