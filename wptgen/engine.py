@@ -305,6 +305,7 @@ class WPTGenEngine:
 
     # Prepare all generation prompts for batch confirmation
     gen_template = self.jinja_env.get_template('test_generation.jinja')
+    system_instruction = self.jinja_env.get_template('test_generation_system.jinja').render()
     prompts_to_confirm: list[tuple[str, str]] = []
 
     for idx, suggestion_xml in enumerate(approved_suggestions_xml):
@@ -326,7 +327,10 @@ class WPTGenEngine:
 
     self.console.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
 
-    tasks = [self._generate_and_save(prompt, filename) for prompt, filename in prompts_to_confirm]
+    tasks = [
+      self._generate_and_save(prompt, filename, system_instruction)
+      for prompt, filename in prompts_to_confirm
+    ]
     await asyncio.gather(*tasks)
 
     self.console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
@@ -339,7 +343,11 @@ class WPTGenEngine:
     match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
     return match.group(1).strip() if match else None
 
-  async def _confirm_prompts(self, prompt_data: list[tuple[str, str]], phase_name: str) -> None:
+  async def _confirm_prompts(
+    self,
+    prompt_data: list[tuple[str, str]],
+    phase_name: str,
+  ) -> None:
     """Calculates tokens for a list of prompts and asks for a single user confirmation."""
     loop = asyncio.get_running_loop()
 
@@ -381,12 +389,16 @@ class WPTGenEngine:
       self.console.print('[yellow]Aborting workflow due to user cancellation.[/yellow]')
       raise typer.Abort()
 
-  async def _generate_safe(self, prompt: str, task_name: str) -> str:
+  async def _generate_safe(
+    self, prompt: str, task_name: str, system_instruction: str | None = None
+  ) -> str:
     """Helper to run LLM generation in a thread and handle errors gracefully."""
     try:
       loop = asyncio.get_running_loop()
       with self.console.status(f'[blue]Submitting {task_name}...[/blue]'):
-        response = await loop.run_in_executor(None, self.llm.generate_content, prompt)
+        response = await loop.run_in_executor(
+          None, self.llm.generate_content, prompt, system_instruction
+        )
 
       self.console.print(f'✔ {task_name} finished.')
       if self.config.show_responses:
@@ -396,10 +408,12 @@ class WPTGenEngine:
       self.console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
       return ''
 
-  async def _generate_and_save(self, prompt: str, filename: str) -> None:
+  async def _generate_and_save(
+    self, prompt: str, filename: str, system_instruction: str | None = None
+  ) -> None:
     """Helper to generate a specific test and save it to disk."""
     self.console.print(f'Starting generation for: {filename}...')
-    content = await self._generate_safe(prompt, f'Gen: {filename}')
+    content = await self._generate_safe(prompt, f'Gen: {filename}', system_instruction)
 
     if content:
       # Strip Markdown code blocks if the LLM added them (common behavior)

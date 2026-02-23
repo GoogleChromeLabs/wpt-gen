@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -64,7 +65,7 @@ async def test_requirements_analysis_cache_miss(
   }
 
   # Mock LLM to return distinct responses based on prompt content.
-  def llm_side_effect(prompt: str) -> str:
+  def llm_side_effect(prompt: str, *args: Any) -> str:
     if '<spec_document>' in prompt:
       return 'New Spec Synthesis'
     return 'New Test Analysis'
@@ -138,7 +139,7 @@ async def test_requirements_analysis_cache_hit_reject(
   mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
 
   # Both should be generated
-  def llm_side_effect(prompt: str) -> str:
+  def llm_side_effect(prompt: str, *args: Any) -> str:
     if '<spec_document>' in prompt:
       return 'New Spec Synthesis'
     return 'New Test Analysis'

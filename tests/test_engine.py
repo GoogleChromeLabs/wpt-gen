@@ -105,6 +105,9 @@ async def test_confirm_prompts_batch_calculation(
 
   await engine._confirm_prompts([('p1', 'T1'), ('p2', 'T2')], 'Phase')
 
+  # Check that count_tokens was called
+  cast(MagicMock, engine.llm.count_tokens).assert_called_with('p2')
+
   # Check that it printed total tokens (100 + 200 = 300)
   found_total = False
   for call in mock_console.call_args_list:
@@ -258,12 +261,12 @@ async def test_generate_safe_show_responses(
   mock_llm.generate_content.return_value = 'Verbose Response'
   mock_console_print = mocker.patch.object(engine.console, 'print')
 
-  result = await engine._generate_safe('prompt', 'Task')
+  result = await engine._generate_safe('prompt', 'Task', 'System Instruction')
 
   assert result == 'Verbose Response'
+  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction')
   # Check that console.print was called with the response in a Panel
-  # We can't easily check the Panel object equality, but we can check if it was called.
-  assert mock_console_print.call_count >= 2  # "✔ Task finished." and the Panel
+  assert mock_console_print.call_count >= 2
 
 
 @pytest.mark.asyncio
@@ -326,8 +329,9 @@ async def test_generate_and_save_success(
 
   # Patch Path to write to our tmp_path
   with patch('wptgen.engine.Path', return_value=filename):
-    await engine._generate_and_save('prompt', 'test.html')
+    await engine._generate_and_save('prompt', 'test.html', 'System Instruction')
 
+  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction')
   assert filename.exists()
   assert filename.read_text() == '<html></html>'
 
@@ -475,7 +479,7 @@ async def test_phase_test_suggestions_failure(
 
 @pytest.mark.asyncio
 async def test_phase_test_generation_success(engine: WPTGenEngine, mocker: MockerFixture) -> None:
-  """Test generation proceeds for suggestions approved by the user."""
+  """Test generation proceeds for suggestions approved by the user with system instruction."""
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = (
     '<test_suggestion><title>Test 1</title><description>D1</description></test_suggestion>'
@@ -489,6 +493,8 @@ async def test_phase_test_generation_success(engine: WPTGenEngine, mocker: Mocke
 
   mock_gen_save.assert_called_once()
   assert mock_gen_save.call_args[0][1] == 'test_generated_01_test_1.html'
+  assert mock_gen_save.call_args[0][2] is not None
+  assert 'SYSTEM ROLE' in mock_gen_save.call_args[0][2]
 
 
 @pytest.mark.asyncio
@@ -753,7 +759,7 @@ async def test_phase_test_generation_partial_failure(
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
   # Mock _generate_and_save to succeed for one and fail for another
-  async def side_effect(prompt: str, filename: str) -> None:
+  async def side_effect(prompt: str, filename: str, system_instruction: str | None = None) -> None:
     if 'fail_test' in filename:
       raise Exception('Random Write Error')
 
