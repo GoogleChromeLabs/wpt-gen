@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from importlib.metadata import version
 
 import pytest
 from pytest_mock import MockerFixture
@@ -42,6 +43,14 @@ def test_help_menu() -> None:
 
   assert result.exit_code == 0
   assert 'AI-Powered Web Platform Test Generation CLI' in result.stdout
+
+
+def test_version() -> None:
+  """Test that the version command prints the correct version."""
+  result = runner.invoke(app, ['version'])
+
+  assert result.exit_code == 0
+  assert f'wpt-gen version {version("wpt-gen")}' in result.stdout
 
 
 def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:

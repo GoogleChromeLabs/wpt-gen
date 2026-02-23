@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as app_version
 from pathlib import Path
 from typing import Annotated
 
@@ -134,6 +136,18 @@ def generate(
     # Catch unexpected runtime errors
     console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
+
+
+@app.command()
+def version() -> None:
+  """
+  Print the version of wpt-gen.
+  """
+  try:
+    # Replace 'your-package-name' with the name defined in pyproject.toml
+    console.print(f'wpt-gen version {app_version("wpt-gen")}')
+  except PackageNotFoundError:
+    console.print('unknown')
 
 
 @app.callback()
