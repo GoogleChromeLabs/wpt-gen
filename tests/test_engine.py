@@ -166,7 +166,7 @@ async def test_phase_test_generation_calls_confirm(
     '<test_suggestion><title>T2</title></test_suggestion>'
   )
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mock_confirm = mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -313,6 +313,23 @@ def test_extract_xml_tag(engine: WPTGenEngine) -> None:
   assert engine._extract_xml_tag(xml, 'title') == 'My Title'
   assert engine._extract_xml_tag(xml, 'desc') == 'My Desc'
   assert engine._extract_xml_tag(xml, 'missing') is None
+
+
+@pytest.mark.asyncio
+async def test_phase_test_generation_satisfied(engine: WPTGenEngine, mocker: MockerFixture) -> None:
+  """Verifies that _phase_test_generation short-circuits when status is SATISFIED."""
+  context = {'metadata': MagicMock(name='Feat', description='Desc')}
+  suggestions_response = '<status>SATISFIED</status>'
+
+  mock_console_print = mocker.patch.object(engine.console, 'print')
+  mock_parse = mocker.patch.object(engine, '_parse_suggestions')
+
+  await engine._phase_test_generation(context, suggestions_response)
+
+  # Should print the satisfaction message
+  mock_console_print.assert_called()
+  # Should NOT parse any suggestions
+  mock_parse.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -475,7 +492,7 @@ async def test_phase_test_generation_success(engine: WPTGenEngine, mocker: Mocke
     '<test_suggestion><title>Test 1</title><description>D1</description></test_suggestion>'
   )
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -501,7 +518,7 @@ async def test_phase_test_generation_rejected(engine: WPTGenEngine, mocker: Mock
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = '<test_suggestion><title>Test 1</title></test_suggestion>'
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='n')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
   await engine._phase_test_generation(context, suggestions_response)
@@ -659,7 +676,7 @@ async def test_phase_test_generation_filename_sanitization(
   suggestions_response = '<test_suggestion><title>Test: My Cool Feature!</title></test_suggestion>'
 
   mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -683,7 +700,7 @@ async def test_phase_test_generation_mixed_approval(
   )
 
   # User says 'y' to first, 'n' to second
-  mocker.patch('wptgen.engine.Prompt.ask', side_effect=['y', 'n'])
+  mocker.patch('wptgen.engine.Confirm.ask', side_effect=[True, False])
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -703,7 +720,7 @@ async def test_phase_test_generation_tag_fallbacks(
   # Suggestion with no tags at all
   suggestions_response = '<test_suggestion>empty</test_suggestion>'
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -735,7 +752,7 @@ async def test_phase_test_generation_duplicate_titles(
     '<test_suggestion><title>Same Title</title></test_suggestion>'
   )
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -761,7 +778,7 @@ async def test_phase_test_generation_partial_failure(
     '<test_suggestion><title>Fail Test</title></test_suggestion>'
   )
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
   # Mock _generate_and_save to succeed for one and fail for another
@@ -795,7 +812,7 @@ async def test_phase_test_generation_unicode_stability(
   context = {'metadata': MagicMock(name='Feat', description='Desc')}
   suggestions_response = '<test_suggestion><title>Test 🚀 & 中文</title></test_suggestion>'
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 
@@ -862,7 +879,7 @@ async def test_phase_test_generation_long_title(
   long_title = 'A' * 300
   suggestions_response = f'<test_suggestion><title>{long_title}</title></test_suggestion>'
 
-  mocker.patch('wptgen.engine.Prompt.ask', return_value='y')
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_gen_save = mocker.patch.object(engine, '_generate_and_save', return_value=None)
 

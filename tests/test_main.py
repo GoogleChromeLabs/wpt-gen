@@ -66,7 +66,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
 
   # Check standard output and exit code
   assert result.exit_code == 0
-  assert 'Starting WPT-Gen for feature' in result.stdout
+  assert 'Target Feature' in result.stdout
   assert 'Workflow completed successfully' in result.stdout
 
   # Verify our logic called the underlying functions with the correct CLI arguments

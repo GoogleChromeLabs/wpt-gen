@@ -20,8 +20,11 @@ from typing import Any
 import typer
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
+from rich.syntax import Syntax
+from rich.table import Table
 
 from wptgen.config import Config
 from wptgen.context import (
@@ -84,8 +87,11 @@ class WPTGenEngine:
 
   async def _provide_coverage_report(self, context: dict[str, Any], audit_response: str) -> None:
     """Prints the coverage audit report and optionally saves it to a file."""
-    self.console.print('\n[bold cyan]--- Coverage Audit Report ---[/bold cyan]')
-    self.console.print(audit_response)
+    self.console.print()
+    self.console.rule('[bold cyan]Coverage Audit Report')
+    self.console.print()
+    self.console.print(Markdown(audit_response))
+    self.console.print()
 
     if Confirm.ask('\nSave report to a file?'):
       # Create a sanitized filename from the feature ID
@@ -101,7 +107,9 @@ class WPTGenEngine:
         self.console.print(f'[bold red]Error saving file:[/bold red] {e}')
 
   async def _phase_requirements_extraction(self, context: dict[str, Any]) -> str | None:
-    self.console.print('\n[bold cyan]--- Phase 2: Requirements Extraction ---[/bold cyan]')
+    self.console.print()
+    self.console.rule('[bold cyan]Phase 2: Requirements Extraction')
+    self.console.print()
 
     web_feature_id = context['feature_id']
     cache_file = self.cache_dir / f'{web_feature_id}__requirements.xml'
@@ -146,7 +154,9 @@ class WPTGenEngine:
   async def _phase_coverage_audit(
     self, context: dict[str, Any], requirements_xml: str
   ) -> str | None:
-    self.console.print('\n[bold cyan]--- Phase 3: Coverage Audit ---[/bold cyan]')
+    self.console.print()
+    self.console.rule('[bold cyan]Phase 3: Coverage Audit')
+    self.console.print()
 
     audit_prompt = self.jinja_env.get_template('coverage_audit.jinja').render(
       requirements_list_xml=requirements_xml,
@@ -166,7 +176,9 @@ class WPTGenEngine:
     return audit_response
 
   async def _phase_context_assembly(self, web_feature_id: str) -> dict[str, Any] | None:
-    self.console.print('\n[bold cyan]--- Phase 1: Context Assembly ---[/bold cyan]')
+    self.console.print()
+    self.console.rule('[bold cyan]Phase 1: Context Assembly')
+    self.console.print()
 
     feature_data = fetch_feature_yaml(web_feature_id)
     if not feature_data:
@@ -197,10 +209,19 @@ class WPTGenEngine:
       self.console.print('[bold red]Error:[/bold red] No specification URL found.')
       return None
 
-    self.console.print(f'Web Feature Name: {metadata.name}\nDescription: {metadata.description}')
+    metadata_table = Table(show_header=False, box=None, padding=(0, 2))
+    metadata_table.add_row('[bold]Web Feature Name:[/bold]', f'[cyan]{metadata.name}[/cyan]')
+    metadata_table.add_row('[bold]Description:[/bold]', metadata.description)
+    metadata_table.add_row('[bold]Spec URL:[/bold]', f'[blue]{metadata.specs[0]}[/blue]')
 
-    self.console.print(f'Fetching spec content from: {metadata.specs[0]}')
-    with self.console.status('[blue]Fetching spec content...[/blue]'):
+    self.console.print(
+      Panel(
+        metadata_table, title='[bold]Feature Metadata[/bold]', border_style='blue', expand=False
+      )
+    )
+
+    self.console.print('\nFetching spec content...')
+    with self.console.status('[blue]Fetching and extracting text...[/blue]'):
       spec_contents = fetch_and_extract_text(metadata.specs[0])
 
     if not spec_contents:
@@ -227,7 +248,24 @@ class WPTGenEngine:
   async def _phase_test_generation(
     self, context: dict[str, Any], suggestions_response: str
   ) -> None:
-    self.console.print('\n[bold cyan]--- Phase 4: User Selection & Generation ---[/bold cyan]')
+    self.console.print()
+    self.console.rule('[bold cyan]Phase 4: User Selection & Generation')
+    self.console.print()
+
+    # Check for satisfaction status
+    status = self._extract_xml_tag(suggestions_response, 'status')
+    if status and status.strip() == 'SATISFIED':
+      self.console.print(
+        Panel(
+          '[bold green]All identified test requirements have been satisfied.[/bold green]\n'
+          '[italic]No new test suggestions were generated because existing coverage is sufficient.[/italic]',
+          title='[bold]Status[/bold]',
+          border_style='green',
+          expand=False,
+        )
+      )
+      return
+
     suggestions = self._parse_suggestions(suggestions_response)
 
     if not suggestions:
@@ -236,16 +274,24 @@ class WPTGenEngine:
       )
       return
 
-    self.console.print(f'{len(suggestions)} new test suggestions found!')
+    self.console.print(f'[bold green]{len(suggestions)}[/bold green] new test suggestions found!\n')
     approved_suggestions_xml: list[str] = []
 
     for idx, xml_block in enumerate(suggestions):
       title = self._extract_xml_tag(xml_block, 'title') or f'Suggestion #{idx + 1}'
       desc = self._extract_xml_tag(xml_block, 'description') or 'No description available'
 
-      self.console.print(Panel(f'[bold]{title}[/bold]\nDescription: {desc}', border_style='blue'))
-      if Prompt.ask('Generate this test?', choices=['y', 'n'], default='y') == 'y':
+      self.console.print(
+        Panel(
+          f'[italic]{desc}[/italic]',
+          title=f'[bold blue]Suggestion {idx + 1}:[/bold blue] [white]{title}[/white]',
+          title_align='left',
+          border_style='blue',
+        )
+      )
+      if Confirm.ask('Generate this test?', default=True):
         approved_suggestions_xml.append(xml_block)
+      self.console.print()
 
     if not approved_suggestions_xml:
       self.console.print('[yellow]No tests selected. Exiting.[/yellow]')
@@ -279,9 +325,28 @@ class WPTGenEngine:
       self._generate_and_save(prompt, filename, system_instruction, temperature=0.1)
       for prompt, filename in prompts_to_confirm
     ]
-    await asyncio.gather(*tasks)
+    generated_paths = await asyncio.gather(*tasks)
 
-    self.console.print('\n[bold green]✔ All selected tests generated successfully.[/bold green]')
+    # Filter out None values and show a final summary for this phase
+    final_paths = [p for p in generated_paths if p is not None]
+
+    if final_paths:
+      summary_table = Table(
+        title='Generated Tests Summary', show_header=True, header_style='bold green'
+      )
+      summary_table.add_column('File Name', style='cyan')
+      summary_table.add_column('Full Path', style='dim')
+
+      for p in final_paths:
+        summary_table.add_row(p.name, str(p.absolute()))
+
+      self.console.print()
+      self.console.print(summary_table)
+      self.console.print(
+        f'\n[bold green]✔ {len(final_paths)} tests generated successfully.[/bold green]'
+      )
+    else:
+      self.console.print('\n[bold red]✘ No tests were successfully generated.[/bold red]')
 
   def _parse_suggestions(self, raw_text: str) -> list[str]:
     return SUGGESTION_BLOCK_RE.findall(raw_text)
@@ -313,16 +378,23 @@ class WPTGenEngine:
 
       results = await asyncio.gather(*(get_info(p, n) for p, n in prompt_data))
 
-    self.console.print(f'[bold underline]Token Usage Summary ({phase_name}):[/bold underline]')
+    table = Table(
+      title=f'Token Usage Summary ({phase_name})', show_header=True, header_style='bold magenta'
+    )
+    table.add_column('Task', style='dim')
+    table.add_column('Tokens', justify='right', style='cyan')
+    table.add_column('Status', justify='center')
+
     for tokens, limit_exceeded, name in results:
       total_tokens += tokens
-      status_icon = '[bold red]⚠[/bold red]' if limit_exceeded else '[green]✔[/green]'
-      self.console.print(f'  {status_icon} [bold]{name}[/bold]: [cyan]{tokens}[/cyan] tokens')
+      status = '[bold red]EXCEEDED[/bold red]' if limit_exceeded else '[bold green]OK[/bold green]'
+      table.add_row(name, str(tokens), status)
       if limit_exceeded:
         any_limit_exceeded = True
 
+    self.console.print(table)
     if len(prompt_data) > 1:
-      self.console.print(f'  [bold]Total Estimate:[/bold] [cyan]{total_tokens}[/cyan] tokens')
+      self.console.print(f'[bold]Total Estimated Tokens:[/bold] [cyan]{total_tokens}[/cyan]')
 
     if any_limit_exceeded:
       self.console.print(
@@ -347,14 +419,20 @@ class WPTGenEngine:
     """Helper to run LLM generation in a thread and handle errors gracefully."""
     try:
       loop = asyncio.get_running_loop()
-      with self.console.status(f'[blue]Submitting {task_name}...[/blue]'):
+      with self.console.status(f'[blue]Executing {task_name}...[/blue]'):
         response = await loop.run_in_executor(
           None, self.llm.generate_content, prompt, system_instruction, temperature
         )
 
       self.console.print(f'✔ {task_name} finished.')
       if self.config.show_responses:
-        self.console.print(Panel(response, title=f'LLM Response: {task_name}', border_style='cyan'))
+        # Determine syntax highlighting based on content (defaulting to xml).
+        syntax_lexer = 'xml'
+        if 'gen:' in task_name.lower():
+          syntax_lexer = 'html'
+
+        syntax = Syntax(response, syntax_lexer, theme='monokai', line_numbers=True, word_wrap=True)
+        self.console.print(Panel(syntax, title=f'LLM Response: {task_name}', border_style='cyan'))
       return response
     except Exception as e:
       self.console.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
@@ -366,9 +444,9 @@ class WPTGenEngine:
     filename: str,
     system_instruction: str | None = None,
     temperature: float | None = None,
-  ) -> None:
+  ) -> Path | None:
     """Helper to generate a specific test and save it to disk."""
-    self.console.print(f'Starting generation for: {filename}...')
+    self.console.print(f'Starting generation for: [bold]{filename}[/bold]...')
     content = await self._generate_safe(prompt, f'Gen: {filename}', system_instruction, temperature)
 
     if content:
@@ -377,4 +455,6 @@ class WPTGenEngine:
       output_path = Path(self.config.output_dir or '.') / filename
       output_path.parent.mkdir(parents=True, exist_ok=True)
       output_path.write_text(clean_content, encoding='utf-8')
-      self.console.print(f'[green]Saved:[/green] {output_path.absolute()}')
+      self.console.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
+      return output_path
+    return None
