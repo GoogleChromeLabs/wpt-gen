@@ -68,3 +68,16 @@ def test_load_config_spec_urls(monkeypatch: pytest.MonkeyPatch) -> None:
   config = load_config(config_path='non_existent_dummy.yaml', spec_urls_override=spec_urls)
 
   assert config.spec_urls == spec_urls
+
+
+def test_load_config_max_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that max_retries is correctly loaded into the Config object."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.max_retries == 3
+
+  # Case 2: Override
+  config = load_config(config_path='non_existent_dummy.yaml', max_retries_override=10)
+  assert config.max_retries == 10

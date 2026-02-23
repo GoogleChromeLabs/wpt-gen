@@ -113,6 +113,29 @@ def test_gemini_count_tokens(mocker: MockerFixture, gemini_config: Config) -> No
   )
 
 
+def test_gemini_retry_on_failure(mocker: MockerFixture, gemini_config: Config) -> None:
+  """Test that GeminiClient retries on failure."""
+  mocker.patch('time.sleep')  # Speed up tests
+  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+  mock_instance = mock_client_class.return_value
+
+  # Mock the response to fail twice then succeed
+  mock_response = mocker.MagicMock()
+  mock_response.text = 'Success after retry'
+
+  mock_instance.models.generate_content.side_effect = [
+    Exception('Transient error 1'),
+    Exception('Transient error 2'),
+    mock_response,
+  ]
+
+  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.model)
+  result = client.generate_content(prompt='Test prompt')
+
+  assert result == 'Success after retry'
+  assert mock_instance.models.generate_content.call_count == 3
+
+
 def test_openai_generate_content(mocker: MockerFixture, openai_config: Config) -> None:
   """Test that OpenAIClient correctly maps to the OpenAI SDK."""
   # Arrange: Mock the OpenAI class and its deep method chain
@@ -144,6 +167,32 @@ def test_openai_generate_content(mocker: MockerFixture, openai_config: Config) -
       {'role': 'user', 'content': 'Test prompt'},
     ],
   )
+
+
+def test_openai_retry_on_failure(mocker: MockerFixture, openai_config: Config) -> None:
+  """Test that OpenAIClient retries on failure."""
+  mocker.patch('time.sleep')
+  mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
+  mock_instance = mock_openai_class.return_value
+
+  # Simulate OpenAI's deep response structure
+  mock_message = mocker.MagicMock()
+  mock_message.content = 'Success after OpenAI retry'
+  mock_choice = mocker.MagicMock()
+  mock_choice.message = mock_message
+  mock_response = mocker.MagicMock()
+  mock_response.choices = [mock_choice]
+
+  mock_instance.chat.completions.create.side_effect = [
+    Exception('OpenAI error 1'),
+    mock_response,
+  ]
+
+  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.model)
+  result = client.generate_content(prompt='Test prompt')
+
+  assert result == 'Success after OpenAI retry'
+  assert mock_instance.chat.completions.create.call_count == 2
 
 
 def test_gemini_prompt_exceeds_limit(mocker: MockerFixture, gemini_config: Config) -> None:
@@ -203,3 +252,22 @@ def test_openai_prompt_exceeds_limit(mocker: MockerFixture, openai_config: Confi
   # "a " is usually 1 token. 400,001 "a "s should exceed the limit.
   huge_prompt = 'a ' * 400001
   assert client.prompt_exceeds_input_token_limit(huge_prompt) is True
+
+
+def test_llm_client_custom_retries(mocker: MockerFixture, gemini_config: Config) -> None:
+  """Test that LLM clients respect the custom max_retries setting."""
+  mocker.patch('time.sleep')
+  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+  mock_instance = mock_client_class.return_value
+
+  # Config with 5 retries
+  gemini_config.max_retries = 5
+  client = get_llm_client(gemini_config)
+
+  # Mock to fail forever
+  mock_instance.models.generate_content.side_effect = Exception('Fail')
+
+  with pytest.raises(Exception, match='Fail'):
+    client.generate_content('test')
+
+  assert mock_instance.models.generate_content.call_count == 5

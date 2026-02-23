@@ -22,14 +22,19 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
 from wptgen.config import Config
+from wptgen.utils import retry
+
+# Default retry configuration for LLM calls
+MAX_RETRIES = 3
 
 
 class LLMClient(ABC):
   """Abstract base class for all LLM providers."""
 
-  def __init__(self, api_key: str, model: str):
+  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
     self.api_key = api_key
     self.model = model
+    self.max_retries = max_retries
 
   @abstractmethod
   def count_tokens(self, prompt: str) -> int:
@@ -48,17 +53,19 @@ class LLMClient(ABC):
 
 
 class GeminiClient(LLMClient):
-  def __init__(self, api_key: str, model: str):
-    super().__init__(api_key, model)
+  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
+    super().__init__(api_key, model, max_retries)
     # Initialize the official Google GenAI client
     self.client = genai.Client(api_key=self.api_key)
 
+  @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def count_tokens(self, prompt: str) -> int:
     response = self.client.models.count_tokens(model=self.model, contents=prompt)
     if response.total_tokens is None:
       raise ValueError('Gemini API returned no token count.')
     return response.total_tokens
 
+  @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     config = types.GenerateContentConfig()
     if system_instruction:
@@ -90,8 +97,8 @@ class GeminiClient(LLMClient):
 
 
 class OpenAIClient(LLMClient):
-  def __init__(self, api_key: str, model: str):
-    super().__init__(api_key, model)
+  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
+    super().__init__(api_key, model, max_retries)
     self.client = OpenAI(api_key=self.api_key)
 
   def count_tokens(self, prompt: str) -> int:
@@ -103,6 +110,7 @@ class OpenAIClient(LLMClient):
       encoding = tiktoken.get_encoding('cl100k_base')
     return len(encoding.encode(prompt))
 
+  @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
     messages: list[ChatCompletionMessageParam] = []
     if system_instruction:
@@ -141,8 +149,8 @@ class OpenAIClient(LLMClient):
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
   if config.provider == 'gemini':
-    return GeminiClient(api_key=config.api_key, model=config.model)
+    return GeminiClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
   elif config.provider == 'openai':
-    return OpenAIClient(api_key=config.api_key, model=config.model)
+    return OpenAIClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')
