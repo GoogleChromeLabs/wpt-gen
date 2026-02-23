@@ -1,0 +1,158 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import asyncio
+from pathlib import Path
+
+from jinja2 import Environment
+from rich.table import Table
+
+from wptgen.config import Config
+from wptgen.llm import LLMClient
+from wptgen.models import WorkflowContext
+from wptgen.phases.utils import confirm_prompts, generate_safe
+from wptgen.ui import UIProvider
+from wptgen.utils import (
+  FILENAME_SANITIZATION_RE,
+  MARKDOWN_CODE_BLOCK_RE,
+  extract_xml_tag,
+  parse_suggestions,
+)
+
+
+async def run_test_generation(
+  context: WorkflowContext,
+  config: Config,
+  llm: LLMClient,
+  ui: UIProvider,
+  jinja_env: Environment,
+) -> None:
+  ui.rule('Phase 4: User Selection & Generation')
+
+  assert context.audit_response is not None
+  assert context.metadata is not None
+
+  # Check for satisfaction status
+  status = extract_xml_tag(context.audit_response, 'status')
+  if status and status.strip() == 'SATISFIED':
+    ui.display_panel(
+      '[bold green]All identified test requirements have been satisfied.[/bold green]\n'
+      '[italic]No new test suggestions were generated because existing coverage is sufficient.[/italic]',
+      title='Status',
+      border_style='green',
+    )
+    return
+
+  suggestions = parse_suggestions(context.audit_response)
+
+  if not suggestions:
+    ui.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
+    return
+
+  ui.print(f'[bold green]{len(suggestions)}[/bold green] new test suggestions found!\n')
+  approved_suggestions_xml: list[str] = []
+
+  for idx, xml_block in enumerate(suggestions):
+    title = extract_xml_tag(xml_block, 'title') or f'Suggestion #{idx + 1}'
+    desc = extract_xml_tag(xml_block, 'description') or 'No description available'
+
+    ui.display_panel(
+      f'[italic]{desc}[/italic]',
+      title=f'Suggestion {idx + 1}: {title}',
+      border_style='blue',
+    )
+    if ui.confirm('Generate this test?', default=True):
+      approved_suggestions_xml.append(xml_block)
+    ui.print()
+
+  if not approved_suggestions_xml:
+    ui.print('[yellow]No tests selected. Exiting.[/yellow]')
+    return
+
+  # Prepare all generation prompts for batch confirmation
+  gen_template = jinja_env.get_template('test_generation.jinja')
+  system_instruction = jinja_env.get_template('test_generation_system.jinja').render()
+  prompts_to_confirm: list[tuple[str, str]] = []
+
+  for idx, suggestion_xml in enumerate(approved_suggestions_xml):
+    final_prompt = gen_template.render(
+      feature_name=context.metadata.name,
+      feature_description=context.metadata.description,
+      test_suggestion_xml_block=suggestion_xml,
+    )
+
+    raw_title = extract_xml_tag(suggestion_xml, 'title') or 'file'
+    # Include index to prevent filename collisions
+    slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
+    safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
+
+    prompts_to_confirm.append((final_prompt, safe_filename))
+
+  # Single confirmation for ALL tests
+  await confirm_prompts(
+    prompts_to_confirm, f'Generate {len(prompts_to_confirm)} Tests', llm, ui, config
+  )
+
+  ui.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
+
+  tasks = [
+    _generate_and_save(prompt, filename, llm, ui, config, system_instruction, temperature=0.1)
+    for prompt, filename in prompts_to_confirm
+  ]
+  generated_paths = await asyncio.gather(*tasks)
+
+  # Filter out None values and show a final summary for this phase
+  final_paths = [p for p in generated_paths if p is not None]
+
+  if final_paths:
+    summary_table = Table(
+      title='Generated Tests Summary', show_header=True, header_style='bold green'
+    )
+    summary_table.add_column('File Name', style='cyan')
+    summary_table.add_column('Full Path', style='dim')
+
+    for p in final_paths:
+      summary_table.add_row(p.name, str(p.absolute()))
+
+    ui.print()
+    ui.display_table(summary_table)
+    ui.print(f'\n[bold green]✔ {len(final_paths)} tests generated successfully.[/bold green]')
+  else:
+    ui.print('\n[bold red]✘ No tests were successfully generated.[/bold red]')
+
+
+async def _generate_and_save(
+  prompt: str,
+  filename: str,
+  llm: LLMClient,
+  ui: UIProvider,
+  config: Config,
+  system_instruction: str | None = None,
+  temperature: float | None = None,
+) -> Path | None:
+  """Helper to generate a specific test and save it to disk."""
+  ui.print(f'Starting generation for: [bold]{filename}[/bold]...')
+  content = await generate_safe(
+    prompt, f'Gen: {filename}', llm, ui, config, system_instruction, temperature
+  )
+
+  if content:
+    # Strip Markdown code blocks if the LLM added them (common behavior)
+    clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
+    output_path = Path(config.output_dir or '.') / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(clean_content, encoding='utf-8')
+    ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
+    return output_path
+  return None

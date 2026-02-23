@@ -16,12 +16,15 @@ import logging
 import re
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 from trafilatura import extract, fetch_url
+
+from wptgen.models import WebFeatureMetadata, WPTContext
+
+__all__ = ['WebFeatureMetadata', 'WPTContext']
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +35,6 @@ SCRIPT_DEPENDENCY_REGEX = re.compile(r'<script\s+[^>]*src=["\']([^"\']+)["\']')
 IMPORT_DEPENDENCY_REGEX = re.compile(
   r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
 )
-
-
-@dataclass
-class WebFeatureMetadata:
-  name: str
-  description: str
-  specs: list[str]
-
-
-@dataclass
-class WPTContext:
-  """Holds the results of a local WPT content and dependency fetch operation."""
-
-  test_contents: dict[str, str] = field(default_factory=dict)
-  dependency_contents: dict[str, str] = field(default_factory=dict)
-  test_to_deps: dict[str, set[str]] = field(default_factory=dict)
 
 
 def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:

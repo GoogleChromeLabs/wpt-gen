@@ -16,10 +16,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pytest_mock import MockerFixture
 
 from wptgen.config import Config
-from wptgen.engine import WPTGenEngine
+from wptgen.models import WebFeatureMetadata, WorkflowContext
+from wptgen.phases.requirements_extraction import run_requirements_extraction
 
 
 @pytest.fixture
@@ -46,98 +46,101 @@ def mock_llm() -> MagicMock:
 
 
 @pytest.fixture
-def engine(mock_config: Config, mock_llm: MagicMock) -> WPTGenEngine:
-  """Provides a WPTGenEngine instance with a mocked LLM client."""
-  with patch('wptgen.engine.get_llm_client', return_value=mock_llm):
-    return WPTGenEngine(mock_config)
+def mock_ui() -> MagicMock:
+  ui = MagicMock()
+  ui.status.return_value.__enter__.return_value = None
+  return ui
 
 
 @pytest.mark.asyncio
 async def test_requirements_cache_miss(
-  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+  mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-  """Verify that Phase 2 generates and saves cache on a miss."""
-  mock_metadata = MagicMock()
-  mock_metadata.name = 'Feat'
-  mock_metadata.description = 'Desc'
-  mock_metadata.specs = ['http://spec']
-
-  context = {
-    'feature_id': 'test-feat',
-    'metadata': mock_metadata,
-    'spec_contents': 'spec content',
-    'wpt_context': MagicMock(),
-  }
+  """Verify that requirements extraction generates and saves cache on a miss."""
+  metadata = WebFeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
+  context = WorkflowContext(
+    feature_id='test-feat',
+    metadata=metadata,
+    spec_contents='spec content',
+  )
+  cache_dir = tmp_path / 'cache'
+  cache_dir.mkdir()
 
   mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
-  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
-  result = await engine._phase_requirements_extraction(context)
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    result = await run_requirements_extraction(
+      context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+    )
 
   assert result == '<requirements_list>New Requirements</requirements_list>'
 
   # Verify cache file was created
-  cache_file = engine.cache_dir / 'test-feat__requirements.xml'
+  cache_file = cache_dir / 'test-feat__requirements.xml'
   assert cache_file.exists()
   assert cache_file.read_text() == '<requirements_list>New Requirements</requirements_list>'
 
 
 @pytest.mark.asyncio
 async def test_requirements_cache_hit_accept(
-  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+  mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-  """Verify that Phase 2 uses cached requirements when user accepts."""
+  """Verify that requirements extraction uses cached requirements when user accepts."""
   web_feature_id = 'cached-feat'
-  cache_file = engine.cache_dir / f'{web_feature_id}__requirements.xml'
+  cache_dir = tmp_path / 'cache'
+  cache_dir.mkdir()
+  cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
   cache_file.write_text('<requirements_list>Cached Requirements</requirements_list>')
 
-  context = {
-    'feature_id': web_feature_id,
-    'metadata': MagicMock(),
-    'wpt_context': MagicMock(),
-  }
+  context = WorkflowContext(
+    feature_id=web_feature_id,
+    metadata=MagicMock(),
+  )
 
   # User accepts cache
-  mock_confirm_ask = mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
+  mock_ui.confirm.return_value = True
 
-  result = await engine._phase_requirements_extraction(context)
+  result = await run_requirements_extraction(
+    context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir
+  )
 
   assert result == '<requirements_list>Cached Requirements</requirements_list>'
 
   # LLM should NOT have been called (for extraction).
   assert mock_llm.generate_content.call_count == 0
-  mock_confirm_ask.assert_called_once_with('Use cached requirements?')
+  mock_ui.confirm.assert_called_once_with('Use cached requirements?')
 
 
 @pytest.mark.asyncio
 async def test_requirements_cache_hit_reject(
-  engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
+  mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-  """Verify that Phase 2 regenerates requirements when user rejects cache."""
+  """Verify that requirements extraction regenerates requirements when user rejects cache."""
   web_feature_id = 'rejected-cache-feat'
-  cache_file = engine.cache_dir / f'{web_feature_id}__requirements.xml'
+  cache_dir = tmp_path / 'cache'
+  cache_dir.mkdir()
+  cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
   cache_file.write_text('<requirements_list>Old Cached Requirements</requirements_list>')
 
-  mock_metadata = MagicMock()
-  mock_metadata.name = 'Feat'
-  mock_metadata.description = 'Desc'
-  mock_metadata.specs = ['http://spec']
-
-  context = {
-    'feature_id': web_feature_id,
-    'metadata': mock_metadata,
-    'spec_contents': 'spec content',
-    'wpt_context': MagicMock(),
-  }
+  metadata = WebFeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
+  context = WorkflowContext(
+    feature_id=web_feature_id,
+    metadata=metadata,
+    spec_contents='spec content',
+  )
 
   # User rejects cache
-  mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
-  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
-
+  mock_ui.confirm.return_value = False
   mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
-  result = await engine._phase_requirements_extraction(context)
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    result = await run_requirements_extraction(
+      context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+    )
 
   assert result == '<requirements_list>New Requirements</requirements_list>'
 
