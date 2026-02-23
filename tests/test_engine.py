@@ -550,6 +550,48 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
 
 
 @pytest.mark.asyncio
+async def test_phase_context_assembly_unregistered_feature_with_spec_urls_and_description(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Context assembly succeeds for unregistered features if spec_urls and description are provided."""
+  engine.config.spec_urls = ['http://custom-spec']
+  engine.config.feature_description = 'Custom Description'
+  mocker.patch('wptgen.engine.fetch_feature_yaml', return_value=None)
+  mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Custom Spec Content')
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=[])
+  mocker.patch('wptgen.engine.gather_local_test_context', return_value=WPTContext())
+
+  context = await engine._phase_context_assembly('custom-feat')
+
+  assert context is not None
+  assert context['feature_id'] == 'custom-feat'
+  assert context['metadata'].name == 'custom-feat'
+  assert context['metadata'].description == 'Custom Description'
+  assert context['metadata'].specs == ['http://custom-spec']
+  assert context['spec_contents'] == 'Custom Spec Content'
+
+
+@pytest.mark.asyncio
+async def test_phase_context_assembly_unregistered_feature_missing_spec_or_desc(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Context assembly fails for unregistered features if either spec_urls or description are missing."""
+  mocker.patch('wptgen.engine.fetch_feature_yaml', return_value=None)
+
+  # Case 1: Only spec_urls provided
+  engine.config.spec_urls = ['http://spec']
+  engine.config.feature_description = None
+  result = await engine._phase_context_assembly('custom-feat')
+  assert result is None
+
+  # Case 2: Only description provided
+  engine.config.spec_urls = None
+  engine.config.feature_description = 'Description'
+  result = await engine._phase_context_assembly('custom-feat')
+  assert result is None
+
+
+@pytest.mark.asyncio
 async def test_phase_context_assembly_read_test_fails(
   engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
