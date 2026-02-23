@@ -67,7 +67,7 @@ class WPTGenEngine:
     unified_prompt = self.jinja_env.get_template('test_suggestions_unified.jinja').render(
       feature_name=context['metadata'].name,
       feature_description=context['metadata'].description,
-      spec_url=context['metadata'].specs[0],
+      spec_url=', '.join(context['metadata'].specs),
       spec_contents=context['spec_contents'],
       wpt_context=context['wpt_context'],
     )
@@ -144,6 +144,8 @@ class WPTGenEngine:
       return None
 
     metadata = extract_feature_metadata(feature_data)
+    if self.config.spec_urls:
+      metadata.specs = self.config.spec_urls
     if not metadata.specs:
       self.console.print('[bold red]Error:[/bold red] No specification URL found.')
       return None

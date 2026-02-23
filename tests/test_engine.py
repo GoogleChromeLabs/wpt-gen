@@ -356,6 +356,29 @@ async def test_phase_context_assembly_success(engine: WPTGenEngine, mocker: Mock
 
 
 @pytest.mark.asyncio
+async def test_phase_context_assembly_with_spec_urls(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Context assembly correctly uses spec_urls from config, overriding metadata specs."""
+  engine.config.spec_urls = ['http://url1', 'http://url2']
+  # fetch_feature_yaml must succeed now
+  mocker.patch('wptgen.engine.fetch_feature_yaml', return_value={'name': 'feat'})
+
+  # Should only fetch the FIRST URL in the current implementation
+  mock_fetch = mocker.patch('wptgen.engine.fetch_and_extract_text', return_value='Content 1')
+  mocker.patch('wptgen.engine.find_feature_tests', return_value=[])
+  mock_context = WPTContext()
+  mocker.patch('wptgen.engine.gather_local_test_context', return_value=mock_context)
+
+  context = await engine._phase_context_assembly('feat-id')
+
+  assert context is not None
+  assert context['metadata'].specs == ['http://url1', 'http://url2']
+  assert context['spec_contents'] == 'Content 1'
+  mock_fetch.assert_called_once_with('http://url1')
+
+
+@pytest.mark.asyncio
 async def test_phase_context_assembly_no_feature(
   engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
