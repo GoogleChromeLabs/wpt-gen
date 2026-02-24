@@ -19,7 +19,7 @@ import pytest
 
 from wptgen.config import Config
 from wptgen.models import WebFeatureMetadata, WorkflowContext
-from wptgen.phases.requirements_extraction import run_requirements_extraction
+from wptgen.phases.requirements_extraction import run_requirements_extraction_iterative
 
 
 @pytest.fixture
@@ -38,6 +38,7 @@ def mock_config(tmp_path: Path) -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
+      'evaluation': 'lightweight',
     },
     yes_tokens=True,
     cache_path=str(tmp_path / '.wpt-gen-cache'),
@@ -76,21 +77,28 @@ async def test_requirements_cache_miss(
   cache_dir = tmp_path / 'cache'
   cache_dir.mkdir()
 
-  mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
+  mock_llm.generate_content.side_effect = [
+    '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+  ]
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
   with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    result = await run_requirements_extraction(
+    result = await run_requirements_extraction_iterative(
       context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
     )
 
-  assert result == '<requirements_list>New Requirements</requirements_list>'
+  assert result is not None
+  assert '<requirement id="R1">' in result
+  assert 'New Requirements' in result
 
   # Verify cache file was created
   cache_file = cache_dir / 'test-feat__requirements.xml'
   assert cache_file.exists()
-  assert cache_file.read_text() == '<requirements_list>New Requirements</requirements_list>'
+  cache_content = cache_file.read_text()
+  assert '<requirement id="R1">' in cache_content
+  assert 'New Requirements' in cache_content
 
 
 @pytest.mark.asyncio
@@ -112,7 +120,7 @@ async def test_requirements_cache_hit_accept(
   # User accepts cache
   mock_ui.confirm.return_value = True
 
-  result = await run_requirements_extraction(
+  result = await run_requirements_extraction_iterative(
     context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir
   )
 
@@ -143,19 +151,26 @@ async def test_requirements_cache_hit_reject(
 
   # User rejects cache
   mock_ui.confirm.return_value = False
-  mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
+  mock_llm.generate_content.side_effect = [
+    '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+  ]
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
   with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    result = await run_requirements_extraction(
+    result = await run_requirements_extraction_iterative(
       context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
     )
 
-  assert result == '<requirements_list>New Requirements</requirements_list>'
+  assert result is not None
+  assert '<requirement id="R1">' in result
+  assert 'New Requirements' in result
 
-  # LLM should have been called once.
-  assert mock_llm.generate_content.call_count == 1
+  # LLM should have been called twice (one for data, one for exhaustion).
+  assert mock_llm.generate_content.call_count == 2
 
   # Cache file should be updated.
-  assert cache_file.read_text() == '<requirements_list>New Requirements</requirements_list>'
+  cache_content = cache_file.read_text()
+  assert '<requirement id="R1">' in cache_content
+  assert 'New Requirements' in cache_content

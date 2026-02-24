@@ -49,7 +49,12 @@ def mock_config() -> Config:
     api_key='key',
     wpt_path='/fake',
     categories={'reasoning': 'test-model', 'lightweight': 'test-model'},
-    phase_model_mapping={},
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+      'evaluation': 'lightweight',
+    },
     yes_tokens=False,
     show_responses=False,
   )

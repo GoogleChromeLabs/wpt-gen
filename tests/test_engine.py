@@ -86,6 +86,9 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   mock_extraction = mocker.patch(
     'wptgen.engine.run_requirements_extraction', return_value=requirements
   )
+  mock_extraction_iterative = mocker.patch(
+    'wptgen.engine.run_requirements_extraction_iterative', return_value=requirements
+  )
   mock_audit = mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
   mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
   mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
@@ -94,6 +97,7 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
 
   mock_assembly.assert_called_once()
   mock_extraction.assert_called_once()
+  mock_extraction_iterative.assert_not_called()
   mock_audit.assert_called_once()
   mock_gen.assert_called_once()
   mock_eval.assert_called_once()
@@ -144,6 +148,31 @@ async def test_run_async_workflow_suggestions_only(
 
   mock_provide.assert_called_once()
   mock_gen.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_async_workflow_detailed_requirements(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Verifies that run_requirements_extraction_iterative is called when config.detailed_requirements is True."""
+  engine.config.detailed_requirements = True
+  context = WorkflowContext(feature_id='feat-id')
+  requirements = 'reqs'
+
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
+  mock_extraction = mocker.patch(
+    'wptgen.engine.run_requirements_extraction', return_value=requirements
+  )
+  mock_extraction_iterative = mocker.patch(
+    'wptgen.engine.run_requirements_extraction_iterative', return_value=requirements
+  )
+  mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
+  mocker.patch('wptgen.engine.run_test_generation', return_value=[])
+
+  await engine._run_async_workflow('feat-id')
+
+  mock_extraction.assert_not_called()
+  mock_extraction_iterative.assert_called_once()
 
 
 def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:

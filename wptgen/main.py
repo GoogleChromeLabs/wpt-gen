@@ -113,6 +113,13 @@ def generate(
       help='Manually provide a description for the web feature.',
     ),
   ] = None,
+  detailed_requirements: Annotated[
+    bool,
+    typer.Option(
+      '--detailed-requirements',
+      help='Use a more detailed, iterative requirements extraction process.',
+    ),
+  ] = False,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -150,6 +157,7 @@ def generate(
       max_retries_override=max_retries,
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
+      detailed_requirements_override=detailed_requirements,
     )
 
     config_info = Text.assemble(
