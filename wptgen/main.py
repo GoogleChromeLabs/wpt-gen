@@ -64,7 +64,6 @@ def generate(
       '-o',
       help='Directory where generated tests will be saved.',
       dir_okay=True,
-      resolve_path=True,
     ),
   ] = None,
   config_path: Annotated[

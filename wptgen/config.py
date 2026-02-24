@@ -59,6 +59,27 @@ DEFAULT_CONFIG_PATH = os.path.abspath('wpt-gen.yml')
 WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
 
 
+def validate_output_dir(output_dir: str) -> str:
+  """
+  Expands ~, resolves the path, ensures it exists (creating if necessary),
+  and verifies write permissions.
+  """
+  path = Path(output_dir).expanduser().resolve()
+
+  try:
+    # Ensure the directory exists
+    path.mkdir(parents=True, exist_ok=True)
+
+    # Verify write permissions by attempting to create and remove a temporary file
+    test_file = path / '.wpt-gen-write-test'
+    test_file.touch()
+    test_file.unlink()
+  except (OSError, PermissionError) as e:
+    raise ValueError(f"CRITICAL: Cannot write to output directory '{output_dir}': {e}") from e
+
+  return str(path)
+
+
 def load_config(
   config_path: str = DEFAULT_CONFIG_PATH,
   provider_override: str | None = None,
@@ -110,7 +131,9 @@ def load_config(
     )
 
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
-  output_dir = output_dir_override or yaml_data.get('output_dir', '.')
+  output_dir_raw = output_dir_override or yaml_data.get('output_dir', '.')
+  output_dir = validate_output_dir(output_dir_raw)
+
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
