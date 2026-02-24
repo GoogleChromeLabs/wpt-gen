@@ -264,7 +264,7 @@ async def test_generate_safe_show_responses(
   result = await engine._generate_safe('prompt', 'Task', 'System Instruction')
 
   assert result == 'Verbose Response'
-  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction')
+  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction', None)
   # Check that console.print was called with the response in a Panel
   assert mock_console_print.call_count >= 2
 
@@ -331,7 +331,7 @@ async def test_generate_and_save_success(
   with patch('wptgen.engine.Path', return_value=filename):
     await engine._generate_and_save('prompt', 'test.html', 'System Instruction')
 
-  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction')
+  mock_llm.generate_content.assert_called_with('prompt', 'System Instruction', None)
   assert filename.exists()
   assert filename.read_text() == '<html></html>'
 

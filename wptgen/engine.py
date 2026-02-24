@@ -72,6 +72,9 @@ class WPTGenEngine:
       spec_contents=context['spec_contents'],
       wpt_context=context['wpt_context'],
     )
+    unified_system_prompt = self.jinja_env.get_template(
+      'test_suggestions_unified_system.jinja'
+    ).render()
 
     loop = asyncio.get_running_loop()
     with self.console.status('[yellow]Checking context window for unified prompt...[/yellow]'):
@@ -82,7 +85,9 @@ class WPTGenEngine:
     if fits:
       self.console.print('[green]Using unified prompt flow (fits in context window).[/green]')
       # Phase 2: Consolidated Test Suggestions
-      suggestions = await self._phase_unified_suggestions(unified_prompt)
+      suggestions = await self._phase_unified_suggestions(
+        unified_prompt, system_instruction=unified_system_prompt
+      )
     else:
       self.console.print(
         '[yellow]Context too large for unified prompt. Using multi-step flow.[/yellow]'
@@ -123,10 +128,14 @@ class WPTGenEngine:
       except Exception as e:
         self.console.print(f'[bold red]Error saving file:[/bold red] {e}')
 
-  async def _phase_unified_suggestions(self, prompt: str) -> str | None:
+  async def _phase_unified_suggestions(
+    self, prompt: str, system_instruction: str | None = None
+  ) -> str | None:
     self.console.print('\n[bold cyan]--- Phase 2: Consolidated Test Suggestions ---[/bold cyan]')
     await self._confirm_prompts([(prompt, 'Consolidated Suggestions')], 'Consolidated Suggestions')
-    response = await self._generate_safe(prompt, 'Consolidated Suggestions')
+    response = await self._generate_safe(
+      prompt, 'Consolidated Suggestions', system_instruction=system_instruction, temperature=0.0
+    )
 
     if not response:
       self.console.print(
@@ -390,14 +399,18 @@ class WPTGenEngine:
       raise typer.Abort()
 
   async def _generate_safe(
-    self, prompt: str, task_name: str, system_instruction: str | None = None
+    self,
+    prompt: str,
+    task_name: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
   ) -> str:
     """Helper to run LLM generation in a thread and handle errors gracefully."""
     try:
       loop = asyncio.get_running_loop()
       with self.console.status(f'[blue]Submitting {task_name}...[/blue]'):
         response = await loop.run_in_executor(
-          None, self.llm.generate_content, prompt, system_instruction
+          None, self.llm.generate_content, prompt, system_instruction, temperature
         )
 
       self.console.print(f'✔ {task_name} finished.')

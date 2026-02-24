@@ -78,6 +78,10 @@ async def test_unified_flow_fits_in_context(engine: WPTGenEngine, mocker: Mocker
 
   # Should use unified flow
   mock_unified.assert_called_once()
+  # Verify system prompt was passed (rendered from template)
+  args, kwargs = mock_unified.call_args
+  assert 'system_instruction' in kwargs
+  assert 'SYSTEM ROLE' in kwargs['system_instruction']
 
   # Should NOT use multi-step flow
   mock_analysis.assert_not_called()
@@ -133,16 +137,25 @@ async def test_unified_flow_exceeds_context(engine: WPTGenEngine, mocker: Mocker
 async def test_phase_unified_suggestions_execution(
   engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-  """Verify that _phase_unified_suggestions correctly calls the LLM."""
+  """Verify that _phase_unified_suggestions correctly calls the LLM with system prompt."""
   prompt = 'Unified Prompt'
+  system_prompt = 'System Prompt'
 
   mocker.patch.object(engine, '_confirm_prompts', return_value=None)
   mock_generate = mocker.patch.object(engine, '_generate_safe', return_value='Suggestions')
 
-  result = await engine._phase_unified_suggestions(prompt)
+  # Test without system prompt
+  await engine._phase_unified_suggestions(prompt)
+  mock_generate.assert_called_with(
+    prompt, 'Consolidated Suggestions', system_instruction=None, temperature=0.0
+  )
 
+  # Test with system prompt
+  result = await engine._phase_unified_suggestions(prompt, system_instruction=system_prompt)
   assert result == 'Suggestions'
-  mock_generate.assert_called_once_with(prompt, 'Consolidated Suggestions')
+  mock_generate.assert_called_with(
+    prompt, 'Consolidated Suggestions', system_instruction=system_prompt, temperature=0.0
+  )
 
 
 @pytest.mark.asyncio

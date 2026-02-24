@@ -42,7 +42,12 @@ class LLMClient(ABC):
     pass
 
   @abstractmethod
-  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
+  def generate_content(
+    self,
+    prompt: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+  ) -> str:
     """Generates a response from the LLM."""
     pass
 
@@ -66,10 +71,17 @@ class GeminiClient(LLMClient):
     return response.total_tokens
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
+  def generate_content(
+    self,
+    prompt: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+  ) -> str:
     config = types.GenerateContentConfig()
     if system_instruction:
       config.system_instruction = system_instruction
+    if temperature is not None:
+      config.temperature = temperature
 
     response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
     if response.text is None:
@@ -111,13 +123,20 @@ class OpenAIClient(LLMClient):
     return len(encoding.encode(prompt))
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def generate_content(self, prompt: str, system_instruction: str | None = None) -> str:
+  def generate_content(
+    self,
+    prompt: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+  ) -> str:
     messages: list[ChatCompletionMessageParam] = []
     if system_instruction:
       messages.append({'role': 'system', 'content': system_instruction})
     messages.append({'role': 'user', 'content': prompt})
 
-    response = self.client.chat.completions.create(model=self.model, messages=messages)
+    response = self.client.chat.completions.create(
+      model=self.model, messages=messages, temperature=temperature
+    )
     content = response.choices[0].message.content
     if content is None:
       raise ValueError('OpenAI API returned no content.')

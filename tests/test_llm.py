@@ -166,6 +166,7 @@ def test_openai_generate_content(mocker: MockerFixture, openai_config: Config) -
       {'role': 'system', 'content': 'Test instruction'},
       {'role': 'user', 'content': 'Test prompt'},
     ],
+    temperature=None,
   )
 
 
