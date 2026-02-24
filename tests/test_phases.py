@@ -27,6 +27,7 @@ from wptgen.phases.requirements_extraction import run_requirements_extraction
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
+  """Fixture that provides a mocked UI provider with a status context manager."""
   ui = MagicMock()
   ui.status.return_value.__enter__.return_value = None
   return ui
@@ -34,6 +35,7 @@ def mock_ui() -> MagicMock:
 
 @pytest.fixture
 def mock_config() -> Config:
+  """Fixture that provides a basic test configuration."""
   return Config(
     provider='test',
     default_model='test-model',
@@ -55,6 +57,7 @@ def mock_config() -> Config:
 
 @pytest.fixture
 def mock_llm() -> MagicMock:
+  """Fixture that provides a mocked LLM client."""
   llm = MagicMock()
   llm.count_tokens.return_value = 10
   llm.prompt_exceeds_input_token_limit.return_value = False
@@ -65,6 +68,7 @@ def mock_llm() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicMock) -> None:
+  """Test successful context assembly for a registered feature."""
   with (
     patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
     patch(
@@ -85,9 +89,98 @@ async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicM
 
 
 @pytest.mark.asyncio
+async def test_run_context_assembly_unregistered_with_params(
+  mock_config: Config, mock_ui: MagicMock
+) -> None:
+  """Test context assembly for an unregistered feature with manual parameters."""
+  mock_config.spec_urls = ['http://manual-spec']
+  mock_config.feature_description = 'Manual Description'
+
+  with (
+    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None),
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
+    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
+  ):
+    context = await run_context_assembly('unregistered', mock_config, mock_ui)
+
+    assert context is not None
+    assert context.metadata is not None
+    assert context.metadata.name == 'unregistered'
+    assert context.metadata.specs == ['http://manual-spec']
+    assert context.metadata.description == 'Manual Description'
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_not_found(mock_config: Config, mock_ui: MagicMock) -> None:
+  """Test context assembly when feature is not found and no manual params provided."""
+  with patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None):
+    context = await run_context_assembly('not-found', mock_config, mock_ui)
+    assert context is None
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_override_metadata(
+  mock_config: Config, mock_ui: MagicMock
+) -> None:
+  """Test that manual parameters override registered feature metadata."""
+  mock_config.spec_urls = ['http://override-spec']
+  mock_config.feature_description = 'Override Description'
+
+  with (
+    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
+    patch(
+      'wptgen.phases.context_assembly.extract_feature_metadata',
+      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    ),
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
+    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
+  ):
+    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+    assert context is not None
+    assert context.metadata is not None
+    assert context.metadata.specs == ['http://override-spec']
+    assert context.metadata.description == 'Override Description'
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_no_specs(mock_config: Config, mock_ui: MagicMock) -> None:
+  """Test context assembly failure when no spec URLs are found."""
+  with (
+    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
+    patch(
+      'wptgen.phases.context_assembly.extract_feature_metadata',
+      return_value=WebFeatureMetadata('Feat', 'Desc', []),
+    ),
+  ):
+    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+    assert context is None
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_spec_fetch_failure(
+  mock_config: Config, mock_ui: MagicMock
+) -> None:
+  """Test context assembly failure when spec fetching fails."""
+  with (
+    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
+    patch(
+      'wptgen.phases.context_assembly.extract_feature_metadata',
+      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    ),
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value=''),
+  ):
+    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+    assert context is None
+
+
+@pytest.mark.asyncio
 async def test_run_requirements_extraction_cached(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
+  """Test requirements extraction when a valid cache exists."""
   context = WorkflowContext(
     feature_id='feat',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
@@ -108,9 +201,32 @@ async def test_run_requirements_extraction_cached(
 
 
 @pytest.mark.asyncio
+async def test_run_requirements_extraction_failure(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test requirements extraction failure when generation fails."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  # Mock generate_safe to return empty string
+  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value=''):
+    res = await run_requirements_extraction(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is None
+
+
+@pytest.mark.asyncio
 async def test_run_coverage_audit_success(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:
+  """Test successful coverage audit."""
   context = WorkflowContext(
     feature_id='feat', requirements_xml='<reqs></reqs>', wpt_context=WPTContext()
   )
@@ -127,9 +243,39 @@ async def test_run_coverage_audit_success(
 
 
 @pytest.mark.asyncio
+async def test_provide_coverage_report(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  """Test saving and displaying the coverage report."""
+  from wptgen.phases.coverage_audit import provide_coverage_report
+
+  context = WorkflowContext(feature_id='feat-id', audit_response='Audit markdown')
+  mock_config.output_dir = str(tmp_path)
+
+  # Test saving to file
+  mock_ui.confirm.return_value = True
+  await provide_coverage_report(context, mock_config, mock_ui)
+
+  expected_path = tmp_path / 'feat-id_coverage_audit.md'
+  assert expected_path.exists()
+  assert expected_path.read_text() == 'Audit markdown'
+
+  # Test not saving to file
+  mock_ui.confirm.return_value = False
+  await provide_coverage_report(context, mock_config, mock_ui)
+
+  # Test error during save
+  mock_ui.confirm.return_value = True
+  with patch('wptgen.phases.coverage_audit.Path.write_text', side_effect=Exception('error')):
+    await provide_coverage_report(context, mock_config, mock_ui)
+    mock_ui.print.assert_any_call('[bold red]Error saving file:[/bold red] error')
+
+
+@pytest.mark.asyncio
 async def test_run_test_generation_satisfied(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:
+  """Test test generation when audit status is SATISFIED."""
   context = WorkflowContext(
     feature_id='feat',
     audit_response='<status>SATISFIED</status>',
@@ -148,6 +294,7 @@ async def test_run_test_generation_satisfied(
 async def test_run_test_generation_success(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
+  """Test successful test generation from suggestions."""
   suggestion_xml = (
     '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
   )
@@ -171,5 +318,75 @@ async def test_run_test_generation_success(
 
   expected_file = tmp_path / 't1__GENERATED_01_.html'
   assert expected_file.exists()
+
   assert expected_file.read_text() == '<html></html>'
   assert res == [(expected_file, '<html></html>', suggestion_xml)]
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_no_suggestions(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Test test generation when no suggestions are found in audit response."""
+  context = WorkflowContext(
+    feature_id='feat',
+    audit_response='no suggestions here',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  jinja_env = MagicMock()
+
+  res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert res == []
+  mock_ui.print.assert_any_call(
+    '[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]'
+  )
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_none_selected(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Test test generation when user rejects all suggestions."""
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestion_xml,
+  )
+  jinja_env = MagicMock()
+
+  mock_ui.confirm.return_value = False
+
+  res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert res == []
+  mock_ui.print.assert_any_call('[yellow]No tests selected. Exiting.[/yellow]')
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_failure(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test test generation failure when LLM call fails."""
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestion_xml,
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  mock_ui.confirm.return_value = True
+  # Mock generation_safe to return empty string (failure)
+  with patch('wptgen.phases.generation.generate_safe', return_value=''):
+    with patch('wptgen.phases.generation.Path.read_text', return_value='Style Guide'):
+      res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert res == []
+  mock_ui.print.assert_any_call('\n[bold red]✘ No tests were successfully generated.[/bold red]')

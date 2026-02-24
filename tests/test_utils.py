@@ -210,3 +210,32 @@ def test_retry_max_attempts_cap(mocker: MockerFixture) -> None:
 
   # Should only have attempted MAX_RETRIES times
   assert call_count == MAX_RETRIES
+
+
+def test_retry_errors() -> None:
+  """Test error conditions in the retry decorator."""
+
+  # 1. max_attempts_attr used without 'self' (args empty)
+  @retry(exceptions=Exception, max_attempts_attr='retries')
+  def no_self() -> None:
+    pass
+
+  with pytest.raises(ValueError, match="Cannot find attribute 'retries' because 'self' is missing"):
+    no_self()
+
+  # 2. max_attempts_attr missing from 'self'
+  class BadClass:
+    @retry(exceptions=Exception, max_attempts_attr='truly_missing_attr')
+    def missing_attr(self) -> None:
+      pass
+
+  with pytest.raises(ValueError, match="has no attribute 'truly_missing_attr'"):
+    BadClass().missing_attr()
+
+  # 3. max_attempts < 1
+  @retry(exceptions=Exception, max_attempts=0)
+  def invalid_attempts() -> None:
+    pass
+
+  with pytest.raises(ValueError, match='max_attempts must be an integer >= 1'):
+    invalid_attempts()

@@ -39,7 +39,7 @@ class LLMClient(ABC):
   @abstractmethod
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
     """Returns the total number of tokens for the given prompt."""
-    pass
+    pass  # pragma: no cover
 
   @abstractmethod
   def generate_content(
@@ -50,12 +50,12 @@ class LLMClient(ABC):
     model: str | None = None,
   ) -> str:
     """Generates a response from the LLM."""
-    pass
+    pass  # pragma: no cover
 
   @abstractmethod
   def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
     """Checks if the prompt exceeds the model's input token limit."""
-    pass
+    pass  # pragma: no cover
 
 
 class GeminiClient(LLMClient):

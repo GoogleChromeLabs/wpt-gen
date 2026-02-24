@@ -136,3 +136,35 @@ def test_validate_output_dir_permission_error(tmp_path: Path) -> None:
       validate_output_dir(str(restricted_dir / 'subdir'))
   finally:
     restricted_dir.chmod(0o777)  # Clean up
+
+
+def test_get_default_cache_path_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path on Windows."""
+  monkeypatch.setattr('sys.platform', 'win32')
+  monkeypatch.setenv('LOCALAPPDATA', 'C:\\AppData\\Local')
+  from wptgen.config import _get_default_cache_path
+
+  path = _get_default_cache_path()
+  assert 'C:' in path
+  assert 'AppData' in path
+  assert 'Local' in path
+  assert 'wpt-gen' in path
+  assert 'Cache' in path
+
+
+def test_get_default_cache_path_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path on Darwin (macOS)."""
+  monkeypatch.setattr('sys.platform', 'darwin')
+  from wptgen.config import _get_default_cache_path
+
+  path = _get_default_cache_path()
+  assert 'Library/Caches/wpt-gen' in path
+
+
+def test_get_default_cache_path_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path with XDG_CACHE_HOME."""
+  monkeypatch.setattr('sys.platform', 'linux')
+  monkeypatch.setenv('XDG_CACHE_HOME', '/tmp/custom_cache')
+  from wptgen.config import _get_default_cache_path
+
+  assert _get_default_cache_path() == '/tmp/custom_cache/wpt-gen'

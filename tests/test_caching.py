@@ -56,6 +56,7 @@ def mock_llm() -> MagicMock:
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
+  """Provides a mocked UI provider with a status context manager."""
   ui = MagicMock()
   ui.status.return_value.__enter__.return_value = None
   return ui

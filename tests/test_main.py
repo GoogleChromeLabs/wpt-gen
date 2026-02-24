@@ -264,3 +264,22 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     spec_urls_override=None,
     feature_description_override='Test Description',
   )
+
+
+def test_version_not_found(mocker: MockerFixture) -> None:
+  """Test version command when package is not found."""
+  mocker.patch('wptgen.main.app_version', side_effect=ImportError)  # Typer might use importlib
+  # Actually main.py catches PackageNotFoundError
+  from importlib.metadata import PackageNotFoundError
+
+  mocker.patch('wptgen.main.app_version', side_effect=PackageNotFoundError)
+  result = runner.invoke(app, ['version'])
+  assert result.exit_code == 0
+  assert 'unknown' in result.stdout
+
+
+def test_main_callback() -> None:
+  """Test the main callback."""
+  from wptgen.main import main_callback
+
+  main_callback()  # Should just pass
