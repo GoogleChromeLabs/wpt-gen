@@ -47,6 +47,7 @@ def mock_config() -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
+      'evaluation': 'lightweight',
     },
     cache_path='/tmp/cache',
   )
@@ -136,8 +137,9 @@ async def test_run_test_generation_satisfied(
   )
   jinja_env = MagicMock()
 
-  await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+  res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
+  assert res == []
   mock_ui.display_panel.assert_called_once()
   assert 'satisfied' in mock_ui.display_panel.call_args[0][0].lower()
 
@@ -146,10 +148,13 @@ async def test_run_test_generation_satisfied(
 async def test_run_test_generation_success(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
   context = WorkflowContext(
     feature_id='feat',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    audit_response='<test_suggestion><title>T1</title><description>D1</description></test_suggestion>',
+    audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Generated Content'
@@ -158,9 +163,13 @@ async def test_run_test_generation_success(
   mock_llm.generate_content.return_value = '<html></html>'
   mock_config.output_dir = str(tmp_path)
 
-  with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
-    await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+  with (
+    patch('wptgen.phases.generation.confirm_prompts', return_value=None),
+    patch('wptgen.phases.generation.Path.read_text', return_value='Style Guide Content'),
+  ):
+    res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   expected_file = tmp_path / 't1__GENERATED_01_.html'
   assert expected_file.exists()
   assert expected_file.read_text() == '<html></html>'
+  assert res == [(expected_file, '<html></html>', suggestion_xml)]

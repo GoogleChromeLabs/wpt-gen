@@ -166,6 +166,7 @@ def load_config(
     'requirements_extraction': 'reasoning',
     'coverage_audit': 'reasoning',
     'generation': 'lightweight',
+    'evaluation': 'lightweight',
   }
   phase_model_mapping = yaml_data.get('phase_model_mapping', default_phase_mapping)
 

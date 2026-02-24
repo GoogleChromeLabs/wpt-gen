@@ -39,6 +39,7 @@ def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) 
     'requirements_extraction': 'reasoning',
     'coverage_audit': 'reasoning',
     'generation': 'lightweight',
+    'evaluation': 'lightweight',
   }
 
 

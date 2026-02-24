@@ -37,7 +37,7 @@ async def run_test_generation(
   llm: LLMClient,
   ui: UIProvider,
   jinja_env: Environment,
-) -> None:
+) -> list[tuple[Path, str, str]]:
   ui.rule('Phase 4: User Selection & Generation')
 
   assert context.audit_response is not None
@@ -52,13 +52,13 @@ async def run_test_generation(
       title='Status',
       border_style='green',
     )
-    return
+    return []
 
   suggestions = parse_suggestions(context.audit_response)
 
   if not suggestions:
     ui.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
-    return
+    return []
 
   ui.print(f'[bold green]{len(suggestions)}[/bold green] new test suggestions found!\n')
   approved_suggestions_xml: list[str] = []
@@ -78,12 +78,19 @@ async def run_test_generation(
 
   if not approved_suggestions_xml:
     ui.print('[yellow]No tests selected. Exiting.[/yellow]')
-    return
+    return []
+
+  # Load the style guide
+  style_guide_path = Path(__file__).parent.parent / 'templates' / 'resources' / 'wpt_style_guide.md'
+  style_guide = style_guide_path.read_text(encoding='utf-8')
 
   # Prepare all generation prompts for batch confirmation
   gen_template = jinja_env.get_template('test_generation.jinja')
-  system_instruction = jinja_env.get_template('test_generation_system.jinja').render()
-  prompts_to_confirm: list[tuple[str, str]] = []
+  system_instruction = jinja_env.get_template('test_generation_system.jinja').render(
+    wpt_style_guide=style_guide
+  )
+
+  prompts_to_confirm: list[tuple[str, str, str]] = []
 
   for idx, suggestion_xml in enumerate(approved_suggestions_xml):
     final_prompt = gen_template.render(
@@ -97,11 +104,11 @@ async def run_test_generation(
     slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
     safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
 
-    prompts_to_confirm.append((final_prompt, safe_filename))
+    prompts_to_confirm.append((final_prompt, safe_filename, suggestion_xml))
 
   # Single confirmation for ALL tests
   await confirm_prompts(
-    prompts_to_confirm,
+    [(p, f) for p, f, s in prompts_to_confirm],
     f'Generate {len(prompts_to_confirm)} Tests',
     llm,
     ui,
@@ -112,40 +119,45 @@ async def run_test_generation(
   ui.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
 
   tasks = [
-    _generate_and_save(prompt, filename, llm, ui, config, system_instruction, temperature=0.1)
-    for prompt, filename in prompts_to_confirm
+    _generate_and_save(
+      prompt, filename, suggestion_xml, llm, ui, config, system_instruction, temperature=0.1
+    )
+    for prompt, filename, suggestion_xml in prompts_to_confirm
   ]
-  generated_paths = await asyncio.gather(*tasks)
+  results = await asyncio.gather(*tasks)
 
   # Filter out None values and show a final summary for this phase
-  final_paths = [p for p in generated_paths if p is not None]
+  final_results = [r for r in results if r is not None]
 
-  if final_paths:
+  if final_results:
     summary_table = Table(
       title='Generated Tests Summary', show_header=True, header_style='bold green'
     )
     summary_table.add_column('File Name', style='cyan')
     summary_table.add_column('Full Path', style='dim')
 
-    for p in final_paths:
+    for p, _content, _s_xml in final_results:
       summary_table.add_row(p.name, str(p.absolute()))
 
     ui.print()
     ui.display_table(summary_table)
-    ui.print(f'\n[bold green]✔ {len(final_paths)} tests generated successfully.[/bold green]')
+    ui.print(f'\n[bold green]✔ {len(final_results)} tests generated successfully.[/bold green]')
   else:
     ui.print('\n[bold red]✘ No tests were successfully generated.[/bold red]')
+
+  return final_results
 
 
 async def _generate_and_save(
   prompt: str,
   filename: str,
+  suggestion_xml: str,
   llm: LLMClient,
   ui: UIProvider,
   config: Config,
   system_instruction: str | None = None,
   temperature: float | None = None,
-) -> Path | None:
+) -> tuple[Path, str, str] | None:
   """Helper to generate a specific test and save it to disk."""
   ui.print(f'Starting generation for: [bold]{filename}[/bold]...')
   content = await generate_safe(
@@ -166,5 +178,5 @@ async def _generate_and_save(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(clean_content, encoding='utf-8')
     ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
-    return output_path
+    return output_path, clean_content, suggestion_xml
   return None
