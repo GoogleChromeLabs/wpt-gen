@@ -27,10 +27,52 @@ from wptgen.context import (
   extract_feature_metadata,
   fetch_and_extract_text,
   fetch_feature_yaml,
+  fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
   resolve_dependency_path,
 )
+
+
+def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
+  """Test successfully fetching MDN URLs from the mapping JSON."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = (
+    b'{"fetch": [{"url": "https://developer.mozilla.org/en-US/docs/Web/API/fetch"}]}'
+  )
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_mdn_urls('fetch')
+
+  assert result == ['https://developer.mozilla.org/en-US/docs/Web/API/fetch']
+  mock_urlopen.assert_called_once()
+  request_obj = mock_urlopen.call_args[0][0]
+  assert 'mdn-docs.json' in request_obj.full_url
+
+
+def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
+  """Test that if a feature ID is not in the mapping, it returns an empty list."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = b'{"fetch": [{"url": "https://example.com"}]}'
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_mdn_urls('unknown')
+
+  assert result == []
+
+
+def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
+  """Test that HTTP errors during mapping fetch return an empty list."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_urlopen.side_effect = urllib.error.HTTPError(
+    url='', code=404, msg='Not Found', hdrs=Message(), fp=None
+  )
+
+  result = fetch_mdn_urls('fetch')
+
+  assert result == []
 
 
 def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:

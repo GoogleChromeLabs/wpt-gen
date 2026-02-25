@@ -43,3 +43,4 @@ class WorkflowContext:
   audit_response: str | None = None
   suggestions: list[str] = field(default_factory=list)
   approved_suggestions_xml: list[str] = field(default_factory=list)
+  mdn_contents: list[str] | None = None
