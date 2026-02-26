@@ -145,3 +145,44 @@ async def test_run_test_evaluation_no_response(
   mock_ui.print.assert_any_call(
     f'[yellow]⚠ No response for evaluation of {test_path.name}. Keeping original.[/yellow]'
   )
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_reftest_correction(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  # Mock style guide and templates
+  style_guide_content = 'Style Guide Content'
+
+  test_path = tmp_path / 'test.html'
+  ref_path = tmp_path / 'test-ref.html'
+  test_path.write_text('original test content')
+  ref_path.write_text('original ref content')
+
+  suggestion_xml = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_tests = [
+    (test_path, 'original test content', suggestion_xml),
+    (ref_path, 'original ref content', suggestion_xml),
+  ]
+
+  # Mock LLM returning corrected content for BOTH files
+  mock_llm.generate_content.return_value = """
+[FILE_1: test.html]
+corrected test content
+[/FILE_1]
+
+[FILE_2: test-ref.html]
+corrected ref content
+[/FILE_2]
+"""
+
+  with patch('wptgen.phases.evaluation.Path.read_text', return_value=style_guide_content):
+    await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  assert test_path.read_text() == 'corrected test content'
+  assert ref_path.read_text() == 'corrected ref content'
+  mock_ui.print.assert_any_call('[cyan]ℹ test.html was corrected and updated.[/cyan]')
+  mock_ui.print.assert_any_call('[cyan]ℹ test-ref.html was corrected and updated.[/cyan]')
