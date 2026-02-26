@@ -340,7 +340,7 @@ class WPTGenEngine:
     self.console.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
 
     tasks = [
-      self._generate_and_save(prompt, filename, system_instruction)
+      self._generate_and_save(prompt, filename, system_instruction, temperature=0.1)
       for prompt, filename in prompts_to_confirm
     ]
     await asyncio.gather(*tasks)
@@ -425,11 +425,15 @@ class WPTGenEngine:
       return ''
 
   async def _generate_and_save(
-    self, prompt: str, filename: str, system_instruction: str | None = None
+    self,
+    prompt: str,
+    filename: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
   ) -> None:
     """Helper to generate a specific test and save it to disk."""
     self.console.print(f'Starting generation for: {filename}...')
-    content = await self._generate_safe(prompt, f'Gen: {filename}', system_instruction)
+    content = await self._generate_safe(prompt, f'Gen: {filename}', system_instruction, temperature)
 
     if content:
       # Strip Markdown code blocks if the LLM added them (common behavior)
