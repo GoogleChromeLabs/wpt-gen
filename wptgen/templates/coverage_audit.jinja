@@ -1,0 +1,21 @@
+Execute the Audit Protocol on the following requirements and test suite.
+
+{{requirements_list_xml}}
+
+<test_suite>
+  <test_batch>
+  {% for path, contents in wpt_context.test_contents.items() %}
+    <test_file path="{{ path }}">
+{{ contents }}
+    </test_file>
+  {% endfor %}
+  </test_batch>
+
+  <dependency_library>
+  {% for path, contents in wpt_context.dependency_contents.items() %}
+    <dependency_file path="{{ path }}">
+{{ contents }}
+    </dependency_file>
+  {% endfor %}
+  </dependency_library>
+</test_suite>

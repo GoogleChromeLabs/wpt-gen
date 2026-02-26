@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,104 +53,96 @@ def engine(mock_config: Config, mock_llm: MagicMock) -> WPTGenEngine:
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_miss(
+async def test_requirements_cache_miss(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
   """Verify that Phase 2 generates and saves cache on a miss."""
+  mock_metadata = MagicMock()
+  mock_metadata.name = 'Feat'
+  mock_metadata.description = 'Desc'
+  mock_metadata.specs = ['http://spec']
+
   context = {
-    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
-    'spec_contents': 'spec',
+    'feature_id': 'test-feat',
+    'metadata': mock_metadata,
+    'spec_contents': 'spec content',
     'wpt_context': MagicMock(),
   }
 
-  # Mock LLM to return distinct responses based on prompt content.
-  def llm_side_effect(prompt: str, *args: Any) -> str:
-    if '<spec_document>' in prompt:
-      return 'New Spec Synthesis'
-    return 'New Test Analysis'
+  mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
+  mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
-  mock_llm.generate_content.side_effect = llm_side_effect
+  result = await engine._phase_requirements_extraction(context)
 
-  # Mock Confirm.ask to return True if called
-  # (though it shouldn't be for cache check if file doesn't exist).
-  mock_confirm_ask = mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-
-  web_feature_id = 'test-feat'
-  result = await engine._phase_requirements_analysis(web_feature_id, context)
-
-  assert result == ('New Spec Synthesis', 'New Test Analysis')
+  assert result == '<requirements_list>New Requirements</requirements_list>'
 
   # Verify cache file was created
-  cache_file = engine.spec_synthesis_cache_dir / f'{web_feature_id}.md'
+  cache_file = engine.cache_dir / 'test-feat__requirements.xml'
   assert cache_file.exists()
-  assert cache_file.read_text() == 'New Spec Synthesis'
-
-  # Confirm.ask should NOT have been called for cache because file didn't exist
-  # Wait, Confirm.ask is also used in _confirm_prompts, but we set yes_tokens=True
-  mock_confirm_ask.assert_not_called()
+  assert cache_file.read_text() == '<requirements_list>New Requirements</requirements_list>'
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_hit_accept(
+async def test_requirements_cache_hit_accept(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Verify that Phase 2 uses cached synthesis when user accepts."""
+  """Verify that Phase 2 uses cached requirements when user accepts."""
   web_feature_id = 'cached-feat'
-  cache_file = engine.spec_synthesis_cache_dir / f'{web_feature_id}.md'
-  cache_file.write_text('Cached Spec Synthesis')
+  cache_file = engine.cache_dir / f'{web_feature_id}__requirements.xml'
+  cache_file.write_text('<requirements_list>Cached Requirements</requirements_list>')
 
   context = {
-    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
-    'spec_contents': 'spec',
+    'feature_id': web_feature_id,
+    'metadata': MagicMock(),
     'wpt_context': MagicMock(),
   }
 
   # User accepts cache
   mock_confirm_ask = mocker.patch('wptgen.engine.Confirm.ask', return_value=True)
-  # Only Test Analysis should be generated
-  mock_llm.generate_content.return_value = 'New Test Analysis'
 
-  result = await engine._phase_requirements_analysis(web_feature_id, context)
+  result = await engine._phase_requirements_extraction(context)
 
-  assert result == ('Cached Spec Synthesis', 'New Test Analysis')
+  assert result == '<requirements_list>Cached Requirements</requirements_list>'
 
-  # LLM should only have been called once (for Test Analysis).
-  assert mock_llm.generate_content.call_count == 1
-  mock_confirm_ask.assert_called_once_with('Use cached Spec Synthesis?')
+  # LLM should NOT have been called (for extraction).
+  assert mock_llm.generate_content.call_count == 0
+  mock_confirm_ask.assert_called_once_with('Use cached requirements?')
 
 
 @pytest.mark.asyncio
-async def test_requirements_analysis_cache_hit_reject(
+async def test_requirements_cache_hit_reject(
   engine: WPTGenEngine, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Verify that Phase 2 regenerates synthesis when user rejects cache."""
+  """Verify that Phase 2 regenerates requirements when user rejects cache."""
   web_feature_id = 'rejected-cache-feat'
-  cache_file = engine.spec_synthesis_cache_dir / f'{web_feature_id}.md'
-  cache_file.write_text('Old Cached Spec Synthesis')
+  cache_file = engine.cache_dir / f'{web_feature_id}__requirements.xml'
+  cache_file.write_text('<requirements_list>Old Cached Requirements</requirements_list>')
+
+  mock_metadata = MagicMock()
+  mock_metadata.name = 'Feat'
+  mock_metadata.description = 'Desc'
+  mock_metadata.specs = ['http://spec']
 
   context = {
-    'metadata': MagicMock(name='Feat', description='Desc', specs=['http://spec']),
-    'spec_contents': 'spec',
+    'feature_id': web_feature_id,
+    'metadata': mock_metadata,
+    'spec_contents': 'spec content',
     'wpt_context': MagicMock(),
   }
 
   # User rejects cache
   mocker.patch('wptgen.engine.Confirm.ask', return_value=False)
+  mocker.patch.object(engine, '_confirm_prompts', return_value=None)
 
-  # Both should be generated
-  def llm_side_effect(prompt: str, *args: Any) -> str:
-    if '<spec_document>' in prompt:
-      return 'New Spec Synthesis'
-    return 'New Test Analysis'
+  mock_llm.generate_content.return_value = '<requirements_list>New Requirements</requirements_list>'
 
-  mock_llm.generate_content.side_effect = llm_side_effect
+  result = await engine._phase_requirements_extraction(context)
 
-  result = await engine._phase_requirements_analysis(web_feature_id, context)
+  assert result == '<requirements_list>New Requirements</requirements_list>'
 
-  assert result == ('New Spec Synthesis', 'New Test Analysis')
-
-  # LLM should have been called twice.
-  assert mock_llm.generate_content.call_count == 2
+  # LLM should have been called once.
+  assert mock_llm.generate_content.call_count == 1
 
   # Cache file should be updated.
-  assert cache_file.read_text() == 'New Spec Synthesis'
+  assert cache_file.read_text() == '<requirements_list>New Requirements</requirements_list>'
