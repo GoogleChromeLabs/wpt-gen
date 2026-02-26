@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,7 +30,6 @@ def mock_config(tmp_path: Path) -> Config:
     provider='llmbargainbin',
     default_model='discountmodel',
     api_key='fake-key',
-    wpt_path=os.path.abspath(os.sep + 'fake' + os.sep + 'wpt'),
     categories={
       'lightweight': 'fastmodel',
       'reasoning': 'smartmodel',
@@ -43,7 +41,9 @@ def mock_config(tmp_path: Path) -> Config:
       'evaluation': 'lightweight',
     },
     yes_tokens=False,
+    wpt_path=str(tmp_path / 'wpt'),
     cache_path=str(tmp_path / '.wpt-gen-cache'),
+    output_dir=str(tmp_path / 'output'),
   )
 
 

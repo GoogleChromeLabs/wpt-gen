@@ -1,156 +1,109 @@
-This guide provides comprehensive instructions and best practices for generating high-quality Web Platform Tests. It is optimized for use by LLMs to understand the structure, APIs, and conventions of the WPT project.
+This guide provides a detailed overview of the best practices that apply in Web Platform Tests (WPT).
+
+Following these guidelines ensures that your tests are robust, cross-platform, and maintainable.
 
 ---
 
-## 1. Core Philosophy
-*   **Be Short:** Tests should be as concise as possible. Avoid extraneous elements.
-*   **Be Self-Contained:** No external network dependencies.
-*   **Be Cross-Platform:** Work across devices, resolutions, and OSs.
-*   **Be Conservative:** Avoid edge cases of features not being tested. Use standard features supported by major browsers (Chrome, Firefox, Safari).
-*   **Be Self-Describing:** It should be obvious if a test passes or fails without reading the spec.
+## 1. File Organization and Naming
+
+WPT uses file names and directory structures to determine how tests are run.
+
+### 1.1 Descriptive Naming
+Files should have descriptive names that reflect the feature being tested. Avoid generic names like `test1.html`.
+*   **Format**: `test-topic-###.html` (e.g., `flexbox-layout-001.html`).
+*   **Path Length**: Ensure the test path is less than **150 characters** relative to the test root directory to avoid Windows path length limitations.
+
+### 1.2 Universal Filename Flags
+Flags are added to the filename to enable specific server features. These apply to all three test types:
+*   `.https`: Loads the test over HTTPS (e.g., `my-test.https.html`).
+*   `.h2`: Loads the test over HTTP/2.
+*   `.sub`: Enables [server-side substitution](https://web-platform-tests.org/writing-tests/server-pipes.html#sub), allowing placeholders like `{{host}}`.
+*   `.tentative`: Indicates the test is for a feature not yet fully standardized.
+
+### 1.3 Support Files
+Place auxiliary files (images, scripts, etc.) in directories named `resources`, `support`, or in common areas like `/common/`, `/media/`, or `/css/support/`.
 
 ---
 
-## 2. Test Types & File Naming
-The file extension and name flags determine how the test is run.
+## 2. Core Metadata
 
-### A. JavaScript Tests (`testharness.js`)
-Used for testing APIs and logic.
-*   `.any.js`: Runs in multiple globals (Window, Workers).
-*   `.window.js`: Runs in a Window global.
-*   `.worker.js`: Runs in a Dedicated Worker.
-*   **Boilerplate:** For `.js` files, WPT generates the HTML. For `.html` files, you must include:
-    ```html
-    <script src="/resources/testharness.js"></script>
-    <script src="/resources/testharnessreport.js"></script>
-    ```
+Every test file should contain metadata to describe its purpose and requirements.
 
-### B. Reftests (Rendering Tests)
-Compares the rendering of two files.
-*   **Structure:** A test file and a reference file.
-*   **Link:** `<link rel="match" href="reference.html">` (or `rel="mismatch"`).
-*   **Pass Condition:** Pixel-perfect match (800x600 viewport).
+### 2.1 Character Encoding
+All tests must be encoded in **UTF-8**.
+*   **Requirement**: Include `<meta charset="utf-8">` as the first tag in the `<head>` of HTML files.
 
-### C. Crashtests
-Checks if a page crashes or leaks.
-*   **Naming:** Ends in `-crash.html` or located in a `crashtests/` directory.
-*   **Pass Condition:** Page loads and paints without crashing. No `testharness.js` required.
+### 2.2 Documentation Links
+Link to the relevant specification using `<link rel="help">`. This is required for CSS tests and highly recommended for all others.
+```html
+<link rel="help" href="https://www.w3.org/TR/css-flexbox-1/#flex-direction-property">
+```
 
-### D. Naming Conventions & Flags
-*   **Format:** `{test-topic}-{index}.html` (e.g., `flexbox-layout-001.html`). Use descriptive names.
-*   `.https.html`: Requires HTTPS.
-*   `.h2.html`: Requires HTTP/2.
-*   `.sub.html`: Enables server-side substitution.
-*   `.tentative.html`: For experimental/non-standard features.
-*   `.optional.html`: For optional spec features (RFC 2119 "MAY").
-
----
-
-## 3. The `testharness.js` API
-
-### Subtest Types
-1.  **`test(fn, name)`**: For synchronous tests.
-    ```javascript
-    test(() => {
-      assert_equals(1 + 1, 2);
-    }, "Addition works");
-    ```
-2.  **`promise_test(fn, name)`**: For asynchronous code using Promises (preferred).
-    ```javascript
-    promise_test(async t => {
-      const result = await fetch("/data");
-      assert_true(result.ok);
-    }, "Fetch works");
-    ```
-3.  **`async_test(fn, name)`**: For callback-based asynchronous code.
-    ```javascript
-    async_test(t => {
-      document.onclick = t.step_func_done(e => {
-        assert_true(e.isTrusted);
-      });
-    }, "Click is trusted");
-    ```
-
-### Key Assertions
-*   `assert_equals(actual, expected, description)`
-*   `assert_true(actual, description)`
-*   `assert_throws_dom(type, fn, description)`: For DOMExceptions (e.g., "IndexSizeError").
-*   `assert_throws_js(type, fn, description)`: For JS errors (e.g., `TypeError`).
-*   `promise_rejects_dom(t, type, promise)`: For promises that should fail.
-
-### Event Handling
-Use `EventWatcher` for sequenced events:
-```javascript
-const watcher = new EventWatcher(t, element, ["start", "end"]);
-await watcher.wait_for("start");
-// ... action ...
-await watcher.wait_for("end");
+### 2.3 Test Assertions
+Use a `<meta name="assert">` tag to provide a concise description of what the test is verifying.
+```html
+<meta name="assert" content="Checks that flex-direction: row-reverse correctly mirrors the main axis.">
 ```
 
 ---
 
-## 4. Metadata & Inclusion
-### JavaScript Meta Tags
-Use `// META` comments at the top of `.js` files:
-*   `// META: title=Test Title`
-*   `// META: script=/common/utils.js` (Include helper scripts)
-*   `// META: global=window,worker` (Define execution scopes)
+## 3. General Principles
 
-### HTML Metadata
-*   `<link rel="help" href="https://spec.whatwg.org/#feature">`: Links to the specification.
-*   `<meta name="timeout" content="long">`: For slow tests.
+### 3.1 Be Short and Focused
+Tests should be as minimal as possible.
+*   Avoid extraneous HTML tags (like `<html>` or `<body>` if they aren't strictly necessary).
+*   Ensure the test only verifies the specific feature intended.
+
+### 3.2 Be Conservative
+Avoid depending on edge-case behavior of unrelated features.
+*   Ensure there are **no parse errors**.
+*   Only use features that are broadly supported across major browser engines (Safari, Chrome, Firefox) unless they are the subject of the test.
+
+### 3.3 Be Cross-Platform
+Assume the following defaults:
+*   Viewport dimensions of at least 800px by 600px.
+*   Canvas background is `white`, and initial `color` is `black`.
+*   No specific system fonts are installed. Use the **Ahem font** for tests requiring precise text metrics.
+
+### 3.4 Be Self-Contained
+Tests **must not** depend on external network resources. Use local support files or WPT's cross-origin host features if multiple domains are needed.
+
+### 3.5 Be Self-Describing
+It should be obvious to a human reviewer whether the test passed or failed.
 
 ---
 
-## 5. User Interaction (`testdriver.js`)
-Always include both scripts. Use `test_driver` for actions requiring user activation or privileged access.
+## 4. Automation with `testdriver.js`
+
+For tests requiring user interaction (clicks, key presses, etc.) that cannot be triggered via standard APIs, use `testdriver.js`. This is supported by JS tests, reftests, and crashtests.
+
+### 4.1 Setup
+Include the following scripts in your HTML:
 ```html
 <script src="/resources/testdriver.js"></script>
 <script src="/resources/testdriver-vendor.js"></script>
 ```
-Example:
-```javascript
-await test_driver.bless("permission request");
-await test_driver.click(button);
-```
 
----
-
-## 6. Server-Side Features
-### Substitution (`.sub.html`)
-Use {% raw %}`{{host}}`, `{{ports[http][0]}}`, or `{{domains[www]}}`{% endraw %}.
-### Pipes (`?pipe=...`)
-*   `status(404)`: Return 404.
-*   `header(Name, Value)`: Set response header.
-*   `trickle(100:d1:r2)`: Send 100 bytes, delay 1s, repeat.
-
----
-
-## 7. Rendering & SVG
-### Ahem Font
-Essential for predictable text rendering in reftests.
+### 4.2 Usage Example
 ```html
-<link rel="stylesheet" href="/fonts/ahem.css">
-<style>
-  .test { font: 20px/1 Ahem; color: green; }
-</style>
+<script>
+  async function performAction() {
+    const button = document.getElementById("target");
+    await test_driver.click(button);
+    // Continue with test logic or remove wait classes
+  }
+  performAction();
+</script>
 ```
-
-### SVG Tests
-SVG files are supported and can include `testharness.js` via `<h:script>`.
-```xml
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:h="http://www.w3.org/1999/xhtml">
-  <h:script src="/resources/testharness.js"/>
-  <h:script src="/resources/testharnessreport.js"/>
-</svg>
-```
+*Note: While the automation API is universal, each test type has its own specific mechanism for managing asynchrony and signaling test completion.*
 
 ---
 
-## 8. Summary Checklist for LLM Generation
-1.  **Type:** API (testharness), Rendering (reftest), or Crash?
-2.  **Environment:** Window, Worker, or both (`.any.js`)?
-3.  **Security:** Does it need `.https`?
-4.  **Async:** Use `promise_test` and `add_cleanup`.
-5.  **Aesthetics:** For reftests, use Ahem and 800x600 layout.
-6.  **Spec Link:** Always include a `<link rel="help">`.
+## 5. Style and Linting
+
+Consistent style is enforced across the entire WPT repository.
+
+### 5.1 Formatting Rules
+*   **Indentation**: Use spaces, not tabs.
+*   **Whitespace**: No trailing whitespace.
+*   **Line Endings**: Use UNIX-style (LF) line endings.

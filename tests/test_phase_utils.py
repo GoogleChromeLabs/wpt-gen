@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -41,13 +42,12 @@ def mock_llm() -> MagicMock:
 
 
 @pytest.fixture
-def mock_config() -> Config:
+def mock_config(tmp_path: Path) -> Config:
   """Fixture that provides a basic test configuration."""
   return Config(
     provider='test',
     default_model='test-model',
     api_key='key',
-    wpt_path='/fake',
     categories={'reasoning': 'test-model', 'lightweight': 'test-model'},
     phase_model_mapping={
       'requirements_extraction': 'reasoning',
@@ -55,6 +55,9 @@ def mock_config() -> Config:
       'generation': 'lightweight',
       'evaluation': 'lightweight',
     },
+    wpt_path=str(tmp_path / 'wpt'),
+    cache_path=str(tmp_path / 'cache'),
+    output_dir=str(tmp_path / 'output'),
     yes_tokens=False,
     show_responses=False,
   )

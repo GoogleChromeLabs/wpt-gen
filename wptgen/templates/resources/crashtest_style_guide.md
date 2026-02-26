@@ -1,5 +1,3 @@
-# Crashtest Best Practices
-
 Crash tests are a vital part of the Web Platform Tests (WPT) suite. They ensure that the browser can load a document without crashing, hanging, or triggering low-level issues like assertions, memory leaks, or sanitizer failures.
 
 This guide provides a deep dive into the best practices for writing high-quality crashtests that conform to WPT standards.

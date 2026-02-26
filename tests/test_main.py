@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from importlib.metadata import version
+from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
@@ -27,13 +27,12 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def mock_config() -> Config:
+def mock_config(tmp_path: Path) -> Config:
   """Provides a dummy configuration object for successful test runs."""
   return Config(
     provider='gemini',
     default_model='gemini-3.1-pro-preview',
     api_key='fake-key',
-    wpt_path=os.path.join('..', 'wpt'),
     categories={
       'lightweight': 'gemini-3.1-pro-preview',
       'reasoning': 'gemini-3-pro-preview',
@@ -44,6 +43,9 @@ def mock_config() -> Config:
       'generation': 'lightweight',
       'evaluation': 'lightweight',
     },
+    wpt_path=str(tmp_path / 'wpt'),
+    cache_path=str(tmp_path / 'cache'),
+    output_dir=str(tmp_path / 'output'),
     max_retries=3,
   )
 

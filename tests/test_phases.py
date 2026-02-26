@@ -37,13 +37,12 @@ def mock_ui() -> MagicMock:
 
 
 @pytest.fixture
-def mock_config() -> Config:
+def mock_config(tmp_path: Path) -> Config:
   """Fixture that provides a basic test configuration."""
   return Config(
     provider='test',
     default_model='test-model',
     api_key='test-key',
-    wpt_path='/fake/wpt',
     categories={
       'lightweight': 'fast-model',
       'reasoning': 'smart-model',
@@ -54,7 +53,9 @@ def mock_config() -> Config:
       'generation': 'lightweight',
       'evaluation': 'lightweight',
     },
-    cache_path='/tmp/cache',
+    wpt_path=str(tmp_path / 'wpt'),
+    cache_path=str(tmp_path / 'cache'),
+    output_dir=str(tmp_path / 'output'),
   )
 
 
@@ -696,3 +697,169 @@ async def test_run_requirements_extraction_iterative_no_reqs_at_all(
     )
 
   assert res is None
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_dynamic_style_guides(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Verify that different test types load different style guides."""
+  suggestions_xml = """
+<test_suggestions>
+  <test_suggestion>
+    <title>JS Test</title>
+    <description>JS Desc</description>
+    <test_type>JavaScript Test</test_type>
+  </test_suggestion>
+  <test_suggestion>
+    <title>Ref Test</title>
+    <description>Ref Desc</description>
+    <test_type>Reftest</test_type>
+  </test_suggestion>
+  <test_suggestion>
+    <title>Crash Test</title>
+    <description>Crash Desc</description>
+    <test_type>Crashtest</test_type>
+  </test_suggestion>
+</test_suggestions>
+"""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestions_xml,
+  )
+
+  jinja_env = MagicMock()
+  system_template_mock = MagicMock()
+  gen_template_mock = MagicMock()
+
+  def get_template_side_effect(name: str) -> MagicMock:
+    if name == 'test_generation_system.jinja':
+      return system_template_mock
+    return gen_template_mock
+
+  jinja_env.get_template.side_effect = get_template_side_effect
+
+  # We need to mock Path.read_text to avoid actually reading files during test.
+  # Using autospec=True or patching at the class level is better for methods.
+  with patch('wptgen.phases.generation.Path.read_text', autospec=True) as mock_read:
+    mock_read.side_effect = lambda self, encoding='utf-8': f'Content of {self.name}'
+
+    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
+      with patch('wptgen.phases.generation.generate_safe', return_value='<html></html>'):
+        await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  # Check that system_template_mock.render was called 3 times with different style guides
+  assert system_template_mock.render.call_count == 3
+
+  calls = system_template_mock.render.call_args_list
+
+  # Call 1: JS Test
+  assert calls[0].kwargs['test_type'] == 'JavaScript Test'
+  assert calls[0].kwargs['test_type_guide'] == 'Content of javascript_html_style_guide.md'
+
+  # Call 2: Reftest
+  assert calls[1].kwargs['test_type'] == 'Reftest'
+  assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
+
+  # Call 3: Crashtest
+  assert calls[2].kwargs['test_type'] == 'Crashtest'
+  assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
+
+  # Also verify wpt_style_guide was passed to all
+  for call in calls:
+    assert call.kwargs['wpt_style_guide'] == 'Content of wpt_style_guide.md'
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_normalization(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Verify that test type string normalization works."""
+  suggestions_xml = """
+<test_suggestion>
+  <title>Lower JS</title>
+  <test_type>javascript test</test_type>
+</test_suggestion>
+"""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestions_xml,
+  )
+
+  jinja_env = MagicMock()
+  system_template_mock = MagicMock()
+  gen_template_mock = MagicMock()
+
+  def get_template_side_effect(name: str) -> MagicMock:
+    if name == 'test_generation_system.jinja':
+      return system_template_mock
+    return gen_template_mock
+
+  jinja_env.get_template.side_effect = get_template_side_effect
+
+  with patch('wptgen.phases.generation.Path.read_text', return_value='Guide Content'):
+    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
+      with patch('wptgen.phases.generation.generate_safe', return_value='<html></html>'):
+        await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  # Should normalize "javascript test" to "JavaScript Test" from the Enum
+  assert system_template_mock.render.call_args.kwargs['test_type'] == 'JavaScript Test'
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_dynamic_style_guides(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Verify that different test types load different style guides during evaluation."""
+  generated_tests = [
+    (
+      Path('js_test.html'),
+      'content',
+      '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>',
+    ),
+    (
+      Path('ref_test.html'),
+      'content',
+      '<test_suggestion><test_type>Reftest</test_type></test_suggestion>',
+    ),
+    (
+      Path('crash_test.html'),
+      'content',
+      '<test_suggestion><test_type>Crashtest</test_type></test_suggestion>',
+    ),
+  ]
+  context = WorkflowContext(feature_id='feat')
+
+  jinja_env = MagicMock()
+  system_template_mock = MagicMock()
+  eval_template_mock = MagicMock()
+
+  def get_template_side_effect(name: str) -> MagicMock:
+    if name == 'evaluation_system.jinja':
+      return system_template_mock
+    return eval_template_mock
+
+  jinja_env.get_template.side_effect = get_template_side_effect
+
+  with patch('wptgen.phases.evaluation.Path.read_text', autospec=True) as mock_read:
+    mock_read.side_effect = lambda self, encoding='utf-8': f'Content of {self.name}'
+
+    with patch('wptgen.phases.evaluation.generate_safe', return_value='PASS'):
+      from wptgen.phases.evaluation import run_test_evaluation
+
+      await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  # Check that system_template_mock.render was called 3 times with different style guides
+  assert system_template_mock.render.call_count == 3
+  calls = system_template_mock.render.call_args_list
+
+  assert calls[0].kwargs['test_type'] == 'JavaScript Test'
+  assert calls[0].kwargs['test_type_guide'] == 'Content of javascript_html_style_guide.md'
+
+  assert calls[1].kwargs['test_type'] == 'Reftest'
+  assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
+
+  assert calls[2].kwargs['test_type'] == 'Crashtest'
+  assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'

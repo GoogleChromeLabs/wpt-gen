@@ -20,7 +20,7 @@ from rich.table import Table
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import WorkflowContext
+from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
@@ -80,19 +80,36 @@ async def run_test_generation(
     ui.print('[yellow]No tests selected. Exiting.[/yellow]')
     return []
 
-  # Load the style guide
-  style_guide_path = Path(__file__).parent.parent / 'templates' / 'resources' / 'wpt_style_guide.md'
-  style_guide = style_guide_path.read_text(encoding='utf-8')
+  # Load the general style guide
+  resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
+  wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
 
-  # Prepare all generation prompts for batch confirmation
+  # Prepare templates
   gen_template = jinja_env.get_template('test_generation.jinja')
-  system_instruction = jinja_env.get_template('test_generation_system.jinja').render(
-    wpt_style_guide=style_guide
-  )
+  system_template = jinja_env.get_template('test_generation_system.jinja')
 
-  prompts_to_confirm: list[tuple[str, str, str]] = []
+  prompts_to_confirm: list[tuple[str, str, str, str]] = []
 
   for idx, suggestion_xml in enumerate(approved_suggestions_xml):
+    # Extract and normalize test type
+    raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
+    test_type_enum = TestType.JAVASCRIPT
+    for member in TestType:
+      if member.value.lower() == raw_test_type.lower():
+        test_type_enum = member
+        break
+
+    # Load the specific style guide for this test type
+    guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
+    test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
+
+    # Render the system instruction with both general and type-specific rules
+    system_instruction = system_template.render(
+      wpt_style_guide=wpt_style_guide,
+      test_type=test_type_enum.value,
+      test_type_guide=test_type_guide,
+    )
+
     final_prompt = gen_template.render(
       feature_name=context.metadata.name,
       feature_description=context.metadata.description,
@@ -104,11 +121,11 @@ async def run_test_generation(
     slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
     safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
 
-    prompts_to_confirm.append((final_prompt, safe_filename, suggestion_xml))
+    prompts_to_confirm.append((final_prompt, safe_filename, suggestion_xml, system_instruction))
 
   # Single confirmation for ALL tests
   await confirm_prompts(
-    [(p, f) for p, f, s in prompts_to_confirm],
+    [(p, f) for p, f, s, si in prompts_to_confirm],
     f'Generate {len(prompts_to_confirm)} Tests',
     llm,
     ui,
@@ -122,7 +139,7 @@ async def run_test_generation(
     _generate_and_save(
       prompt, filename, suggestion_xml, llm, ui, config, system_instruction, temperature=0.1
     )
-    for prompt, filename, suggestion_xml in prompts_to_confirm
+    for prompt, filename, suggestion_xml, system_instruction in prompts_to_confirm
   ]
   results = await asyncio.gather(*tasks)
 

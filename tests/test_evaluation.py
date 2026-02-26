@@ -31,13 +31,12 @@ def mock_ui() -> MagicMock:
 
 
 @pytest.fixture
-def mock_config() -> Config:
+def mock_config(tmp_path: Path) -> Config:
   """Fixture that provides a basic test configuration."""
   return Config(
     provider='test',
     default_model='test-model',
     api_key='test-key',
-    wpt_path='/fake/wpt',
     categories={'lightweight': 'test-model', 'reasoning': 'test-model'},
     phase_model_mapping={
       'requirements_extraction': 'reasoning',
@@ -45,7 +44,9 @@ def mock_config() -> Config:
       'generation': 'lightweight',
       'evaluation': 'lightweight',
     },
-    cache_path='/tmp/cache',
+    wpt_path=str(tmp_path / 'wpt'),
+    cache_path=str(tmp_path / 'cache'),
+    output_dir=str(tmp_path / 'output'),
   )
 
 
