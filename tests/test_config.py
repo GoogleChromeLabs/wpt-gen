@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import pytest
 
 from wptgen.config import Config, load_config
@@ -70,14 +72,53 @@ def test_load_config_spec_urls(monkeypatch: pytest.MonkeyPatch) -> None:
   assert config.spec_urls == spec_urls
 
 
-def test_load_config_max_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Test that max_retries is correctly loaded into the Config object."""
+def test_load_config_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+  """Test that output_dir is correctly loaded and validated."""
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
 
-  # Case 1: Default
+  # Case 1: Default (resolves to current directory)
   config = load_config(config_path='non_existent_dummy.yaml')
-  assert config.max_retries == 3
+  assert config.output_dir == str(Path('.').resolve())
 
-  # Case 2: Override
-  config = load_config(config_path='non_existent_dummy.yaml', max_retries_override=10)
-  assert config.max_retries == 10
+  # Case 2: Override with existing directory
+  test_dir = tmp_path / 'existing_dir'
+  test_dir.mkdir()
+  config = load_config(config_path='non_existent_dummy.yaml', output_dir_override=str(test_dir))
+  assert config.output_dir == str(test_dir.resolve())
+
+  # Case 3: Override with non-existent directory (should be created)
+  new_dir = tmp_path / 'new_dir'
+  config = load_config(config_path='non_existent_dummy.yaml', output_dir_override=str(new_dir))
+  assert config.output_dir == str(new_dir.resolve())
+  assert new_dir.exists()
+
+
+def test_validate_output_dir_handles_home_expansion(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """Test that validate_output_dir expands ~."""
+  from wptgen.config import validate_output_dir
+
+  # Mock HOME environment variable
+  fake_home = tmp_path / 'fake_home'
+  fake_home.mkdir()
+  monkeypatch.setenv('HOME', str(fake_home))
+
+  validated = validate_output_dir('~/my_tests')
+
+  assert validated == str((fake_home / 'my_tests').resolve())
+  assert (fake_home / 'my_tests').exists()
+
+
+def test_validate_output_dir_permission_error(tmp_path: Path) -> None:
+  """Test that validate_output_dir raises ValueError on permission issues."""
+  from wptgen.config import validate_output_dir
+
+  restricted_dir = tmp_path / 'restricted'
+  restricted_dir.mkdir(mode=0o555)  # Read and execute, no write
+
+  try:
+    with pytest.raises(ValueError, match='CRITICAL: Cannot write to output directory'):
+      validate_output_dir(str(restricted_dir / 'subdir'))
+  finally:
+    restricted_dir.chmod(0o777)  # Clean up

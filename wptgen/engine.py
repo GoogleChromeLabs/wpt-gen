@@ -122,9 +122,12 @@ class WPTGenEngine:
       # Create a sanitized filename from the feature ID
       safe_id = FILENAME_SANITIZATION_RE.sub('_', context['feature_id'].lower())
       filename = f'{safe_id}_test_suggestions.md'
+
+      output_path = Path(self.config.output_dir or '.') / filename
       try:
-        Path(filename).write_text(suggestions_response, encoding='utf-8')
-        self.console.print(f'[green]Saved:[/green] {Path(filename).absolute()}')
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(suggestions_response, encoding='utf-8')
+        self.console.print(f'[green]Saved:[/green] {output_path.absolute()}')
       except Exception as e:
         self.console.print(f'[bold red]Error saving file:[/bold red] {e}')
 
@@ -431,5 +434,7 @@ class WPTGenEngine:
     if content:
       # Strip Markdown code blocks if the LLM added them (common behavior)
       clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
-      Path(filename).write_text(clean_content, encoding='utf-8')
-      self.console.print(f'[green]Saved:[/green] {Path(filename).absolute()}')
+      output_path = Path(self.config.output_dir or '.') / filename
+      output_path.parent.mkdir(parents=True, exist_ok=True)
+      output_path.write_text(clean_content, encoding='utf-8')
+      self.console.print(f'[green]Saved:[/green] {output_path.absolute()}')
