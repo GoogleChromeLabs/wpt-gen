@@ -439,8 +439,13 @@ async def test_run_test_generation_success(
   expected_file = tmp_path / 't1__GENERATED_01_.html'
   assert expected_file.exists()
 
+  # The suggestion_xml in the result should have the spec_url injected
+  injected_xml = suggestion_xml.replace(
+    '</test_suggestion>', '  <spec_url>http://spec</spec_url>\n</test_suggestion>'
+  )
+
   assert expected_file.read_text() == '<html></html>'
-  assert res == [(expected_file, '<html></html>', suggestion_xml)]
+  assert res == [(expected_file, '<html></html>', injected_xml)]
 
 
 @pytest.mark.asyncio
@@ -749,6 +754,10 @@ async def test_run_test_generation_dynamic_style_guides(
       with patch('wptgen.phases.generation.generate_safe', return_value='<html></html>'):
         await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
+  # Check that each call to render gen_template had the spec_url injected
+  for call in gen_template_mock.render.call_args_list:
+    assert '<spec_url>http://spec</spec_url>' in call.kwargs['test_suggestion_xml_block']
+
   # Check that system_template_mock.render was called 3 times with different style guides
   assert system_template_mock.render.call_count == 3
 
@@ -810,6 +819,11 @@ async def test_run_test_generation_normalization(
 
   # Should normalize "javascript test" to "JavaScript Test" from the Enum
   assert system_template_mock.render.call_args.kwargs['test_type'] == 'JavaScript Test'
+  # Should have injected the spec_url
+  assert (
+    '<spec_url>http://spec</spec_url>'
+    in gen_template_mock.render.call_args.kwargs['test_suggestion_xml_block']
+  )
 
 
 @pytest.mark.asyncio
