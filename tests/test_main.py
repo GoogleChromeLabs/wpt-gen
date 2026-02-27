@@ -82,7 +82,9 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     spec_urls_override=None,
     feature_description_override=None,
   )
-  mock_engine_class.assert_called_once_with(config=mock_config)
+  mock_engine_class.assert_called_once()
+  # Verify config was passed correctly
+  assert mock_engine_class.call_args[1]['config'] == mock_config
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
 

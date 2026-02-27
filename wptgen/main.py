@@ -26,6 +26,7 @@ from rich.text import Text
 
 from wptgen.config import DEFAULT_CONFIG_PATH, load_config
 from wptgen.engine import WPTGenEngine
+from wptgen.ui import RichUIProvider
 
 # Initialize Typer app and Rich console
 app = typer.Typer(
@@ -34,6 +35,7 @@ app = typer.Typer(
   add_completion=False,
 )
 console = Console()
+ui = RichUIProvider(console)
 
 
 @app.command()
@@ -167,7 +169,7 @@ def generate(
     )
 
     # 2. Instantiate the core engine
-    engine = WPTGenEngine(config=config)
+    engine = WPTGenEngine(config=config, ui=ui)
 
     # 3. Execute the workflow
     # Note: In Phase 1, this will just print the skeleton output

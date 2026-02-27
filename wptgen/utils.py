@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import random
+import re
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -21,11 +22,27 @@ from typing import ParamSpec, TypeVar
 T = TypeVar('T')
 P = ParamSpec('P')
 
+# Regular expressions for parsing and sanitization
+SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>', re.DOTALL)
+FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
+MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$', re.MULTILINE)
+
 # Maximum delay between retries in seconds
 MAX_DELAY = 60.0
 
 # Default maximum number of retry attempts for transient failures
 MAX_RETRIES = 5
+
+
+def extract_xml_tag(text: str, tag: str) -> str | None:
+  """Extracts the content of an XML-like tag from a string."""
+  match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
+  return match.group(1).strip() if match else None
+
+
+def parse_suggestions(raw_text: str) -> list[str]:
+  """Extracts all test suggestion blocks from a raw LLM response."""
+  return SUGGESTION_BLOCK_RE.findall(raw_text)
 
 
 def retry(
