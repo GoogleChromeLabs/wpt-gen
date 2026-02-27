@@ -781,6 +781,38 @@ async def test_run_test_generation_dynamic_style_guides(
 
 
 @pytest.mark.asyncio
+async def test_run_test_generation_displays_worksheet(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Verify that the audit worksheet is displayed before suggestions."""
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  audit_response = (
+    f'<audit_worksheet>R1: Covered\nR2: Uncovered</audit_worksheet>\n{suggestion_xml}'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=audit_response,
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Generated Content'
+
+  mock_ui.confirm.return_value = False  # Stop after displaying worksheet and suggestions
+
+  with (
+    patch('wptgen.phases.generation.confirm_prompts', return_value=None),
+    patch('wptgen.phases.generation.Path.read_text', return_value='Style Guide Content'),
+  ):
+    await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  # Check that the worksheet was displayed
+  mock_ui.print.assert_any_call('[bold cyan]Coverage Audit Worksheet:[/bold cyan]')
+  mock_ui.display_markdown.assert_any_call('R1: Covered\nR2: Uncovered')
+
+
+@pytest.mark.asyncio
 async def test_run_test_generation_normalization(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:

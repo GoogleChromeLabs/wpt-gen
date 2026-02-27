@@ -55,6 +55,13 @@ async def run_test_generation(
     )
     return []
 
+  # Display the audit worksheet to the user for visibility into the rationale
+  audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
+  if audit_worksheet:
+    ui.print('[bold cyan]Coverage Audit Worksheet:[/bold cyan]')
+    ui.display_markdown(audit_worksheet.strip())
+    ui.print()
+
   suggestions = parse_suggestions(context.audit_response)
 
   if not suggestions:
