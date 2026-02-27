@@ -21,6 +21,7 @@ from wptgen.config import Config
 from wptgen.llm import get_llm_client
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
+from wptgen.phases.evaluation import run_test_evaluation
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import run_requirements_extraction
 from wptgen.ui import UIProvider
@@ -32,6 +33,7 @@ __all__ = [
   'run_coverage_audit',
   'provide_coverage_report',
   'run_test_generation',
+  'run_test_evaluation',
 ]
 
 
@@ -79,4 +81,12 @@ class WPTGenEngine:
       return
 
     # Phase 4: User Selection & Generation
-    await run_test_generation(context, self.config, self.llm, self.ui, self.jinja_env)
+    generated_tests = await run_test_generation(
+      context, self.config, self.llm, self.ui, self.jinja_env
+    )
+
+    # Phase 5: Evaluation
+    if generated_tests:
+      await run_test_evaluation(
+        context, self.config, self.llm, self.ui, self.jinja_env, generated_tests
+      )

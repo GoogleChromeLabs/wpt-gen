@@ -44,7 +44,12 @@ wpt-gen = "wptgen.main:app"
 include = ["wptgen*"]
 
 [tool.setuptools.package-data]
-wptgen = ["templates/*.jinja", "templates/*.xml", "templates/*.txt"]
+wptgen = [
+    "templates/*.jinja",
+    "templates/*.xml",
+    "templates/*.txt",
+    "templates/resources/*.md"
+]
 
 [tool.ruff]
 target-version = "py310"
