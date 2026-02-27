@@ -29,8 +29,17 @@ def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) 
 
   assert isinstance(config, Config)
   assert config.provider == 'gemini'
-  assert config.model == 'gemini-3-pro-preview'
+  assert config.default_model == 'gemini-3-pro-preview'
   assert config.api_key == 'mock-gemini-key-123'
+  assert config.categories == {
+    'lightweight': 'gemini-3-flash-preview',
+    'reasoning': 'gemini-3-pro-preview',
+  }
+  assert config.phase_model_mapping == {
+    'requirements_extraction': 'reasoning',
+    'coverage_audit': 'reasoning',
+    'generation': 'lightweight',
+  }
 
 
 def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,8 +51,12 @@ def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -
   config = load_config(config_path='non_existent_dummy.yaml', provider_override='openai')
 
   assert config.provider == 'openai'
-  assert config.model == 'gpt-5.2-high'
+  assert config.default_model == 'gpt-5.2-high'
   assert config.api_key == 'mock-openai-key-456'
+  assert config.categories == {
+    'lightweight': 'gpt-4o-mini',
+    'reasoning': 'gpt-5.2-high',
+  }
 
 
 def test_load_config_missing_api_key_raises_error(monkeypatch: pytest.MonkeyPatch) -> None:

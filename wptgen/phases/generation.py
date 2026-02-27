@@ -106,7 +106,7 @@ async def run_test_generation(
     llm,
     ui,
     config,
-    model=config.generation_model,
+    model=config.get_model_for_phase('generation'),
   )
 
   ui.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
@@ -156,7 +156,7 @@ async def _generate_and_save(
     config,
     system_instruction,
     temperature,
-    model=config.generation_model,
+    model=config.get_model_for_phase('generation'),
   )
 
   if content:

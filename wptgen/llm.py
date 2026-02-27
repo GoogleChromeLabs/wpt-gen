@@ -181,8 +181,12 @@ class OpenAIClient(LLMClient):
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
   if config.provider == 'gemini':
-    return GeminiClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
+    return GeminiClient(
+      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+    )
   elif config.provider == 'openai':
-    return OpenAIClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
+    return OpenAIClient(
+      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+    )
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')

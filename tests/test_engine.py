@@ -28,9 +28,18 @@ def mock_config(tmp_path: Path) -> Config:
   """Provides a basic Config object for testing."""
   return Config(
     provider='llmbargainbin',
-    model='discountmodel',
+    default_model='discountmodel',
     api_key='fake-key',
     wpt_path=os.path.abspath(os.sep + 'fake' + os.sep + 'wpt'),
+    categories={
+      'lightweight': 'fastmodel',
+      'reasoning': 'smartmodel',
+    },
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+    },
     yes_tokens=False,
     cache_path=str(tmp_path / '.wpt-gen-cache'),
   )

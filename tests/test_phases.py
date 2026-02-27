@@ -36,9 +36,18 @@ def mock_ui() -> MagicMock:
 def mock_config() -> Config:
   return Config(
     provider='test',
-    model='test-model',
+    default_model='test-model',
     api_key='test-key',
     wpt_path='/fake/wpt',
+    categories={
+      'lightweight': 'fast-model',
+      'reasoning': 'smart-model',
+    },
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+    },
     cache_path='/tmp/cache',
   )
 

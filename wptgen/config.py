@@ -26,9 +26,11 @@ class Config:
   """Configuration object for WPT-Gen."""
 
   provider: str
-  model: str
+  default_model: str
   api_key: str
   wpt_path: str
+  categories: dict[str, str]
+  phase_model_mapping: dict[str, str]
   output_dir: str | None = None
   show_responses: bool = False
   yes_tokens: bool = False
@@ -37,9 +39,13 @@ class Config:
   cache_path: str | None = None
   spec_urls: list[str] | None = None
   feature_description: str | None = None
-  requirements_model: str | None = None
-  audit_model: str | None = None
-  generation_model: str | None = None
+
+  def get_model_for_phase(self, phase_name: str) -> str | None:
+    """Resolves the model name for a given workflow phase."""
+    category = self.phase_model_mapping.get(phase_name)
+    if not category:
+      return None
+    return self.categories.get(category)
 
 
 def _get_default_cache_path() -> str:
@@ -117,11 +123,19 @@ def load_config(
 
   # Provide sensible defaults if the YAML is missing the specific provider block
   if active_provider == 'gemini':
-    model = provider_settings.get('model', 'gemini-3-pro-preview')
+    default_model_name = 'gemini-3-pro-preview'
     env_var_name = 'GEMINI_API_KEY'
+    default_categories = {
+      'lightweight': 'gemini-3-flash-preview',
+      'reasoning': 'gemini-3-pro-preview',
+    }
   elif active_provider == 'openai':
-    model = provider_settings.get('model', 'gpt-5.2-high')
+    default_model_name = 'gpt-5.2-high'
     env_var_name = 'OPENAI_API_KEY'
+    default_categories = {
+      'lightweight': 'gpt-4o-mini',
+      'reasoning': 'gpt-5.2-high',
+    }
   else:
     raise ValueError(f"CRITICAL: Unsupported provider '{active_provider}' requested.")
 
@@ -143,15 +157,25 @@ def load_config(
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
-  requirements_model = provider_settings.get('requirements_model')
-  audit_model = provider_settings.get('audit_model')
-  generation_model = provider_settings.get('generation_model')
+  # Load model categories and phase mapping
+  default_model = provider_settings.get('default_model', default_model_name)
+  categories = provider_settings.get('categories', default_categories)
+
+  # Ensure default mapping if missing in YAML
+  default_phase_mapping = {
+    'requirements_extraction': 'reasoning',
+    'coverage_audit': 'reasoning',
+    'generation': 'lightweight',
+  }
+  phase_model_mapping = yaml_data.get('phase_model_mapping', default_phase_mapping)
 
   return Config(
     provider=active_provider,
-    model=model,
+    default_model=default_model,
     api_key=api_key,
     wpt_path=wpt_path,
+    categories=categories,
+    phase_model_mapping=phase_model_mapping,
     output_dir=output_dir,
     show_responses=show_responses,
     yes_tokens=yes_tokens,
@@ -160,7 +184,4 @@ def load_config(
     cache_path=cache_path,
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
-    requirements_model=requirements_model,
-    audit_model=audit_model,
-    generation_model=generation_model,
   )

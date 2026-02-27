@@ -42,7 +42,12 @@ async def run_coverage_audit(
   audit_system_prompt = jinja_env.get_template('coverage_audit_system.jinja').render()
 
   await confirm_prompts(
-    [(audit_prompt, 'Coverage Audit')], 'Coverage Audit', llm, ui, config, model=config.audit_model
+    [(audit_prompt, 'Coverage Audit')],
+    'Coverage Audit',
+    llm,
+    ui,
+    config,
+    model=config.get_model_for_phase('coverage_audit'),
   )
 
   audit_response = await generate_safe(
@@ -53,7 +58,7 @@ async def run_coverage_audit(
     config,
     system_instruction=audit_system_prompt,
     temperature=0.0,
-    model=config.audit_model,
+    model=config.get_model_for_phase('coverage_audit'),
   )
 
   context.audit_response = audit_response
