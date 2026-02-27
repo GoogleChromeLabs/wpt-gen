@@ -19,8 +19,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from wptgen.config import DEFAULT_CONFIG_PATH, load_config
 from wptgen.engine import WPTGenEngine
@@ -113,7 +115,17 @@ def generate(
   """
   Generate Web Platform Tests for a specific web feature.
   """
-  console.print(f'[bold blue]Starting WPT-Gen for feature:[/bold blue] {web_feature_id}')
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
@@ -138,12 +150,19 @@ def generate(
       feature_description_override=description,
     )
 
+    config_info = Text.assemble(
+      ('Provider: ', 'bold'),
+      (f'{config.provider}\n', 'green'),
+      ('Model:    ', 'bold'),
+      (f'{config.model}', 'green'),
+    )
     console.print(
       Panel(
-        f'[bold]Provider:[/bold] {config.provider}\n[bold]Model:[/bold] {config.model}',
-        title='Active Configuration',
+        config_info,
+        title='[bold]Configuration[/bold]',
+        title_align='left',
         expand=False,
-        border_style='green',
+        border_style='bright_black',
       )
     )
 
@@ -154,7 +173,14 @@ def generate(
     # Note: In Phase 1, this will just print the skeleton output
     engine.run_workflow(web_feature_id)
 
-    console.print('[bold green]✔ Workflow completed successfully.[/bold green]')
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Workflow completed successfully![/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
 
   except ValueError as e:
     # Catch configuration errors (like missing API keys) and exit gracefully
