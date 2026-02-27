@@ -10,18 +10,23 @@ You will be given a source blueprint, a style guide, rules, evaluation criteria,
 # {{ test_type }} STYLE GUIDE & RULES
 {{ test_type_guide }}
 
-{% if test_type == "Reftest" %}
+{% if test_type == "Reftest" -%}
 # MULTI-FILE PARTITIONING
 If you need to provide corrections, you MUST provide both the test file and the reference file.
 You MUST partition them using the following tags exactly:
 
-[FILE_1: {{ safe_filename }}]
+[FILE_1: .flags_and_extension]
 (Test file HTML/CSS here)
 [/FILE_1]
 
-[FILE_2: {{ ref_filename }}]
+[FILE_2: .flags_and_extension]
 (Reference file HTML/CSS here)
 [/FILE_2]
+
+## Filename Suffix Guidelines (.flags_and_extension)
+Specify only the suffix of the filename, starting with a dot.
+1. **Extensions**: `.html`, `.window.js`, `.worker.js`, `.any.js`.
+2. **Flags**: `.https`, `.h2`, `.sub`.
 {% endif -%}
 
 # EVALUATION CRITERIA
@@ -43,7 +48,12 @@ If the code passes all criteria flawlessly and perfectly aligns with the bluepri
 PASS
 
 SCENARIO B: THE CODE HAS FLAWS
-If the code fails any criteria, or if you can optimize it to better fit the style guides, you must fix it. Output ONLY the raw, fully corrected file contents.
+If the code fails any criteria, or if you can optimize it to better fit the style guides, you must fix it.
+{%- if test_type == "Reftest" %}
+Output the corrected files using the MULTI-FILE PARTITIONING format above.
+{%- else %}
+Output ONLY the raw, fully corrected file contents.
+{%- endif %}
 * DO NOT explain your changes.
 * DO NOT output conversational filler or pleasantries.
 * DO NOT wrap the output in markdown code blocks (e.g., ```html). Output the raw file content only.

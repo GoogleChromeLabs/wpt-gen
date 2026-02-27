@@ -63,54 +63,55 @@ def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
   return files
 
 
-def get_next_available_filenames(
+def get_next_available_root(
   feature_id: str,
   output_dir: Path,
-  is_reftest: bool,
   used_names: set[str],
   max_len: int = 150,
-) -> tuple[str, str | None]:
-  """Finds the next available filename(s) using the {feature_id}-{num} convention.
+) -> str:
+  """Finds the next available root filename using the {feature_id}-{num} convention.
 
   Args:
     feature_id: The ID of the web feature.
     output_dir: The directory where tests are saved.
-    is_reftest: Whether the test is a reftest.
-    used_names: A set of filenames already planned to be used in this run.
-    max_len: The maximum allowed length for the filename.
+    used_names: A set of root names already planned to be used in this run.
+    max_len: The maximum allowed length for the filename (including potential suffixes).
 
   Returns:
-    A tuple of (test_filename, ref_filename). ref_filename is None if not a reftest.
+    The available root filename (e.g., 'feature-001').
   """
   safe_feature_id = FILENAME_SANITIZATION_RE.sub('_', feature_id.lower())
+
+  # We reserve some space for suffixes like '.https.any.js' (~20 chars)
+  # and potentially '-ref' for reftests (4 chars).
+  suffix_buffer = 25
+  allowed_feature_id_len = max_len - suffix_buffer - 4  # -4 for '-001'
+
+  truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
 
   n = 1
   while True:
     num_str = f'{n:03d}' if n < 1000 else str(n)
-    test_suffix = f'-{num_str}.html'
-    ref_suffix = f'-{num_str}-ref.html'
+    root_name = f'{truncated_feature_id}-{num_str}'
 
-    # We check both test and ref suffixes for length to be safe.
-    max_suffix_len = max(len(test_suffix), len(ref_suffix))
-    allowed_feature_id_len = max_len - max_suffix_len
+    # Collision check:
+    # 1. Check if we've already used this root in this run.
+    if root_name in used_names:
+      n += 1
+      continue
 
-    truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
-    test_filename = f'{truncated_feature_id}{test_suffix}'
-    ref_filename_to_check = f'{truncated_feature_id}{ref_suffix}'
+    # 2. Check if any file in the output directory starts with this root name.
+    # This is conservative but ensures we don't collide regardless of extension/flags.
+    collision = False
+    if output_dir.exists():
+      for path in output_dir.iterdir():
+        if path.name.startswith(root_name):
+          collision = True
+          break
 
-    # Collision check: neither the test file nor the potential reference file should exist.
-    test_exists = (output_dir / test_filename).exists() or test_filename in used_names
-    ref_exists = (
-      output_dir / ref_filename_to_check
-    ).exists() or ref_filename_to_check in used_names
-
-    if not test_exists and not ref_exists:
-      # Found an available number.
-      used_names.add(test_filename)
-      if is_reftest:
-        used_names.add(ref_filename_to_check)
-        return test_filename, ref_filename_to_check
-      return test_filename, None
+    if not collision:
+      used_names.add(root_name)
+      return root_name
 
     n += 1
 

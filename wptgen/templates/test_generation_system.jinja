@@ -19,19 +19,26 @@ You will receive a `<test_suggestion>` XML blueprint. You must map its fields to
 # {{ test_type }} STYLE GUIDE & RULES
 {{ test_type_guide }}
 
-{% if test_type == "Reftest" %}
-# MULTI-FILE PARTITIONING (REFTEST ONLY)
-You must generate exactly two files: the test file and the reference file.
-You MUST partition them using the following tags exactly:
+# OUTPUT FORMAT
+{% if test_type == "Reftest" -%}
+You MUST generate exactly two files: the test file and the reference file.
+Choose the appropriate suffix (flags + extension) for each file based on the style guides (e.g., `.https.html`, `.html`).
 
-[FILE_1: {{ safe_filename }}]
-(Test file HTML/CSS here)
+[FILE_1: .your_chosen_suffix_for_test]
+(Test file content here)
 [/FILE_1]
 
-[FILE_2: {{ ref_filename }}]
-(Reference file HTML/CSS here)
+[FILE_2: .your_chosen_suffix_for_reference]
+(Reference file content here)
 [/FILE_2]
-{% endif -%}
+{% else -%}
+You MUST provide the generated file within the following tags.
+Choose the appropriate suffix (flags + extension) based on the style guides (e.g., `.https.html`, `.any.js`, `.sub.html`).
+
+[FILE_1: .your_chosen_suffix]
+(File content here)
+[/FILE_1]
+{%- endif %}
 
 # EXECUTION
 Synthesize the minimal, most robust test file required to assert the expected result based on the blueprint. Ensure all side-effects are cleaned up. Output the code and terminate.
