@@ -17,6 +17,7 @@ import re
 import time
 from collections.abc import Callable
 from functools import wraps
+from pathlib import Path
 from typing import ParamSpec, TypeVar
 
 T = TypeVar('T')
@@ -60,6 +61,58 @@ def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
     content = match.group(3).strip()
     files.append((filename, content))
   return files
+
+
+def get_next_available_filenames(
+  feature_id: str,
+  output_dir: Path,
+  is_reftest: bool,
+  used_names: set[str],
+  max_len: int = 150,
+) -> tuple[str, str | None]:
+  """Finds the next available filename(s) using the {feature_id}-{num} convention.
+
+  Args:
+    feature_id: The ID of the web feature.
+    output_dir: The directory where tests are saved.
+    is_reftest: Whether the test is a reftest.
+    used_names: A set of filenames already planned to be used in this run.
+    max_len: The maximum allowed length for the filename.
+
+  Returns:
+    A tuple of (test_filename, ref_filename). ref_filename is None if not a reftest.
+  """
+  safe_feature_id = FILENAME_SANITIZATION_RE.sub('_', feature_id.lower())
+
+  n = 1
+  while True:
+    num_str = f'{n:03d}' if n < 1000 else str(n)
+    test_suffix = f'-{num_str}.html'
+    ref_suffix = f'-{num_str}-ref.html'
+
+    # We check both test and ref suffixes for length to be safe.
+    max_suffix_len = max(len(test_suffix), len(ref_suffix))
+    allowed_feature_id_len = max_len - max_suffix_len
+
+    truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
+    test_filename = f'{truncated_feature_id}{test_suffix}'
+    ref_filename_to_check = f'{truncated_feature_id}{ref_suffix}'
+
+    # Collision check: neither the test file nor the potential reference file should exist.
+    test_exists = (output_dir / test_filename).exists() or test_filename in used_names
+    ref_exists = (
+      output_dir / ref_filename_to_check
+    ).exists() or ref_filename_to_check in used_names
+
+    if not test_exists and not ref_exists:
+      # Found an available number.
+      used_names.add(test_filename)
+      if is_reftest:
+        used_names.add(ref_filename_to_check)
+        return test_filename, ref_filename_to_check
+      return test_filename, None
+
+    n += 1
 
 
 def retry(

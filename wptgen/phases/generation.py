@@ -24,9 +24,9 @@ from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
-  FILENAME_SANITIZATION_RE,
   MARKDOWN_CODE_BLOCK_RE,
   extract_xml_tag,
+  get_next_available_filenames,
   parse_multi_file_response,
   parse_suggestions,
 )
@@ -92,7 +92,11 @@ async def run_test_generation(
   spec_url = context.metadata.specs[0] if context.metadata and context.metadata.specs else None
   prompts_to_confirm: list[tuple[str, str, str, str]] = []
 
-  for idx, suggestion_xml in enumerate(approved_suggestions_xml):
+  # Keep track of filenames used in this run to avoid collisions
+  used_names: set[str] = set()
+  output_dir = Path(config.output_dir or '.')
+
+  for suggestion_xml in approved_suggestions_xml:
     # Inject specification URL if available
     if spec_url:
       suggestion_xml = suggestion_xml.replace(
@@ -107,12 +111,9 @@ async def run_test_generation(
         test_type_enum = member
         break
 
-    # Generate filenames
-    raw_title = extract_xml_tag(suggestion_xml, 'title') or 'file'
-    slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
-    safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
-    ref_filename = (
-      f'{slug}__GENERATED_{idx + 1:02d}_-ref.html' if test_type_enum == TestType.REFTEST else None
+    # Generate filenames using the new convention: {feature_id}-{num}.html
+    safe_filename, ref_filename = get_next_available_filenames(
+      context.feature_id, output_dir, test_type_enum == TestType.REFTEST, used_names
     )
 
     # Load the specific style guide for this test type
