@@ -39,6 +39,7 @@ class Config:
   cache_path: str | None = None
   spec_urls: list[str] | None = None
   feature_description: str | None = None
+  detailed_requirements: bool = False
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -100,6 +101,7 @@ def load_config(
   max_retries_override: int | None = None,
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
+  detailed_requirements_override: bool = False,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -154,6 +156,9 @@ def load_config(
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
+  detailed_requirements = detailed_requirements_override or yaml_data.get(
+    'detailed_requirements', False
+  )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
@@ -185,4 +190,5 @@ def load_config(
     cache_path=cache_path,
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
+    detailed_requirements=detailed_requirements,
   )

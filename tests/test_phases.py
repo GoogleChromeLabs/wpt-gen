@@ -22,7 +22,10 @@ from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import run_coverage_audit
 from wptgen.phases.generation import run_test_generation
-from wptgen.phases.requirements_extraction import run_requirements_extraction
+from wptgen.phases.requirements_extraction import (
+  run_requirements_extraction,
+  run_requirements_extraction_iterative,
+)
 
 
 @pytest.fixture
@@ -198,6 +201,30 @@ async def test_run_requirements_extraction_cached(
 
   assert res == '<reqs>cached</reqs>'
   assert context.requirements_xml == '<reqs>cached</reqs>'
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_success(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test successful requirements extraction (single pass)."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  mock_llm.generate_content.return_value = '<reqs>generated</reqs>'
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res == '<reqs>generated</reqs>'
+  assert context.requirements_xml == '<reqs>generated</reqs>'
 
 
 @pytest.mark.asyncio
@@ -390,3 +417,190 @@ async def test_run_test_generation_failure(
 
   assert res == []
   mock_ui.print.assert_any_call('\n[bold red]✘ No tests were successfully generated.[/bold red]')
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_success(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative requirements extraction success."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  # Mock sequence of responses: 1. some reqs, 2. EXHAUSTED
+  mock_llm.generate_content.side_effect = [
+    '<requirements_list><requirement id="R_NEW_1"><description>Req 1</description></requirement></requirements_list>',
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+  ]
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert '<requirement id="R1">' in res
+  assert 'Req 1' in res
+  assert context.requirements_xml == res
+  assert mock_llm.generate_content.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_reindexing(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test that requirements are correctly re-indexed across iterations."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  mock_llm.generate_content.side_effect = [
+    '<requirements_list><requirement id="R_NEW_1"><description>Req A</description></requirement></requirements_list>',
+    '<requirements_list><requirement id="R_NEW_1"><description>Req B</description></requirement></requirements_list>',
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+  ]
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert '<requirement id="R1">' in res
+  assert '<requirement id="R2">' in res
+  assert 'Req A' in res
+  assert 'Req B' in res
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_max_iterations(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative extraction stops at max iterations."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  # Return 1 req every time (10 iterations)
+  mock_llm.generate_content.return_value = '<requirements_list><requirement id="R_NEW_1"><description>Req</description></requirement></requirements_list>'
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert mock_llm.generate_content.call_count == 10
+  assert '<requirement id="R10">' in res
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_no_new_reqs(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative extraction stops if no new requirements are found in an iteration."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  # Iteration 1: Req found. Iteration 2: No req found (not EXHAUSTED though).
+  mock_llm.generate_content.side_effect = [
+    '<requirements_list><requirement id="R1"><description>R</description></requirement></requirements_list>',
+    '<requirements_list></requirements_list>',
+  ]
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert mock_llm.generate_content.call_count == 2
+  assert '<requirement id="R1">' in res
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_failure(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative extraction stops if generate_safe returns empty string."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value=''):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is None
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_cached(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative extraction uses cache if available."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  cache_dir = tmp_path
+  cache_file = cache_dir / 'feat__requirements.xml'
+  cache_file.write_text('<reqs>cached</reqs>')
+
+  mock_ui.confirm.return_value = True
+
+  res = await run_requirements_extraction_iterative(
+    context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir
+  )
+
+  assert res == '<reqs>cached</reqs>'
+  assert mock_llm.generate_content.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_no_reqs_at_all(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test iterative extraction returns None if no requirements are ever found."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Prompt'
+
+  # First response is EXHAUSTED
+  mock_llm.generate_content.return_value = (
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>'
+  )
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    res = await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is None

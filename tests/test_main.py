@@ -42,6 +42,7 @@ def mock_config() -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
+      'evaluation': 'lightweight',
     },
     max_retries=3,
   )
@@ -90,6 +91,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
   mock_engine_class.assert_called_once()
   # Verify config was passed correctly
@@ -117,6 +119,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -140,6 +143,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -163,6 +167,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -186,6 +191,31 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     max_retries_override=5,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
+  )
+
+
+def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --detailed-requirements flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --detailed-requirements
+  result = runner.invoke(app, ['generate', 'grid', '--detailed-requirements'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    suggestions_only=False,
+    max_retries_override=3,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=True,
   )
 
 
@@ -240,6 +270,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     max_retries_override=3,
     spec_urls_override=['https://url1.com', 'https://url2.com'],
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -263,6 +294,7 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override='Test Description',
+    detailed_requirements_override=False,
   )
 
 

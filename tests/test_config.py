@@ -138,6 +138,19 @@ def test_validate_output_dir_permission_error(tmp_path: Path) -> None:
     restricted_dir.chmod(0o777)  # Clean up
 
 
+def test_load_config_detailed_requirements(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that detailed_requirements flag is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (False)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.detailed_requirements is False
+
+  # Case 2: Override to True
+  config = load_config(config_path='non_existent_dummy.yaml', detailed_requirements_override=True)
+  assert config.detailed_requirements is True
+
+
 def test_get_default_cache_path_windows(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test default cache path on Windows."""
   monkeypatch.setattr('sys.platform', 'win32')
