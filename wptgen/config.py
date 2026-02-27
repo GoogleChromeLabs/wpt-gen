@@ -125,11 +125,11 @@ def load_config(
 
   # Provide sensible defaults if the YAML is missing the specific provider block
   if active_provider == 'gemini':
-    default_model_name = 'gemini-3-pro-preview'
+    default_model_name = 'gemini-3.1-pro-preview'
     env_var_name = 'GEMINI_API_KEY'
     default_categories = {
       'lightweight': 'gemini-3-flash-preview',
-      'reasoning': 'gemini-3-pro-preview',
+      'reasoning': 'gemini-3.1-pro-preview',
     }
   elif active_provider == 'openai':
     default_model_name = 'gpt-5.2-high'
