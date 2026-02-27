@@ -28,19 +28,21 @@ async def confirm_prompts(
   llm: LLMClient,
   ui: UIProvider,
   config: Config,
+  model: str | None = None,
 ) -> None:
   """Calculates tokens for a list of prompts and asks for a single user confirmation."""
   loop = asyncio.get_running_loop()
 
   total_tokens = 0
   any_limit_exceeded = False
+  target_model = model or llm.model
 
-  with ui.status(f'[yellow]Calculating token usage for {phase_name}...[/yellow]'):
+  with ui.status(f'[yellow]Calculating token usage for {phase_name} ({target_model})...[/yellow]'):
     # We do token counting concurrently for speed
     async def get_info(prompt: str, name: str) -> tuple[int, bool, str]:
-      tokens = await loop.run_in_executor(None, llm.count_tokens, prompt)
+      tokens = await loop.run_in_executor(None, llm.count_tokens, prompt, model)
       limit_exceeded = await loop.run_in_executor(
-        None, llm.prompt_exceeds_input_token_limit, prompt
+        None, llm.prompt_exceeds_input_token_limit, prompt, model
       )
       return tokens, limit_exceeded, name
 
@@ -50,13 +52,14 @@ async def confirm_prompts(
     title=f'Token Usage Summary ({phase_name})', show_header=True, header_style='bold magenta'
   )
   table.add_column('Task', style='dim')
+  table.add_column('Model', style='blue')
   table.add_column('Tokens', justify='right', style='cyan')
   table.add_column('Status', justify='center')
 
   for tokens, limit_exceeded, name in results:
     total_tokens += tokens
     status = '[bold red]EXCEEDED[/bold red]' if limit_exceeded else '[bold green]OK[/bold green]'
-    table.add_row(name, str(tokens), status)
+    table.add_row(name, target_model, str(tokens), status)
     if limit_exceeded:
       any_limit_exceeded = True
 
@@ -84,16 +87,18 @@ async def generate_safe(
   config: Config,
   system_instruction: str | None = None,
   temperature: float | None = None,
+  model: str | None = None,
 ) -> str:
   """Helper to run LLM generation in a thread and handle errors gracefully."""
+  target_model = model or llm.model
   try:
     loop = asyncio.get_running_loop()
-    with ui.status(f'[blue]Executing {task_name}...[/blue]'):
+    with ui.status(f'[blue]Executing {task_name} ({target_model})...[/blue]'):
       response = await loop.run_in_executor(
-        None, llm.generate_content, prompt, system_instruction, temperature
+        None, llm.generate_content, prompt, system_instruction, temperature, model
       )
 
-    ui.print(f'✔ {task_name} finished.')
+    ui.print(f'✔ {task_name} finished (using {target_model}).')
     if config.show_responses:
       # Determine syntax highlighting based on content (defaulting to xml).
       syntax_lexer = 'xml'
@@ -103,5 +108,5 @@ async def generate_safe(
       ui.display_syntax(response, syntax_lexer, task_name)
     return response
   except Exception as e:
-    ui.print(f'[bold red]✘ {task_name} failed:[/bold red] {e}')
+    ui.print(f'[bold red]✘ {task_name} failed ({target_model}):[/bold red] {e}')
     return ''

@@ -101,7 +101,12 @@ async def run_test_generation(
 
   # Single confirmation for ALL tests
   await confirm_prompts(
-    prompts_to_confirm, f'Generate {len(prompts_to_confirm)} Tests', llm, ui, config
+    prompts_to_confirm,
+    f'Generate {len(prompts_to_confirm)} Tests',
+    llm,
+    ui,
+    config,
+    model=config.get_model_for_phase('generation'),
   )
 
   ui.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
@@ -144,7 +149,14 @@ async def _generate_and_save(
   """Helper to generate a specific test and save it to disk."""
   ui.print(f'Starting generation for: [bold]{filename}[/bold]...')
   content = await generate_safe(
-    prompt, f'Gen: {filename}', llm, ui, config, system_instruction, temperature
+    prompt,
+    f'Gen: {filename}',
+    llm,
+    ui,
+    config,
+    system_instruction,
+    temperature,
+    model=config.get_model_for_phase('generation'),
   )
 
   if content:

@@ -27,9 +27,18 @@ def mock_config(tmp_path: Path) -> Config:
   """Provides a basic Config object with a temporary cache path."""
   return Config(
     provider='llmbargainbin',
-    model='discountmodel',
+    default_model='discountmodel',
     api_key='fake-key',
     wpt_path='/fake/wpt',
+    categories={
+      'lightweight': 'fast-model',
+      'reasoning': 'smart-model',
+    },
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+    },
     yes_tokens=True,
     cache_path=str(tmp_path / '.wpt-gen-cache'),
   )

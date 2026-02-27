@@ -37,7 +37,7 @@ class LLMClient(ABC):
     self.max_retries = max_retries
 
   @abstractmethod
-  def count_tokens(self, prompt: str) -> int:
+  def count_tokens(self, prompt: str, model: str | None = None) -> int:
     """Returns the total number of tokens for the given prompt."""
     pass
 
@@ -47,12 +47,13 @@ class LLMClient(ABC):
     prompt: str,
     system_instruction: str | None = None,
     temperature: float | None = None,
+    model: str | None = None,
   ) -> str:
     """Generates a response from the LLM."""
     pass
 
   @abstractmethod
-  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
     """Checks if the prompt exceeds the model's input token limit."""
     pass
 
@@ -64,8 +65,9 @@ class GeminiClient(LLMClient):
     self.client = genai.Client(api_key=self.api_key)
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def count_tokens(self, prompt: str) -> int:
-    response = self.client.models.count_tokens(model=self.model, contents=prompt)
+  def count_tokens(self, prompt: str, model: str | None = None) -> int:
+    target_model = model or self.model
+    response = self.client.models.count_tokens(model=target_model, contents=prompt)
     if response.total_tokens is None:
       raise ValueError('Gemini API returned no token count.')
     return response.total_tokens
@@ -76,30 +78,36 @@ class GeminiClient(LLMClient):
     prompt: str,
     system_instruction: str | None = None,
     temperature: float | None = None,
+    model: str | None = None,
   ) -> str:
+    target_model = model or self.model
     config = types.GenerateContentConfig()
     if system_instruction:
       config.system_instruction = system_instruction
     if temperature is not None:
       config.temperature = temperature
 
-    response = self.client.models.generate_content(model=self.model, contents=prompt, config=config)
+    response = self.client.models.generate_content(
+      model=target_model, contents=prompt, config=config
+    )
     if response.text is None:
       raise ValueError('Gemini API returned no text.')
     return response.text
 
-  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
     """Checks the token size of a prompt and checks if it exceeds the input
        limit of the Gemini model.
 
     Args:
       prompt: The input prompt string.
+      model: Optional model override.
 
     Returns:
       Boolean value of whether the input token limit is exceeded.
     """
-    token_count = self.count_tokens(prompt)
-    model_info = self.client.models.get(model=self.model)
+    target_model = model or self.model
+    token_count = self.count_tokens(prompt, model=target_model)
+    model_info = self.client.models.get(model=target_model)
     limit = model_info.input_token_limit or 1_000_000  # Fallback to 1M if not specified
 
     logging.info(f'Prompt token count: {token_count}')
@@ -113,10 +121,11 @@ class OpenAIClient(LLMClient):
     super().__init__(api_key, model, max_retries)
     self.client = OpenAI(api_key=self.api_key)
 
-  def count_tokens(self, prompt: str) -> int:
+  def count_tokens(self, prompt: str, model: str | None = None) -> int:
     """Returns the total number of tokens for the given prompt using tiktoken."""
+    target_model = model or self.model
     try:
-      encoding = tiktoken.encoding_for_model(self.model)
+      encoding = tiktoken.encoding_for_model(target_model)
     except KeyError:
       # Fallback for unknown models
       encoding = tiktoken.get_encoding('cl100k_base')
@@ -128,31 +137,35 @@ class OpenAIClient(LLMClient):
     prompt: str,
     system_instruction: str | None = None,
     temperature: float | None = None,
+    model: str | None = None,
   ) -> str:
+    target_model = model or self.model
     messages: list[ChatCompletionMessageParam] = []
     if system_instruction:
       messages.append({'role': 'system', 'content': system_instruction})
     messages.append({'role': 'user', 'content': prompt})
 
     response = self.client.chat.completions.create(
-      model=self.model, messages=messages, temperature=temperature
+      model=target_model, messages=messages, temperature=temperature
     )
     content = response.choices[0].message.content
     if content is None:
       raise ValueError('OpenAI API returned no content.')
     return content
 
-  def prompt_exceeds_input_token_limit(self, prompt: str) -> bool:
+  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
     """Checks the token size of a prompt and checks if it exceeds the input
        limit of the OpenAI model.
 
     Args:
       prompt: The input prompt string.
+      model: Optional model override.
 
     Returns:
       Boolean value of whether the input token limit is exceeded.
     """
-    token_count = self.count_tokens(prompt)
+    target_model = model or self.model
+    token_count = self.count_tokens(prompt, model=target_model)
 
     # There is no way to programmatically check model token limits for OpenAI
     # models. GPT-5.2 has a 400,000 token context limit according to:
@@ -168,8 +181,12 @@ class OpenAIClient(LLMClient):
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
   if config.provider == 'gemini':
-    return GeminiClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
+    return GeminiClient(
+      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+    )
   elif config.provider == 'openai':
-    return OpenAIClient(api_key=config.api_key, model=config.model, max_retries=config.max_retries)
+    return OpenAIClient(
+      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+    )
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')

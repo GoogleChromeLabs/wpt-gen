@@ -57,7 +57,12 @@ async def run_requirements_extraction(
     ).render()
 
     await confirm_prompts(
-      [(extraction_prompt, 'Requirements Extraction')], 'Requirements Extraction', llm, ui, config
+      [(extraction_prompt, 'Requirements Extraction')],
+      'Requirements Extraction',
+      llm,
+      ui,
+      config,
+      model=config.get_model_for_phase('requirements_extraction'),
     )
 
     requirements_xml = await generate_safe(
@@ -68,6 +73,7 @@ async def run_requirements_extraction(
       config,
       system_instruction=extraction_system_prompt,
       temperature=0.0,
+      model=config.get_model_for_phase('requirements_extraction'),
     )
 
     if not requirements_xml:

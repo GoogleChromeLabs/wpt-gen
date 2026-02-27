@@ -36,9 +36,18 @@ def mock_ui() -> MagicMock:
 def mock_config() -> Config:
   return Config(
     provider='test',
-    model='test-model',
+    default_model='test-model',
     api_key='test-key',
     wpt_path='/fake/wpt',
+    categories={
+      'lightweight': 'fast-model',
+      'reasoning': 'smart-model',
+    },
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+    },
     cache_path='/tmp/cache',
   )
 
@@ -49,6 +58,7 @@ def mock_llm() -> MagicMock:
   llm.count_tokens.return_value = 10
   llm.prompt_exceeds_input_token_limit.return_value = False
   llm.generate_content.return_value = 'Mock Response'
+  llm.model = 'mock-model'
   return llm
 
 

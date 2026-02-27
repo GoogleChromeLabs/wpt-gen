@@ -156,7 +156,7 @@ def generate(
       ('Provider: ', 'bold'),
       (f'{config.provider}\n', 'green'),
       ('Model:    ', 'bold'),
-      (f'{config.model}', 'green'),
+      (f'{config.default_model}', 'green'),
     )
     console.print(
       Panel(
