@@ -14,9 +14,10 @@
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.engine import WPTGenEngine
@@ -48,9 +49,13 @@ def mock_config(tmp_path: Path) -> Config:
 
 @pytest.fixture
 def mock_llm() -> MagicMock:
-  """Provides a mocked LLM client."""
+  """Provides a mocked LLM client using AsyncMock for async methods."""
+  # We use MagicMock for the container, but AsyncMock for the specific async method
   llm = MagicMock()
-  llm.generate_content.return_value = 'Mocked LLM Response'
+
+  # generate_content is presumably awaited in the underlying phases
+  llm.generate_content = AsyncMock(return_value='Mocked LLM Response')
+
   llm.count_tokens.return_value = 100
   llm.prompt_exceeds_input_token_limit.return_value = False
   return llm
@@ -70,18 +75,20 @@ def engine(mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock) -> WPTG
 
 
 @pytest.mark.asyncio
-async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: MagicMock) -> None:
+async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: MockerFixture) -> None:
   """Full asynchronous workflow orchestration, ensuring each phase is called."""
   context = WorkflowContext(feature_id='feat-id')
   requirements = 'reqs'
   audit = 'audit'
+  generated_tests = [('path', 'content', 'suggestion')]
 
   mock_assembly = mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
   mock_extraction = mocker.patch(
     'wptgen.engine.run_requirements_extraction', return_value=requirements
   )
   mock_audit = mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
-  mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=None)
+  mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
+  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
 
   await engine._run_async_workflow('feat-id')
 
@@ -89,21 +96,51 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: MagicM
   mock_extraction.assert_called_once()
   mock_audit.assert_called_once()
   mock_gen.assert_called_once()
+  mock_eval.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_run_async_workflow_suggestions_only(engine: WPTGenEngine, mocker: MagicMock) -> None:
+async def test_run_async_workflow_phase_failures(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  """Test short-circuits when phases fail."""
+  # Phase 1 failure
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=None)
+  await engine._run_async_workflow('feat-id')
+
+  # Phase 2 failure
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=WorkflowContext(feature_id='f'))
+  mocker.patch('wptgen.engine.run_requirements_extraction', return_value=None)
+  await engine._run_async_workflow('feat-id')
+
+  # Phase 3 failure
+  mocker.patch('wptgen.engine.run_requirements_extraction', return_value='reqs')
+  mocker.patch('wptgen.engine.run_coverage_audit', return_value=None)
+  await engine._run_async_workflow('feat-id')
+
+
+def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:
+  """Tests the synchronous wrapper."""
+  mock_async_workflow = mocker.patch.object(engine, '_run_async_workflow')
+  engine.run_workflow('feat-id')
+  mock_async_workflow.assert_called_once_with('feat-id')
+
+
+@pytest.mark.asyncio
+async def test_run_async_workflow_suggestions_only(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
   """Verifies that the workflow short-circuits to provide_coverage_report when config.suggestions_only is True."""
   engine.config.suggestions_only = True
-  context = WorkflowContext(feature_id='test-feat')
+  context = WorkflowContext(feature_id='test-feat', audit_response='audit')
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
   mocker.patch('wptgen.engine.run_requirements_extraction', return_value='reqs')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
   mock_provide = mocker.patch('wptgen.engine.provide_coverage_report', return_value=None)
-  mock_gen = mocker.patch('wptgen.engine.run_test_generation')
+  mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=[])
 
-  await engine._run_async_workflow('test-feat')
+  await engine._run_async_workflow(web_feature_id='test-feat')
 
   mock_provide.assert_called_once()
   mock_gen.assert_not_called()

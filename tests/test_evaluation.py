@@ -24,6 +24,7 @@ from wptgen.phases.evaluation import run_test_evaluation
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
+  """Fixture that provides a mocked UI provider with a status context manager."""
   ui = MagicMock()
   ui.status.return_value.__enter__.return_value = None
   return ui
@@ -31,6 +32,7 @@ def mock_ui() -> MagicMock:
 
 @pytest.fixture
 def mock_config() -> Config:
+  """Fixture that provides a basic test configuration."""
   return Config(
     provider='test',
     default_model='test-model',
@@ -49,6 +51,7 @@ def mock_config() -> Config:
 
 @pytest.fixture
 def mock_llm() -> MagicMock:
+  """Fixture that provides a mocked LLM client."""
   llm = MagicMock()
   llm.generate_content.return_value = 'PASS'
   llm.model = 'mock-model'
@@ -107,7 +110,6 @@ async def test_run_test_evaluation_with_markdown(
 ) -> None:
   context = WorkflowContext(feature_id='feat')
   jinja_env = MagicMock()
-
   style_guide_content = 'Style Guide Content'
   test_path = tmp_path / 'test_markdown.html'
   test_path.write_text('original content')
@@ -121,3 +123,24 @@ async def test_run_test_evaluation_with_markdown(
 
   assert test_path.read_text() == 'corrected markdown content'
   mock_ui.print.assert_any_call(f'[cyan]ℹ {test_path.name} was corrected and updated.[/cyan]')
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_no_response(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+  test_path = tmp_path / 'test.html'
+  test_path.write_text('original content')
+  generated_tests = [(test_path, 'original content', '<suggestion></suggestion>')]
+
+  # Mock LLM returning empty response (via generate_safe failing)
+  with patch('wptgen.phases.evaluation.generate_safe', return_value=''):
+    with patch('wptgen.phases.evaluation.Path.read_text', return_value='Style Guide'):
+      await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  assert test_path.read_text() == 'original content'
+  mock_ui.print.assert_any_call(
+    f'[yellow]⚠ No response for evaluation of {test_path.name}. Keeping original.[/yellow]'
+  )
