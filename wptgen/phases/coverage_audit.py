@@ -57,7 +57,7 @@ async def run_coverage_audit(
     ui,
     config,
     system_instruction=audit_system_prompt,
-    temperature=0.0,
+    temperature=0.01,
     model=config.get_model_for_phase('coverage_audit'),
   )
 

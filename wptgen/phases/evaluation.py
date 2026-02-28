@@ -78,7 +78,7 @@ async def _evaluate_and_update(
     ui,
     config,
     system_instruction,
-    temperature=0.0,
+    temperature=0.01,
     model=config.get_model_for_phase('evaluation'),
   )
 
