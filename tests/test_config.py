@@ -29,11 +29,11 @@ def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) 
 
   assert isinstance(config, Config)
   assert config.provider == 'gemini'
-  assert config.default_model == 'gemini-3-pro-preview'
+  assert config.default_model == 'gemini-3.1-pro-preview'
   assert config.api_key == 'mock-gemini-key-123'
   assert config.categories == {
     'lightweight': 'gemini-3-flash-preview',
-    'reasoning': 'gemini-3-pro-preview',
+    'reasoning': 'gemini-3.1-pro-preview',
   }
   assert config.phase_model_mapping == {
     'requirements_extraction': 'reasoning',

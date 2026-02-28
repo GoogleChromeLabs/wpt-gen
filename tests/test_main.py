@@ -31,11 +31,11 @@ def mock_config() -> Config:
   """Provides a dummy configuration object for successful test runs."""
   return Config(
     provider='gemini',
-    default_model='gemini-3-pro-preview',
+    default_model='gemini-3.1-pro-preview',
     api_key='fake-key',
     wpt_path=os.path.join('..', 'wpt'),
     categories={
-      'lightweight': 'gemini-3-flash-preview',
+      'lightweight': 'gemini-3.1-pro-preview',
       'reasoning': 'gemini-3-pro-preview',
     },
     phase_model_mapping={

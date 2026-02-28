@@ -72,10 +72,10 @@ show_responses: false              # Set to true to see raw LLM outputs by defau
 
 providers:
   gemini:
-    default_model: gemini-3-pro-preview
+    default_model: gemini-3.1-pro-preview
     categories:
       lightweight: gemini-3-flash-preview
-      reasoning: gemini-3-pro-preview
+      reasoning: gemini-3.1-pro-preview
   openai:
     default_model: gpt-5.2-high
     categories:

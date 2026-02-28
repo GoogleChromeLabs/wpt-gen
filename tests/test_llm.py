@@ -26,12 +26,12 @@ def gemini_config() -> Config:
   """Provides a valid Gemini configuration."""
   return Config(
     provider='gemini',
-    default_model='gemini-3-pro-preview',
+    default_model='gemini-3.1-pro-preview',
     api_key='mock-gemini-key',
     wpt_path=os.path.join('..', 'wpt'),
     categories={
       'lightweight': 'gemini-3-flash-preview',
-      'reasoning': 'gemini-3-pro-preview',
+      'reasoning': 'gemini-3.1-pro-preview',
     },
     phase_model_mapping={
       'requirements_extraction': 'reasoning',
@@ -70,7 +70,7 @@ def test_get_llm_client_gemini(mocker: MockerFixture, gemini_config: Config) -> 
 
   client = get_llm_client(gemini_config)
   assert isinstance(client, GeminiClient)
-  assert client.model == 'gemini-3-pro-preview'
+  assert client.model == 'gemini-3.1-pro-preview'
 
 
 def test_get_llm_client_openai(mocker: MockerFixture, openai_config: Config) -> None:
@@ -119,7 +119,7 @@ def test_gemini_generate_content(mocker: MockerFixture, gemini_config: Config) -
 
   # Verify the internal SDK method was called with the correct model and prompt
   call_kwargs = mock_instance.models.generate_content.call_args.kwargs
-  assert call_kwargs['model'] == 'gemini-3-pro-preview'
+  assert call_kwargs['model'] == 'gemini-3.1-pro-preview'
   assert call_kwargs['contents'] == 'Test prompt'
   assert call_kwargs['config'].system_instruction == 'Test instruction'
   assert call_kwargs['config'].temperature == 0.7
@@ -186,7 +186,7 @@ def test_gemini_count_tokens(mocker: MockerFixture, gemini_config: Config) -> No
 
   assert token_count == 42
   mock_instance.models.count_tokens.assert_called_once_with(
-    model='gemini-3-pro-preview', contents='Hello world'
+    model='gemini-3.1-pro-preview', contents='Hello world'
   )
 
 
