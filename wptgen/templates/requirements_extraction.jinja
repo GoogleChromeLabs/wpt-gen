@@ -8,3 +8,11 @@ Extract the core normative test requirements for the following feature and speci
 <spec_document url="{{spec_url}}">
 {{spec_contents}}
 </spec_document>
+
+{% if mdn_contents -%}
+{% for content in mdn_contents -%}
+<mdn_document>
+{{content}}
+</mdn_document>
+{% endfor -%}
+{%- endif %}

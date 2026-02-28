@@ -92,6 +92,36 @@ async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicM
 
 
 @pytest.mark.asyncio
+async def test_run_context_assembly_with_mdn(mock_config: Config, mock_ui: MagicMock) -> None:
+  """Test context assembly with MDN documentation fetching."""
+  with (
+    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
+    patch(
+      'wptgen.phases.context_assembly.extract_feature_metadata',
+      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    ),
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text') as mock_fetch,
+    patch(
+      'wptgen.phases.context_assembly.fetch_mdn_urls', return_value=['http://mdn1', 'http://mdn2']
+    ),
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
+    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
+  ):
+    mock_fetch.side_effect = ['Spec Content', 'MDN Content 1', 'MDN Content 2']
+
+    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+    assert context is not None
+    assert isinstance(context.mdn_contents, list)
+    assert len(context.mdn_contents) == 2
+    assert 'MDN Content 1' in context.mdn_contents[0]
+    assert 'Documentation from http://mdn1' in context.mdn_contents[0]
+    assert 'MDN Content 2' in context.mdn_contents[1]
+    assert 'Documentation from http://mdn2' in context.mdn_contents[1]
+    assert mock_fetch.call_count == 3
+
+
+@pytest.mark.asyncio
 async def test_run_context_assembly_unregistered_with_params(
   mock_config: Config, mock_ui: MagicMock
 ) -> None:
@@ -225,6 +255,68 @@ async def test_run_requirements_extraction_success(
 
   assert res == '<reqs>generated</reqs>'
   assert context.requirements_xml == '<reqs>generated</reqs>'
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_with_mdn(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test that requirements extraction correctly passes mdn_contents to the template."""
+  mdn_list = ['MDN 1', 'MDN 2']
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+    mdn_contents=mdn_list,
+  )
+  jinja_env = MagicMock()
+  template_mock = MagicMock()
+  jinja_env.get_template.return_value = template_mock
+
+  mock_llm.generate_content.return_value = '<reqs>generated</reqs>'
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    await run_requirements_extraction(context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path)
+
+  # Verify render was called with mdn_contents for the main template
+  # It gets called twice: once for the prompt, once for the system prompt
+  prompt_call = next(
+    call for call in template_mock.render.call_args_list if 'mdn_contents' in call.kwargs
+  )
+  assert prompt_call.kwargs['mdn_contents'] == mdn_list
+  assert prompt_call.kwargs['spec_contents'] == 'Spec'
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_iterative_with_mdn(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test that iterative requirements extraction correctly passes mdn_contents."""
+  mdn_list = ['MDN 1', 'MDN 2']
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+    mdn_contents=mdn_list,
+  )
+  jinja_env = MagicMock()
+  template_mock = MagicMock()
+  jinja_env.get_template.return_value = template_mock
+
+  mock_llm.generate_content.return_value = (
+    '<requirements_list><status>EXHAUSTED</status></requirements_list>'
+  )
+
+  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
+    await run_requirements_extraction_iterative(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  # Verify render was called with mdn_contents
+  prompt_call = next(
+    call for call in template_mock.render.call_args_list if 'mdn_contents' in call.kwargs
+  )
+  assert prompt_call.kwargs['mdn_contents'] == mdn_list
 
 
 @pytest.mark.asyncio

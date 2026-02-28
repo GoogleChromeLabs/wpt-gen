@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+
 from rich.table import Table
 
 from wptgen.config import Config
@@ -20,6 +22,7 @@ from wptgen.context import (
   extract_feature_metadata,
   fetch_and_extract_text,
   fetch_feature_yaml,
+  fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
 )
@@ -80,8 +83,24 @@ async def run_context_assembly(
   test_paths = find_feature_tests(config.wpt_path, web_feature_id)
   wpt_context = gather_local_test_context(test_paths, config.wpt_path)
 
+  ui.print('Fetching MDN documentation...')
+  mdn_contents: list[str] | None = None
+  mdn_urls = fetch_mdn_urls(web_feature_id)
+  if mdn_urls:
+    with ui.status(f'[blue]Fetching {len(mdn_urls)} MDN pages...[/blue]'):
+      # Fetch all MDN pages asynchronously using to_thread for the synchronous fetch_and_extract_text
+      results = await asyncio.gather(
+        *[asyncio.to_thread(fetch_and_extract_text, url) for url in mdn_urls]
+      )
+      mdn_contents = [
+        f'# Documentation from {url}\n\n{res}'
+        for url, res in zip(mdn_urls, results, strict=True)
+        if res
+      ]
+
   ui.print(
     f'✔ Context gathered: {len(spec_contents)} chars of spec, '
+    f'{len(mdn_contents) if mdn_contents else 0} MDN pages, '
     f'{len(wpt_context.test_contents)} tests, '
     f'{len(wpt_context.dependency_contents)} dependency files.'
   )
@@ -90,5 +109,6 @@ async def run_context_assembly(
     feature_id=web_feature_id,
     metadata=metadata,
     spec_contents=spec_contents,
+    mdn_contents=mdn_contents,
     wpt_context=wpt_context,
   )

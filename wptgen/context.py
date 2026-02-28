@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import re
 import urllib.error
@@ -35,6 +36,8 @@ SCRIPT_DEPENDENCY_REGEX = re.compile(r'<script\s+[^>]*src=["\']([^"\']+)["\']')
 IMPORT_DEPENDENCY_REGEX = re.compile(
   r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
 )
+
+MDN_MAPPINGS_URL = 'https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json'
 
 
 def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
@@ -64,6 +67,28 @@ def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
       return None
     # If it's a 500 error or rate limit, we want it to crash loudly so we know
     raise e
+
+
+def fetch_mdn_urls(web_feature_id: str) -> list[str]:
+  """
+  Fetches the MDN mapping for a given web feature ID from the
+  web-platform-dx/web-features-mappings repository.
+
+  Returns a list of MDN documentation URLs, or an empty list if not found.
+  """
+
+  try:
+    req = urllib.request.Request(MDN_MAPPINGS_URL)
+    with urllib.request.urlopen(req) as response:
+      json_content = response.read().decode('utf-8')
+      data = json.loads(json_content)
+
+      feature_mappings = data.get(web_feature_id, [])
+      return [item['url'] for item in feature_mappings if 'url' in item]
+
+  except (urllib.error.HTTPError, json.JSONDecodeError, KeyError) as e:
+    logger.warning(f'Could not fetch or parse MDN mapping: {e}')
+    return []
 
 
 def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata:
