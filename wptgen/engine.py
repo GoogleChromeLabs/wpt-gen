@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import json
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
 from wptgen.config import Config
 from wptgen.llm import get_llm_client
+from wptgen.models import WorkflowContext
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
 from wptgen.phases.evaluation import run_test_evaluation
@@ -58,44 +60,96 @@ class WPTGenEngine:
     """Entry point for the synchronous CLI to launch the async workflow."""
     asyncio.run(self._run_async_workflow(web_feature_id))
 
+  def _get_resume_file_path(self, web_feature_id: str) -> Path:
+    """Returns the path to the resume file for a given web feature ID."""
+    return self.cache_dir / f'resume_{web_feature_id}.json'
+
+  def _save_resume_state(self, context: WorkflowContext) -> None:
+    """Serializes and saves the current workflow context to the cache."""
+    resume_file = self._get_resume_file_path(context.feature_id)
+    with open(resume_file, 'w', encoding='utf-8') as f:
+      json.dump(context.to_dict(), f, indent=2)
+
+  def _load_resume_state(self, web_feature_id: str) -> WorkflowContext | None:
+    """Attempts to load a serialized workflow context from the cache."""
+    resume_file = self._get_resume_file_path(web_feature_id)
+    if not resume_file.exists():
+      return None
+
+    try:
+      with open(resume_file, encoding='utf-8') as f:
+        data = json.load(f)
+      return WorkflowContext.from_dict(data)
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+      self.ui.print(f'[yellow]⚠ Failed to load resume state: {e}. Starting fresh.[/yellow]')
+      return None
+
   async def _run_async_workflow(self, web_feature_id: str) -> None:
     """Orchestrates the end-to-end WPT generation workflow."""
+    context = None
+    if self.config.resume:
+      context = self._load_resume_state(web_feature_id)
+      if context:
+        self.ui.print(f'[bold green]✔ Resuming workflow for {web_feature_id}[/bold green]')
+
     # Phase 1: Context Assembly
-    context = await run_context_assembly(web_feature_id, self.config, self.ui)
-    if not context:
-      return
+    if not context or not context.wpt_context:
+      context = await run_context_assembly(web_feature_id, self.config, self.ui)
+      if not context:
+        return
+      self._save_resume_state(context)
 
     # Phase 2: Requirements Extraction
-    if self.config.detailed_requirements:
-      requirements_xml = await run_requirements_extraction_iterative(
-        context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
-      )
-    else:
-      requirements_xml = await run_requirements_extraction(
-        context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
-      )
-    if not requirements_xml:
-      return
+    if not context.requirements_xml:
+      if self.config.detailed_requirements:
+        requirements_xml = await run_requirements_extraction_iterative(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      else:
+        requirements_xml = await run_requirements_extraction(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      if not requirements_xml:
+        return
+      context.requirements_xml = requirements_xml
+      self._save_resume_state(context)
 
     # Phase 3: Coverage Audit
-    audit_response = await run_coverage_audit(
-      context, self.config, self.llm, self.ui, self.jinja_env
-    )
-    if not audit_response:
-      return
+    if not context.audit_response:
+      audit_response = await run_coverage_audit(
+        context, self.config, self.llm, self.ui, self.jinja_env
+      )
+      if not audit_response:
+        return
+      context.audit_response = audit_response
+      self._save_resume_state(context)
 
     # Skip Phase 4 if the user only wants the coverage audit report.
     if self.config.suggestions_only:
       await provide_coverage_report(context, self.config, self.ui)
+      # Cleanup resume file if it exists, as this is a terminal state for suggestions-only
+      resume_file = self._get_resume_file_path(web_feature_id)
+      if resume_file.exists():
+        resume_file.unlink()
       return
 
     # Phase 4: User Selection & Generation
-    generated_tests = await run_test_generation(
-      context, self.config, self.llm, self.ui, self.jinja_env
-    )
+    if not context.generated_tests:
+      generated_tests = await run_test_generation(
+        context, self.config, self.llm, self.ui, self.jinja_env
+      )
+      context.generated_tests = generated_tests
+      self._save_resume_state(context)
+    else:
+      self.ui.print('[bold green]✔ Skipping Phase 4: Tests already generated.[/bold green]')
 
     # Phase 5: Evaluation
-    if generated_tests:
+    if context.generated_tests:
       await run_test_evaluation(
-        context, self.config, self.llm, self.ui, self.jinja_env, generated_tests
+        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
       )
+
+    # Final cleanup of resume file on success
+    resume_file = self._get_resume_file_path(web_feature_id)
+    if resume_file.exists():
+      resume_file.unlink()

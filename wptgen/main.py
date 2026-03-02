@@ -90,6 +90,13 @@ def generate(
       help='Only show test suggestions and skip the test generation step.',
     ),
   ] = False,
+  resume: Annotated[
+    bool,
+    typer.Option(
+      '--resume',
+      help='Resume the workflow from the last successful phase.',
+    ),
+  ] = False,
   max_retries: Annotated[
     int,
     typer.Option(
@@ -154,6 +161,7 @@ def generate(
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       suggestions_only=suggestions_only,
+      resume_override=resume,
       max_retries_override=max_retries,
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
