@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import shutil
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as app_version
 from pathlib import Path
@@ -206,6 +207,50 @@ def generate(
     raise typer.Exit(code=1) from e
   except Exception as e:
     # Catch unexpected runtime errors
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
+@app.command(name='clear-cache')
+def clear_cache(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Clear the existing cached data for wpt-gen.
+  """
+  try:
+    config = load_config(config_path=config_path, require_api_key=False)
+    if not config.cache_path:
+      console.print('[bold red]Error:[/bold red] Cache path not configured.')
+      return
+
+    cache_dir = Path(config.cache_path)
+
+    if not cache_dir.exists():
+      console.print(f'Cache directory [cyan]{cache_dir}[/cyan] does not exist. Nothing to clear.')
+      return
+
+    files = list(cache_dir.iterdir())
+    if not files:
+      console.print(f'Cache directory [cyan]{cache_dir}[/cyan] is already empty.')
+      return
+
+    if ui.confirm(f'Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?'):
+      for item in files:
+        if item.is_file():
+          item.unlink()
+        elif item.is_dir():
+          shutil.rmtree(item)
+      console.print('[bold green]✔ Cache cleared successfully![/bold green]')
+    else:
+      console.print('Aborted.')
+
+  except ValueError as e:
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except Exception as e:
     console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
 
