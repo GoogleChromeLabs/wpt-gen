@@ -108,6 +108,8 @@ wpt-gen generate grid
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 | `--show-responses`| `-s` | Display every LLM-generated response to the user. |
+| `--use-lightweight`| | Use the provider's lightweight model for all LLM requests. |
+| `--use-reasoning`| | Use the provider's reasoning model for all LLM requests. |
 
 
 ## Development

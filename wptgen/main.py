@@ -128,6 +128,14 @@ def generate(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  use_lightweight: Annotated[
+    bool,
+    typer.Option('--use-lightweight', help='Use the lightweight model for all LLM requests.'),
+  ] = False,
+  use_reasoning: Annotated[
+    bool,
+    typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
+  ] = False,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -144,6 +152,10 @@ def generate(
   console.print(banner)
   console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
+  if use_lightweight and use_reasoning:
+    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+    raise typer.Exit(code=1)
+
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
 
@@ -151,8 +163,10 @@ def generate(
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
     output_dir_str = str(output_dir) if output_dir else None
 
-    # Parse comma-separated spec URLs
-    spec_urls_list = [url.strip() for url in spec_urls.split(',')] if spec_urls else None
+    # Parse spec_urls if provided
+    spec_urls_list = None
+    if spec_urls:
+      spec_urls_list = [u.strip() for u in spec_urls.split(',')]
 
     config = load_config(
       config_path=config_path,
@@ -167,6 +181,8 @@ def generate(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      use_lightweight_override=use_lightweight,
+      use_reasoning_override=use_reasoning,
     )
 
     config_info = Text.assemble(

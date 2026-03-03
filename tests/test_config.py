@@ -151,6 +151,48 @@ def test_load_config_detailed_requirements(monkeypatch: pytest.MonkeyPatch) -> N
   assert config.detailed_requirements is True
 
 
+def test_config_get_model_for_phase_overrides() -> None:
+  """Test that use_lightweight and use_reasoning override phase-specific models."""
+  config = Config(
+    provider='gemini',
+    default_model='default',
+    api_key='key',
+    wpt_path='.',
+    categories={'lightweight': 'light-model', 'reasoning': 'heavy-model'},
+    phase_model_mapping={'phase1': 'lightweight', 'phase2': 'reasoning'},
+  )
+
+  # Default behavior
+  assert config.get_model_for_phase('phase1') == 'light-model'
+  assert config.get_model_for_phase('phase2') == 'heavy-model'
+
+  # Lightweight override
+  config.use_lightweight = True
+  assert config.get_model_for_phase('phase1') == 'light-model'
+  assert config.get_model_for_phase('phase2') == 'light-model'
+
+  # Reasoning override (takes precedence if we set it, but we should test independently)
+  config.use_lightweight = False
+  config.use_reasoning = True
+  assert config.get_model_for_phase('phase1') == 'heavy-model'
+  assert config.get_model_for_phase('phase2') == 'heavy-model'
+
+
+def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that load_config correctly sets default_model based on flags."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: use_lightweight_override
+  config = load_config(config_path='non_existent_dummy.yaml', use_lightweight_override=True)
+  assert config.use_lightweight is True
+  assert config.default_model == 'gemini-3-flash-preview'
+
+  # Case 2: use_reasoning_override
+  config = load_config(config_path='non_existent_dummy.yaml', use_reasoning_override=True)
+  assert config.use_reasoning is True
+  assert config.default_model == 'gemini-3.1-pro-preview'
+
+
 def test_get_default_cache_path_windows(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test default cache path on Windows."""
   monkeypatch.setattr('sys.platform', 'win32')
