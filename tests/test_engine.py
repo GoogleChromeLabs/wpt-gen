@@ -19,7 +19,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from wptgen.config import Config
-from wptgen.engine import WPTGenEngine
+from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.models import WorkflowContext
 
 
@@ -110,17 +110,20 @@ async def test_run_async_workflow_phase_failures(
   """Test short-circuits when phases fail."""
   # Phase 1 failure
   mocker.patch('wptgen.engine.run_context_assembly', return_value=None)
-  await engine._run_async_workflow('feat-id')
+  with pytest.raises(WorkflowError, match='Phase 1: Context Assembly failed.'):
+    await engine._run_async_workflow('feat-id')
 
   # Phase 2 failure
   mocker.patch('wptgen.engine.run_context_assembly', return_value=WorkflowContext(feature_id='f'))
   mocker.patch('wptgen.engine.run_requirements_extraction', return_value=None)
-  await engine._run_async_workflow('feat-id')
+  with pytest.raises(WorkflowError, match='Phase 2: Requirements Extraction failed.'):
+    await engine._run_async_workflow('feat-id')
 
   # Phase 3 failure
   mocker.patch('wptgen.engine.run_requirements_extraction', return_value='reqs')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value=None)
-  await engine._run_async_workflow('feat-id')
+  with pytest.raises(WorkflowError, match='Phase 3: Coverage Audit failed.'):
+    await engine._run_async_workflow('feat-id')
 
 
 def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:

@@ -26,7 +26,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from wptgen.config import DEFAULT_CONFIG_PATH, DEFAULT_LLM_TIMEOUT, load_config
-from wptgen.engine import WPTGenEngine
+from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
 from wptgen.ui import RichUIProvider
 
@@ -233,6 +233,16 @@ def generate(
     # Catch configuration errors (like missing API keys) and exit gracefully
     console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
     raise typer.Exit(code=1) from e
+  except WorkflowError:
+    console.print()
+    console.print(
+      Panel(
+        '[bold red]✘ Workflow completed with errors.[/bold red]',
+        border_style='red',
+        expand=False,
+      )
+    )
+    raise typer.Exit(code=1) from None
   except Exception as e:
     # Catch unexpected runtime errors
     console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
