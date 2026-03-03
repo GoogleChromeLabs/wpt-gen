@@ -23,6 +23,53 @@ Flags are added to the filename to enable specific server features. These apply 
 ### 1.3 Support Files
 Place auxiliary files (images, scripts, etc.) in directories named `resources`, `support`, or in common areas like `/common/`, `/media/`, or `/css/support/`.
 
+### 1.4 How to Choose WPT Test File Suffixes
+
+Follow these steps to determine the correct filename suffix for a test. The goal is to assemble a filename suffix in the following format:
+`[.features].{extension}`
+
+#### Step 1: Choose the Base Extension
+Determine the primary file format based on the content of your test:
+- **`.html`**: Use for standard web-based tests (HTML/XHTML/SVG/XML).
+- **`.js`**: Use for pure JavaScript tests, especially if you want to use the automated boilerplate generation (see Step 4).
+- **`.py`**: Use ONLY for `wdspec` (WebDriver protocol) tests.
+
+#### Step 2: Choose Test Feature Flags (Optional)
+If your test requires specific server features or environment settings, append these flags (preceded and followed by a `.`). These come **after** any test type flag.
+
+##### Environment Requirements
+- **`.https`**: The test must be loaded over HTTPS.
+- **`.h2`**: The test must be loaded over HTTP/2.
+- **`.www`**: The test must run on the `www` subdomain.
+
+##### Server Features
+- **`.sub`**: The test uses server-side substitution (e.g., `{{host}}`).
+- **`.headers`**: Not a flag for the test itself, but a suffix for a companion file (e.g., `.html.headers`) to set custom HTTP headers.
+
+#### Step 3: Handle JavaScript Boilerplate (For `.js` files)
+If you chose `.js` in Step 1, you MUST include one of these scope flags to tell WPT how to generate the HTML wrapper. These are technically feature flags and should be placed before the `.js` extension.
+
+- **`.window.js`**: Generates a test that runs in a standard Window global.
+- **`.worker.js`**: Generates a test that runs in a Dedicated Worker.
+- **`.any.js`**: Generates multiple tests covering different scopes (Window, Worker, etc.).
+- **`.extension.js`**: Generates a WebExtension test.
+
+#### Step 4: Assemble and Verify Order
+Assemble the parts in this specific order:
+1.  **Features** (delimited by `.`): `.https.sub`
+2.  **Extension**: `.html`
+
+**Result**: `.https.sub.html`
+
+##### Quick Check Table for LLMs:
+| If the test contains... | Use Suffix... |
+| :--- | :--- |
+| WebDriver Protocol (Python) | `.py` |
+| Needs HTTPS | `.https.html` |
+| JS test running in multiple scopes | `.any.js` |
+| Server-side `{{variable}}` substitution | `.sub.html` |
+| HTTP/2 required | `.h2.html` |
+
 ---
 
 ## 2. Core Metadata
