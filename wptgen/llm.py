@@ -15,26 +15,41 @@
 import logging
 from abc import ABC, abstractmethod
 
+import httpx
+import openai
 import tiktoken
 from google import genai
 from google.genai import types
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from wptgen.config import Config
+from wptgen.config import DEFAULT_LLM_TIMEOUT, Config
 from wptgen.utils import retry
 
 # Default retry configuration for LLM calls
 MAX_RETRIES = 3
 
 
+class LLMTimeoutError(Exception):
+  """Raised when an LLM request times out."""
+
+  pass
+
+
 class LLMClient(ABC):
   """Abstract base class for all LLM providers."""
 
-  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
+  def __init__(
+    self,
+    api_key: str,
+    model: str,
+    max_retries: int = MAX_RETRIES,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+  ):
     self.api_key = api_key
     self.model = model
     self.max_retries = max_retries
+    self.timeout = timeout
 
   @abstractmethod
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
@@ -59,15 +74,28 @@ class LLMClient(ABC):
 
 
 class GeminiClient(LLMClient):
-  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
-    super().__init__(api_key, model, max_retries)
+  def __init__(
+    self,
+    api_key: str,
+    model: str,
+    max_retries: int = MAX_RETRIES,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+  ):
+    super().__init__(api_key, model, max_retries, timeout)
     # Initialize the official Google GenAI client
-    self.client = genai.Client(api_key=self.api_key)
+    # Casting timeout to milliseconds to ensure it's interpreted correctly by the SDK
+    self.client = genai.Client(
+      api_key=self.api_key,
+      http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
+    )
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
     target_model = model or self.model
-    response = self.client.models.count_tokens(model=target_model, contents=prompt)
+    try:
+      response = self.client.models.count_tokens(model=target_model, contents=prompt)
+    except httpx.TimeoutException as e:
+      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
     if response.total_tokens is None:
       raise ValueError('Gemini API returned no token count.')
     return response.total_tokens
@@ -87,9 +115,13 @@ class GeminiClient(LLMClient):
     if temperature is not None:
       config.temperature = temperature
 
-    response = self.client.models.generate_content(
-      model=target_model, contents=prompt, config=config
-    )
+    try:
+      response = self.client.models.generate_content(
+        model=target_model, contents=prompt, config=config
+      )
+    except httpx.TimeoutException as e:
+      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
+
     if response.text is None:
       raise ValueError('Gemini API returned no text.')
     return response.text
@@ -107,7 +139,10 @@ class GeminiClient(LLMClient):
     """
     target_model = model or self.model
     token_count = self.count_tokens(prompt, model=target_model)
-    model_info = self.client.models.get(model=target_model)
+    try:
+      model_info = self.client.models.get(model=target_model)
+    except httpx.TimeoutException as e:
+      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
     limit = model_info.input_token_limit or 1_000_000  # Fallback to 1M if not specified
 
     logging.info(f'Prompt token count: {token_count}')
@@ -117,9 +152,15 @@ class GeminiClient(LLMClient):
 
 
 class OpenAIClient(LLMClient):
-  def __init__(self, api_key: str, model: str, max_retries: int = MAX_RETRIES):
-    super().__init__(api_key, model, max_retries)
-    self.client = OpenAI(api_key=self.api_key)
+  def __init__(
+    self,
+    api_key: str,
+    model: str,
+    max_retries: int = MAX_RETRIES,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+  ):
+    super().__init__(api_key, model, max_retries, timeout)
+    self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
 
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
     """Returns the total number of tokens for the given prompt using tiktoken."""
@@ -145,9 +186,13 @@ class OpenAIClient(LLMClient):
       messages.append({'role': 'system', 'content': system_instruction})
     messages.append({'role': 'user', 'content': prompt})
 
-    response = self.client.chat.completions.create(
-      model=target_model, messages=messages, temperature=temperature
-    )
+    try:
+      response = self.client.chat.completions.create(
+        model=target_model, messages=messages, temperature=temperature
+      )
+    except openai.APITimeoutError as e:
+      raise LLMTimeoutError(f'OpenAI API request timed out after {self.timeout}s: {e}') from e
+
     content = response.choices[0].message.content
     if content is None:
       raise ValueError('OpenAI API returned no content.')
@@ -183,11 +228,17 @@ def get_llm_client(config: Config) -> LLMClient:
   assert config.api_key is not None, 'api_key must be set in configuration'
   if config.provider == 'gemini':
     return GeminiClient(
-      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+      api_key=config.api_key,
+      model=config.default_model,
+      max_retries=config.max_retries,
+      timeout=config.timeout,
     )
   elif config.provider == 'openai':
     return OpenAIClient(
-      api_key=config.api_key, model=config.default_model, max_retries=config.max_retries
+      api_key=config.api_key,
+      model=config.default_model,
+      max_retries=config.max_retries,
+      timeout=config.timeout,
     )
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')

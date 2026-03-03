@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -19,6 +20,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+# Default timeout for LLM requests in seconds (10 minutes)
+DEFAULT_LLM_TIMEOUT = 600
+# Minimum allowed timeout for Gemini API (10 seconds)
+MIN_LLM_TIMEOUT = 10
 
 
 @dataclass
@@ -37,6 +43,7 @@ class Config:
   suggestions_only: bool = False
   resume: bool = False
   max_retries: int = 3
+  timeout: int = DEFAULT_LLM_TIMEOUT
   cache_path: str | None = None
   spec_urls: list[str] | None = None
   feature_description: str | None = None
@@ -107,6 +114,7 @@ def load_config(
   suggestions_only: bool = False,
   resume_override: bool = False,
   max_retries_override: int | None = None,
+  timeout_override: int | None = None,
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
@@ -172,6 +180,15 @@ def load_config(
     'detailed_requirements', False
   )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
+  timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
+
+  if timeout < MIN_LLM_TIMEOUT:
+    logging.warning(
+      f'Requested timeout {timeout}s is less than the minimum allowed ({MIN_LLM_TIMEOUT}s). '
+      f'Setting timeout to {MIN_LLM_TIMEOUT}s.'
+    )
+    timeout = MIN_LLM_TIMEOUT
+
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
 
   # Load model categories and phase mapping
@@ -205,6 +222,7 @@ def load_config(
     suggestions_only=suggestions_only,
     resume=resume,
     max_retries=max_retries,
+    timeout=timeout,
     cache_path=cache_path,
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
