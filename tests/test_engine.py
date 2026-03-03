@@ -183,3 +183,26 @@ def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
   assert engine.config == mock_config
   assert engine.llm is not None
   assert engine.jinja_env is not None
+
+
+@pytest.mark.asyncio
+async def test_run_async_workflow_skip_evaluation(
+  engine: WPTGenEngine, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+  """Verifies that Phase 5: Evaluation is skipped when config.skip_evaluation is True."""
+  engine.config.skip_evaluation = True
+  context = WorkflowContext(feature_id='feat-id')
+  requirements = 'reqs'
+  audit = 'audit'
+  generated_tests = [('path', 'content', 'suggestion')]
+
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
+  mocker.patch('wptgen.engine.run_requirements_extraction', return_value=requirements)
+  mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
+  mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
+  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
+
+  await engine._run_async_workflow('feat-id')
+
+  mock_eval.assert_not_called()
+  mock_ui.info.assert_called_with('Skipping Phase 5: Evaluation.')

@@ -253,3 +253,16 @@ def test_load_config_timeout_minimum(
   # Case 3: Timeout greater than minimum (e.g., 60s) should remain 60s
   config = load_config(config_path='non_existent_dummy.yaml', timeout_override=60)
   assert config.timeout == 60
+
+
+def test_load_config_skip_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that skip_evaluation flag is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (False)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.skip_evaluation is False
+
+  # Case 2: Override to True
+  config = load_config(config_path='non_existent_dummy.yaml', skip_evaluation_override=True)
+  assert config.skip_evaluation is True
