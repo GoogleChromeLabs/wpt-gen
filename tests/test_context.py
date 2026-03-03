@@ -27,10 +27,52 @@ from wptgen.context import (
   extract_feature_metadata,
   fetch_and_extract_text,
   fetch_feature_yaml,
+  fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
   resolve_dependency_path,
 )
+
+
+def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
+  """Test successfully fetching MDN URLs from the mapping JSON."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = (
+    b'{"fetch": [{"url": "https://developer.mozilla.org/en-US/docs/Web/API/fetch"}]}'
+  )
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_mdn_urls('fetch')
+
+  assert result == ['https://developer.mozilla.org/en-US/docs/Web/API/fetch']
+  mock_urlopen.assert_called_once()
+  request_obj = mock_urlopen.call_args[0][0]
+  assert 'mdn-docs.json' in request_obj.full_url
+
+
+def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
+  """Test that if a feature ID is not in the mapping, it returns an empty list."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = b'{"fetch": [{"url": "https://example.com"}]}'
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_mdn_urls('unknown')
+
+  assert result == []
+
+
+def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
+  """Test that HTTP errors during mapping fetch return an empty list."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_urlopen.side_effect = urllib.error.HTTPError(
+    url='', code=404, msg='Not Found', hdrs=Message(), fp=None
+  )
+
+  result = fetch_mdn_urls('fetch')
+
+  assert result == []
 
 
 def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:
@@ -335,3 +377,58 @@ def test_gather_local_test_context(tmp_path: Path) -> None:
   deps_for_test = context.test_to_deps[str(test_html)]
   assert str(dep_js) in deps_for_test
   assert str(subdep_js) in deps_for_test
+
+
+def test_fetch_feature_yaml_not_a_dict(mocker: MockerFixture) -> None:
+  """Test that if the YAML file is not a dictionary, it returns None."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = b'["not", "a", "dict"]'
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  assert fetch_feature_yaml('popover') is None
+
+
+def test_find_feature_tests_yaml_missing_features(tmp_path: Path) -> None:
+  """Test that YAML files without a 'features' key are skipped."""
+  feat_dir = tmp_path / 'no-features'
+  feat_dir.mkdir()
+  (feat_dir / 'WEB_FEATURES.yml').write_text('something: else', encoding='utf-8')
+
+  assert find_feature_tests(str(tmp_path), 'grid') == []
+
+
+def test_find_feature_tests_exception(tmp_path: Path, mocker: MockerFixture) -> None:
+  """Test that exceptions during YAML processing are caught."""
+  feat_dir = tmp_path / 'exception'
+  feat_dir.mkdir()
+  (feat_dir / 'WEB_FEATURES.yml').touch()
+
+  # Mock open to raise an exception for this specific file
+  mocker.patch('builtins.open', side_effect=Exception('IO Error'))
+  assert find_feature_tests(str(tmp_path), 'grid') == []
+
+
+def test_resolve_dependency_path_invalid(tmp_path: Path) -> None:
+  """Test that invalid paths (e.g. outside root) are handled."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file = wpt_root / 'test.html'
+  test_file.touch()
+
+  # Path that goes outside root via ..
+  assert resolve_dependency_path(test_file, '../../outside.js', wpt_root) is None
+
+
+def test_gather_local_test_context_exception(tmp_path: Path, mocker: MockerFixture) -> None:
+  """Test that exceptions during file reading in gather_local_test_context are caught."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_html = wpt_root / 'test.html'
+  test_html.touch()
+
+  # Mock read_text to raise an exception
+  mocker.patch('pathlib.Path.read_text', side_effect=Exception('Read Error'))
+
+  context = gather_local_test_context([str(test_html)], str(wpt_root))
+  assert context.test_contents == {}

@@ -31,9 +31,19 @@ def mock_config() -> Config:
   """Provides a dummy configuration object for successful test runs."""
   return Config(
     provider='gemini',
-    model='gemini-3-pro-preview',
+    default_model='gemini-3.1-pro-preview',
     api_key='fake-key',
     wpt_path=os.path.join('..', 'wpt'),
+    categories={
+      'lightweight': 'gemini-3.1-pro-preview',
+      'reasoning': 'gemini-3-pro-preview',
+    },
+    phase_model_mapping={
+      'requirements_extraction': 'reasoning',
+      'coverage_audit': 'reasoning',
+      'generation': 'lightweight',
+      'evaluation': 'lightweight',
+    },
     max_retries=3,
   )
 
@@ -66,7 +76,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
 
   # Check standard output and exit code
   assert result.exit_code == 0
-  assert 'Starting WPT-Gen for feature' in result.stdout
+  assert 'Target Feature' in result.stdout
   assert 'Workflow completed successfully' in result.stdout
 
   # Verify our logic called the underlying functions with the correct CLI arguments
@@ -74,14 +84,18 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     config_path=DEFAULT_CONFIG_PATH,
     provider_override='gemini',
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=False,
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
-  mock_engine_class.assert_called_once_with(config=mock_config)
+  mock_engine_class.assert_called_once()
+  # Verify config was passed correctly
+  assert mock_engine_class.call_args[1]['config'] == mock_config
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
 
@@ -98,12 +112,14 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=True,
     yes_tokens_override=False,
     suggestions_only=False,
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -120,12 +136,14 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=True,
     suggestions_only=False,
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -142,12 +160,14 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=True,
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -164,12 +184,38 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=False,
     max_retries_override=5,
     spec_urls_override=None,
     feature_description_override=None,
+    detailed_requirements_override=False,
+  )
+
+
+def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --detailed-requirements flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --detailed-requirements
+  result = runner.invoke(app, ['generate', 'grid', '--detailed-requirements'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    suggestions_only=False,
+    max_retries_override=3,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=True,
   )
 
 
@@ -217,12 +263,14 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=False,
     max_retries_override=3,
     spec_urls_override=['https://url1.com', 'https://url2.com'],
     feature_description_override=None,
+    detailed_requirements_override=False,
   )
 
 
@@ -239,10 +287,31 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     config_path=DEFAULT_CONFIG_PATH,
     provider_override=None,
     wpt_dir_override=None,
+    output_dir_override=None,
     show_responses=False,
     yes_tokens_override=False,
     suggestions_only=False,
     max_retries_override=3,
     spec_urls_override=None,
     feature_description_override='Test Description',
+    detailed_requirements_override=False,
   )
+
+
+def test_version_not_found(mocker: MockerFixture) -> None:
+  """Test version command when package is not found."""
+  mocker.patch('wptgen.main.app_version', side_effect=ImportError)  # Typer might use importlib
+  # Actually main.py catches PackageNotFoundError
+  from importlib.metadata import PackageNotFoundError
+
+  mocker.patch('wptgen.main.app_version', side_effect=PackageNotFoundError)
+  result = runner.invoke(app, ['version'])
+  assert result.exit_code == 0
+  assert 'unknown' in result.stdout
+
+
+def test_main_callback() -> None:
+  """Test the main callback."""
+  from wptgen.main import main_callback
+
+  main_callback()  # Should just pass

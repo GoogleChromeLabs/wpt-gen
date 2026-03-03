@@ -19,11 +19,14 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from wptgen.config import DEFAULT_CONFIG_PATH, load_config
 from wptgen.engine import WPTGenEngine
+from wptgen.ui import RichUIProvider
 
 # Initialize Typer app and Rich console
 app = typer.Typer(
@@ -32,6 +35,7 @@ app = typer.Typer(
   add_completion=False,
 )
 console = Console()
+ui = RichUIProvider(console)
 
 
 @app.command()
@@ -55,6 +59,15 @@ def generate(
       exists=True,
       dir_okay=True,
       resolve_path=True,
+    ),
+  ] = None,
+  output_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--output-dir',
+      '-o',
+      help='Directory where generated tests will be saved.',
+      dir_okay=True,
     ),
   ] = None,
   config_path: Annotated[
@@ -100,17 +113,35 @@ def generate(
       help='Manually provide a description for the web feature.',
     ),
   ] = None,
+  detailed_requirements: Annotated[
+    bool,
+    typer.Option(
+      '--detailed-requirements',
+      help='Use a more detailed, iterative requirements extraction process.',
+    ),
+  ] = False,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
   """
-  console.print(f'[bold blue]Starting WPT-Gen for feature:[/bold blue] {web_feature_id}')
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
 
     # Convert Path object back to string if it was provided, else pass None
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    output_dir_str = str(output_dir) if output_dir else None
 
     # Parse comma-separated spec URLs
     spec_urls_list = [url.strip() for url in spec_urls.split(',')] if spec_urls else None
@@ -119,31 +150,47 @@ def generate(
       config_path=config_path,
       provider_override=provider,
       wpt_dir_override=wpt_dir_str,
+      output_dir_override=output_dir_str,
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       suggestions_only=suggestions_only,
       max_retries_override=max_retries,
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
+      detailed_requirements_override=detailed_requirements,
     )
 
+    config_info = Text.assemble(
+      ('Provider: ', 'bold'),
+      (f'{config.provider}\n', 'green'),
+      ('Model:    ', 'bold'),
+      (f'{config.default_model}', 'green'),
+    )
     console.print(
       Panel(
-        f'[bold]Provider:[/bold] {config.provider}\n[bold]Model:[/bold] {config.model}',
-        title='Active Configuration',
+        config_info,
+        title='[bold]Configuration[/bold]',
+        title_align='left',
         expand=False,
-        border_style='green',
+        border_style='bright_black',
       )
     )
 
     # 2. Instantiate the core engine
-    engine = WPTGenEngine(config=config)
+    engine = WPTGenEngine(config=config, ui=ui)
 
     # 3. Execute the workflow
     # Note: In Phase 1, this will just print the skeleton output
     engine.run_workflow(web_feature_id)
 
-    console.print('[bold green]✔ Workflow completed successfully.[/bold green]')
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Workflow completed successfully![/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
 
   except ValueError as e:
     # Catch configuration errors (like missing API keys) and exit gracefully
@@ -176,4 +223,4 @@ def main_callback() -> None:
 
 
 if __name__ == '__main__':
-  app()
+  app()  # pragma: no cover

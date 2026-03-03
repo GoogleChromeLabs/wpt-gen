@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import pytest
 
 from wptgen.config import Config, load_config
@@ -27,8 +29,18 @@ def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) 
 
   assert isinstance(config, Config)
   assert config.provider == 'gemini'
-  assert config.model == 'gemini-3-pro-preview'
+  assert config.default_model == 'gemini-3.1-pro-preview'
   assert config.api_key == 'mock-gemini-key-123'
+  assert config.categories == {
+    'lightweight': 'gemini-3-flash-preview',
+    'reasoning': 'gemini-3.1-pro-preview',
+  }
+  assert config.phase_model_mapping == {
+    'requirements_extraction': 'reasoning',
+    'coverage_audit': 'reasoning',
+    'generation': 'lightweight',
+    'evaluation': 'lightweight',
+  }
 
 
 def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -40,8 +52,12 @@ def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -
   config = load_config(config_path='non_existent_dummy.yaml', provider_override='openai')
 
   assert config.provider == 'openai'
-  assert config.model == 'gpt-5.2-high'
+  assert config.default_model == 'gpt-5.2-high'
   assert config.api_key == 'mock-openai-key-456'
+  assert config.categories == {
+    'lightweight': 'gpt-4o-mini',
+    'reasoning': 'gpt-5.2-high',
+  }
 
 
 def test_load_config_missing_api_key_raises_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -70,14 +86,98 @@ def test_load_config_spec_urls(monkeypatch: pytest.MonkeyPatch) -> None:
   assert config.spec_urls == spec_urls
 
 
-def test_load_config_max_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Test that max_retries is correctly loaded into the Config object."""
+def test_load_config_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+  """Test that output_dir is correctly loaded and validated."""
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
 
-  # Case 1: Default
+  # Case 1: Default (resolves to current directory)
   config = load_config(config_path='non_existent_dummy.yaml')
-  assert config.max_retries == 3
+  assert config.output_dir == str(Path('.').resolve())
 
-  # Case 2: Override
-  config = load_config(config_path='non_existent_dummy.yaml', max_retries_override=10)
-  assert config.max_retries == 10
+  # Case 2: Override with existing directory
+  test_dir = tmp_path / 'existing_dir'
+  test_dir.mkdir()
+  config = load_config(config_path='non_existent_dummy.yaml', output_dir_override=str(test_dir))
+  assert config.output_dir == str(test_dir.resolve())
+
+  # Case 3: Override with non-existent directory (should be created)
+  new_dir = tmp_path / 'new_dir'
+  config = load_config(config_path='non_existent_dummy.yaml', output_dir_override=str(new_dir))
+  assert config.output_dir == str(new_dir.resolve())
+  assert new_dir.exists()
+
+
+def test_validate_output_dir_handles_home_expansion(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """Test that validate_output_dir expands ~."""
+  from wptgen.config import validate_output_dir
+
+  # Mock HOME environment variable
+  fake_home = tmp_path / 'fake_home'
+  fake_home.mkdir()
+  monkeypatch.setenv('HOME', str(fake_home))
+
+  validated = validate_output_dir('~/my_tests')
+
+  assert validated == str((fake_home / 'my_tests').resolve())
+  assert (fake_home / 'my_tests').exists()
+
+
+def test_validate_output_dir_permission_error(tmp_path: Path) -> None:
+  """Test that validate_output_dir raises ValueError on permission issues."""
+  from wptgen.config import validate_output_dir
+
+  restricted_dir = tmp_path / 'restricted'
+  restricted_dir.mkdir(mode=0o555)  # Read and execute, no write
+
+  try:
+    with pytest.raises(ValueError, match='CRITICAL: Cannot write to output directory'):
+      validate_output_dir(str(restricted_dir / 'subdir'))
+  finally:
+    restricted_dir.chmod(0o777)  # Clean up
+
+
+def test_load_config_detailed_requirements(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that detailed_requirements flag is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (False)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.detailed_requirements is False
+
+  # Case 2: Override to True
+  config = load_config(config_path='non_existent_dummy.yaml', detailed_requirements_override=True)
+  assert config.detailed_requirements is True
+
+
+def test_get_default_cache_path_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path on Windows."""
+  monkeypatch.setattr('sys.platform', 'win32')
+  monkeypatch.setenv('LOCALAPPDATA', 'C:\\AppData\\Local')
+  from wptgen.config import _get_default_cache_path
+
+  path = _get_default_cache_path()
+  assert 'C:' in path
+  assert 'AppData' in path
+  assert 'Local' in path
+  assert 'wpt-gen' in path
+  assert 'Cache' in path
+
+
+def test_get_default_cache_path_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path on Darwin (macOS)."""
+  monkeypatch.setattr('sys.platform', 'darwin')
+  from wptgen.config import _get_default_cache_path
+
+  path = _get_default_cache_path()
+  assert 'Library/Caches/wpt-gen' in path
+
+
+def test_get_default_cache_path_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test default cache path with XDG_CACHE_HOME."""
+  monkeypatch.setattr('sys.platform', 'linux')
+  monkeypatch.setenv('XDG_CACHE_HOME', '/tmp/custom_cache')
+  from wptgen.config import _get_default_cache_path
+
+  assert _get_default_cache_path() == '/tmp/custom_cache/wpt-gen'

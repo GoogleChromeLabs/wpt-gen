@@ -1,0 +1,22 @@
+Extract the normative test requirements for the following feature and specification.
+
+<feature_definition>
+  <feature_name>{{feature_name}}</feature_name>
+  <feature_description>{{feature_description}}</feature_description>
+</feature_definition>
+
+<spec_document url="{{spec_url}}">
+{{spec_contents}}
+</spec_document>
+
+{% if mdn_contents -%}
+{% for content in mdn_contents -%}
+<mdn_document>
+{{content}}
+</mdn_document>
+{% endfor -%}
+{%- endif %}
+
+<existing_requirements>
+{{existing_requirements_xml}}
+</existing_requirements>
