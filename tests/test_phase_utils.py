@@ -71,7 +71,10 @@ async def test_confirm_prompts_multiple(
   prompt_data = [('p1', 'n1'), ('p2', 'n2')]
   mock_ui.confirm.return_value = True
   await confirm_prompts(prompt_data, 'Phase', mock_llm, mock_ui, mock_config)
-  mock_ui.print.assert_any_call('[bold]Total Estimated Tokens:[/bold] [cyan]200[/cyan]')
+  mock_ui.report_token_usage.assert_called_once()
+  args, kwargs = mock_ui.report_token_usage.call_args
+  assert args[0] == 'Phase'
+  assert args[3] == 200
 
 
 @pytest.mark.asyncio
@@ -82,9 +85,9 @@ async def test_confirm_prompts_limit_exceeded(
   mock_llm.prompt_exceeds_input_token_limit.return_value = True
   mock_ui.confirm.return_value = True
   await confirm_prompts([('p1', 'n1')], 'Phase', mock_llm, mock_ui, mock_config)
-  mock_ui.print.assert_any_call(
-    '\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!'
-  )
+  mock_ui.report_token_usage.assert_called_once()
+  results = mock_ui.report_token_usage.call_args[0][2]
+  assert results[0][1] is True
 
 
 @pytest.mark.asyncio
@@ -94,7 +97,8 @@ async def test_confirm_prompts_yes_tokens(
   """Test that confirm_prompts auto-confirms when yes_tokens is set."""
   mock_config.yes_tokens = True
   await confirm_prompts([('p1', 'n1')], 'Phase', mock_llm, mock_ui, mock_config)
-  mock_ui.print.assert_any_call('\n[yellow]Auto-confirming token usage (--yes-tokens).[/yellow]')
+  mock_ui.report_token_usage.assert_called_once()
+  assert mock_ui.report_token_usage.call_args[1]['auto_confirmed'] is True
   mock_ui.confirm.assert_not_called()
 
 
@@ -106,7 +110,7 @@ async def test_confirm_prompts_abort(
   mock_ui.confirm.return_value = False
   with pytest.raises(typer.Abort):
     await confirm_prompts([('p1', 'n1')], 'Phase', mock_llm, mock_ui, mock_config)
-  mock_ui.print.assert_any_call('[yellow]Aborting workflow due to user cancellation.[/yellow]')
+  mock_ui.warning.assert_called_once_with('Aborting workflow due to user cancellation.')
 
 
 @pytest.mark.asyncio
@@ -117,17 +121,7 @@ async def test_generate_safe_show_responses_xml(
   mock_config.show_responses = True
   res = await generate_safe('prompt', 'Task', mock_llm, mock_ui, mock_config)
   assert res == 'response'
-  mock_ui.display_syntax.assert_called_once_with('response', 'xml', 'Task')
-
-
-@pytest.mark.asyncio
-async def test_generate_safe_show_responses_html(
-  mock_ui: MagicMock, mock_llm: MagicMock, mock_config: Config
-) -> None:
-  """Test that generate_safe displays response as HTML for generation tasks."""
-  mock_config.show_responses = True
-  await generate_safe('prompt', 'gen: test', mock_llm, mock_ui, mock_config)
-  mock_ui.display_syntax.assert_called_once_with('response', 'html', 'gen: test')
+  mock_ui.report_llm_response.assert_called_once_with('response', 'Task')
 
 
 @pytest.mark.asyncio
@@ -138,4 +132,4 @@ async def test_generate_safe_exception(
   mock_llm.generate_content.side_effect = Exception('test error')
   res = await generate_safe('prompt', 'Task', mock_llm, mock_ui, mock_config)
   assert res == ''
-  mock_ui.print.assert_any_call('[bold red]✘ Task failed (test-model):[/bold red] test error')
+  mock_ui.error.assert_called_once_with('Task failed (test-model): test error')

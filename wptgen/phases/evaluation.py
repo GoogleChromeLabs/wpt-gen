@@ -35,14 +35,14 @@ async def run_test_evaluation(
   generated_tests: list[tuple[Path, str, str]],
 ) -> None:
   """Runs the evaluation phase for generated tests."""
-  ui.rule('Phase 5: Evaluation')
+  ui.on_phase_start(5, 'Evaluation')
 
   # Group tests by their suggestion XML to handle multi-file tests (Reftests) together
   grouped_tests: dict[str, list[tuple[Path, str]]] = defaultdict(list)
   for path, content, suggestion_xml in generated_tests:
     grouped_tests[suggestion_xml].append((path, content))
 
-  ui.print(f'Evaluating [bold]{len(grouped_tests)}[/bold] test suggestions...')
+  ui.report_evaluation_start(len(grouped_tests))
 
   # Load the general style guide
   resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
@@ -103,7 +103,7 @@ async def run_test_evaluation(
     tasks.append(_evaluate_and_update(group, prompt, llm, ui, config, system_instruction))
 
   await asyncio.gather(*tasks)
-  ui.print('\n[bold green]✔ Evaluation phase complete.[/bold green]')
+  ui.on_phase_complete('Evaluation')
 
 
 async def _evaluate_and_update(
@@ -116,7 +116,7 @@ async def _evaluate_and_update(
 ) -> None:
   """Evaluates a single test (or multi-file test) and updates the file(s) if needed."""
   display_names = ', '.join([p.name for p, _ in files])
-  ui.print(f'Evaluating: [bold]{display_names}[/bold]...')
+  ui.print(f'Evaluating: {display_names}...')
 
   response = await generate_safe(
     prompt,
@@ -130,13 +130,15 @@ async def _evaluate_and_update(
   )
 
   if not response:
-    ui.print(f'[yellow]⚠ No response for evaluation of {display_names}. Keeping original.[/yellow]')
+    ui.report_evaluation_result(
+      display_names, success=False, message=f'No response for evaluation of {display_names}.'
+    )
     return
 
   clean_response = response.strip()
 
   if clean_response == 'PASS':
-    ui.print(f'[green]✔ {display_names} passed evaluation.[/green]')
+    ui.report_evaluation_result(display_names, success=True)
   else:
     # If it's not PASS, it should be the corrected file content
     # Check if we have multiple files in the response
@@ -152,22 +154,24 @@ async def _evaluate_and_update(
         _, fcontent = multi_files[0]
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
         p.write_text(clean_content, encoding='utf-8')
-        ui.print(f'[cyan]ℹ {p.name} was corrected and updated.[/cyan]')
+        ui.report_evaluation_result(p.name, success=True, updated=True)
 
       if len(multi_files) >= 2 and ref_path_item:
         p, _ = ref_path_item
         _, fcontent = multi_files[1]
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
         p.write_text(clean_content, encoding='utf-8')
-        ui.print(f'[cyan]ℹ {p.name} was corrected and updated.[/cyan]')
+        ui.report_evaluation_result(p.name, success=True, updated=True)
     else:
       # If it's a single file correction
       if len(files) == 1:
         path = files[0][0]
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
         path.write_text(clean_content, encoding='utf-8')
-        ui.print(f'[cyan]ℹ {path.name} was corrected and updated.[/cyan]')
+        ui.report_evaluation_result(path.name, success=True, updated=True)
       else:
-        ui.print(
-          f'[yellow]⚠ Received single-file correction for multi-file test {display_names}. Skipping.[/yellow]'
+        ui.report_evaluation_result(
+          display_names,
+          success=False,
+          message=f'Received single-file correction for multi-file test {display_names}. Skipping.',
         )

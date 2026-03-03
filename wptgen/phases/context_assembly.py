@@ -14,8 +14,6 @@
 
 import asyncio
 
-from rich.table import Table
-
 from wptgen.config import Config
 from wptgen.context import (
   WebFeatureMetadata,
@@ -33,24 +31,22 @@ from wptgen.ui import UIProvider
 async def run_context_assembly(
   web_feature_id: str, config: Config, ui: UIProvider
 ) -> WorkflowContext | None:
-  ui.rule('Phase 1: Context Assembly')
+  ui.on_phase_start(1, 'Context Assembly')
 
   feature_data = fetch_feature_yaml(web_feature_id)
   if not feature_data:
     if config.spec_urls and config.feature_description:
-      ui.print(
-        f'[yellow]Warning:[/yellow] Feature [bold]{web_feature_id}[/bold] not found in the web-features repository.'
-      )
+      ui.warning(f'Feature {web_feature_id} not found in the web-features repository.')
       metadata = WebFeatureMetadata(
         name=web_feature_id,
         description=config.feature_description,
         specs=config.spec_urls,
       )
     else:
-      ui.print(f'[bold red]Error:[/bold red] Feature {web_feature_id} not found.')
+      ui.error(f'Feature {web_feature_id} not found.')
       ui.print(
-        'To generate tests for an unregistered feature, please provide both a spec URL using [bold]--spec-urls[/bold] '
-        'and a description using [bold]--description[/bold].'
+        'To generate tests for an unregistered feature, please provide both a spec URL using --spec-urls '
+        'and a description using --description.'
       )
       return None
   else:
@@ -61,22 +57,17 @@ async def run_context_assembly(
       metadata.description = config.feature_description
 
   if not metadata.specs:
-    ui.print('[bold red]Error:[/bold red] No specification URL found.')
+    ui.error('No specification URL found.')
     return None
 
-  metadata_table = Table(show_header=False, box=None, padding=(0, 2))
-  metadata_table.add_row('[bold]Web Feature Name:[/bold]', f'[cyan]{metadata.name}[/cyan]')
-  metadata_table.add_row('[bold]Description:[/bold]', metadata.description)
-  metadata_table.add_row('[bold]Spec URL:[/bold]', f'[blue]{metadata.specs[0]}[/blue]')
-
-  ui.display_panel(metadata_table, title='Feature Metadata')
+  ui.report_metadata(metadata)
 
   ui.print('\nFetching spec content...')
-  with ui.status('[blue]Fetching and extracting text...[/blue]'):
+  with ui.status('Fetching and extracting text...'):
     spec_contents = fetch_and_extract_text(metadata.specs[0])
 
   if not spec_contents:
-    ui.print('[bold red]Error:[/bold red] Failed to extract spec content.')
+    ui.error('Failed to extract spec content.')
     return None
 
   ui.print('Scanning local WPT repository for existing tests and dependencies...')
@@ -87,7 +78,7 @@ async def run_context_assembly(
   mdn_contents: list[str] | None = None
   mdn_urls = fetch_mdn_urls(web_feature_id)
   if mdn_urls:
-    with ui.status(f'[blue]Fetching {len(mdn_urls)} MDN pages...[/blue]'):
+    with ui.status(f'Fetching {len(mdn_urls)} MDN pages...'):
       # Fetch all MDN pages asynchronously using to_thread for the synchronous fetch_and_extract_text
       results = await asyncio.gather(
         *[asyncio.to_thread(fetch_and_extract_text, url) for url in mdn_urls]
@@ -98,11 +89,11 @@ async def run_context_assembly(
         if res
       ]
 
-  ui.print(
-    f'✔ Context gathered: {len(spec_contents)} chars of spec, '
-    f'{len(mdn_contents) if mdn_contents else 0} MDN pages, '
-    f'{len(wpt_context.test_contents)} tests, '
-    f'{len(wpt_context.dependency_contents)} dependency files.'
+  ui.report_context_summary(
+    len(spec_contents),
+    len(mdn_contents) if mdn_contents else 0,
+    len(wpt_context.test_contents),
+    len(wpt_context.dependency_contents),
   )
 
   return WorkflowContext(
