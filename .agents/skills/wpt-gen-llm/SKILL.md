@@ -17,7 +17,7 @@ WPT-Gen supports both Google Gemini and OpenAI models via a unified abstraction.
 
 ## 2. Context Scraping
 
-Providing accurate, up-to-date context is critical for minimizing hallucinations.
+Providing context is critical for minimizing hallucinations.
 
 - **Trafilatura:** WPT-Gen uses `trafilatura` to extract text from W3C Specification URLs linked to web features.
 
