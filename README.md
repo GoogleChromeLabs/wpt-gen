@@ -131,6 +131,10 @@ ruff format .
 mypy .
 ```
 
+## AI Assistant Integration
+
+This repository includes a `GEMINI.md` and a suite of AI skills in the `.agents/skills/` directory to help AI assistants (like Gemini Code Assist) better understand the project's architecture, dependencies, and testing standards. You can point your AI assistant to `GEMINI.md` for a comprehensive overview of how to contribute accurately to the codebase.
+
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE) for more information.
