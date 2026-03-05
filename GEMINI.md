@@ -6,7 +6,7 @@ This document provides context to Gemini Code Assist to help it generate more ac
 
 ## 1. Project Overview
 
-**WPT-Gen** is an agentic Python CLI tool designed to increase browser interoperability by automating the creation of Web Platform Tests (WPT). It uses Large Language Models (LLMs) to identify testing gaps from W3C Specifications and generate test cases.
+**WPT-Gen** is an agentic Python CLI tool designed to increase browser interoperability by automating the creation of Web Platform Tests (WPT). It uses Large Language Models (LLMs) to identify testing gaps from Specifications and generate test cases.
 
 The architecture comprises a Python application using `typer` for the CLI interface, `google-genai` and `openai` for LLM interaction, `trafilatura` for context scraping, and `jinja2` for prompt templating. The workflow is characterized by four phases: Context Assembly, Requirements Analysis, Test Suggestions, and Test Generation.
 

@@ -20,7 +20,6 @@ WPT-Gen supports both Google Gemini and OpenAI models via a unified abstraction.
 Providing accurate, up-to-date context is critical for minimizing hallucinations.
 
 - **Trafilatura:** WPT-Gen uses `trafilatura` to extract text from W3C Specification URLs linked to web features.
-- **HTML Cleanup:** Always clean the scraped context (stripping excessive boilerplate or navigation) before passing it into prompts to save token counts and improve LLM focus.
 
 ## 3. Prompt Management
 
@@ -28,4 +27,4 @@ Prompt structure determines the output quality.
 
 - **Clear Instructions:** Ensure system prompts clearly dictate the agent's persona (expert test engineer) and the expected format.
 - **Few-Shot Prompting:** When generating precise test structures (e.g., testharness.js output), provide examples of well-formed WPT tests within the prompt.
-- **JSON Output:** When requesting structured data (like gap analysis or test blueprints), explicitly request JSON format and provide the intended schema structure. This allows WPT-Gen to parse and programmatically act on the AI output.
+- **XML Output:** When requesting structured data (like gap analysis or test blueprints), explicitly request XML format and provide the intended schema structure. This allows WPT-Gen to parse and programmatically act on the AI output.
