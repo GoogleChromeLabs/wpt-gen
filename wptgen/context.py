@@ -42,6 +42,7 @@ IGNORED_DEPENDENCIES = {
   '/resources/testharness.js',
   '/resources/testharnessreport.js',
   '/resources/testdriver.js',
+  '/resources/testdriver-vendor.js',
 }
 MDN_MAPPINGS_URL = 'https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json'
 

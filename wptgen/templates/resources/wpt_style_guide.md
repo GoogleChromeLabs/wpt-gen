@@ -8,22 +8,14 @@ Following these guidelines ensures that your tests are robust, cross-platform, a
 
 WPT uses file names and directory structures to determine how tests are run.
 
-### 1.1 Descriptive Naming
-Files should have descriptive names that reflect the feature being tested. Avoid generic names like `test1.html`.
-*   **Format**: `test-topic-###.html` (e.g., `flexbox-layout-001.html`).
-*   **Path Length**: Ensure the test path is less than **150 characters** relative to the test root directory to avoid Windows path length limitations.
-
-### 1.2 Universal Filename Flags
+### 1.1 Universal Filename Flags
 Flags are added to the filename to enable specific server features. These apply to all three test types:
 *   `.https`: Loads the test over HTTPS (e.g., `my-test.https.html`).
 *   `.h2`: Loads the test over HTTP/2.
 *   `.sub`: Enables [server-side substitution](https://web-platform-tests.org/writing-tests/server-pipes.html#sub), allowing placeholders like `{{host}}`.
 *   `.tentative`: Indicates the test is for a feature not yet fully standardized.
 
-### 1.3 Support Files
-Place auxiliary files (images, scripts, etc.) in directories named `resources`, `support`, or in common areas like `/common/`, `/media/`, or `/css/support/`.
-
-### 1.4 How to Choose WPT Test File Suffixes
+### 1.2 How to Choose WPT Test File Suffixes
 
 Follow these steps to determine the correct filename suffix for a test. The goal is to assemble a filename suffix in the following format:
 `[.features].{extension}`

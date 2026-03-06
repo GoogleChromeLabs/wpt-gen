@@ -308,6 +308,7 @@ def test_extract_dependencies() -> None:
   <script src="/resources/testharness.js"></script>
   <script src="/resources/testharnessreport.js"></script>
   <script src="/resources/testdriver.js"></script>
+  <script src="/resources/testdriver-vendor.js"></script>
   <script module="test" src='/y.js'></script>
   <!-- <script src="z.js"> -->
   import { x } from "./c.js";
