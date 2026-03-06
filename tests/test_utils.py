@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -267,3 +269,83 @@ def test_parse_multi_file_response_empty() -> None:
   from wptgen.utils import parse_multi_file_response
 
   assert parse_multi_file_response('no files') == []
+
+
+def test_get_next_available_filenames_basic(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  used_names: set[str] = set()
+  test_file, ref_file = get_next_available_filenames('feat', tmp_path, False, used_names)
+
+  assert test_file == 'feat-001.html'
+  assert ref_file is None
+  assert 'feat-001.html' in used_names
+
+
+def test_get_next_available_filenames_increment(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  # Existing file feat-001.html
+  (tmp_path / 'feat-001.html').touch()
+
+  used_names: set[str] = set()
+  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
+  assert test_file == 'feat-002.html'
+
+  # Add feat-002.html to used_names manually to simulate another test in same run
+  test_file_3, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
+  assert test_file_3 == 'feat-003.html'
+
+
+def test_get_next_available_filenames_reftest(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  used_names: set[str] = set()
+  test_file, ref_file = get_next_available_filenames('feat', tmp_path, True, used_names)
+
+  assert test_file == 'feat-001.html'
+  assert ref_file == 'feat-001-ref.html'
+  assert 'feat-001.html' in used_names
+  assert 'feat-001-ref.html' in used_names
+
+
+def test_get_next_available_filenames_collision_with_ref(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  # Existing ref file feat-001-ref.html
+  (tmp_path / 'feat-001-ref.html').touch()
+
+  used_names: set[str] = set()
+  # Even if it's NOT a reftest, it should skip 001 because 001-ref exists
+  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
+  assert test_file == 'feat-002.html'
+
+
+def test_get_next_available_filenames_max_length(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  long_feat = 'a' * 200
+  used_names: set[str] = set()
+  # Max length 150. Suffix is -001.html (9 chars) or -001-ref.html (13 chars).
+  # We should truncate to fit the longest suffix (13 chars) -> 137 chars.
+  test_file, ref_file = get_next_available_filenames(long_feat, tmp_path, True, used_names)
+
+  assert test_file is not None
+  assert ref_file is not None
+  assert len(test_file) <= 150
+  assert len(ref_file) <= 150
+  assert test_file.startswith('a' * 137)
+  assert test_file.endswith('-001.html')
+  assert ref_file.endswith('-001-ref.html')
+
+
+def test_get_next_available_filenames_large_number(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_filenames
+
+  used_names: set[str] = set()
+  # Manually simulate 999 tests existing
+  for n in range(1, 1000):
+    used_names.add(f'feat-{n:03d}.html')
+
+  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
+  assert test_file == 'feat-1000.html'

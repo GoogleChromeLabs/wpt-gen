@@ -436,7 +436,7 @@ async def test_run_test_generation_success(
   ):
     res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
-  expected_file = tmp_path / 't1__GENERATED_01_.html'
+  expected_file = tmp_path / 'feat-001.html'
   assert expected_file.exists()
 
   # The suggestion_xml in the result should have the spec_url injected
@@ -770,13 +770,13 @@ async def test_run_test_generation_dynamic_style_guides(
   # Call 2: Reftest
   assert calls[1].kwargs['test_type'] == 'Reftest'
   assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
-  assert calls[1].kwargs['safe_filename'] == 'ref_test__GENERATED_02_.html'
-  assert calls[1].kwargs['ref_filename'] == 'ref_test__GENERATED_02_-ref.html'
+  assert calls[1].kwargs['safe_filename'] == 'feat-002.html'
+  assert calls[1].kwargs['ref_filename'] == 'feat-002-ref.html'
 
   # Call 3: Crashtest
   assert calls[2].kwargs['test_type'] == 'Crashtest'
   assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
-  assert calls[2].kwargs['safe_filename'] == 'crash_test__GENERATED_03_.html'
+  assert calls[2].kwargs['safe_filename'] == 'feat-003.html'
   assert calls[2].kwargs['ref_filename'] is None
 
   # Also verify wpt_style_guide was passed to all
@@ -856,11 +856,11 @@ async def test_run_test_generation_reftest_multi_file(
 
   # Partitioned response from LLM
   llm_response = """
-[FILE_1: multi_file_ref__GENERATED_01_.html]
-<link rel="match" href="multi_file_ref__GENERATED_01_-ref.html">
+[FILE_1: feat-001.html]
+<link rel="match" href="feat-001-ref.html">
 [/FILE_1]
 
-[FILE_2: multi_file_ref__GENERATED_01_-ref.html]
+[FILE_2: feat-001-ref.html]
 <p>Reference</p>
 [/FILE_2]
 """
@@ -873,8 +873,8 @@ async def test_run_test_generation_reftest_multi_file(
 
   assert len(res) == 2
 
-  test_file = Path(mock_config.output_dir) / 'multi_file_ref__GENERATED_01_.html'
-  ref_file = Path(mock_config.output_dir) / 'multi_file_ref__GENERATED_01_-ref.html'
+  test_file = Path(mock_config.output_dir) / 'feat-001.html'
+  ref_file = Path(mock_config.output_dir) / 'feat-001-ref.html'
 
   assert test_file.exists()
   assert ref_file.exists()
