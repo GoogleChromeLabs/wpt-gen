@@ -48,6 +48,7 @@ class Config:
   spec_urls: list[str] | None = None
   feature_description: str | None = None
   detailed_requirements: bool = False
+  categorized_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
   skip_evaluation: bool = False
@@ -122,6 +123,7 @@ def load_config(
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
+  categorized_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
@@ -184,6 +186,9 @@ def load_config(
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
   )
+  categorized_requirements = categorized_requirements_override or yaml_data.get(
+    'categorized_requirements', False
+  )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
 
@@ -233,6 +238,7 @@ def load_config(
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
+    categorized_requirements=categorized_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,

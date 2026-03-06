@@ -136,6 +136,13 @@ def generate(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  categorized_requirements: Annotated[
+    bool,
+    typer.Option(
+      '--categorized-requirements',
+      help='Use a parallel, categorized requirements extraction process.',
+    ),
+  ] = False,
   use_lightweight: Annotated[
     bool,
     typer.Option('--use-lightweight', help='Use the lightweight model for all LLM requests.'),
@@ -172,6 +179,10 @@ def generate(
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
 
+  if detailed_requirements and categorized_requirements:
+    ui.error('Cannot use both --detailed-requirements and --categorized-requirements.')
+    raise typer.Exit(code=1)
+
   try:
     # 1. Load configuration (merging YAML, env vars, and CLI overrides)
 
@@ -198,6 +209,7 @@ def generate(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      categorized_requirements_override=categorized_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
