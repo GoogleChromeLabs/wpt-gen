@@ -305,6 +305,9 @@ def test_extract_dependencies() -> None:
   content = """
   <script src="a.js"></script>
   <script src='/b.js'></script>
+  <script src="/resources/testharness.js"></script>
+  <script src="/resources/testharnessreport.js"></script>
+  <script src="/resources/testdriver.js"></script>
   <script module="test" src='/y.js'></script>
   <!-- <script src="z.js"> -->
   import { x } from "./c.js";
@@ -312,6 +315,7 @@ def test_extract_dependencies() -> None:
   export { y } from "../e.js";
   """
   deps = extract_dependencies(content)
+  # boilerplate files should be ignored
   assert set(deps) == {'a.js', '/b.js', './c.js', './d.js', '../e.js', '/y.js'}
 
 
