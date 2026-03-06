@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -113,17 +114,21 @@ def test_validate_output_dir_handles_home_expansion(
   """Test that validate_output_dir expands ~."""
   from wptgen.config import validate_output_dir
 
-  # Mock HOME environment variable
+  # Mock HOME and USERPROFILE environment variables to cover all platforms
   fake_home = tmp_path / 'fake_home'
   fake_home.mkdir()
   monkeypatch.setenv('HOME', str(fake_home))
+  monkeypatch.setenv('USERPROFILE', str(fake_home))
 
   validated = validate_output_dir('~/my_tests')
 
-  assert validated == str((fake_home / 'my_tests').resolve())
+  assert Path(validated).resolve() == (fake_home / 'my_tests').resolve()
   assert (fake_home / 'my_tests').exists()
 
 
+@pytest.mark.skipif(
+  sys.platform == 'win32', reason='chmod 0o555 does not prevent writes on Windows'
+)
 def test_validate_output_dir_permission_error(tmp_path: Path) -> None:
   """Test that validate_output_dir raises ValueError on permission issues."""
   from wptgen.config import validate_output_dir
@@ -213,16 +218,21 @@ def test_get_default_cache_path_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
   from wptgen.config import _get_default_cache_path
 
   path = _get_default_cache_path()
-  assert 'Library/Caches/wpt-gen' in path
+  # Use Path for platform-agnostic comparison
+  expected_part = Path('Library/Caches/wpt-gen')
+  assert str(expected_part) in path
 
 
 def test_get_default_cache_path_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test default cache path with XDG_CACHE_HOME."""
   monkeypatch.setattr('sys.platform', 'linux')
-  monkeypatch.setenv('XDG_CACHE_HOME', '/tmp/custom_cache')
+  # Use a path that works on all platforms for the mock
+  custom_cache = str(Path('/tmp/custom_cache').resolve())
+  monkeypatch.setenv('XDG_CACHE_HOME', custom_cache)
   from wptgen.config import _get_default_cache_path
 
-  assert _get_default_cache_path() == '/tmp/custom_cache/wpt-gen'
+  expected = Path(custom_cache) / 'wpt-gen'
+  assert Path(_get_default_cache_path()) == expected
 
 
 def test_load_config_timeout_minimum(
