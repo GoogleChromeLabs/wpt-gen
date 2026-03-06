@@ -33,7 +33,7 @@ async def run_test_execution(
     ui.info('No tests to execute.')
     return
 
-  ui.print(f'Executing [bold]{len(generated_tests)}[/bold] generated tests...')
+  ui.print(f'Executing [bold]{len(generated_tests)}[/bold] generated files...')
 
   wpt_root = Path(config.wpt_path).resolve()
   wpt_executable = wpt_root / 'wpt'
@@ -42,47 +42,54 @@ async def run_test_execution(
     ui.error(f'Could not find wpt executable at {wpt_executable}. Skipping execution.')
     return
 
+  valid_rel_paths = []
   for path, _content, _xml in generated_tests:
+    # Skip reference files for reftests
+    if '-ref' in path.name:
+      continue
+
     resolved_path = path.resolve()
     try:
       rel_path = resolved_path.relative_to(wpt_root)
+      valid_rel_paths.append(str(rel_path))
     except ValueError:
       ui.warning(
         f'Test {path.name} is not located under wpt root ({wpt_root}). Cannot execute via wpt run.'
       )
       continue
 
-    ui.print(
-      f'Running [cyan]{rel_path}[/cyan] with {config.wpt_browser} {config.wpt_channel} (timeout: {config.execution_timeout}s)...'
-    )
+  if not valid_rel_paths:
+    ui.info('No valid test files to execute (all might be references or outside WPT root).')
+    return
 
-    # Command: ./wpt run --channel <channel> <browser> <rel_path>
-    cmd = [
-      str(wpt_executable),
-      'run',
-      '--channel',
-      config.wpt_channel,
-      config.wpt_browser,
-      str(rel_path),
-    ]
+  ui.print(
+    f'Running [cyan]{len(valid_rel_paths)}[/cyan] tests with {config.wpt_browser} {config.wpt_channel} '
+    f'(timeout: {config.execution_timeout}s)...'
+  )
 
-    # Execute the command
-    process = await asyncio.create_subprocess_exec(
-      *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
-    )
+  # Command: ./wpt run --channel <channel> <browser> <path1> <path2> ...
+  cmd = [
+    str(wpt_executable),
+    'run',
+    '--channel',
+    config.wpt_channel,
+    config.wpt_browser,
+  ] + valid_rel_paths
 
-    try:
-      stdout, stderr = await asyncio.wait_for(
-        process.communicate(), timeout=config.execution_timeout
-      )
-    except asyncio.TimeoutError:
-      process.kill()
-      await process.wait()
-      ui.error(f'Test execution timed out for {rel_path} after {config.execution_timeout}s.')
-      continue
+  # Execute the command
+  process = await asyncio.create_subprocess_exec(
+    *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
+  )
 
+  try:
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=config.execution_timeout)
+  except asyncio.TimeoutError:
+    process.kill()
+    await process.wait()
+    ui.error(f'Test execution timed out after {config.execution_timeout}s.')
+  else:
     if process.returncode != 0:
-      ui.error(f'Test execution failed for {rel_path} with exit code {process.returncode}.')
+      ui.error(f'Test execution failed with exit code {process.returncode}.')
 
       # Print output
       output = ''
@@ -97,6 +104,6 @@ async def run_test_execution(
         ui.print(output.strip())
 
     else:
-      ui.success(f'Test execution succeeded for {rel_path}.')
+      ui.success(f'Test execution succeeded for all {len(valid_rel_paths)} tests.')
 
   ui.on_phase_complete('Test Execution')
