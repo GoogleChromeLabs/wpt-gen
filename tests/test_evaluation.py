@@ -106,6 +106,52 @@ async def test_run_test_evaluation_correction(
 
 
 @pytest.mark.asyncio
+async def test_run_test_evaluation_reftest_link_fix(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verify that reftest links are corrected during evaluation when files are updated."""
+  context = WorkflowContext(feature_id='reftest-feat')
+  jinja_env = MagicMock()
+
+  test_path = tmp_path / 'reftest-001.html'
+  ref_path = tmp_path / 'reftest-001-ref.html'
+
+  test_path.write_text('<link rel="match" href="old-ref.html">')
+  ref_path.write_text('Reference content')
+
+  suggestion_xml = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_tests = [
+    (test_path, test_path.read_text(), suggestion_xml),
+    (ref_path, ref_path.read_text(), suggestion_xml),
+  ]
+
+  # Mock LLM returning corrected content with a DIFFERENT SUFFIX for the reference
+  # FILE_1: test, FILE_2: ref
+  corrected_content = """
+[FILE_1: .https.html]
+<link rel="match" href="wrong-again.html">
+[/FILE_1]
+[FILE_2: .https.html]
+Updated reference
+[/FILE_2]
+"""
+  mock_llm.generate_content.return_value = corrected_content
+
+  with patch('wptgen.phases.evaluation.Path.read_text', return_value='Style Guide'):
+    await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  # Check that the new files exist and have correct content
+  new_test_path = tmp_path / 'reftest-001.https.html'
+  new_ref_path = tmp_path / 'reftest-001-ref.https.html'
+
+  assert new_test_path.exists()
+  assert new_ref_path.exists()
+
+  # The link in the test should point to the NEW reference filename
+  assert '<link rel="match" href="reftest-001-ref.https.html">' in new_test_path.read_text()
+
+
+@pytest.mark.asyncio
 async def test_run_test_evaluation_with_markdown(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
@@ -182,7 +228,8 @@ corrected ref content
   with patch('wptgen.phases.evaluation.Path.read_text', return_value=style_guide_content):
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
-  assert test_path.read_text() == 'corrected test content'
+  assert '<link rel="match" href="test-ref.html">' in test_path.read_text()
+  assert 'corrected test content' in test_path.read_text()
   assert ref_path.read_text() == 'corrected ref content'
   mock_ui.report_evaluation_result.assert_any_call('test.html', success=True, updated=True)
   mock_ui.report_evaluation_result.assert_any_call('test-ref.html', success=True, updated=True)
@@ -295,7 +342,8 @@ new ref content
   new_ref_path = tmp_path / 'feat-001-ref.sub.html'
 
   assert new_test_path.exists()
-  assert new_test_path.read_text() == 'new test content'
+  assert '<link rel="match" href="feat-001-ref.sub.html">' in new_test_path.read_text()
+  assert 'new test content' in new_test_path.read_text()
   assert not test_path.exists()
 
   assert new_ref_path.exists()

@@ -23,7 +23,12 @@ from wptgen.llm import LLMClient
 from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
-from wptgen.utils import MARKDOWN_CODE_BLOCK_RE, extract_xml_tag, parse_multi_file_response
+from wptgen.utils import (
+  MARKDOWN_CODE_BLOCK_RE,
+  extract_xml_tag,
+  fix_reftest_link,
+  parse_multi_file_response,
+)
 
 
 async def run_test_evaluation(
@@ -100,7 +105,9 @@ async def run_test_evaluation(
       test_suggestion_xml=suggestion_xml,
       generated_code_content=generated_code_content.strip(),
     )
-    tasks.append(_evaluate_and_update(group, prompt, llm, ui, config, system_instruction))
+    tasks.append(
+      _evaluate_and_update(group, prompt, llm, ui, config, system_instruction, test_type_enum)
+    )
 
   await asyncio.gather(*tasks)
   ui.on_phase_complete('Evaluation')
@@ -113,6 +120,7 @@ async def _evaluate_and_update(
   ui: UIProvider,
   config: Config,
   system_instruction: str,
+  test_type_enum: TestType,
 ) -> None:
   """Evaluates a single test (or multi-file test) and updates the file(s) if needed."""
   display_names = ', '.join([p.name for p, _ in files])
@@ -149,31 +157,41 @@ async def _evaluate_and_update(
       test_path_item = next((item for item in files if '-ref.' not in item[0].name), None)
       ref_path_item = next((item for item in files if '-ref.' in item[0].name), None)
 
+      p_test_new = None
+      p_ref_new = None
+      c_test_new = None
+      c_ref_new = None
+
       if len(multi_files) >= 1 and test_path_item:
         p_old, _ = test_path_item
         new_suffix, fcontent = multi_files[0]
-        # Use existing root but update suffix if LLM suggested a change
         root = p_old.name.split('.', 1)[0]
-        p_new = p_old.with_name(f'{root}{new_suffix}')
-
-        clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
-        if p_new != p_old:
-          p_old.unlink(missing_ok=True)
-        p_new.write_text(clean_content, encoding='utf-8')
-        ui.report_evaluation_result(p_new.name, success=True, updated=True)
+        p_test_new = p_old.with_name(f'{root}{new_suffix}')
+        c_test_new = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
 
       if len(multi_files) >= 2 and ref_path_item:
         p_old, _ = ref_path_item
         new_suffix, fcontent = multi_files[1]
-        # Use existing root but update suffix if LLM suggested a change
         root = p_old.name.split('.', 1)[0]
-        p_new = p_old.with_name(f'{root}{new_suffix}')
+        p_ref_new = p_old.with_name(f'{root}{new_suffix}')
+        c_ref_new = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
 
-        clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
-        if p_new != p_old:
-          p_old.unlink(missing_ok=True)
-        p_new.write_text(clean_content, encoding='utf-8')
-        ui.report_evaluation_result(p_new.name, success=True, updated=True)
+      # If it's a reftest, fix the link in test content
+      if test_type_enum == TestType.REFTEST and c_test_new and p_ref_new:
+        c_test_new = fix_reftest_link(c_test_new, p_ref_new.name)
+
+      # Now save
+      if p_test_new and test_path_item and c_test_new is not None:
+        if p_test_new != test_path_item[0]:
+          test_path_item[0].unlink(missing_ok=True)
+        p_test_new.write_text(c_test_new, encoding='utf-8')
+        ui.report_evaluation_result(p_test_new.name, success=True, updated=True)
+
+      if p_ref_new and ref_path_item and c_ref_new is not None:
+        if p_ref_new != ref_path_item[0]:
+          ref_path_item[0].unlink(missing_ok=True)
+        p_ref_new.write_text(c_ref_new, encoding='utf-8')
+        ui.report_evaluation_result(p_ref_new.name, success=True, updated=True)
     else:
       # If it's a single file correction
       if len(files) == 1:

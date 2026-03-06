@@ -368,3 +368,43 @@ def test_get_next_available_root_large_number(tmp_path: Path) -> None:
 
   root = get_next_available_root('feat', tmp_path, used_names)
   assert root == 'feat-1000'
+
+
+def test_fix_reftest_link_update_existing() -> None:
+  from wptgen.utils import fix_reftest_link
+
+  content = '<link rel="match" href="old-ref.html">'
+  result = fix_reftest_link(content, 'new-ref.html')
+  assert result == '<link rel="match" href="new-ref.html">'
+
+  content = '<link href="old-ref.html" rel="match">'
+  result = fix_reftest_link(content, 'new-ref.html')
+  assert result == '<link rel="match" href="new-ref.html">'
+
+  content = "<html><head><link rel='match' href='old-ref.html'></head></html>"
+  result = fix_reftest_link(content, 'new-ref.html')
+  assert result == '<html><head><link rel="match" href="new-ref.html"></head></html>'
+
+
+def test_fix_reftest_link_add_to_head() -> None:
+  from wptgen.utils import fix_reftest_link
+
+  content = '<html><head><title>Test</title></head><body></body></html>'
+  result = fix_reftest_link(content, 'ref.html')
+  assert '<head>\n<link rel="match" href="ref.html">' in result
+
+
+def test_fix_reftest_link_add_to_html() -> None:
+  from wptgen.utils import fix_reftest_link
+
+  content = '<html><body></body></html>'
+  result = fix_reftest_link(content, 'ref.html')
+  assert '<html>\n<link rel="match" href="ref.html">' in result
+
+
+def test_fix_reftest_link_prepend() -> None:
+  from wptgen.utils import fix_reftest_link
+
+  content = '<div>No head or html tags here</div>'
+  result = fix_reftest_link(content, 'ref.html')
+  assert result == '<link rel="match" href="ref.html">\n<div>No head or html tags here</div>'

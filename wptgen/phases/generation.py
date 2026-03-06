@@ -25,6 +25,7 @@ from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
   extract_xml_tag,
+  fix_reftest_link,
   get_next_available_root,
   parse_multi_file_response,
   parse_suggestions,
@@ -192,16 +193,27 @@ async def _generate_and_save(
   # Check if we have multiple files (Reftests)
   multi_files = parse_multi_file_response(content)
   if multi_files:
-    for i, (suffix, fcontent) in enumerate(multi_files, 1):
-      # Handle reftest naming: FILE_2 gets -ref
+    raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or ''
+    is_reftest = raw_test_type.lower() == 'reftest'
+
+    # Pre-calculate filenames to know the reference name
+    filenames = []
+    for i, (suffix, _) in enumerate(multi_files, 1):
       if i == 2:
         # Assuming FILE_2 is always the ref for reftests
-        fname = f'{root_name}-ref{suffix}'
+        filenames.append(f'{root_name}-ref{suffix}')
       else:
         # For FILE_1 (test) and any other potential files, just use root + suffix
-        fname = f'{root_name}{suffix}'
+        filenames.append(f'{root_name}{suffix}')
 
+    for i, (_suffix, fcontent) in enumerate(multi_files, 0):
+      fname = filenames[i]
       clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
+
+      # If it's the first file (the test) and it's a reftest, fix the link
+      if i == 0 and is_reftest and len(filenames) >= 2:
+        clean_content = fix_reftest_link(clean_content, filenames[1])
+
       output_path = output_dir / fname
       output_path.write_text(clean_content, encoding='utf-8')
       ui.report_test_generated(root_name, success=True, path=output_path)

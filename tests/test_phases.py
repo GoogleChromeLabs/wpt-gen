@@ -325,6 +325,41 @@ async def test_run_test_generation_no_suggestions(
 
 
 @pytest.mark.asyncio
+async def test_run_test_generation_reftest_link_fix(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verify that reftest links are corrected during generation."""
+  mock_config.output_dir = str(tmp_path)
+  context = WorkflowContext(
+    feature_id='reftest-feat',
+    audit_response='<status>TESTS_NEEDED</status><test_suggestion><test_type>Reftest</test_type><name>my-test</name></test_suggestion>',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Mock Template'
+
+  reftest_content = """
+[FILE_1: .html]
+<link rel="match" href="wrong-ref.html">
+[/FILE_1]
+[FILE_2: .html]
+Reference content
+[/FILE_2]
+"""
+
+  with patch('wptgen.phases.generation.generate_safe', return_value=reftest_content):
+    res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert len(res) == 2
+  test_path, test_content, _ = res[0]
+  ref_path, ref_content, _ = res[1]
+
+  assert test_path.name == 'reftest-feat-001.html'
+  assert ref_path.name == 'reftest-feat-001-ref.html'
+  assert '<link rel="match" href="reftest-feat-001-ref.html">' in test_content
+
+
+@pytest.mark.asyncio
 async def test_run_test_generation_none_selected(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:
