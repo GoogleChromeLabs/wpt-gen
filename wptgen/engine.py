@@ -43,6 +43,10 @@ __all__ = [
 ]
 
 
+class WorkflowError(Exception):
+  """Raised when a phase of the workflow fails to complete."""
+
+
 class WPTGenEngine:
   def __init__(self, config: Config, ui: UIProvider):
     self.config = config
@@ -96,7 +100,7 @@ class WPTGenEngine:
     if not context or not context.wpt_context:
       context = await run_context_assembly(web_feature_id, self.config, self.ui)
       if not context:
-        return
+        raise WorkflowError('Phase 1: Context Assembly failed.')
       self._save_resume_state(context)
 
     # Phase 2: Requirements Extraction
@@ -110,7 +114,7 @@ class WPTGenEngine:
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
         )
       if not requirements_xml:
-        return
+        raise WorkflowError('Phase 2: Requirements Extraction failed.')
       context.requirements_xml = requirements_xml
       self._save_resume_state(context)
 
@@ -120,7 +124,7 @@ class WPTGenEngine:
         context, self.config, self.llm, self.ui, self.jinja_env
       )
       if not audit_response:
-        return
+        raise WorkflowError('Phase 3: Coverage Audit failed.')
       context.audit_response = audit_response
       self._save_resume_state(context)
 
