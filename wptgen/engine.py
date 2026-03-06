@@ -148,10 +148,12 @@ class WPTGenEngine:
       self.ui.success('Skipping Phase 4: Tests already generated.')
 
     # Phase 5: Evaluation
-    if context.generated_tests:
+    if context.generated_tests and not self.config.skip_evaluation:
       await run_test_evaluation(
         context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
       )
+    elif context.generated_tests and self.config.skip_evaluation:
+      self.ui.info('Skipping Phase 5: Evaluation.')
 
     # Final cleanup of resume file on success
     resume_file = self._get_resume_file_path(web_feature_id)

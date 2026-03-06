@@ -50,6 +50,7 @@ class Config:
   detailed_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
+  skip_evaluation: bool = False
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -120,6 +121,7 @@ def load_config(
   detailed_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
+  skip_evaluation_override: bool = False,
   require_api_key: bool = True,
 ) -> Config:
   """
@@ -190,6 +192,7 @@ def load_config(
     timeout = MIN_LLM_TIMEOUT
 
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
+  skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
 
   # Load model categories and phase mapping
   default_model = provider_settings.get('default_model', default_model_name)
@@ -229,4 +232,5 @@ def load_config(
     detailed_requirements=detailed_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
+    skip_evaluation=skip_evaluation,
   )

@@ -144,6 +144,14 @@ def generate(
     bool,
     typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
   ] = False,
+  skip_evaluation: Annotated[
+    bool,
+    typer.Option(
+      '--skip-evaluation',
+      '--no-eval',
+      help='Skip the evaluation phase after generating tests.',
+    ),
+  ] = False,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -192,6 +200,7 @@ def generate(
       detailed_requirements_override=detailed_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
+      skip_evaluation_override=skip_evaluation,
     )
 
     config_info = Text.assemble(
