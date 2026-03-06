@@ -51,6 +51,9 @@ class Config:
   use_lightweight: bool = False
   use_reasoning: bool = False
   skip_evaluation: bool = False
+  wpt_browser: str = 'chrome'
+  wpt_channel: str = 'canary'
+  execution_timeout: int | float = 90  # Default 1.5 minutes
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -233,4 +236,7 @@ def load_config(
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,
+    wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
+    wpt_channel=yaml_data.get('wpt_channel', 'canary'),
+    execution_timeout=yaml_data.get('execution_timeout', 90),
   )
