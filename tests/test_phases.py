@@ -23,6 +23,7 @@ from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
+  run_requirements_extraction_categorized,
 )
 
 
@@ -187,6 +188,81 @@ async def test_run_requirements_extraction_cached(
   assert res == '<reqs>cached</reqs>'
   mock_ui.info.assert_called_once()
   mock_ui.success.assert_called_once_with('Using cached requirements.')
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_categorized(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test categorized requirements extraction with mocked LLM responses."""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Mock Template'
+
+  # Mock generate_safe to return a single requirement for each call
+  with patch(
+    'wptgen.phases.requirements_extraction.generate_safe',
+    side_effect=[
+      '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+      '<requirements_list><requirement id="R1"><category>Common Use Cases</category><description>D2</description></requirement></requirements_list>',
+      '<requirements_list><requirement id="R1"><category>Error Scenarios</category><description>D3</description></requirement></requirements_list>',
+      '<requirements_list><requirement id="R1"><category>Invalidation</category><description>D4</description></requirement></requirements_list>',
+      '<requirements_list><requirement id="R1"><category>Integration</category><description>D5</description></requirement></requirements_list>',
+    ],
+  ):
+    res = await run_requirements_extraction_categorized(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert '<requirement id="R1">' in res
+  assert '<requirement id="R2">' in res
+  assert '<requirement id="R3">' in res
+  assert '<requirement id="R4">' in res
+  assert '<requirement id="R5">' in res
+  assert '<category>Existence</category>' in res
+  assert '<category>Integration</category>' in res
+  assert res.count('<requirement id=') == 5
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_categorized_partial_empty(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test categorized requirements extraction with some empty responses."""
+  context = WorkflowContext(
+    feature_id='feat-partial',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Mock Template'
+
+  # Mock generate_safe to return a mixture of requirements and empty lists
+  with patch(
+    'wptgen.phases.requirements_extraction.generate_safe',
+    side_effect=[
+      '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+      '<requirements_list></requirements_list>',  # Empty
+      '<requirements_list><requirement id="R1"><category>Error Scenarios</category><description>D3</description></requirement></requirements_list>',
+      '<requirements_list></requirements_list>',  # Empty
+      '<requirements_list></requirements_list>',  # Empty
+    ],
+  ):
+    res = await run_requirements_extraction_categorized(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert '<requirement id="R1">' in res
+  assert '<requirement id="R2">' in res
+  assert '<category>Existence</category>' in res
+  assert '<category>Error Scenarios</category>' in res
+  assert res.count('<requirement id=') == 2
 
 
 @pytest.mark.asyncio

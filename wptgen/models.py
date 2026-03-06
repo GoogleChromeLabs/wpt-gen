@@ -31,6 +31,20 @@ STYLE_GUIDE_MAP = {
   TestType.CRASHTEST: 'crashtest_style_guide.md',
 }
 
+REQUIREMENT_CATEGORIES = [
+  ('Existence', "Rules defining the feature's surface area (interfaces, methods, properties)."),
+  (
+    'Common Use Cases',
+    'Rules defining successful behaviors, processing models, and realistic "happy paths."',
+  ),
+  ('Error Scenarios', 'Rules defining error conditions, thrown exceptions, and invalid states.'),
+  ('Invalidation', 'Rules regarding caching, state changes, and dynamic updates, if any.'),
+  (
+    'Integration',
+    'Rules defining mandatory interactions with other platform features, if any.',
+  ),
+]
+
 
 @dataclass
 class WebFeatureMetadata:

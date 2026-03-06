@@ -28,6 +28,7 @@ from wptgen.phases.execution import run_test_execution
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
+  run_requirements_extraction_categorized,
   run_requirements_extraction_iterative,
 )
 from wptgen.ui import UIProvider
@@ -36,6 +37,7 @@ __all__ = [
   'WPTGenEngine',
   'run_context_assembly',
   'run_requirements_extraction',
+  'run_requirements_extraction_categorized',
   'run_requirements_extraction_iterative',
   'run_coverage_audit',
   'provide_coverage_report',
@@ -107,7 +109,11 @@ class WPTGenEngine:
 
     # Phase 2: Requirements Extraction
     if not context.requirements_xml:
-      if self.config.detailed_requirements:
+      if self.config.categorized_requirements:
+        requirements_xml = await run_requirements_extraction_categorized(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      elif self.config.detailed_requirements:
         requirements_xml = await run_requirements_extraction_iterative(
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
         )

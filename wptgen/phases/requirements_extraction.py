@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import WorkflowContext
+from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 
@@ -80,6 +81,103 @@ async def run_requirements_extraction(
 
     if not requirements_xml:
       return None
+
+    # Save to cache
+    cache_file.write_text(requirements_xml, encoding='utf-8')
+
+  context.requirements_xml = requirements_xml
+  return requirements_xml
+
+
+async def run_requirements_extraction_categorized(
+  context: WorkflowContext,
+  config: Config,
+  llm: LLMClient,
+  ui: UIProvider,
+  jinja_env: Environment,
+  cache_dir: Path,
+) -> str | None:
+  ui.on_phase_start(2, 'Requirements Extraction (Categorized)')
+
+  assert context.metadata is not None
+
+  web_feature_id = context.feature_id
+  cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+  requirements_xml = None
+
+  if cache_file.exists():
+    ui.info(f'Found cached requirements for {web_feature_id}.')
+    if ui.confirm('Use cached requirements?'):
+      requirements_xml = cache_file.read_text(encoding='utf-8')
+      ui.success('Using cached requirements.')
+
+  if not requirements_xml:
+    metadata = context.metadata
+    assert metadata is not None
+
+    async def extract_for_category(category_name: str, category_description: str) -> str | None:
+      extraction_prompt = jinja_env.get_template(
+        'requirements_extraction_categorized.jinja'
+      ).render(
+        feature_name=metadata.name,
+        feature_description=metadata.description,
+        spec_url=metadata.specs[0],
+        spec_contents=context.spec_contents,
+        mdn_contents=context.mdn_contents,
+        category_name=category_name,
+        category_description=category_description,
+      )
+      extraction_system_prompt = jinja_env.get_template(
+        'requirements_extraction_categorized_system.jinja'
+      ).render(
+        category_name=category_name,
+        category_description=category_description,
+      )
+
+      # We don't confirm prompts individually for parallel requests to avoid UI mess
+      # Instead we could confirm the "template" once.
+      # For now, following the spirit of parallelized extraction.
+
+      return await generate_safe(
+        extraction_prompt,
+        f'Requirements Extraction: {category_name}',
+        llm,
+        ui,
+        config,
+        system_instruction=extraction_system_prompt,
+        temperature=0.01,
+        model=config.get_model_for_phase('requirements_extraction'),
+      )
+
+    ui.info(f'Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests...')
+    responses = await asyncio.gather(
+      *[extract_for_category(name, desc) for name, desc in REQUIREMENT_CATEGORIES]
+    )
+
+    all_requirements: list[str] = []
+    requirement_counter = 1
+
+    for response in responses:
+      if not response:
+        continue
+
+      # Extract individual <requirement> blocks.
+      new_reqs = re.findall(r'(<requirement.*?>.*?</requirement>)', response, re.DOTALL)
+      for req in new_reqs:
+        # Re-index requirements as they come out
+        re_indexed = re.sub(
+          r'(<requirement[^>]*?)id="[^"]+"', f'\\1id="R{requirement_counter}"', req
+        )
+        all_requirements.append(re_indexed)
+        requirement_counter += 1
+
+    if not all_requirements:
+      ui.error('No requirements extracted.')
+      return None
+
+    requirements_xml = (
+      '<requirements_list>\n  ' + '\n  '.join(all_requirements) + '\n</requirements_list>'
+    )
 
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
