@@ -168,13 +168,13 @@ async def test_run_test_evaluation_reftest_correction(
     (ref_path, 'original ref content', suggestion_xml),
   ]
 
-  # Mock LLM returning corrected content for BOTH files
+  # Mock LLM returning corrected content for BOTH files using suffixes
   mock_llm.generate_content.return_value = """
-[FILE_1: test.html]
+[FILE_1: .html]
 corrected test content
 [/FILE_1]
 
-[FILE_2: test-ref.html]
+[FILE_2: .html]
 corrected ref content
 [/FILE_2]
 """
@@ -186,3 +186,71 @@ corrected ref content
   assert ref_path.read_text() == 'corrected ref content'
   mock_ui.print.assert_any_call('[cyan]ℹ test.html was corrected and updated.[/cyan]')
   mock_ui.print.assert_any_call('[cyan]ℹ test-ref.html was corrected and updated.[/cyan]')
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_partitioning_logic(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verify evaluation prompt formatting for reftests vs non-reftests."""
+  jinja_env = MagicMock()
+  eval_template_mock = MagicMock()
+  system_template_mock = MagicMock()
+
+  def get_template(name: str) -> MagicMock:
+    if name == 'evaluation.jinja':
+      return eval_template_mock
+    if name == 'evaluation_system.jinja':
+      return system_template_mock
+    return MagicMock()
+
+  jinja_env.get_template.side_effect = get_template
+
+  # 1. Non-Reftest (Single File)
+  js_test_path = tmp_path / 'feat-001.html'
+  js_test_path.write_text('js content')
+
+  generated_tests = [
+    (
+      js_test_path,
+      'js content',
+      '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>',
+    )
+  ]
+
+  context = WorkflowContext(feature_id='feat')
+
+  with patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide'):
+    with patch('wptgen.phases.evaluation.generate_safe', return_value='PASS'):
+      await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  # Check eval prompt for non-reftest: should be raw content (no tags)
+  call_args = eval_template_mock.render.call_args.kwargs
+  assert call_args['generated_code_content'] == 'js content'
+
+  eval_template_mock.render.reset_mock()
+
+  # 2. Reftest (Multi File)
+  ref_test_path = tmp_path / 'feat-002.html'
+  ref_test_path.write_text('test content')
+  ref_ref_path = tmp_path / 'feat-002-ref.html'
+  ref_ref_path.write_text('ref content')
+
+  suggestion_xml = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_reftests = [
+    (ref_test_path, 'test content', suggestion_xml),
+    (ref_ref_path, 'ref content', suggestion_xml),
+  ]
+
+  with patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide'):
+    with patch('wptgen.phases.evaluation.generate_safe', return_value='PASS'):
+      await run_test_evaluation(
+        context, mock_config, mock_llm, mock_ui, jinja_env, generated_reftests
+      )
+
+  # Check eval prompt for reftest: should have tags with suffixes
+  call_args = eval_template_mock.render.call_args.kwargs
+  assert '[FILE_1: .html]' in call_args['generated_code_content']
+  assert 'test content' in call_args['generated_code_content']
+  assert '[FILE_2: .html]' in call_args['generated_code_content']
+  assert 'ref content' in call_args['generated_code_content']

@@ -66,33 +66,34 @@ async def run_test_evaluation(
     guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
-    # Determine filenames for reftests to pass to the system instruction
-    safe_filename = None
-    ref_filename = None
-    if test_type_enum == TestType.REFTEST:
-      for p, _ in group:
-        if p.name.endswith('-ref.html'):
-          ref_filename = p.name
-        else:
-          safe_filename = p.name
-    elif len(group) == 1:
-      safe_filename = group[0][0].name
-
     # Render the system instruction with both general and type-specific rules
     system_instruction = system_template.render(
       wpt_style_guide=wpt_style_guide,
       test_type=test_type_enum.value,
       test_type_guide=test_type_guide,
-      safe_filename=safe_filename,
-      ref_filename=ref_filename,
     )
 
-    # Format the code content, using multi-file partitioning for Reftests
-    if len(group) > 1:
-      generated_code_content = ''
-      for i, (p, c) in enumerate(group, 1):
-        generated_code_content += f'[FILE_{i}: {p.name}]\n{c}\n[/FILE_{i}]\n\n'
+    # Format the code content, using multi-file partitioning for Reftests ONLY
+    if test_type_enum == TestType.REFTEST and len(group) > 1:
+      # Sort to ensure FILE_1 is test and FILE_2 is ref
+      test_item = next((item for item in group if '-ref.' not in item[0].name), None)
+      ref_item = next((item for item in group if '-ref.' in item[0].name), None)
+
+      if test_item and ref_item:
+        p_test, c_test = test_item
+        p_ref, c_ref = ref_item
+        # Suffix is everything from the first dot
+        suffix_test = '.' + p_test.name.split('.', 1)[1] if '.' in p_test.name else '.html'
+        suffix_ref = '.' + p_ref.name.split('.', 1)[1] if '.' in p_ref.name else '.html'
+
+        generated_code_content = (
+          f'[FILE_1: {suffix_test}]\n{c_test}\n[/FILE_1]\n\n'
+          f'[FILE_2: {suffix_ref}]\n{c_ref}\n[/FILE_2]'
+        )
+      else:
+        generated_code_content = '\n\n'.join([c for p, c in group])
     else:
+      # For non-reftests, pass raw content without tags
       generated_code_content = group[0][1]
 
     prompt = evaluation_template.render(
@@ -141,14 +142,24 @@ async def _evaluate_and_update(
     # Check if we have multiple files in the response
     multi_files = parse_multi_file_response(clean_response)
     if multi_files:
-      for fname, fcontent in multi_files:
-        # Find the matching path from our input files
-        for path, _ in files:
-          if path.name == fname:
-            clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
-            path.write_text(clean_content, encoding='utf-8')
-            ui.print(f'[cyan]ℹ {path.name} was corrected and updated.[/cyan]')
-            break
+      # For Reftests, we expect FILE_1 to be test and FILE_2 to be ref
+      # We need to find which path is which
+      test_path_item = next((item for item in files if '-ref.' not in item[0].name), None)
+      ref_path_item = next((item for item in files if '-ref.' in item[0].name), None)
+
+      if len(multi_files) >= 1 and test_path_item:
+        p, _ = test_path_item
+        _, fcontent = multi_files[0]
+        clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
+        p.write_text(clean_content, encoding='utf-8')
+        ui.print(f'[cyan]ℹ {p.name} was corrected and updated.[/cyan]')
+
+      if len(multi_files) >= 2 and ref_path_item:
+        p, _ = ref_path_item
+        _, fcontent = multi_files[1]
+        clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
+        p.write_text(clean_content, encoding='utf-8')
+        ui.print(f'[cyan]ℹ {p.name} was corrected and updated.[/cyan]')
     else:
       # If it's a single file correction
       if len(files) == 1:

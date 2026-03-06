@@ -26,7 +26,7 @@ from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
   extract_xml_tag,
-  get_next_available_filenames,
+  get_next_available_root,
   parse_multi_file_response,
   parse_suggestions,
 )
@@ -111,10 +111,8 @@ async def run_test_generation(
         test_type_enum = member
         break
 
-    # Generate filenames using the new convention: {feature_id}-{num}.html
-    safe_filename, ref_filename = get_next_available_filenames(
-      context.feature_id, output_dir, test_type_enum == TestType.REFTEST, used_names
-    )
+    # Generate the root filename: {feature_id}-{num}
+    root_name = get_next_available_root(context.feature_id, output_dir, used_names)
 
     # Load the specific style guide for this test type
     guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
@@ -125,8 +123,6 @@ async def run_test_generation(
       wpt_style_guide=wpt_style_guide,
       test_type=test_type_enum.value,
       test_type_guide=test_type_guide,
-      safe_filename=safe_filename,
-      ref_filename=ref_filename,
     )
 
     final_prompt = gen_template.render(
@@ -135,13 +131,11 @@ async def run_test_generation(
       test_suggestion_xml_block=suggestion_xml,
     )
 
-    # For confirmation, show both filenames if it's a reftest
-    display_filename = f'{safe_filename} (+ reference)' if ref_filename else safe_filename
-    prompts_to_confirm.append((final_prompt, display_filename, suggestion_xml, system_instruction))
+    prompts_to_confirm.append((final_prompt, root_name, suggestion_xml, system_instruction))
 
   # Single confirmation for ALL tests
   await confirm_prompts(
-    [(p, f) for p, f, s, si in prompts_to_confirm],
+    [(p, f'{r}.*') for p, r, s, si in prompts_to_confirm],
     f'Generate {len(prompts_to_confirm)} Tests',
     llm,
     ui,
@@ -153,9 +147,9 @@ async def run_test_generation(
 
   tasks = [
     _generate_and_save(
-      prompt, filename, suggestion_xml, llm, ui, config, system_instruction, temperature=0.1
+      prompt, root_name, suggestion_xml, llm, ui, config, system_instruction, temperature=0.1
     )
-    for prompt, filename, suggestion_xml, system_instruction in prompts_to_confirm
+    for prompt, root_name, suggestion_xml, system_instruction in prompts_to_confirm
   ]
   results = await asyncio.gather(*tasks)
 
@@ -183,7 +177,7 @@ async def run_test_generation(
 
 async def _generate_and_save(
   prompt: str,
-  filename: str,
+  root_name: str,
   suggestion_xml: str,
   llm: LLMClient,
   ui: UIProvider,
@@ -192,11 +186,11 @@ async def _generate_and_save(
   temperature: float | None = None,
 ) -> list[tuple[Path, str, str]]:
   """Helper to generate specific test file(s) and save to disk."""
-  ui.print(f'Starting generation for: [bold]{filename}[/bold]...')
+  ui.print(f'Starting generation for: [bold]{root_name}[/bold]...')
 
   content = await generate_safe(
     prompt,
-    f'Gen: {filename}',
+    f'Gen: {root_name}',
     llm,
     ui,
     config,
@@ -215,18 +209,26 @@ async def _generate_and_save(
   # Check if we have multiple files (Reftests)
   multi_files = parse_multi_file_response(content)
   if multi_files:
-    for fname, fcontent in multi_files:
+    for i, (suffix, fcontent) in enumerate(multi_files, 1):
+      # Handle reftest naming: FILE_2 gets -ref
+      if i == 2:
+        # Assuming FILE_2 is always the ref for reftests
+        fname = f'{root_name}-ref{suffix}'
+      else:
+        # For FILE_1 (test) and any other potential files, just use root + suffix
+        fname = f'{root_name}{suffix}'
+
       clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
       output_path = output_dir / fname
       output_path.write_text(clean_content, encoding='utf-8')
       ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
       results.append((output_path, clean_content, suggestion_xml))
   else:
-    # Single file fallback
+    # Single file fallback - if the LLM failed to use partitioning tags, default to .html
     clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
-    output_path = output_dir / filename
+    output_path = output_dir / f'{root_name}.html'
     output_path.write_text(clean_content, encoding='utf-8')
-    ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
+    ui.print(f'[green]✔ Saved (fallback):[/green] {output_path.absolute()}')
     results.append((output_path, clean_content, suggestion_xml))
 
   return results

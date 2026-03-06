@@ -265,87 +265,84 @@ ref content
   assert parse_multi_file_response(raw_text) == expected
 
 
+def test_parse_multi_file_response_complex_suffixes() -> None:
+  from wptgen.utils import parse_multi_file_response
+
+  raw_text = """
+[FILE_1: .https.any.js]
+js content
+[/FILE_1]
+[FILE_2: .sub.html]
+html content
+[/FILE_2]
+"""
+  expected = [('.https.any.js', 'js content'), ('.sub.html', 'html content')]
+  assert parse_multi_file_response(raw_text) == expected
+
+
 def test_parse_multi_file_response_empty() -> None:
   from wptgen.utils import parse_multi_file_response
 
   assert parse_multi_file_response('no files') == []
 
 
-def test_get_next_available_filenames_basic(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
+def test_get_next_available_root_basic(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_root
 
   used_names: set[str] = set()
-  test_file, ref_file = get_next_available_filenames('feat', tmp_path, False, used_names)
+  root = get_next_available_root('feat', tmp_path, used_names)
 
-  assert test_file == 'feat-001.html'
-  assert ref_file is None
-  assert 'feat-001.html' in used_names
+  assert root == 'feat-001'
+  assert 'feat-001' in used_names
 
 
-def test_get_next_available_filenames_increment(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
+def test_get_next_available_root_increment(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_root
 
   # Existing file feat-001.html
   (tmp_path / 'feat-001.html').touch()
 
   used_names: set[str] = set()
-  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
-  assert test_file == 'feat-002.html'
+  root = get_next_available_root('feat', tmp_path, used_names)
+  assert root == 'feat-002'
 
-  # Add feat-002.html to used_names manually to simulate another test in same run
-  test_file_3, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
-  assert test_file_3 == 'feat-003.html'
-
-
-def test_get_next_available_filenames_reftest(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
-
-  used_names: set[str] = set()
-  test_file, ref_file = get_next_available_filenames('feat', tmp_path, True, used_names)
-
-  assert test_file == 'feat-001.html'
-  assert ref_file == 'feat-001-ref.html'
-  assert 'feat-001.html' in used_names
-  assert 'feat-001-ref.html' in used_names
+  # Add feat-002 manually to used_names
+  root_3 = get_next_available_root('feat', tmp_path, used_names)
+  assert root_3 == 'feat-003'
 
 
-def test_get_next_available_filenames_collision_with_ref(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
+def test_get_next_available_root_collision_with_other_ext(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_root
 
-  # Existing ref file feat-001-ref.html
-  (tmp_path / 'feat-001-ref.html').touch()
+  # Existing JS file feat-001.any.js
+  (tmp_path / 'feat-001.any.js').touch()
 
   used_names: set[str] = set()
-  # Even if it's NOT a reftest, it should skip 001 because 001-ref exists
-  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
-  assert test_file == 'feat-002.html'
+  root = get_next_available_root('feat', tmp_path, used_names)
+  assert root == 'feat-002'
 
 
-def test_get_next_available_filenames_max_length(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
+def test_get_next_available_root_max_length(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_root
 
   long_feat = 'a' * 200
   used_names: set[str] = set()
-  # Max length 150. Suffix is -001.html (9 chars) or -001-ref.html (13 chars).
-  # We should truncate to fit the longest suffix (13 chars) -> 137 chars.
-  test_file, ref_file = get_next_available_filenames(long_feat, tmp_path, True, used_names)
+  # Max length 150. Suffix buffer is 35. -4 for -001.
+  # 150 - 35 - 4 = 111 chars for feature id.
+  root = get_next_available_root(long_feat, tmp_path, used_names)
 
-  assert test_file is not None
-  assert ref_file is not None
-  assert len(test_file) <= 150
-  assert len(ref_file) <= 150
-  assert test_file.startswith('a' * 137)
-  assert test_file.endswith('-001.html')
-  assert ref_file.endswith('-001-ref.html')
+  assert len(root) <= 150
+  assert root.startswith('a' * 111)
+  assert root.endswith('-001')
 
 
-def test_get_next_available_filenames_large_number(tmp_path: Path) -> None:
-  from wptgen.utils import get_next_available_filenames
+def test_get_next_available_root_large_number(tmp_path: Path) -> None:
+  from wptgen.utils import get_next_available_root
 
   used_names: set[str] = set()
   # Manually simulate 999 tests existing
   for n in range(1, 1000):
-    used_names.add(f'feat-{n:03d}.html')
+    used_names.add(f'feat-{n:03d}')
 
-  test_file, _ = get_next_available_filenames('feat', tmp_path, False, used_names)
-  assert test_file == 'feat-1000.html'
+  root = get_next_available_root('feat', tmp_path, used_names)
+  assert root == 'feat-1000'
