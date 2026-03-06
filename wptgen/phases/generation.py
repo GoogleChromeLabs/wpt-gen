@@ -13,11 +13,9 @@
 # limitations under the License.
 
 import asyncio
-import re
 from pathlib import Path
 
 from jinja2 import Environment
-from rich.table import Table
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -40,7 +38,7 @@ async def run_test_generation(
   ui: UIProvider,
   jinja_env: Environment,
 ) -> list[tuple[Path, str, str]]:
-  ui.rule('Phase 4: User Selection & Generation')
+  ui.on_phase_start(4, 'User Selection & Generation')
 
   assert context.audit_response is not None
   assert context.metadata is not None
@@ -48,26 +46,22 @@ async def run_test_generation(
   # Check for satisfaction status
   status = extract_xml_tag(context.audit_response, 'status')
   if status and status.strip() == 'SATISFIED':
-    ui.display_panel(
-      '[bold green]All identified test requirements have been satisfied.[/bold green]\n'
-      '[italic]No new test suggestions were generated because existing coverage is sufficient.[/italic]',
-      title='Status',
-      border_style='green',
-    )
+    ui.success('All identified test requirements have been satisfied.')
+    ui.info('No new test suggestions were generated because existing coverage is sufficient.')
     return []
 
   # Display the audit worksheet in a formatted table
   audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
   if audit_worksheet:
-    _display_audit_table(audit_worksheet, ui)
+    ui.report_audit_worksheet(audit_worksheet)
 
   suggestions = parse_suggestions(context.audit_response)
 
   if not suggestions:
-    ui.print('[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]')
+    ui.warning('No valid <test_suggestion> blocks found in the LLM response.')
     return []
 
-  ui.print(f'[bold green]{len(suggestions)}[/bold green] new test suggestions found!\n')
+  ui.success(f'{len(suggestions)} new test suggestions found!\n')
 
   approved_suggestions_xml = []
   for i, suggestion in enumerate(suggestions):
@@ -75,16 +69,12 @@ async def run_test_generation(
     description = extract_xml_tag(suggestion, 'description') or 'No description provided.'
     test_type = extract_xml_tag(suggestion, 'test_type') or 'Unknown'
 
-    ui.display_panel(
-      f'[bold cyan]Description:[/bold cyan] {description}\n'
-      f'[bold cyan]Test Type:[/bold cyan] {test_type}',
-      title=f'[bold cyan] Test Suggestion #{i + 1}:[/bold cyan] [white]{title}[/white]',
-    )
+    ui.report_test_suggestion(i + 1, title, description, test_type)
     if ui.confirm('Generate this test?'):
       approved_suggestions_xml.append(suggestion)
 
   if not approved_suggestions_xml:
-    ui.print('[yellow]No tests selected. Exiting.[/yellow]')
+    ui.warning('No tests selected. Exiting.')
     return []
 
   # Load the general style guide
@@ -149,7 +139,7 @@ async def run_test_generation(
     model=config.get_model_for_phase('generation'),
   )
 
-  ui.print(f'\nGenerating [bold]{len(prompts_to_confirm)}[/bold] tests in parallel...')
+  ui.report_generation_start(len(prompts_to_confirm))
 
   tasks = [
     _generate_and_save(
@@ -162,52 +152,9 @@ async def run_test_generation(
   # Flatten the list of lists (each task returns a list of files)
   final_results = [r for sublist in results for r in sublist]
 
-  if final_results:
-    summary_table = Table(
-      title='Generated Tests Summary', show_header=True, header_style='bold green'
-    )
-    summary_table.add_column('File Name', style='cyan')
-    summary_table.add_column('Full Path', style='dim')
-
-    for p, _content, _s_xml in final_results:
-      summary_table.add_row(p.name, str(p.absolute()))
-
-    ui.print()
-    ui.display_table(summary_table)
-    ui.print(f'\n[bold green]✔ {len(final_results)} tests generated successfully.[/bold green]')
-  else:
-    ui.print('\n[bold red]✘ No tests were successfully generated.[/bold red]')
+  ui.report_generation_summary(final_results)
 
   return final_results
-
-
-def _display_audit_table(worksheet_text: str, ui: UIProvider) -> None:
-  """Parses the audit worksheet text and displays it as a formatted table."""
-  table = Table(title='Coverage Audit Worksheet', show_header=True, header_style='bold cyan')
-  table.add_column('ID', style='dim')
-  table.add_column('Requirement')
-  table.add_column('Status', justify='center')
-
-  # Regex to parse lines like: R1: [Requirement Text] -> [COVERED by filename.html]
-  # or R1: [Requirement Text] -> [UNCOVERED]
-  pattern = re.compile(r'^(R\d+):\s*(.*)\s*->\s*\[(.*)\]', re.MULTILINE)
-
-  matches = list(pattern.finditer(worksheet_text))
-  # Sort by numerical value of the ID (e.g., R1, R2, R10)
-  matches.sort(key=lambda m: int(m.group(1)[1:]))
-
-  for match in matches:
-    req_id, req_text, status_info = match.groups()
-
-    if 'UNCOVERED' in status_info.upper():
-      status_display = f'[bold red]✘ {status_info}[/bold red]'
-    else:
-      status_display = f'[green]✔ {status_info}[/green]'
-
-    table.add_row(req_id, req_text.strip(), status_display)
-
-  ui.display_table(table)
-  ui.print()
 
 
 async def _generate_and_save(
@@ -221,7 +168,7 @@ async def _generate_and_save(
   temperature: float | None = None,
 ) -> list[tuple[Path, str, str]]:
   """Helper to generate specific test file(s) and save to disk."""
-  ui.print(f'Starting generation for: [bold]{root_name}[/bold]...')
+  ui.print(f'Starting generation for: {root_name}...')
 
   content = await generate_safe(
     prompt,
@@ -235,6 +182,7 @@ async def _generate_and_save(
   )
 
   if not content:
+    ui.report_test_generated(root_name, success=False)
     return []
 
   results = []
@@ -256,14 +204,14 @@ async def _generate_and_save(
       clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
       output_path = output_dir / fname
       output_path.write_text(clean_content, encoding='utf-8')
-      ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
+      ui.report_test_generated(root_name, success=True, path=output_path)
       results.append((output_path, clean_content, suggestion_xml))
   else:
     # Single file fallback - if the LLM failed to use partitioning tags, default to .html
     clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
     output_path = output_dir / f'{root_name}.html'
     output_path.write_text(clean_content, encoding='utf-8')
-    ui.print(f'[green]✔ Saved (fallback):[/green] {output_path.absolute()}')
+    ui.report_test_generated(root_name, success=True, path=output_path, fallback=True)
     results.append((output_path, clean_content, suggestion_xml))
 
   return results

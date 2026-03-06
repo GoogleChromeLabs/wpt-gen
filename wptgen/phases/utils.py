@@ -15,7 +15,6 @@
 import asyncio
 
 import typer
-from rich.table import Table
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -34,48 +33,31 @@ async def confirm_prompts(
   loop = asyncio.get_running_loop()
 
   total_tokens = 0
-  any_limit_exceeded = False
   target_model = model or llm.model
 
-  with ui.status(f'[yellow]Calculating token usage for {phase_name} ({target_model})...[/yellow]'):
+  with ui.status(f'Calculating token usage for {phase_name} ({target_model})...'):
     # We do token counting concurrently for speed
     async def get_info(prompt: str, name: str) -> tuple[int, bool, str]:
-      tokens = await loop.run_in_executor(None, llm.count_tokens, prompt, model)
+      tokens = await loop.run_in_executor(None, llm.count_tokens, prompt, target_model)
       limit_exceeded = await loop.run_in_executor(
-        None, llm.prompt_exceeds_input_token_limit, prompt, model
+        None, llm.prompt_exceeds_input_token_limit, prompt, target_model
       )
       return tokens, limit_exceeded, name
 
     results = await asyncio.gather(*(get_info(p, n) for p, n in prompt_data))
 
-  table = Table(
-    title=f'Token Usage Summary ({phase_name})', show_header=True, header_style='bold magenta'
-  )
-  table.add_column('Task', style='dim')
-  table.add_column('Model', style='blue')
-  table.add_column('Tokens', justify='right', style='cyan')
-  table.add_column('Status', justify='center')
-
-  for tokens, limit_exceeded, name in results:
+  for tokens, _, _ in results:
     total_tokens += tokens
-    status = '[bold red]EXCEEDED[/bold red]' if limit_exceeded else '[bold green]OK[/bold green]'
-    table.add_row(name, target_model, str(tokens), status)
-    if limit_exceeded:
-      any_limit_exceeded = True
 
-  ui.display_table(table)
-  if len(prompt_data) > 1:
-    ui.print(f'[bold]Total Estimated Tokens:[/bold] [cyan]{total_tokens}[/cyan]')
-
-  if any_limit_exceeded:
-    ui.print('\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!')
+  ui.report_token_usage(
+    phase_name, target_model, results, total_tokens, auto_confirmed=config.yes_tokens
+  )
 
   if config.yes_tokens:
-    ui.print('\n[yellow]Auto-confirming token usage (--yes-tokens).[/yellow]')
     return
 
   if not ui.confirm('\nProceed with these LLM requests?'):
-    ui.print('[yellow]Aborting workflow due to user cancellation.[/yellow]')
+    ui.warning('Aborting workflow due to user cancellation.')
     raise typer.Abort()
 
 
@@ -93,20 +75,15 @@ async def generate_safe(
   target_model = model or llm.model
   try:
     loop = asyncio.get_running_loop()
-    with ui.status(f'[blue]Executing {task_name} ({target_model})...[/blue]'):
+    with ui.status(f'Executing {task_name} ({target_model})...'):
       response = await loop.run_in_executor(
         None, llm.generate_content, prompt, system_instruction, temperature, model
       )
 
-    ui.print(f'✔ {task_name} finished (using {target_model}).')
+    ui.success(f'{task_name} finished (using {target_model}).')
     if config.show_responses:
-      # Determine syntax highlighting based on content (defaulting to xml).
-      syntax_lexer = 'xml'
-      if 'gen:' in task_name.lower():
-        syntax_lexer = 'html'
-
-      ui.display_syntax(response, syntax_lexer, task_name)
+      ui.report_llm_response(response, task_name)
     return response
   except Exception as e:
-    ui.print(f'[bold red]✘ {task_name} failed ({target_model}):[/bold red] {e}')
+    ui.error(f'{task_name} failed ({target_model}): {e}')
     return ''

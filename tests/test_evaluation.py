@@ -78,7 +78,7 @@ async def test_run_test_evaluation_pass(
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
   assert test_path.read_text() == 'original content'
-  mock_ui.print.assert_any_call(f'[green]✔ {test_path.name} passed evaluation.[/green]')
+  mock_ui.report_evaluation_result.assert_any_call(test_path.name, success=True)
 
 
 @pytest.mark.asyncio
@@ -102,7 +102,7 @@ async def test_run_test_evaluation_correction(
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
   assert test_path.read_text() == 'corrected content'
-  mock_ui.print.assert_any_call(f'[cyan]ℹ {test_path.name} was corrected and updated.[/cyan]')
+  mock_ui.report_evaluation_result.assert_any_call(test_path.name, success=True, updated=True)
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,7 @@ async def test_run_test_evaluation_with_markdown(
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
   assert test_path.read_text() == 'corrected markdown content'
-  mock_ui.print.assert_any_call(f'[cyan]ℹ {test_path.name} was corrected and updated.[/cyan]')
+  mock_ui.report_evaluation_result.assert_any_call(test_path.name, success=True, updated=True)
 
 
 @pytest.mark.asyncio
@@ -142,8 +142,8 @@ async def test_run_test_evaluation_no_response(
       await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
   assert test_path.read_text() == 'original content'
-  mock_ui.print.assert_any_call(
-    f'[yellow]⚠ No response for evaluation of {test_path.name}. Keeping original.[/yellow]'
+  mock_ui.report_evaluation_result.assert_called_with(
+    test_path.name, success=False, message=f'No response for evaluation of {test_path.name}.'
   )
 
 
@@ -184,8 +184,8 @@ corrected ref content
 
   assert test_path.read_text() == 'corrected test content'
   assert ref_path.read_text() == 'corrected ref content'
-  mock_ui.print.assert_any_call('[cyan]ℹ test.html was corrected and updated.[/cyan]')
-  mock_ui.print.assert_any_call('[cyan]ℹ test-ref.html was corrected and updated.[/cyan]')
+  mock_ui.report_evaluation_result.assert_any_call('test.html', success=True, updated=True)
+  mock_ui.report_evaluation_result.assert_any_call('test-ref.html', success=True, updated=True)
 
 
 @pytest.mark.asyncio

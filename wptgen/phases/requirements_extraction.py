@@ -32,7 +32,7 @@ async def run_requirements_extraction(
   jinja_env: Environment,
   cache_dir: Path,
 ) -> str | None:
-  ui.rule('Phase 2: Requirements Extraction')
+  ui.on_phase_start(2, 'Requirements Extraction')
 
   assert context.metadata is not None
 
@@ -41,10 +41,10 @@ async def run_requirements_extraction(
   requirements_xml = None
 
   if cache_file.exists():
-    ui.print(f'[yellow]Found cached requirements for {web_feature_id}.[/yellow]')
+    ui.info(f'Found cached requirements for {web_feature_id}.')
     if ui.confirm('Use cached requirements?'):
       requirements_xml = cache_file.read_text(encoding='utf-8')
-      ui.print('✔ Using cached requirements.')
+      ui.success('Using cached requirements.')
 
   if not requirements_xml:
     extraction_prompt = jinja_env.get_template('requirements_extraction.jinja').render(
@@ -96,7 +96,7 @@ async def run_requirements_extraction_iterative(
   jinja_env: Environment,
   cache_dir: Path,
 ) -> str | None:
-  ui.rule('Phase 2: Requirements Extraction (Iterative)')
+  ui.on_phase_start(2, 'Requirements Extraction (Iterative)')
 
   assert context.metadata is not None
 
@@ -105,10 +105,10 @@ async def run_requirements_extraction_iterative(
   requirements_xml = None
 
   if cache_file.exists():
-    ui.print(f'[yellow]Found cached requirements for {web_feature_id}.[/yellow]')
+    ui.info(f'Found cached requirements for {web_feature_id}.')
     if ui.confirm('Use cached requirements?'):
       requirements_xml = cache_file.read_text(encoding='utf-8')
-      ui.print('✔ Using cached requirements.')
+      ui.success('Using cached requirements.')
 
   if not requirements_xml:
     all_requirements: list[str] = []
@@ -156,14 +156,14 @@ async def run_requirements_extraction_iterative(
         break
 
       if '<status>EXHAUSTED</status>' in response:
-        ui.print(f'✔ Extraction complete: LLM signaled exhaustion at iteration {iteration}.')
+        ui.success(f'Extraction complete: LLM signaled exhaustion at iteration {iteration}.')
         break
 
       # Extract individual <requirement> blocks.
       new_reqs = re.findall(r'(<requirement.*?>.*?</requirement>)', response, re.DOTALL)
 
       if not new_reqs:
-        ui.print('[yellow]No new requirements found in this iteration. Stopping.[/yellow]')
+        ui.warning('No new requirements found in this iteration. Stopping.')
         break
 
       ui.print(f'  - Found {len(new_reqs)} new requirements.')
@@ -179,10 +179,10 @@ async def run_requirements_extraction_iterative(
       iteration += 1
     else:
       if iteration > max_iterations:
-        ui.print(f'[yellow]Reached maximum iterations ({max_iterations}).[/yellow]')
+        ui.warning(f'Reached maximum iterations ({max_iterations}).')
 
     if not all_requirements:
-      ui.print('[red]No requirements extracted.[/red]')
+      ui.error('No requirements extracted.')
       return None
 
     requirements_xml = (

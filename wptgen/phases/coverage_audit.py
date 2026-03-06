@@ -33,7 +33,7 @@ async def run_coverage_audit(
   ui: UIProvider,
   jinja_env: Environment,
 ) -> str | None:
-  ui.rule('Phase 3: Coverage Audit')
+  ui.on_phase_start(3, 'Coverage Audit')
 
   audit_prompt = jinja_env.get_template('coverage_audit.jinja').render(
     requirements_list_xml=context.requirements_xml,
@@ -67,10 +67,8 @@ async def run_coverage_audit(
 
 async def provide_coverage_report(context: WorkflowContext, config: Config, ui: UIProvider) -> None:
   """Prints the coverage audit report and optionally saves it to a file."""
-  ui.rule('Coverage Audit Report')
   assert context.audit_response is not None
-  ui.display_markdown(context.audit_response)
-  ui.print()
+  ui.report_coverage_audit(context.audit_response)
 
   if ui.confirm('\nSave report to a file?'):
     # Create a sanitized filename from the feature ID
@@ -81,6 +79,6 @@ async def provide_coverage_report(context: WorkflowContext, config: Config, ui: 
     try:
       output_path.parent.mkdir(parents=True, exist_ok=True)
       output_path.write_text(context.audit_response, encoding='utf-8')
-      ui.print(f'[green]Saved:[/green] {output_path.absolute()}')
+      ui.success(f'Saved: {output_path.absolute()}')
     except Exception as e:
-      ui.print(f'[bold red]Error saving file:[/bold red] {e}')
+      ui.error(f'Error saving file: {e}')

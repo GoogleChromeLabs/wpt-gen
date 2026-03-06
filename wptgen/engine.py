@@ -81,7 +81,7 @@ class WPTGenEngine:
         data = json.load(f)
       return WorkflowContext.from_dict(data)
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-      self.ui.print(f'[yellow]⚠ Failed to load resume state: {e}. Starting fresh.[/yellow]')
+      self.ui.warning(f'Failed to load resume state: {e}. Starting fresh.')
       return None
 
   async def _run_async_workflow(self, web_feature_id: str) -> None:
@@ -90,7 +90,7 @@ class WPTGenEngine:
     if self.config.resume:
       context = self._load_resume_state(web_feature_id)
       if context:
-        self.ui.print(f'[bold green]✔ Resuming workflow for {web_feature_id}[/bold green]')
+        self.ui.success(f'Resuming workflow for {web_feature_id}')
 
     # Phase 1: Context Assembly
     if not context or not context.wpt_context:
@@ -141,7 +141,7 @@ class WPTGenEngine:
       context.generated_tests = generated_tests
       self._save_resume_state(context)
     else:
-      self.ui.print('[bold green]✔ Skipping Phase 4: Tests already generated.[/bold green]')
+      self.ui.success('Skipping Phase 4: Tests already generated.')
 
     # Phase 5: Evaluation
     if context.generated_tests:

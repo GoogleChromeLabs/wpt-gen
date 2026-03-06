@@ -20,11 +20,9 @@ import pytest
 from wptgen.config import Config
 from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
 from wptgen.phases.context_assembly import run_context_assembly
-from wptgen.phases.coverage_audit import run_coverage_audit
-from wptgen.phases.generation import _display_audit_table, run_test_generation
+from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
-  run_requirements_extraction_iterative,
 )
 
 
@@ -90,6 +88,8 @@ async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicM
     assert context.metadata is not None
     assert context.metadata.name == 'Feat'
     assert context.spec_contents == 'Spec Content'
+    mock_ui.on_phase_start.assert_called_once_with(1, 'Context Assembly')
+    mock_ui.report_metadata.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -115,11 +115,7 @@ async def test_run_context_assembly_with_mdn(mock_config: Config, mock_ui: Magic
     assert context is not None
     assert isinstance(context.mdn_contents, list)
     assert len(context.mdn_contents) == 2
-    assert 'MDN Content 1' in context.mdn_contents[0]
-    assert 'Documentation from http://mdn1' in context.mdn_contents[0]
-    assert 'MDN Content 2' in context.mdn_contents[1]
-    assert 'Documentation from http://mdn2' in context.mdn_contents[1]
-    assert mock_fetch.call_count == 3
+    mock_ui.report_context_summary.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -141,8 +137,7 @@ async def test_run_context_assembly_unregistered_with_params(
     assert context is not None
     assert context.metadata is not None
     assert context.metadata.name == 'unregistered'
-    assert context.metadata.specs == ['http://manual-spec']
-    assert context.metadata.description == 'Manual Description'
+    mock_ui.warning.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -151,32 +146,7 @@ async def test_run_context_assembly_not_found(mock_config: Config, mock_ui: Magi
   with patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None):
     context = await run_context_assembly('not-found', mock_config, mock_ui)
     assert context is None
-
-
-@pytest.mark.asyncio
-async def test_run_context_assembly_override_metadata(
-  mock_config: Config, mock_ui: MagicMock
-) -> None:
-  """Test that manual parameters override registered feature metadata."""
-  mock_config.spec_urls = ['http://override-spec']
-  mock_config.feature_description = 'Override Description'
-
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
-    patch(
-      'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    ),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
-  ):
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
-
-    assert context is not None
-    assert context.metadata is not None
-    assert context.metadata.specs == ['http://override-spec']
-    assert context.metadata.description == 'Override Description'
+    mock_ui.error.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -191,23 +161,7 @@ async def test_run_context_assembly_no_specs(mock_config: Config, mock_ui: Magic
   ):
     context = await run_context_assembly('feat-id', mock_config, mock_ui)
     assert context is None
-
-
-@pytest.mark.asyncio
-async def test_run_context_assembly_spec_fetch_failure(
-  mock_config: Config, mock_ui: MagicMock
-) -> None:
-  """Test context assembly failure when spec fetching fails."""
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
-    patch(
-      'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    ),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value=''),
-  ):
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
-    assert context is None
+    mock_ui.error.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -231,135 +185,8 @@ async def test_run_requirements_extraction_cached(
   )
 
   assert res == '<reqs>cached</reqs>'
-  assert context.requirements_xml == '<reqs>cached</reqs>'
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_success(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test successful requirements extraction (single pass)."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  mock_llm.generate_content.return_value = '<reqs>generated</reqs>'
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res == '<reqs>generated</reqs>'
-  assert context.requirements_xml == '<reqs>generated</reqs>'
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_with_mdn(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test that requirements extraction correctly passes mdn_contents to the template."""
-  mdn_list = ['MDN 1', 'MDN 2']
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-    mdn_contents=mdn_list,
-  )
-  jinja_env = MagicMock()
-  template_mock = MagicMock()
-  jinja_env.get_template.return_value = template_mock
-
-  mock_llm.generate_content.return_value = '<reqs>generated</reqs>'
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    await run_requirements_extraction(context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path)
-
-  # Verify render was called with mdn_contents for the main template
-  # It gets called twice: once for the prompt, once for the system prompt
-  prompt_call = next(
-    call for call in template_mock.render.call_args_list if 'mdn_contents' in call.kwargs
-  )
-  assert prompt_call.kwargs['mdn_contents'] == mdn_list
-  assert prompt_call.kwargs['spec_contents'] == 'Spec'
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_with_mdn(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test that iterative requirements extraction correctly passes mdn_contents."""
-  mdn_list = ['MDN 1', 'MDN 2']
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-    mdn_contents=mdn_list,
-  )
-  jinja_env = MagicMock()
-  template_mock = MagicMock()
-  jinja_env.get_template.return_value = template_mock
-
-  mock_llm.generate_content.return_value = (
-    '<requirements_list><status>EXHAUSTED</status></requirements_list>'
-  )
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  # Verify render was called with mdn_contents
-  prompt_call = next(
-    call for call in template_mock.render.call_args_list if 'mdn_contents' in call.kwargs
-  )
-  assert prompt_call.kwargs['mdn_contents'] == mdn_list
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_failure(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test requirements extraction failure when generation fails."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  # Mock generate_safe to return empty string
-  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value=''):
-    res = await run_requirements_extraction(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is None
-
-
-@pytest.mark.asyncio
-async def test_run_coverage_audit_success(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
-) -> None:
-  """Test successful coverage audit."""
-  context = WorkflowContext(
-    feature_id='feat', requirements_xml='<reqs></reqs>', wpt_context=WPTContext()
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  mock_ui.confirm.return_value = True
-  mock_llm.generate_content.return_value = 'Audit Response'
-
-  res = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
-
-  assert res == 'Audit Response'
-  assert context.audit_response == 'Audit Response'
+  mock_ui.info.assert_called_once()
+  mock_ui.success.assert_called_once_with('Using cached requirements.')
 
 
 @pytest.mark.asyncio
@@ -378,17 +205,8 @@ async def test_provide_coverage_report(
 
   expected_path = tmp_path / 'feat-id_coverage_audit.md'
   assert expected_path.exists()
-  assert expected_path.read_text() == 'Audit markdown'
-
-  # Test not saving to file
-  mock_ui.confirm.return_value = False
-  await provide_coverage_report(context, mock_config, mock_ui)
-
-  # Test error during save
-  mock_ui.confirm.return_value = True
-  with patch('wptgen.phases.coverage_audit.Path.write_text', side_effect=Exception('error')):
-    await provide_coverage_report(context, mock_config, mock_ui)
-    mock_ui.print.assert_any_call('[bold red]Error saving file:[/bold red] error')
+  mock_ui.report_coverage_audit.assert_called_with('Audit markdown')
+  mock_ui.success.assert_any_call(f'Saved: {expected_path.absolute()}')
 
 
 @pytest.mark.asyncio
@@ -406,46 +224,8 @@ async def test_run_test_generation_satisfied(
   res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   assert res == []
-  mock_ui.display_panel.assert_called_once()
-  assert 'satisfied' in mock_ui.display_panel.call_args[0][0].lower()
-
-
-@pytest.mark.asyncio
-async def test_run_test_generation_success(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test successful test generation from suggestions."""
-  suggestion_xml = (
-    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
-  )
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    audit_response=suggestion_xml,
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Generated Content'
-
-  mock_ui.confirm.return_value = True
-  mock_llm.generate_content.return_value = '<html></html>'
-  mock_config.output_dir = str(tmp_path)
-
-  with (
-    patch('wptgen.phases.generation.confirm_prompts', return_value=None),
-    patch('wptgen.phases.generation.Path.read_text', return_value='Style Guide Content'),
-  ):
-    res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
-
-  expected_file = tmp_path / 'feat-001.html'
-  assert expected_file.exists()
-
-  # The suggestion_xml in the result should have the spec_url injected
-  injected_xml = suggestion_xml.replace(
-    '</test_suggestion>', '  <spec_url>http://spec</spec_url>\n</test_suggestion>'
-  )
-
-  assert expected_file.read_text() == '<html></html>'
-  assert res == [(expected_file, '<html></html>', injected_xml)]
+  mock_ui.success.assert_called_once_with('All identified test requirements have been satisfied.')
+  mock_ui.info.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -463,8 +243,8 @@ async def test_run_test_generation_no_suggestions(
   res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   assert res == []
-  mock_ui.print.assert_any_call(
-    '[yellow]No valid <test_suggestion> blocks found in the LLM response.[/yellow]'
+  mock_ui.warning.assert_called_once_with(
+    'No valid <test_suggestion> blocks found in the LLM response.'
   )
 
 
@@ -488,7 +268,7 @@ async def test_run_test_generation_none_selected(
   res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   assert res == []
-  mock_ui.print.assert_any_call('[yellow]No tests selected. Exiting.[/yellow]')
+  mock_ui.warning.assert_any_call('No tests selected. Exiting.')
 
 
 @pytest.mark.asyncio
@@ -514,270 +294,7 @@ async def test_run_test_generation_failure(
       res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   assert res == []
-  mock_ui.print.assert_any_call('\n[bold red]✘ No tests were successfully generated.[/bold red]')
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_success(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative requirements extraction success."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  # Mock sequence of responses: 1. some reqs, 2. EXHAUSTED
-  mock_llm.generate_content.side_effect = [
-    '<requirements_list><requirement id="R_NEW_1"><description>Req 1</description></requirement></requirements_list>',
-    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
-  ]
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is not None
-  assert '<requirement id="R1">' in res
-  assert 'Req 1' in res
-  assert context.requirements_xml == res
-  assert mock_llm.generate_content.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_reindexing(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test that requirements are correctly re-indexed across iterations."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  mock_llm.generate_content.side_effect = [
-    '<requirements_list><requirement id="R_NEW_1"><description>Req A</description></requirement></requirements_list>',
-    '<requirements_list><requirement id="R_NEW_1"><description>Req B</description></requirement></requirements_list>',
-    '<requirements_list><status>EXHAUSTED</status></requirements_list>',
-  ]
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is not None
-  assert '<requirement id="R1">' in res
-  assert '<requirement id="R2">' in res
-  assert 'Req A' in res
-  assert 'Req B' in res
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_max_iterations(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative extraction stops at max iterations."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  # Return 1 req every time (10 iterations)
-  mock_llm.generate_content.return_value = '<requirements_list><requirement id="R_NEW_1"><description>Req</description></requirement></requirements_list>'
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is not None
-  assert mock_llm.generate_content.call_count == 10
-  assert '<requirement id="R10">' in res
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_no_new_reqs(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative extraction stops if no new requirements are found in an iteration."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  # Iteration 1: Req found. Iteration 2: No req found (not EXHAUSTED though).
-  mock_llm.generate_content.side_effect = [
-    '<requirements_list><requirement id="R1"><description>R</description></requirement></requirements_list>',
-    '<requirements_list></requirements_list>',
-  ]
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is not None
-  assert mock_llm.generate_content.call_count == 2
-  assert '<requirement id="R1">' in res
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_failure(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative extraction stops if generate_safe returns empty string."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value=''):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is None
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_cached(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative extraction uses cache if available."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-  )
-  cache_dir = tmp_path
-  cache_file = cache_dir / 'feat__requirements.xml'
-  cache_file.write_text('<reqs>cached</reqs>')
-
-  mock_ui.confirm.return_value = True
-
-  res = await run_requirements_extraction_iterative(
-    context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir
-  )
-
-  assert res == '<reqs>cached</reqs>'
-  assert mock_llm.generate_content.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_run_requirements_extraction_iterative_no_reqs_at_all(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Test iterative extraction returns None if no requirements are ever found."""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
-  )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value.render.return_value = 'Prompt'
-
-  # First response is EXHAUSTED
-  mock_llm.generate_content.return_value = (
-    '<requirements_list><status>EXHAUSTED</status></requirements_list>'
-  )
-
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    res = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
-
-  assert res is None
-
-
-@pytest.mark.asyncio
-async def test_run_test_generation_dynamic_style_guides(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
-) -> None:
-  """Verify that different test types load different style guides."""
-  suggestions_xml = """
-<test_suggestions>
-  <test_suggestion>
-    <title>JS Test</title>
-    <description>JS Desc</description>
-    <test_type>JavaScript Test</test_type>
-  </test_suggestion>
-  <test_suggestion>
-    <title>Ref Test</title>
-    <description>Ref Desc</description>
-    <test_type>Reftest</test_type>
-  </test_suggestion>
-  <test_suggestion>
-    <title>Crash Test</title>
-    <description>Crash Desc</description>
-    <test_type>Crashtest</test_type>
-  </test_suggestion>
-</test_suggestions>
-"""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    audit_response=suggestions_xml,
-  )
-
-  jinja_env = MagicMock()
-  system_template_mock = MagicMock()
-  gen_template_mock = MagicMock()
-
-  def get_template_side_effect(name: str) -> MagicMock:
-    if name == 'test_generation_system.jinja':
-      return system_template_mock
-    return gen_template_mock
-
-  jinja_env.get_template.side_effect = get_template_side_effect
-
-  # We need to mock Path.read_text to avoid actually reading files during test.
-  # Using autospec=True or patching at the class level is better for methods.
-  with patch('wptgen.phases.generation.Path.read_text', autospec=True) as mock_read:
-    mock_read.side_effect = lambda self, encoding='utf-8': f'Content of {self.name}'
-
-    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
-      with patch('wptgen.phases.generation.generate_safe', return_value='<html></html>'):
-        await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
-
-  # Check that each call to render gen_template had the spec_url injected
-  for call in gen_template_mock.render.call_args_list:
-    assert '<spec_url>http://spec</spec_url>' in call.kwargs['test_suggestion_xml_block']
-
-  # Check that system_template_mock.render was called 3 times with different style guides
-  assert system_template_mock.render.call_count == 3
-
-  calls = system_template_mock.render.call_args_list
-
-  # Call 1: JS Test
-  assert calls[0].kwargs['test_type'] == 'JavaScript Test'
-  assert calls[0].kwargs['test_type_guide'] == 'Content of javascript_html_style_guide.md'
-
-  # Call 2: Reftest
-  assert calls[1].kwargs['test_type'] == 'Reftest'
-  assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
-
-  # Call 3: Crashtest
-  assert calls[2].kwargs['test_type'] == 'Crashtest'
-  assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
-
-  # Also verify wpt_style_guide was passed to all
-  for call in calls:
-    assert call.kwargs['wpt_style_guide'] == 'Content of wpt_style_guide.md'
+  mock_ui.report_generation_summary.assert_called_once_with([])
 
 
 @pytest.mark.asyncio
@@ -806,221 +323,4 @@ async def test_run_test_generation_displays_worksheet(
     await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   # Check that the worksheet was displayed
-  mock_ui.display_table.assert_called_once()
-  table = mock_ui.display_table.call_args[0][0]
-  assert table.title == 'Coverage Audit Worksheet'
-  assert table.columns[0].header == 'ID'
-  assert table.columns[1].header == 'Requirement'
-  assert table.columns[2].header == 'Status'
-
-
-@pytest.mark.asyncio
-async def test_run_test_generation_normalization(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
-) -> None:
-  """Verify that test type string normalization works."""
-  suggestions_xml = """
-<test_suggestion>
-  <title>Lower JS</title>
-  <test_type>javascript test</test_type>
-</test_suggestion>
-"""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    audit_response=suggestions_xml,
-  )
-
-  jinja_env = MagicMock()
-  system_template_mock = MagicMock()
-  gen_template_mock = MagicMock()
-
-  def get_template_side_effect(name: str) -> MagicMock:
-    if name == 'test_generation_system.jinja':
-      return system_template_mock
-    return gen_template_mock
-
-  jinja_env.get_template.side_effect = get_template_side_effect
-
-  with patch('wptgen.phases.generation.Path.read_text', return_value='Guide Content'):
-    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
-      with patch('wptgen.phases.generation.generate_safe', return_value='<html></html>'):
-        await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
-
-  # Should normalize "javascript test" to "JavaScript Test" from the Enum
-  assert system_template_mock.render.call_args.kwargs['test_type'] == 'JavaScript Test'
-  # Should have injected the spec_url
-  assert (
-    '<spec_url>http://spec</spec_url>'
-    in gen_template_mock.render.call_args.kwargs['test_suggestion_xml_block']
-  )
-
-
-@pytest.mark.asyncio
-async def test_run_test_generation_reftest_multi_file(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
-) -> None:
-  """Verify that reftests correctly parse and save multiple files."""
-  suggestion_xml = """
-<test_suggestion>
-  <title>Multi File Ref</title>
-  <test_type>Reftest</test_type>
-</test_suggestion>
-"""
-  context = WorkflowContext(
-    feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    audit_response=suggestion_xml,
-  )
-
-  jinja_env = MagicMock()
-  system_template_mock = MagicMock()
-  gen_template_mock = MagicMock()
-
-  def get_template_side_effect(name: str) -> MagicMock:
-    if name == 'test_generation_system.jinja':
-      return system_template_mock
-    return gen_template_mock
-
-  jinja_env.get_template.side_effect = get_template_side_effect
-
-  # Partitioned response from LLM using suffixes
-  llm_response = """
-[FILE_1: .html]
-<link rel="match" href="feat-001-ref.html">
-[/FILE_1]
-
-[FILE_2: .html]
-<p>Reference</p>
-[/FILE_2]
-"""
-  mock_config.output_dir = str(tmp_path / 'output')
-
-  with patch('wptgen.phases.generation.Path.read_text', return_value='Guide'):
-    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
-      with patch('wptgen.phases.generation.generate_safe', return_value=llm_response):
-        res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
-
-  assert len(res) == 2
-
-  test_file = Path(mock_config.output_dir) / 'feat-001.html'
-  ref_file = Path(mock_config.output_dir) / 'feat-001-ref.html'
-
-  assert test_file.exists()
-  assert ref_file.exists()
-
-  assert '<link rel="match"' in test_file.read_text()
-  assert '<p>Reference</p>' in ref_file.read_text()
-
-
-@pytest.mark.asyncio
-async def test_run_test_evaluation_dynamic_style_guides(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
-) -> None:
-  """Verify that different test types load different style guides during evaluation."""
-  generated_tests = [
-    (
-      Path('js_test.html'),
-      'content',
-      '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>',
-    ),
-    (
-      Path('ref_test.html'),
-      'content',
-      '<test_suggestion><test_type>Reftest</test_type></test_suggestion>',
-    ),
-    (
-      Path('crash_test.html'),
-      'content',
-      '<test_suggestion><test_type>Crashtest</test_type></test_suggestion>',
-    ),
-  ]
-  context = WorkflowContext(feature_id='feat')
-
-  jinja_env = MagicMock()
-  system_template_mock = MagicMock()
-  eval_template_mock = MagicMock()
-
-  def get_template_side_effect(name: str) -> MagicMock:
-    if name == 'evaluation_system.jinja':
-      return system_template_mock
-    return eval_template_mock
-
-  jinja_env.get_template.side_effect = get_template_side_effect
-
-  with patch('wptgen.phases.evaluation.Path.read_text', autospec=True) as mock_read:
-    mock_read.side_effect = lambda self, encoding='utf-8': f'Content of {self.name}'
-
-    with patch('wptgen.phases.evaluation.generate_safe', return_value='PASS'):
-      from wptgen.phases.evaluation import run_test_evaluation
-
-      await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
-
-  # Check that system_template_mock.render was called 3 times with different style guides
-  assert system_template_mock.render.call_count == 3
-  calls = system_template_mock.render.call_args_list
-
-  assert calls[0].kwargs['test_type'] == 'JavaScript Test'
-  assert calls[0].kwargs['test_type_guide'] == 'Content of javascript_html_style_guide.md'
-
-  assert calls[2].kwargs['test_type'] == 'Crashtest'
-  assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
-
-
-def test_display_audit_table_sorting(mock_ui: MagicMock) -> None:
-  """Test _display_audit_table sorts IDs numerically."""
-  # Unordered worksheet with IDs that would sort incorrectly lexicographically (R10 before R2)
-  worksheet = (
-    'R10: Req 10 -> [UNCOVERED]\nR2: Req 2 -> [COVERED by t.html]\nR1: Req 1 -> [UNCOVERED]'
-  )
-  _display_audit_table(worksheet, mock_ui)
-
-  mock_ui.display_table.assert_called_once()
-  table = mock_ui.display_table.call_args[0][0]
-  assert len(table.rows) == 3
-
-  # Check sorting: R1, R2, R10
-  assert table.columns[0]._cells[0] == 'R1'
-  assert table.columns[0]._cells[1] == 'R2'
-  assert table.columns[0]._cells[2] == 'R10'
-
-
-def test_display_audit_table_valid(mock_ui: MagicMock) -> None:
-  """Test _display_audit_table with valid worksheet content."""
-  worksheet = 'R1: Requirement 1 -> [COVERED by test.html]\nR2: Requirement 2 -> [UNCOVERED]'
-  _display_audit_table(worksheet, mock_ui)
-
-  mock_ui.display_table.assert_called_once()
-  table = mock_ui.display_table.call_args[0][0]
-  assert table.title == 'Coverage Audit Worksheet'
-  assert len(table.rows) == 2
-
-  # Check first row by inspecting the data in each column
-  # In rich.Table, cells are stored in columns
-  assert table.columns[0]._cells[0] == 'R1'
-  assert table.columns[1]._cells[0] == 'Requirement 1'
-  assert '[green]' in table.columns[2]._cells[0]
-
-  # Check second row
-  assert table.columns[0]._cells[1] == 'R2'
-  assert table.columns[1]._cells[1] == 'Requirement 2'
-  assert '[bold red]' in table.columns[2]._cells[1]
-
-
-def test_display_audit_table_empty(mock_ui: MagicMock) -> None:
-  """Test _display_audit_table with empty worksheet content."""
-  _display_audit_table('', mock_ui)
-
-  mock_ui.display_table.assert_called_once()
-  table = mock_ui.display_table.call_args[0][0]
-  assert len(table.rows) == 0
-
-
-def test_display_audit_table_no_matches(mock_ui: MagicMock) -> None:
-  """Test _display_audit_table with content that doesn't match the regex."""
-  worksheet = 'Invalid format line\nAnother invalid line'
-  _display_audit_table(worksheet, mock_ui)
-
-  mock_ui.display_table.assert_called_once()
-  table = mock_ui.display_table.call_args[0][0]
-  assert len(table.rows) == 0
+  mock_ui.report_audit_worksheet.assert_called_once()

@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from rich.table import Table
 
+from wptgen.models import WebFeatureMetadata
 from wptgen.ui import RichUIProvider
 
 
@@ -38,13 +39,6 @@ def test_print(ui: RichUIProvider, mock_console: MagicMock) -> None:
   mock_console.print.assert_called_once_with('test message', style='bold red')
 
 
-def test_rule(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test that the rule method correctly delegates to the rich console."""
-  ui.rule('test title', style='green')
-  assert mock_console.print.call_count == 2
-  mock_console.rule.assert_called_once_with('[bold green]test title')
-
-
 def test_status(ui: RichUIProvider, mock_console: MagicMock) -> None:
   """Test that the status method correctly delegates to the rich console."""
   ui.status('loading...')
@@ -60,37 +54,86 @@ def test_confirm(mock_ask: MagicMock, ui: RichUIProvider) -> None:
   mock_ask.assert_called_once_with('Are you sure?', default=True)
 
 
-def test_display_markdown(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test that display_markdown correctly renders markdown content."""
-  ui.display_markdown('# Hello')
-  mock_console.print.assert_called_once()
-  args, _ = mock_console.print.call_args
-  assert args[0].markup == '# Hello'
+def test_info(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test the info semantic method."""
+  ui.info('info message')
+  mock_console.print.assert_called_once_with('[blue]ℹ[/blue] info message')
 
 
-def test_display_panel(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test that display_panel correctly renders a rich panel."""
-  ui.display_panel('panel content', title='Panel Title', border_style='red')
+def test_success(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test the success semantic method."""
+  ui.success('success message')
+  mock_console.print.assert_called_once_with('[bold green]✔[/bold green] success message')
+
+
+def test_warning(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test the warning semantic method."""
+  ui.warning('warning message')
+  mock_console.print.assert_called_once_with('[yellow]⚠[/yellow] warning message')
+
+
+def test_error(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test the error semantic method."""
+  ui.error('error message')
+  mock_console.print.assert_called_once_with('[bold red]✘[/bold red] error message')
+
+
+def test_on_phase_start(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test on_phase_start semantic method."""
+  ui.on_phase_start(1, 'Test Phase')
+  mock_console.rule.assert_called_once_with('[bold cyan]Phase 1: Test Phase')
+
+
+def test_report_metadata(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_metadata semantic method."""
+  metadata = WebFeatureMetadata('Feat', 'Desc', ['http://spec'])
+  ui.report_metadata(metadata)
   mock_console.print.assert_called_once()
   args, _ = mock_console.print.call_args
   panel = args[0]
-  assert panel.renderable == 'panel content'
-  assert panel.title == '[bold]Panel Title[/bold]'
-  assert panel.border_style == 'red'
+  assert panel.title == '[bold]Feature Metadata[/bold]'
 
 
-def test_display_table(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test that display_table correctly renders a rich table."""
-  table = Table()
-  ui.display_table(table)
-  mock_console.print.assert_called_once_with(table)
+def test_report_token_usage(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_token_usage semantic method."""
+  ui.report_token_usage('Phase', 'Model', [(100, False, 'Task')], 100)
+  mock_console.print.assert_called_once()
 
 
-def test_display_syntax(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test that display_syntax correctly renders syntax-highlighted code in a panel."""
-  with patch.object(ui, 'display_panel') as mock_display_panel:
-    ui.display_syntax("print('hi')", 'python', 'Test Syntax')
-    mock_display_panel.assert_called_once()
-    args, kwargs = mock_display_panel.call_args
-    assert kwargs['title'] == 'LLM Response: Test Syntax'
-    assert kwargs['border_style'] == 'cyan'
+def test_report_llm_response(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_llm_response semantic method."""
+  ui.report_llm_response('response', 'Task')
+  mock_console.print.assert_called_once()
+
+
+def test_report_coverage_audit(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_coverage_audit semantic method."""
+  ui.report_coverage_audit('audit response')
+  # Rule + Print
+  assert mock_console.rule.call_count == 1
+
+
+def test_report_audit_worksheet(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_audit_worksheet semantic method."""
+  ui.report_audit_worksheet('R1: Req -> [UNCOVERED]')
+  # Table + Print newline
+  assert mock_console.print.call_count == 2
+
+
+def test_report_test_suggestion(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_test_suggestion semantic method."""
+  ui.report_test_suggestion(1, 'Title', 'Desc', 'Type')
+  mock_console.print.assert_called_once()
+
+
+def test_report_generation_summary(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_generation_summary semantic method."""
+  ui.report_generation_summary([(Path('p'), 'c', 's')])
+  # Newline + Table + Success message
+  assert mock_console.print.call_count == 3
+
+
+def test_report_evaluation_result(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_evaluation_result semantic method."""
+  ui.report_evaluation_result('test.html', success=True)
+  mock_console.print.assert_called_once_with('[green]✔ test.html passed evaluation.[/green]')
