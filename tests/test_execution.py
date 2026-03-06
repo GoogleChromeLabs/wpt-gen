@@ -48,7 +48,7 @@ def mock_config(tmp_path: Path) -> Config:
 
 
 @pytest.mark.asyncio
-async def test_run_test_execution_success(
+async def test_run_test_execution_success_batch(
   mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
@@ -56,8 +56,12 @@ async def test_run_test_execution_success(
   wpt_executable = wpt_root / 'wpt'
   wpt_executable.touch()
 
-  test_path = wpt_root / 'test.html'
-  generated_tests = [(test_path, 'content', 'xml')]
+  test1 = wpt_root / 'test1.html'
+  test2 = wpt_root / 'test2.html'
+  generated_tests = [
+    (test1, 'content1', 'xml1'),
+    (test2, 'content2', 'xml2'),
+  ]
 
   context = WorkflowContext(feature_id='feat')
 
@@ -74,7 +78,44 @@ async def test_run_test_execution_success(
     assert 'run' in args
     assert 'chrome' in args
     assert 'canary' in args
-    mock_ui.success.assert_called_with('Test execution succeeded for test.html.')
+    # Verify both tests are in the command line
+    assert str(test1.relative_to(wpt_root)) in args
+    assert str(test2.relative_to(wpt_root)) in args
+
+    mock_ui.success.assert_called_with('Test execution succeeded for all 2 tests.')
+
+
+@pytest.mark.asyncio
+async def test_run_test_execution_skips_references(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  wpt_root = Path(mock_config.wpt_path)
+  wpt_root.mkdir(parents=True)
+  wpt_executable = wpt_root / 'wpt'
+  wpt_executable.touch()
+
+  test1 = wpt_root / 'test1.html'
+  ref1 = wpt_root / 'test1-ref.html'
+  generated_tests = [
+    (test1, 'content', 'xml'),
+    (ref1, 'ref content', 'xml'),
+  ]
+
+  context = WorkflowContext(feature_id='feat')
+
+  mock_process = AsyncMock()
+  mock_process.communicate.return_value = (b'stdout', b'stderr')
+  mock_process.returncode = 0
+
+  with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
+    await run_test_execution(context, mock_config, mock_ui, generated_tests)
+
+    mock_exec.assert_called_once()
+    args = mock_exec.call_args[0]
+    assert str(test1.relative_to(wpt_root)) in args
+    assert str(ref1.relative_to(wpt_root)) not in args
+
+    mock_ui.success.assert_called_with('Test execution succeeded for all 1 tests.')
 
 
 @pytest.mark.asyncio
@@ -97,7 +138,7 @@ async def test_run_test_execution_failure(
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
     await run_test_execution(context, mock_config, mock_ui, generated_tests)
 
-    mock_ui.error.assert_any_call('Test execution failed for test.html with exit code 1.')
+    mock_ui.error.assert_any_call('Test execution failed with exit code 1.')
     mock_ui.print.assert_any_call('some output\nsome error')
 
 
@@ -114,12 +155,11 @@ async def test_run_test_execution_timeout(
 
   context = WorkflowContext(feature_id='feat')
 
-  mock_config.execution_timeout = 0.01  # Very short timeout for testing
+  mock_config.execution_timeout = 0.01
 
   mock_process = AsyncMock()
   mock_process.kill = MagicMock()
 
-  # Make communicate hang so it triggers the timeout
   async def slow_communicate() -> tuple[bytes, bytes]:
     await asyncio.sleep(1)
     return b'stdout', b'stderr'
@@ -131,8 +171,28 @@ async def test_run_test_execution_timeout(
 
     mock_process.kill.assert_called_once()
     mock_ui.error.assert_called_with(
-      f'Test execution timed out for test.html after {mock_config.execution_timeout}s.'
+      f'Test execution timed out after {mock_config.execution_timeout}s.'
     )
+
+
+@pytest.mark.asyncio
+async def test_run_test_execution_all_filtered(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  wpt_root = Path(mock_config.wpt_path)
+  wpt_root.mkdir(parents=True)
+  (wpt_root / 'wpt').touch()
+
+  ref1 = wpt_root / 'test1-ref.html'
+  generated_tests = [(ref1, 'content', 'xml')]
+
+  context = WorkflowContext(feature_id='feat')
+
+  await run_test_execution(context, mock_config, mock_ui, generated_tests)
+
+  mock_ui.info.assert_called_with(
+    'No valid test files to execute (all might be references or outside WPT root).'
+  )
 
 
 @pytest.mark.asyncio
@@ -146,27 +206,6 @@ async def test_run_test_execution_missing_executable(
 
   mock_ui.error.assert_called()
   assert 'Could not find wpt executable' in mock_ui.error.call_args[0][0]
-
-
-@pytest.mark.asyncio
-async def test_run_test_execution_outside_root(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
-) -> None:
-  wpt_root = tmp_path / 'wpt'
-  wpt_root.mkdir()
-  (wpt_root / 'wpt').touch()
-
-  outside_path = tmp_path / 'outside' / 'test.html'
-  outside_path.parent.mkdir()
-  generated_tests = [(outside_path, 'content', 'xml')]
-
-  context = WorkflowContext(feature_id='feat')
-
-  await run_test_execution(context, mock_config, mock_ui, generated_tests)
-
-  mock_ui.warning.assert_called_with(
-    f'Test test.html is not located under wpt root ({wpt_root.resolve()}). Cannot execute via wpt run.'
-  )
 
 
 @pytest.mark.asyncio
