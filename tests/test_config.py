@@ -266,3 +266,16 @@ def test_load_config_skip_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
   # Case 2: Override to True
   config = load_config(config_path='non_existent_dummy.yaml', skip_evaluation_override=True)
   assert config.skip_evaluation is True
+
+
+def test_load_config_max_parallel_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that max_parallel_requests is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (10)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.max_parallel_requests == 10
+
+  # Case 2: Override to 20
+  config = load_config(config_path='non_existent_dummy.yaml', max_parallel_requests_override=20)
+  assert config.max_parallel_requests == 20
