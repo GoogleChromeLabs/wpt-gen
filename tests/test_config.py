@@ -223,3 +223,23 @@ def test_get_default_cache_path_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
   from wptgen.config import _get_default_cache_path
 
   assert _get_default_cache_path() == '/tmp/custom_cache/wpt-gen'
+
+
+def test_load_config_timeout_minimum(
+  monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+  """Test that load_config enforces a minimum timeout of 10s."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Timeout less than minimum (e.g., 1s) should be corrected to 10s
+  config = load_config(config_path='non_existent_dummy.yaml', timeout_override=1)
+  assert config.timeout == 10
+  assert 'Requested timeout 1s is less than the minimum allowed' in caplog.text
+
+  # Case 2: Timeout equal to minimum (10s) should remain 10s
+  config = load_config(config_path='non_existent_dummy.yaml', timeout_override=10)
+  assert config.timeout == 10
+
+  # Case 3: Timeout greater than minimum (e.g., 60s) should remain 60s
+  config = load_config(config_path='non_existent_dummy.yaml', timeout_override=60)
+  assert config.timeout == 60

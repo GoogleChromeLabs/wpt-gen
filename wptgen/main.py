@@ -25,8 +25,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from wptgen.config import DEFAULT_CONFIG_PATH, load_config
+from wptgen.config import DEFAULT_CONFIG_PATH, DEFAULT_LLM_TIMEOUT, load_config
 from wptgen.engine import WPTGenEngine
+from wptgen.llm import LLMTimeoutError
 from wptgen.ui import RichUIProvider
 
 # Initialize Typer app and Rich console
@@ -105,6 +106,13 @@ def generate(
       help='Maximum number of retries for LLM calls.',
     ),
   ] = 3,
+  timeout: Annotated[
+    int,
+    typer.Option(
+      '--timeout',
+      help='Timeout for LLM requests in seconds.',
+    ),
+  ] = DEFAULT_LLM_TIMEOUT,
   spec_urls: Annotated[
     str | None,
     typer.Option(
@@ -178,6 +186,7 @@ def generate(
       suggestions_only=suggestions_only,
       resume_override=resume,
       max_retries_override=max_retries,
+      timeout_override=timeout,
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
@@ -217,6 +226,9 @@ def generate(
       )
     )
 
+  except LLMTimeoutError as e:
+    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
   except ValueError as e:
     # Catch configuration errors (like missing API keys) and exit gracefully
     console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
