@@ -75,6 +75,44 @@ def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
   return files
 
 
+def fix_reftest_link(test_content: str, ref_filename: str) -> str:
+  """Verifies and updates the <link rel="match" href="..."> tag in a reftest.
+
+  Args:
+    test_content: The HTML content of the test file.
+    ref_filename: The name of the reference file (e.g., 'counter-set-001-ref.html').
+
+  Returns:
+    The updated HTML content with the correct <link rel="match" href="..."> tag.
+  """
+  # Pattern to match the <link rel="match" href="..."> tag.
+  # Flexible with single/double quotes, whitespace, and self-closing tags.
+  link_re = re.compile(
+    r'<link\s+[^>]*rel=["\']match["\'][^>]*href=["\'](.*?)["\'][^>]*\/?>'
+    r'|<link\s+[^>]*href=["\'](.*?)["\'][^>]*rel=["\']match["\'][^>]*\/?>',
+    re.IGNORECASE | re.DOTALL,
+  )
+
+  new_link = f'<link rel="match" href="{ref_filename}">'
+
+  if link_re.search(test_content):
+    # Update existing link
+    return link_re.sub(new_link, test_content)
+
+  # If no link tag exists, add it to the <head> section.
+  head_re = re.compile(r'(<head.*?>)', re.IGNORECASE)
+  if head_re.search(test_content):
+    return head_re.sub(r'\1\n' + new_link, test_content, count=1)
+
+  # Fallback: find <html> tag
+  html_re = re.compile(r'(<html.*?>)', re.IGNORECASE)
+  if html_re.search(test_content):
+    return html_re.sub(r'\1\n' + new_link, test_content, count=1)
+
+  # Absolute fallback: prepend to content
+  return new_link + '\n' + test_content
+
+
 def get_next_available_root(
   feature_id: str,
   output_dir: Path,
