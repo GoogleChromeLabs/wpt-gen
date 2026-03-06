@@ -89,9 +89,16 @@ async def run_test_generation(
   gen_template = jinja_env.get_template('test_generation.jinja')
   system_template = jinja_env.get_template('test_generation_system.jinja')
 
+  spec_url = context.metadata.specs[0] if context.metadata and context.metadata.specs else None
   prompts_to_confirm: list[tuple[str, str, str, str]] = []
 
   for idx, suggestion_xml in enumerate(approved_suggestions_xml):
+    # Inject specification URL if available
+    if spec_url:
+      suggestion_xml = suggestion_xml.replace(
+        '</test_suggestion>', f'  <spec_url>{spec_url}</spec_url>\n</test_suggestion>'
+      )
+
     # Extract and normalize test type
     raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
     test_type_enum = TestType.JAVASCRIPT
