@@ -180,6 +180,7 @@ class OpenAIClient(LLMClient):
 
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
+  assert config.api_key is not None, 'api_key must be set in configuration'
   if config.provider == 'gemini':
     return GeminiClient(
       api_key=config.api_key, model=config.default_model, max_retries=config.max_retries

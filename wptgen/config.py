@@ -27,7 +27,7 @@ class Config:
 
   provider: str
   default_model: str
-  api_key: str
+  api_key: str | None
   wpt_path: str
   categories: dict[str, str]
   phase_model_mapping: dict[str, str]
@@ -104,6 +104,7 @@ def load_config(
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
+  require_api_key: bool = True,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -145,7 +146,7 @@ def load_config(
 
   # Enforce the environment variable constraint for the active provider
   api_key = os.environ.get(env_var_name)
-  if not api_key:
+  if require_api_key and not api_key:
     raise ValueError(
       f'CRITICAL: {env_var_name} environment variable is missing. '
       f"Required when using the '{active_provider}' provider."
