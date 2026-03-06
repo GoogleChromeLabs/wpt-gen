@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import re
 from pathlib import Path
 
 from jinja2 import Environment
@@ -55,12 +56,10 @@ async def run_test_generation(
     )
     return []
 
-  # Display the audit worksheet to the user for visibility into the rationale
+  # Display the audit worksheet in a formatted table
   audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
   if audit_worksheet:
-    ui.print('[bold cyan]Coverage Audit Worksheet:[/bold cyan]')
-    ui.display_markdown(audit_worksheet.strip())
-    ui.print()
+    _display_audit_table(audit_worksheet, ui)
 
   suggestions = parse_suggestions(context.audit_response)
 
@@ -69,20 +68,20 @@ async def run_test_generation(
     return []
 
   ui.print(f'[bold green]{len(suggestions)}[/bold green] new test suggestions found!\n')
-  approved_suggestions_xml: list[str] = []
 
-  for idx, xml_block in enumerate(suggestions):
-    title = extract_xml_tag(xml_block, 'title') or f'Suggestion #{idx + 1}'
-    desc = extract_xml_tag(xml_block, 'description') or 'No description available'
+  approved_suggestions_xml = []
+  for i, suggestion in enumerate(suggestions):
+    title = extract_xml_tag(suggestion, 'title') or f'Suggestion #{i + 1}'
+    description = extract_xml_tag(suggestion, 'description') or 'No description provided.'
+    test_type = extract_xml_tag(suggestion, 'test_type') or 'Unknown'
 
     ui.display_panel(
-      f'[italic]{desc}[/italic]',
-      title=f'Suggestion {idx + 1}: {title}',
-      border_style='blue',
+      f'[bold cyan]Description:[/bold cyan] {description}\n'
+      f'[bold cyan]Test Type:[/bold cyan] {test_type}',
+      title=f'[bold cyan] Test Suggestion #{i + 1}:[/bold cyan] [white]{title}[/white]',
     )
-    if ui.confirm('Generate this test?', default=True):
-      approved_suggestions_xml.append(xml_block)
-    ui.print()
+    if ui.confirm('Generate this test?'):
+      approved_suggestions_xml.append(suggestion)
 
   if not approved_suggestions_xml:
     ui.print('[yellow]No tests selected. Exiting.[/yellow]')
@@ -180,6 +179,35 @@ async def run_test_generation(
     ui.print('\n[bold red]✘ No tests were successfully generated.[/bold red]')
 
   return final_results
+
+
+def _display_audit_table(worksheet_text: str, ui: UIProvider) -> None:
+  """Parses the audit worksheet text and displays it as a formatted table."""
+  table = Table(title='Coverage Audit Worksheet', show_header=True, header_style='bold cyan')
+  table.add_column('ID', style='dim')
+  table.add_column('Requirement')
+  table.add_column('Status', justify='center')
+
+  # Regex to parse lines like: R1: [Requirement Text] -> [COVERED by filename.html]
+  # or R1: [Requirement Text] -> [UNCOVERED]
+  pattern = re.compile(r'^(R\d+):\s*(.*)\s*->\s*\[(.*)\]', re.MULTILINE)
+
+  matches = list(pattern.finditer(worksheet_text))
+  # Sort by numerical value of the ID (e.g., R1, R2, R10)
+  matches.sort(key=lambda m: int(m.group(1)[1:]))
+
+  for match in matches:
+    req_id, req_text, status_info = match.groups()
+
+    if 'UNCOVERED' in status_info.upper():
+      status_display = f'[bold red]✘ {status_info}[/bold red]'
+    else:
+      status_display = f'[green]✔ {status_info}[/green]'
+
+    table.add_row(req_id, req_text.strip(), status_display)
+
+  ui.display_table(table)
+  ui.print()
 
 
 async def _generate_and_save(

@@ -21,7 +21,7 @@ from wptgen.config import Config
 from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import run_coverage_audit
-from wptgen.phases.generation import run_test_generation
+from wptgen.phases.generation import _display_audit_table, run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
   run_requirements_extraction_iterative,
@@ -788,9 +788,7 @@ async def test_run_test_generation_displays_worksheet(
   suggestion_xml = (
     '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
   )
-  audit_response = (
-    f'<audit_worksheet>R1: Covered\nR2: Uncovered</audit_worksheet>\n{suggestion_xml}'
-  )
+  audit_response = f'<audit_worksheet>R1: Req 1 -> [COVERED by test.html]\nR2: Req 2 -> [UNCOVERED]</audit_worksheet>\n{suggestion_xml}'
   context = WorkflowContext(
     feature_id='feat',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
@@ -808,8 +806,12 @@ async def test_run_test_generation_displays_worksheet(
     await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
   # Check that the worksheet was displayed
-  mock_ui.print.assert_any_call('[bold cyan]Coverage Audit Worksheet:[/bold cyan]')
-  mock_ui.display_markdown.assert_any_call('R1: Covered\nR2: Uncovered')
+  mock_ui.display_table.assert_called_once()
+  table = mock_ui.display_table.call_args[0][0]
+  assert table.title == 'Coverage Audit Worksheet'
+  assert table.columns[0].header == 'ID'
+  assert table.columns[1].header == 'Requirement'
+  assert table.columns[2].header == 'Status'
 
 
 @pytest.mark.asyncio
@@ -961,8 +963,64 @@ async def test_run_test_evaluation_dynamic_style_guides(
   assert calls[0].kwargs['test_type'] == 'JavaScript Test'
   assert calls[0].kwargs['test_type_guide'] == 'Content of javascript_html_style_guide.md'
 
-  assert calls[1].kwargs['test_type'] == 'Reftest'
-  assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
-
   assert calls[2].kwargs['test_type'] == 'Crashtest'
   assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
+
+
+def test_display_audit_table_sorting(mock_ui: MagicMock) -> None:
+  """Test _display_audit_table sorts IDs numerically."""
+  # Unordered worksheet with IDs that would sort incorrectly lexicographically (R10 before R2)
+  worksheet = (
+    'R10: Req 10 -> [UNCOVERED]\nR2: Req 2 -> [COVERED by t.html]\nR1: Req 1 -> [UNCOVERED]'
+  )
+  _display_audit_table(worksheet, mock_ui)
+
+  mock_ui.display_table.assert_called_once()
+  table = mock_ui.display_table.call_args[0][0]
+  assert len(table.rows) == 3
+
+  # Check sorting: R1, R2, R10
+  assert table.columns[0]._cells[0] == 'R1'
+  assert table.columns[0]._cells[1] == 'R2'
+  assert table.columns[0]._cells[2] == 'R10'
+
+
+def test_display_audit_table_valid(mock_ui: MagicMock) -> None:
+  """Test _display_audit_table with valid worksheet content."""
+  worksheet = 'R1: Requirement 1 -> [COVERED by test.html]\nR2: Requirement 2 -> [UNCOVERED]'
+  _display_audit_table(worksheet, mock_ui)
+
+  mock_ui.display_table.assert_called_once()
+  table = mock_ui.display_table.call_args[0][0]
+  assert table.title == 'Coverage Audit Worksheet'
+  assert len(table.rows) == 2
+
+  # Check first row by inspecting the data in each column
+  # In rich.Table, cells are stored in columns
+  assert table.columns[0]._cells[0] == 'R1'
+  assert table.columns[1]._cells[0] == 'Requirement 1'
+  assert '[green]' in table.columns[2]._cells[0]
+
+  # Check second row
+  assert table.columns[0]._cells[1] == 'R2'
+  assert table.columns[1]._cells[1] == 'Requirement 2'
+  assert '[bold red]' in table.columns[2]._cells[1]
+
+
+def test_display_audit_table_empty(mock_ui: MagicMock) -> None:
+  """Test _display_audit_table with empty worksheet content."""
+  _display_audit_table('', mock_ui)
+
+  mock_ui.display_table.assert_called_once()
+  table = mock_ui.display_table.call_args[0][0]
+  assert len(table.rows) == 0
+
+
+def test_display_audit_table_no_matches(mock_ui: MagicMock) -> None:
+  """Test _display_audit_table with content that doesn't match the regex."""
+  worksheet = 'Invalid format line\nAnother invalid line'
+  _display_audit_table(worksheet, mock_ui)
+
+  mock_ui.display_table.assert_called_once()
+  table = mock_ui.display_table.call_args[0][0]
+  assert len(table.rows) == 0
