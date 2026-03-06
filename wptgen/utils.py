@@ -26,6 +26,7 @@ P = ParamSpec('P')
 SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>', re.DOTALL)
 FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
 MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$', re.MULTILINE)
+MULTI_FILE_RE = re.compile(r'\[FILE_(\d+):\s*(.*?)\](.*?)\[/FILE_\1\]', re.DOTALL)
 
 # Maximum delay between retries in seconds
 MAX_DELAY = 60.0
@@ -43,6 +44,22 @@ def extract_xml_tag(text: str, tag: str) -> str | None:
 def parse_suggestions(raw_text: str) -> list[str]:
   """Extracts all test suggestion blocks from a raw LLM response."""
   return SUGGESTION_BLOCK_RE.findall(raw_text)
+
+
+def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
+  """Extracts multiple files from a partitioned LLM response.
+
+  Expected format:
+  [FILE_1: filename.html]
+  content
+  [/FILE_1]
+  """
+  files = []
+  for match in MULTI_FILE_RE.finditer(raw_text):
+    filename = match.group(2).strip()
+    content = match.group(3).strip()
+    files.append((filename, content))
+  return files
 
 
 def retry(

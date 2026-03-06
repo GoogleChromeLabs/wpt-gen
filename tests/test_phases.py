@@ -761,10 +761,14 @@ async def test_run_test_generation_dynamic_style_guides(
   # Call 2: Reftest
   assert calls[1].kwargs['test_type'] == 'Reftest'
   assert calls[1].kwargs['test_type_guide'] == 'Content of reftest_style_guide.md'
+  assert calls[1].kwargs['safe_filename'] == 'ref_test__GENERATED_02_.html'
+  assert calls[1].kwargs['ref_filename'] == 'ref_test__GENERATED_02_-ref.html'
 
   # Call 3: Crashtest
   assert calls[2].kwargs['test_type'] == 'Crashtest'
   assert calls[2].kwargs['test_type_guide'] == 'Content of crashtest_style_guide.md'
+  assert calls[2].kwargs['safe_filename'] == 'crash_test__GENERATED_03_.html'
+  assert calls[2].kwargs['ref_filename'] is None
 
   # Also verify wpt_style_guide was passed to all
   for call in calls:
@@ -806,6 +810,63 @@ async def test_run_test_generation_normalization(
 
   # Should normalize "javascript test" to "JavaScript Test" from the Enum
   assert system_template_mock.render.call_args.kwargs['test_type'] == 'JavaScript Test'
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_reftest_multi_file(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verify that reftests correctly parse and save multiple files."""
+  suggestion_xml = """
+<test_suggestion>
+  <title>Multi File Ref</title>
+  <test_type>Reftest</test_type>
+</test_suggestion>
+"""
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestion_xml,
+  )
+
+  jinja_env = MagicMock()
+  system_template_mock = MagicMock()
+  gen_template_mock = MagicMock()
+
+  def get_template_side_effect(name: str) -> MagicMock:
+    if name == 'test_generation_system.jinja':
+      return system_template_mock
+    return gen_template_mock
+
+  jinja_env.get_template.side_effect = get_template_side_effect
+
+  # Partitioned response from LLM
+  llm_response = """
+[FILE_1: multi_file_ref__GENERATED_01_.html]
+<link rel="match" href="multi_file_ref__GENERATED_01_-ref.html">
+[/FILE_1]
+
+[FILE_2: multi_file_ref__GENERATED_01_-ref.html]
+<p>Reference</p>
+[/FILE_2]
+"""
+  mock_config.output_dir = str(tmp_path / 'output')
+
+  with patch('wptgen.phases.generation.Path.read_text', return_value='Guide'):
+    with patch('wptgen.phases.generation.confirm_prompts', return_value=None):
+      with patch('wptgen.phases.generation.generate_safe', return_value=llm_response):
+        res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert len(res) == 2
+
+  test_file = Path(mock_config.output_dir) / 'multi_file_ref__GENERATED_01_.html'
+  ref_file = Path(mock_config.output_dir) / 'multi_file_ref__GENERATED_01_-ref.html'
+
+  assert test_file.exists()
+  assert ref_file.exists()
+
+  assert '<link rel="match"' in test_file.read_text()
+  assert '<p>Reference</p>' in ref_file.read_text()
 
 
 @pytest.mark.asyncio

@@ -27,6 +27,7 @@ from wptgen.utils import (
   FILENAME_SANITIZATION_RE,
   MARKDOWN_CODE_BLOCK_RE,
   extract_xml_tag,
+  parse_multi_file_response,
   parse_suggestions,
 )
 
@@ -99,6 +100,14 @@ async def run_test_generation(
         test_type_enum = member
         break
 
+    # Generate filenames
+    raw_title = extract_xml_tag(suggestion_xml, 'title') or 'file'
+    slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
+    safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
+    ref_filename = (
+      f'{slug}__GENERATED_{idx + 1:02d}_-ref.html' if test_type_enum == TestType.REFTEST else None
+    )
+
     # Load the specific style guide for this test type
     guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
@@ -108,6 +117,8 @@ async def run_test_generation(
       wpt_style_guide=wpt_style_guide,
       test_type=test_type_enum.value,
       test_type_guide=test_type_guide,
+      safe_filename=safe_filename,
+      ref_filename=ref_filename,
     )
 
     final_prompt = gen_template.render(
@@ -116,12 +127,9 @@ async def run_test_generation(
       test_suggestion_xml_block=suggestion_xml,
     )
 
-    raw_title = extract_xml_tag(suggestion_xml, 'title') or 'file'
-    # Include index to prevent filename collisions
-    slug = FILENAME_SANITIZATION_RE.sub('_', raw_title.lower())
-    safe_filename = f'{slug}__GENERATED_{idx + 1:02d}_.html'
-
-    prompts_to_confirm.append((final_prompt, safe_filename, suggestion_xml, system_instruction))
+    # For confirmation, show both filenames if it's a reftest
+    display_filename = f'{safe_filename} (+ reference)' if ref_filename else safe_filename
+    prompts_to_confirm.append((final_prompt, display_filename, suggestion_xml, system_instruction))
 
   # Single confirmation for ALL tests
   await confirm_prompts(
@@ -143,8 +151,8 @@ async def run_test_generation(
   ]
   results = await asyncio.gather(*tasks)
 
-  # Filter out None values and show a final summary for this phase
-  final_results = [r for r in results if r is not None]
+  # Flatten the list of lists (each task returns a list of files)
+  final_results = [r for sublist in results for r in sublist]
 
   if final_results:
     summary_table = Table(
@@ -174,9 +182,10 @@ async def _generate_and_save(
   config: Config,
   system_instruction: str | None = None,
   temperature: float | None = None,
-) -> tuple[Path, str, str] | None:
-  """Helper to generate a specific test and save it to disk."""
+) -> list[tuple[Path, str, str]]:
+  """Helper to generate specific test file(s) and save to disk."""
   ui.print(f'Starting generation for: [bold]{filename}[/bold]...')
+
   content = await generate_safe(
     prompt,
     f'Gen: {filename}',
@@ -188,12 +197,28 @@ async def _generate_and_save(
     model=config.get_model_for_phase('generation'),
   )
 
-  if content:
-    # Strip Markdown code blocks if the LLM added them (common behavior)
+  if not content:
+    return []
+
+  results = []
+  output_dir = Path(config.output_dir or '.')
+  output_dir.mkdir(parents=True, exist_ok=True)
+
+  # Check if we have multiple files (Reftests)
+  multi_files = parse_multi_file_response(content)
+  if multi_files:
+    for fname, fcontent in multi_files:
+      clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
+      output_path = output_dir / fname
+      output_path.write_text(clean_content, encoding='utf-8')
+      ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
+      results.append((output_path, clean_content, suggestion_xml))
+  else:
+    # Single file fallback
     clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
-    output_path = Path(config.output_dir or '.') / filename
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / filename
     output_path.write_text(clean_content, encoding='utf-8')
     ui.print(f'[green]✔ Saved:[/green] {output_path.absolute()}')
-    return output_path, clean_content, suggestion_xml
-  return None
+    results.append((output_path, clean_content, suggestion_xml))
+
+  return results

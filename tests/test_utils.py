@@ -239,3 +239,31 @@ def test_retry_errors() -> None:
 
   with pytest.raises(ValueError, match='max_attempts must be an integer >= 1'):
     invalid_attempts()
+
+
+def test_parse_suggestions_empty() -> None:
+  from wptgen.utils import parse_suggestions
+
+  assert parse_suggestions('no suggestions') == []
+
+
+def test_parse_multi_file_response() -> None:
+  from wptgen.utils import parse_multi_file_response
+
+  raw_text = """
+[FILE_1: test.html]
+test content
+[/FILE_1]
+Random text
+[FILE_2: ref.html]
+ref content
+[/FILE_2]
+"""
+  expected = [('test.html', 'test content'), ('ref.html', 'ref content')]
+  assert parse_multi_file_response(raw_text) == expected
+
+
+def test_parse_multi_file_response_empty() -> None:
+  from wptgen.utils import parse_multi_file_response
+
+  assert parse_multi_file_response('no files') == []

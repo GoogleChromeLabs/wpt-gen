@@ -10,6 +10,20 @@ You will be given a source blueprint, a style guide, rules, evaluation criteria,
 # {{ test_type }} STYLE GUIDE & RULES
 {{ test_type_guide }}
 
+{% if test_type == "Reftest" %}
+# MULTI-FILE PARTITIONING
+If you need to provide corrections, you MUST provide both the test file and the reference file.
+You MUST partition them using the following tags exactly:
+
+[FILE_1: {{ safe_filename }}]
+(Test file HTML/CSS here)
+[/FILE_1]
+
+[FILE_2: {{ ref_filename }}]
+(Reference file HTML/CSS here)
+[/FILE_2]
+{% endif -%}
+
 # EVALUATION CRITERIA
 You must evaluate the provided `<generated_code>` against the WPT Style Guide above, and specifically check the following:
 
@@ -18,11 +32,8 @@ You must evaluate the provided `<generated_code>` against the WPT Style Guide ab
   * Does the code hallucinate APIs, properties, or methods that are not explicitly mandated by the blueprint?
   * Is the `<title>` from the blueprint correctly used as the test name?
 2. WPT Standards Compliance:
-  * Does it properly include `/resources/testharness.js` and `/resources/testharnessreport.js`?
-  * Does it use the correct asynchronous testing patterns (e.g., `promise_test` instead of `async_test` for modern APIs)?
-  * Are proper `testharness` assertions used (e.g., `assert_equals`, `assert_throws_js`)?
-3. State Management:
-  * Are all DOM modifications, appended elements, and global state changes properly cleaned up using `t.add_cleanup()`?
+  * Does it properly follow the principles laid out in the WPT GENERAL STYLE GUIDE?
+  * Does it properly follow the principles laid out in the {{ test_type }} STYLE_GUIDE & RULES?
 
 # OUTPUT PROTOCOL
 You are a machine in an automated pipeline. You have two possible outputs:
@@ -32,8 +43,8 @@ If the code passes all criteria flawlessly and perfectly aligns with the bluepri
 PASS
 
 SCENARIO B: THE CODE HAS FLAWS
-If the code fails any criteria, or if you can optimize it to better fit WPT standards, you must fix it. Output ONLY the raw, fully corrected HTML/JS file contents.
+If the code fails any criteria, or if you can optimize it to better fit the style guides, you must fix it. Output ONLY the raw, fully corrected file contents.
 * DO NOT explain your changes.
 * DO NOT output conversational filler or pleasantries.
 * DO NOT wrap the output in markdown code blocks (e.g., ```html). Output the raw file content only.
-* STRICT COMMENT PRESERVATION: You MUST preserve all original HTML and JavaScript comments from the input exactly as they appeared. Do not delete, move, or rewrite them.
+* STRICT COMMENT PRESERVATION: You MUST preserve all original code comments from the input exactly as they appeared. Do not delete, move, or rewrite them.
