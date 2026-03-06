@@ -19,10 +19,10 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import WorkflowContext
+from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
-from wptgen.utils import MARKDOWN_CODE_BLOCK_RE
+from wptgen.utils import MARKDOWN_CODE_BLOCK_RE, extract_xml_tag
 
 
 async def run_test_evaluation(
@@ -37,19 +37,35 @@ async def run_test_evaluation(
   ui.rule('Phase 5: Evaluation')
   ui.print(f'Evaluating [bold]{len(generated_tests)}[/bold] tests...')
 
-  # Load the style guide
-  style_guide_path = Path(__file__).parent.parent / 'templates' / 'resources' / 'wpt_style_guide.md'
-  style_guide = style_guide_path.read_text(encoding='utf-8')
+  # Load the general style guide
+  resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
+  wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
 
-  # Prepare system instruction
-  system_instruction = jinja_env.get_template('evaluation_system.jinja').render(
-    wpt_style_guide=style_guide
-  )
-
+  # Prepare templates
   evaluation_template = jinja_env.get_template('evaluation.jinja')
+  system_template = jinja_env.get_template('evaluation_system.jinja')
 
   tasks = []
   for path, content, suggestion_xml in generated_tests:
+    # Extract and normalize test type
+    raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
+    test_type_enum = TestType.JAVASCRIPT
+    for member in TestType:
+      if member.value.lower() == raw_test_type.lower():
+        test_type_enum = member
+        break
+
+    # Load the specific style guide for this test type
+    guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
+    test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
+
+    # Render the system instruction with both general and type-specific rules
+    system_instruction = system_template.render(
+      wpt_style_guide=wpt_style_guide,
+      test_type=test_type_enum.value,
+      test_type_guide=test_type_guide,
+    )
+
     prompt = evaluation_template.render(
       test_suggestion_xml=suggestion_xml,
       generated_code_content=content,

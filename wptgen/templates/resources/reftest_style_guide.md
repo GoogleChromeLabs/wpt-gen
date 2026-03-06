@@ -1,5 +1,3 @@
-# Reftest Best Practices
-
 Reftests (reference tests) are one of the primary tools in Web Platform Tests (WPT) for verifying rendering and layout. They work by comparing the visual output of a **test file** against one or more **reference files**. If the pixels match (or mismatch, as specified), the test passes.
 
 This guide provides a comprehensive overview of best practices for writing high-quality, maintainable, and robust reftests.

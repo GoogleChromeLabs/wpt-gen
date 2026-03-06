@@ -13,6 +13,21 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class TestType(Enum):
+  JAVASCRIPT = 'JavaScript Test'
+  REFTEST = 'Reftest'
+  CRASHTEST = 'Crashtest'
+
+
+# Map test types to their corresponding style guide resource files
+STYLE_GUIDE_MAP = {
+  TestType.JAVASCRIPT: 'javascript_html_style_guide.md',
+  TestType.REFTEST: 'reftest_style_guide.md',
+  TestType.CRASHTEST: 'crashtest_style_guide.md',
+}
 
 
 @dataclass

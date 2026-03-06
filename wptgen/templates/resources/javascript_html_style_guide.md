@@ -1,5 +1,3 @@
-# WPT JavaScript & HTML Test Best Practices
-
 This guide provides a comprehensive overview of best practices for writing JavaScript and HTML tests in Web Platform Tests (WPT) using the `testharness.js` framework.
 
 ---

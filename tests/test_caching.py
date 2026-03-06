@@ -29,7 +29,6 @@ def mock_config(tmp_path: Path) -> Config:
     provider='llmbargainbin',
     default_model='discountmodel',
     api_key='fake-key',
-    wpt_path='/fake/wpt',
     categories={
       'lightweight': 'fast-model',
       'reasoning': 'smart-model',
@@ -41,7 +40,9 @@ def mock_config(tmp_path: Path) -> Config:
       'evaluation': 'lightweight',
     },
     yes_tokens=True,
+    wpt_path=str(tmp_path / 'wpt'),
     cache_path=str(tmp_path / '.wpt-gen-cache'),
+    output_dir=str(tmp_path / 'output'),
   )
 
 
