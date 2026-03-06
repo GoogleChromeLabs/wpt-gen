@@ -41,9 +41,15 @@ class Config:
   spec_urls: list[str] | None = None
   feature_description: str | None = None
   detailed_requirements: bool = False
+  use_lightweight: bool = False
+  use_reasoning: bool = False
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
+    if self.use_lightweight:
+      return self.categories.get('lightweight')
+    if self.use_reasoning:
+      return self.categories.get('reasoning')
     category = self.phase_model_mapping.get(phase_name)
     if not category:
       return None
@@ -104,6 +110,8 @@ def load_config(
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
+  use_lightweight_override: bool = False,
+  use_reasoning_override: bool = False,
   require_api_key: bool = True,
 ) -> Config:
   """
@@ -170,6 +178,11 @@ def load_config(
   default_model = provider_settings.get('default_model', default_model_name)
   categories = provider_settings.get('categories', default_categories)
 
+  if use_lightweight_override:
+    default_model = categories.get('lightweight', default_model)
+  elif use_reasoning_override:
+    default_model = categories.get('reasoning', default_model)
+
   # Ensure default mapping if missing in YAML
   default_phase_mapping = {
     'requirements_extraction': 'reasoning',
@@ -196,4 +209,6 @@ def load_config(
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
+    use_lightweight=use_lightweight_override,
+    use_reasoning=use_reasoning_override,
   )
