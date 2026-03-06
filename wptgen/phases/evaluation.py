@@ -150,18 +150,30 @@ async def _evaluate_and_update(
       ref_path_item = next((item for item in files if '-ref.' in item[0].name), None)
 
       if len(multi_files) >= 1 and test_path_item:
-        p, _ = test_path_item
-        _, fcontent = multi_files[0]
+        p_old, _ = test_path_item
+        new_suffix, fcontent = multi_files[0]
+        # Use existing root but update suffix if LLM suggested a change
+        root = p_old.name.split('.', 1)[0]
+        p_new = p_old.with_name(f'{root}{new_suffix}')
+
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
-        p.write_text(clean_content, encoding='utf-8')
-        ui.report_evaluation_result(p.name, success=True, updated=True)
+        if p_new != p_old:
+          p_old.unlink(missing_ok=True)
+        p_new.write_text(clean_content, encoding='utf-8')
+        ui.report_evaluation_result(p_new.name, success=True, updated=True)
 
       if len(multi_files) >= 2 and ref_path_item:
-        p, _ = ref_path_item
-        _, fcontent = multi_files[1]
+        p_old, _ = ref_path_item
+        new_suffix, fcontent = multi_files[1]
+        # Use existing root but update suffix if LLM suggested a change
+        root = p_old.name.split('.', 1)[0]
+        p_new = p_old.with_name(f'{root}{new_suffix}')
+
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
-        p.write_text(clean_content, encoding='utf-8')
-        ui.report_evaluation_result(p.name, success=True, updated=True)
+        if p_new != p_old:
+          p_old.unlink(missing_ok=True)
+        p_new.write_text(clean_content, encoding='utf-8')
+        ui.report_evaluation_result(p_new.name, success=True, updated=True)
     else:
       # If it's a single file correction
       if len(files) == 1:

@@ -51,15 +51,27 @@ def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
   """Extracts multiple files from a partitioned LLM response.
 
   Expected format:
-  [FILE_1: filename.html]
+  [FILE_1: .flags.html]
   content
   [/FILE_1]
+
+  This function ensures the filename returned is a suffix (starting with a dot).
+  If the LLM provides a full filename, it shaves off the start until the first dot.
   """
   files = []
   for match in MULTI_FILE_RE.finditer(raw_text):
-    filename = match.group(2).strip()
+    suffix = match.group(2).strip()
+    # Shave off the start if it doesn't lead with a period
+    if suffix and not suffix.startswith('.'):
+      dot_idx = suffix.find('.')
+      if dot_idx != -1:
+        suffix = suffix[dot_idx:]
+      else:
+        # Fallback if no dot found at all - prepend a dot
+        suffix = '.' + suffix
+
     content = match.group(3).strip()
-    files.append((filename, content))
+    files.append((suffix, content))
   return files
 
 

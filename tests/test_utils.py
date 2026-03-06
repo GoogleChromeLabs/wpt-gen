@@ -261,7 +261,7 @@ Random text
 ref content
 [/FILE_2]
 """
-  expected = [('test.html', 'test content'), ('ref.html', 'ref content')]
+  expected = [('.html', 'test content'), ('.html', 'ref content')]
   assert parse_multi_file_response(raw_text) == expected
 
 
@@ -277,6 +277,28 @@ html content
 [/FILE_2]
 """
   expected = [('.https.any.js', 'js content'), ('.sub.html', 'html content')]
+  assert parse_multi_file_response(raw_text) == expected
+
+
+def test_parse_multi_file_response_shave_suffixes() -> None:
+  from wptgen.utils import parse_multi_file_response
+
+  raw_text = """
+[FILE_1: my-test-001.https.html]
+content 1
+[/FILE_1]
+[FILE_2: ref-file.html]
+content 2
+[/FILE_2]
+[FILE_3: just_extension]
+content 3
+[/FILE_3]
+"""
+  expected = [
+    ('.https.html', 'content 1'),
+    ('.html', 'content 2'),
+    ('.just_extension', 'content 3'),
+  ]
   assert parse_multi_file_response(raw_text) == expected
 
 

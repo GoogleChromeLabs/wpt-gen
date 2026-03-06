@@ -254,3 +254,57 @@ async def test_run_test_evaluation_partitioning_logic(
   assert 'test content' in call_args['generated_code_content']
   assert '[FILE_2: .html]' in call_args['generated_code_content']
   assert 'ref content' in call_args['generated_code_content']
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_reftest_rename(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Verify that reftest files are renamed if the suffix changes during evaluation."""
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+  style_guide_content = 'Style Guide Content'
+
+  test_path = tmp_path / 'feat-001.html'
+  ref_path = tmp_path / 'feat-001-ref.html'
+  test_path.write_text('old test')
+  ref_path.write_text('old ref')
+
+  suggestion_xml = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_tests = [
+    (test_path, 'old test', suggestion_xml),
+    (ref_path, 'old ref', suggestion_xml),
+  ]
+
+  # Mock LLM returning corrected content with NEW SUFFIXES
+  mock_llm.generate_content.return_value = """
+[FILE_1: .https.html]
+new test content
+[/FILE_1]
+
+[FILE_2: .sub.html]
+new ref content
+[/FILE_2]
+"""
+
+  with patch('wptgen.phases.evaluation.Path.read_text', return_value=style_guide_content):
+    await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  # Verify files were renamed/updated
+  new_test_path = tmp_path / 'feat-001.https.html'
+  new_ref_path = tmp_path / 'feat-001-ref.sub.html'
+
+  assert new_test_path.exists()
+  assert new_test_path.read_text() == 'new test content'
+  assert not test_path.exists()
+
+  assert new_ref_path.exists()
+  assert new_ref_path.read_text() == 'new ref content'
+  assert not ref_path.exists()
+
+  mock_ui.report_evaluation_result.assert_any_call(
+    'feat-001.https.html', success=True, updated=True
+  )
+  mock_ui.report_evaluation_result.assert_any_call(
+    'feat-001-ref.sub.html', success=True, updated=True
+  )
