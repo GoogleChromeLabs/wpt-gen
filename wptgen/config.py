@@ -55,6 +55,7 @@ class Config:
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
   execution_timeout: int | float = 90  # Default 1.5 minutes
+  max_parallel_requests: int = 10
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -128,6 +129,7 @@ def load_config(
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
   require_api_key: bool = True,
+  max_parallel_requests_override: int | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -191,6 +193,9 @@ def load_config(
   )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
+  max_parallel_requests = max_parallel_requests_override or yaml_data.get(
+    'max_parallel_requests', 10
+  )
 
   if timeout < MIN_LLM_TIMEOUT:
     logging.warning(
@@ -245,4 +250,5 @@ def load_config(
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
     execution_timeout=yaml_data.get('execution_timeout', 90),
+    max_parallel_requests=max_parallel_requests,
   )

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -133,3 +134,74 @@ async def test_generate_safe_exception(
   res = await generate_safe('prompt', 'Task', mock_llm, mock_ui, mock_config)
   assert res == ''
   mock_ui.error.assert_called_once_with('Task failed (test-model): test error')
+
+
+@pytest.mark.asyncio
+async def test_generate_safe_parallelism_limit(
+  mock_ui: MagicMock, mock_llm: MagicMock, mock_config: Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Test that generate_safe respects the max_parallel_requests limit."""
+  import asyncio
+  import time
+
+  from wptgen.phases import utils
+
+  # Reset the global semaphore for this test
+  monkeypatch.setattr(utils, '_llm_semaphore', None)
+  mock_config.max_parallel_requests = 2
+
+  active_requests = 0
+  max_seen_parallel = 0
+
+  # So we can just mock llm.generate_content to be slow.
+  def slow_sync_generate(*args: Any, **kwargs: Any) -> str:
+    nonlocal active_requests, max_seen_parallel
+    active_requests += 1
+    max_seen_parallel = max(max_seen_parallel, active_requests)
+    time.sleep(0.1)
+    active_requests -= 1
+    return 'response'
+
+  mock_llm.generate_content.side_effect = slow_sync_generate
+
+  # Run 5 requests in parallel
+  tasks = [generate_safe(f'p{i}', f'T{i}', mock_llm, mock_ui, mock_config) for i in range(5)]
+  await asyncio.gather(*tasks)
+
+  # With max_parallel_requests = 2, we should never see more than 2 at a time
+  assert max_seen_parallel <= 2
+
+
+@pytest.mark.asyncio
+async def test_confirm_prompts_parallelism_limit(
+  mock_ui: MagicMock, mock_llm: MagicMock, mock_config: Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Test that confirm_prompts respects the max_parallel_requests limit."""
+  import time
+
+  from wptgen.phases import utils
+
+  # Reset the global semaphore for this test
+  monkeypatch.setattr(utils, '_llm_semaphore', None)
+  mock_config.max_parallel_requests = 3
+
+  active_requests = 0
+  max_seen_parallel = 0
+
+  def slow_count_tokens(*args: Any, **kwargs: Any) -> int:
+    nonlocal active_requests, max_seen_parallel
+    active_requests += 1
+    max_seen_parallel = max(max_seen_parallel, active_requests)
+    time.sleep(0.05)
+    active_requests -= 1
+    return 100
+
+  mock_llm.count_tokens.side_effect = slow_count_tokens
+  mock_ui.confirm.return_value = True
+
+  # 10 prompts
+  prompt_data = [(f'p{i}', f'n{i}') for i in range(10)]
+  await confirm_prompts(prompt_data, 'Phase', mock_llm, mock_ui, mock_config)
+
+  # With max_parallel_requests = 3, we should never see more than 3 at a time
+  assert max_seen_parallel <= 3

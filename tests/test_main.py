@@ -100,6 +100,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
   mock_engine_class.assert_called_once()
   # Verify config was passed correctly
@@ -134,6 +135,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -164,6 +166,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -194,6 +197,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -224,6 +228,7 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -254,6 +259,7 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -283,6 +289,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=True,
+    max_parallel_requests_override=None,
   )
 
   # Run with --no-eval alias
@@ -307,6 +314,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=True,
+    max_parallel_requests_override=None,
   )
 
 
@@ -368,6 +376,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -398,6 +407,7 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -428,6 +438,7 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -458,6 +469,7 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=True,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -488,6 +500,7 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     use_lightweight_override=False,
     use_reasoning_override=True,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
   )
 
 
@@ -518,6 +531,38 @@ def test_generate_categorized_requirements(mocker: MockerFixture, mock_config: C
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    max_parallel_requests_override=None,
+  )
+
+
+def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --max-parallel-requests flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --max-parallel-requests
+  result = runner.invoke(app, ['generate', 'grid', '--max-parallel-requests', '5'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    suggestions_only=False,
+    resume_override=False,
+    max_retries_override=3,
+    timeout_override=600,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=False,
+    categorized_requirements_override=False,
+    use_lightweight_override=False,
+    use_reasoning_override=False,
+    skip_evaluation_override=False,
+    max_parallel_requests_override=5,
   )
 
 

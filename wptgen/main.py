@@ -159,6 +159,13 @@ def generate(
       help='Skip the evaluation phase after generating tests.',
     ),
   ] = False,
+  max_parallel_requests: Annotated[
+    int | None,
+    typer.Option(
+      '--max-parallel-requests',
+      help='Maximum number of parallel asynchronous LLM requests.',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -213,6 +220,7 @@ def generate(
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
+      max_parallel_requests_override=max_parallel_requests,
     )
 
     config_info = Text.assemble(

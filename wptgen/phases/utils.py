@@ -20,6 +20,17 @@ from wptgen.config import Config
 from wptgen.llm import LLMClient
 from wptgen.ui import UIProvider
 
+# Global semaphore to limit parallel LLM requests
+_llm_semaphore: asyncio.Semaphore | None = None
+
+
+def get_semaphore(config: Config) -> asyncio.Semaphore:
+  """Returns a shared semaphore to limit parallel LLM requests."""
+  global _llm_semaphore
+  if _llm_semaphore is None:
+    _llm_semaphore = asyncio.Semaphore(config.max_parallel_requests)
+  return _llm_semaphore
+
 
 async def confirm_prompts(
   prompt_data: list[tuple[str, str]],
@@ -38,10 +49,11 @@ async def confirm_prompts(
   with ui.status(f'Calculating token usage for {phase_name} ({target_model})...'):
     # We do token counting concurrently for speed
     async def get_info(prompt: str, name: str) -> tuple[int, bool, str]:
-      tokens = await loop.run_in_executor(None, llm.count_tokens, prompt, target_model)
-      limit_exceeded = await loop.run_in_executor(
-        None, llm.prompt_exceeds_input_token_limit, prompt, target_model
-      )
+      async with get_semaphore(config):
+        tokens = await loop.run_in_executor(None, llm.count_tokens, prompt, target_model)
+        limit_exceeded = await loop.run_in_executor(
+          None, llm.prompt_exceeds_input_token_limit, prompt, target_model
+        )
       return tokens, limit_exceeded, name
 
     results = await asyncio.gather(*(get_info(p, n) for p, n in prompt_data))
@@ -76,9 +88,10 @@ async def generate_safe(
   try:
     loop = asyncio.get_running_loop()
     with ui.status(f'Executing {task_name} ({target_model})...'):
-      response = await loop.run_in_executor(
-        None, llm.generate_content, prompt, system_instruction, temperature, model
-      )
+      async with get_semaphore(config):
+        response = await loop.run_in_executor(
+          None, llm.generate_content, prompt, system_instruction, temperature, model
+        )
 
     ui.success(f'{task_name} finished (using {target_model}).')
     if config.show_responses:
