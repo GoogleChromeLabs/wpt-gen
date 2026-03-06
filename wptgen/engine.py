@@ -24,6 +24,7 @@ from wptgen.models import WorkflowContext
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
 from wptgen.phases.evaluation import run_test_evaluation
+from wptgen.phases.execution import run_test_execution
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
@@ -40,6 +41,7 @@ __all__ = [
   'provide_coverage_report',
   'run_test_generation',
   'run_test_evaluation',
+  'run_test_execution',
 ]
 
 
@@ -154,6 +156,10 @@ class WPTGenEngine:
       )
     elif context.generated_tests and self.config.skip_evaluation:
       self.ui.info('Skipping Phase 5: Evaluation.')
+
+    # Phase 6: Test Execution
+    if context.generated_tests:
+      await run_test_execution(context, self.config, self.ui, context.generated_tests)
 
     # Final cleanup of resume file on success
     resume_file = self._get_resume_file_path(web_feature_id)
