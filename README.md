@@ -46,7 +46,7 @@ flowchart TD
         I --> J[Phase 6: Test Execution]
     end
 
-    classDef llm fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef llm fill:#4B0082,stroke:#333,stroke-width:2px;
     class E,F,H,I llm;
 ```
 
@@ -115,13 +115,13 @@ providers:
   openai:
     default_model: gpt-5.2-high
     categories:
-      lightweight: gpt-4o-mini
+      lightweight: gpt-5-mini
       reasoning: gpt-5.2-high
   anthropic:
-    default_model: claude-3-7-sonnet-20250219
+    default_model: claude-opus-4-6
     categories:
-      lightweight: claude-3-5-haiku-20241022
-      reasoning: claude-3-7-sonnet-20250219
+      lightweight: claude-sonnet-4-6
+      reasoning: claude-opus-4-6
 
 
 phase_model_mapping:
