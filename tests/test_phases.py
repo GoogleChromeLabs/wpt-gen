@@ -266,6 +266,44 @@ async def test_run_requirements_extraction_categorized_partial_empty(
 
 
 @pytest.mark.asyncio
+async def test_run_requirements_extraction_categorized_with_rationale(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test categorized requirements extraction with a rationale for an empty category."""
+  context = WorkflowContext(
+    feature_id='feat-rationale',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents='Spec',
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Mock Template'
+
+  # Mock generate_safe to return one category with a requirement and one with a rationale
+  with patch(
+    'wptgen.phases.requirements_extraction.generate_safe',
+    side_effect=[
+      '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+      '<requirements_list><rationale>This feature is a simple object and has no complex invalidation rules.</rationale></requirements_list>',
+      '<requirements_list></requirements_list>',  # Empty without rationale
+      '<requirements_list></requirements_list>',
+      '<requirements_list></requirements_list>',
+    ],
+  ):
+    res = await run_requirements_extraction_categorized(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  assert res is not None
+  assert '<requirement id="R1">' in res
+  assert 'rationale' not in res  # Final XML should NOT contain rationales
+
+  # Verify ui.info was called with the rationale
+  mock_ui.info.assert_any_call(
+    'No requirements found for category [Common Use Cases] This feature is a simple object and has no complex invalidation rules.'
+  )
+
+
+@pytest.mark.asyncio
 async def test_provide_coverage_report(
   mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:

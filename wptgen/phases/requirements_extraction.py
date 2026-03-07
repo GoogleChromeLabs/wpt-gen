@@ -157,12 +157,20 @@ async def run_requirements_extraction_categorized(
     all_requirements: list[str] = []
     requirement_counter = 1
 
-    for response in responses:
+    for (name, _), response in zip(REQUIREMENT_CATEGORIES, responses, strict=True):
       if not response:
         continue
 
       # Extract individual <requirement> blocks.
       new_reqs = re.findall(r'(<requirement.*?>.*?</requirement>)', response, re.DOTALL)
+
+      if not new_reqs:
+        # If no requirements, look for a rationale.
+        rationale_match = re.search(r'<rationale>(.*?)</rationale>', response, re.DOTALL)
+        if rationale_match:
+          ui.info(f'No requirements found for category [{name}] {rationale_match.group(1).strip()}')
+        continue
+
       for req in new_reqs:
         # Re-index requirements as they come out
         re_indexed = re.sub(
