@@ -14,7 +14,9 @@
 
 import logging
 from abc import ABC, abstractmethod
+from typing import Any
 
+import anthropic
 import httpx
 import openai
 import tiktoken
@@ -223,6 +225,86 @@ class OpenAIClient(LLMClient):
     return token_count > limit
 
 
+class AnthropicClient(LLMClient):
+  def __init__(
+    self,
+    api_key: str,
+    model: str,
+    max_retries: int = MAX_RETRIES,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+  ):
+    super().__init__(api_key, model, max_retries, timeout)
+    self.client = anthropic.Anthropic(api_key=self.api_key, timeout=float(self.timeout))
+
+  @retry(exceptions=Exception, max_attempts_attr='max_retries')
+  def count_tokens(self, prompt: str, model: str | None = None) -> int:
+    """Returns the total number of tokens for the given prompt using Anthropic SDK."""
+    target_model = model or self.model
+    try:
+      response = self.client.messages.count_tokens(
+        model=target_model,
+        messages=[{'role': 'user', 'content': prompt}],
+      )
+      return response.input_tokens
+    except anthropic.APITimeoutError as e:
+      raise LLMTimeoutError(f'Anthropic API request timed out after {self.timeout}s: {e}') from e
+
+  @retry(exceptions=Exception, max_attempts_attr='max_retries')
+  def generate_content(
+    self,
+    prompt: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+    model: str | None = None,
+  ) -> str:
+    target_model = model or self.model
+    kwargs: dict[str, Any] = {
+      'model': target_model,
+      'messages': [{'role': 'user', 'content': prompt}],
+    }
+
+    if system_instruction:
+      kwargs['system'] = system_instruction
+    if temperature is not None:
+      kwargs['temperature'] = temperature
+
+    try:
+      response = self.client.messages.create(**kwargs)
+    except anthropic.APITimeoutError as e:
+      raise LLMTimeoutError(f'Anthropic API request timed out after {self.timeout}s: {e}') from e
+
+    # Anthropic returns a list of content blocks. We assume the first block is text.
+    if not response.content:
+      raise ValueError('Anthropic API returned no content.')
+
+    content = response.content[0].text
+    if not isinstance(content, str):
+      raise ValueError('Anthropic API returned no text.')
+    return content
+
+  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
+    """Checks the token size of a prompt and checks if it exceeds the input
+       limit of the Anthropic model.
+
+    Args:
+      prompt: The input prompt string.
+      model: Optional model override.
+
+    Returns:
+      Boolean value of whether the input token limit is exceeded.
+    """
+    target_model = model or self.model
+    token_count = self.count_tokens(prompt, model=target_model)
+
+    # Claude 4 models have a 200,000 token context limit.
+    limit = 200_000
+
+    logging.info(f'Prompt token count: {token_count}')
+    logging.info(f"Model's context limit token count: {limit}")
+
+    return token_count > limit
+
+
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
   assert config.api_key is not None, 'api_key must be set in configuration'
@@ -235,6 +317,13 @@ def get_llm_client(config: Config) -> LLMClient:
     )
   elif config.provider == 'openai':
     return OpenAIClient(
+      api_key=config.api_key,
+      model=config.default_model,
+      max_retries=config.max_retries,
+      timeout=config.timeout,
+    )
+  elif config.provider == 'anthropic':
+    return AnthropicClient(
       api_key=config.api_key,
       model=config.default_model,
       max_retries=config.max_retries,

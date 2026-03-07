@@ -49,7 +49,9 @@ def generate(
   provider: Annotated[
     str | None,
     typer.Option(
-      '--provider', '-p', help="Override the default LLM provider (e.g., 'gemini', 'openai')."
+      '--provider',
+      '-p',
+      help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
     ),
   ] = None,
   wpt_dir: Annotated[

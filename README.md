@@ -14,7 +14,7 @@ By bridging the gap between W3C Specifications and local WPT repositories, WPT-G
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Intelligent Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
 *   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved blueprints.
-*   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai`) and OpenAI models.
+*   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai`), OpenAI, and Anthropic models.
 
 ## How it Works
 
@@ -29,7 +29,7 @@ WPT-Gen operates through a structured four-phase agentic workflow:
 
 *   **Python 3.10+**
 *   **Local WPT Repository:** A local checkout of [web-platform-tests/wpt](https://github.com/web-platform-tests/wpt).
-*   **API Key:** An API key for a supported LLM (Gemini or OpenAI).
+*   **API Key:** An API key for a supported LLM (Gemini, OpenAI, or Anthropic).
 
 ## Installation
 
@@ -60,6 +60,8 @@ You must export the API key for your chosen provider. These are never stored on 
 export GEMINI_API_KEY="your_gemini_api_key"
 # OR
 export OPENAI_API_KEY="your_openai_api_key"
+# OR
+export ANTHROPIC_API_KEY="your_anthropic_api_key"
 ```
 
 ### 2. YAML Configuration (`wpt-gen.yml`)
@@ -81,6 +83,11 @@ providers:
     categories:
       lightweight: gpt-4o-mini
       reasoning: gpt-5.2-high
+  anthropic:
+    default_model: claude-3-7-sonnet-20250219
+    categories:
+      lightweight: claude-3-5-haiku-20241022
+      reasoning: claude-3-7-sonnet-20250219
 
 
 phase_model_mapping:
@@ -104,7 +111,7 @@ wpt-gen generate grid
 | Option | Shorthand | Description |
 | :--- | :--- | :--- |
 | `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `grid`, `popover`). |
-| `--provider` | `-p` | Override the default LLM provider (`gemini` or `openai`). |
+| `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, or `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 | `--show-responses`| `-s` | Display every LLM-generated response to the user. |

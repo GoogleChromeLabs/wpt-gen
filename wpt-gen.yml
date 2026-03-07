@@ -10,8 +10,13 @@ providers:
   openai:
     default_model: gpt-5.2-high
     categories:
-      lightweight: gpt-4o-mini
+      lightweight: gpt-5-mini
       reasoning: gpt-5.2-high
+  anthropic:
+    default_model: claude-opus-4-6
+    categories:
+      lightweight: claude-sonnet-4-6
+      reasoning: claude-opus-4-6
 
 phase_model_mapping:
   requirements_extraction: reasoning

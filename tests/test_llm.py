@@ -52,7 +52,7 @@ def openai_config() -> Config:
     api_key='mock-openai-key',
     wpt_path='dummy',
     categories={
-      'lightweight': 'gpt-4o-mini',
+      'lightweight': 'gpt-5-mini',
       'reasoning': 'gpt-5.2-high',
     },
     phase_model_mapping={

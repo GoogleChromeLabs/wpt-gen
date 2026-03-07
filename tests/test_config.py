@@ -56,7 +56,7 @@ def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -
   assert config.default_model == 'gpt-5.2-high'
   assert config.api_key == 'mock-openai-key-456'
   assert config.categories == {
-    'lightweight': 'gpt-4o-mini',
+    'lightweight': 'gpt-5-mini',
     'reasoning': 'gpt-5.2-high',
   }
 
