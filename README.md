@@ -7,23 +7,57 @@
 
 By bridging the gap between W3C Specifications and local WPT repositories, WPT-Gen uses Large Language Models (LLMs) to proactively identify testing gaps and generate high-quality, compliant test cases.
 
+## Why WPT-Gen?
+
+Browser interoperability is critical for the web. While the W3C and WHATWG write specifications, there is often a gap between those specs and the tests that ensure browsers implement them correctly. **WPT-Gen** bridges this gap by:
+- **Reducing Manual Effort:** Automating the tedious process of mapping spec assertions to existing tests.
+- **Ensuring High Coverage:** Identifying missing edge cases and suggesting specific test scenarios.
+- **Standardizing Compliance:** Generating tests that adhere to strict WPT style guides and directory structures.
+
 ## Key Features
 
 *   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch W3C Spec URLs and technical documentation.
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
-*   **Intelligent Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
+*   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
 *   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved blueprints.
 *   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai`), OpenAI, and Anthropic models.
 
 ## How it Works
 
-WPT-Gen operates through a structured four-phase agentic workflow:
+WPT-Gen follows a structured, multi-phase agentic workflow. Each phase is designed to build upon the last, culminating in high-quality, verified test cases.
 
-1.  **Context Assembly:** Gathers the "Source of Truth" by scraping W3C specifications (using `trafilatura`) and indexing existing local tests.
-2.  **Requirements Analysis:** Uses LLMs to synthesize the specification into a structured technical reference and analyze the coverage of the existing test suite.
-3.  **Test Suggestions:** Performs a delta analysis between requirements and current coverage to suggest new test scenarios.
-4.  **Test Generation:** Translates selected blueprints into functional, standard-compliant test code using Jinja2 templates.
+```mermaid
+flowchart TD
+    subgraph Context[Context Assembly]
+        A[Web Features] --> B[Scrape Specs/MDN]
+        C[Local WPT Repo] --> D[Index Existing Tests]
+    end
+
+    subgraph Analysis[Requirement & Gap Analysis]
+        B & D --> E{{Phase 2: Requirements Extraction}}
+        E --> F{{Phase 3: Coverage Audit}}
+        F --> G[Test Blueprints]
+    end
+
+    subgraph Generation[Test Generation & Execution]
+        G --> H{{Phase 4: Test Generation}}
+        H --> I{{Phase 5: Evaluation & Self-Correction}}
+        I --> J[Phase 6: Test Execution]
+    end
+
+    classDef llm fill:#f9f,stroke:#333,stroke-width:2px;
+    class E,F,H,I llm;
+```
+
+### Workflow Phases
+
+1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
+2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
+3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
+4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using Jinja2 templates and specific style guide instructions.
+5.  **Phase 5: Evaluation (Self-Correction):** A secondary LLM pass reviews the generated code against WPT standards and the original requirements, providing fixes or optimizations before final output.
+6.  **Phase 6: Test Execution:** Integrates with the `./wpt run` CLI to verify that the newly generated tests are valid and functional in a real browser environment.
 
 ## Prerequisites
 
