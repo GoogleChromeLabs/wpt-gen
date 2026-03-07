@@ -85,6 +85,9 @@ async def run_requirements_extraction(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
+  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  ui.success(f'Extracted {count} test requirements.')
+
   context.requirements_xml = requirements_xml
   return requirements_xml
 
@@ -207,6 +210,8 @@ async def run_requirements_extraction_categorized(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
+  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  ui.success(f'Extracted {count} test requirements.')
   context.requirements_xml = requirements_xml
   return requirements_xml
 
@@ -315,5 +320,7 @@ async def run_requirements_extraction_iterative(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
+  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  ui.success(f'Extracted {count} test requirements.')
   context.requirements_xml = requirements_xml
   return requirements_xml
