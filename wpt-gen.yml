@@ -1,6 +1,8 @@
 version: "1"
 default_provider: gemini
 wpt_path: ../wpt
+wpt_browser: chrome
+wpt_channel: canary
 providers:
   gemini:
     default_model: gemini-3.1-pro-preview
