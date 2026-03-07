@@ -163,8 +163,15 @@ def load_config(
     default_model_name = 'gpt-5.2-high'
     env_var_name = 'OPENAI_API_KEY'
     default_categories = {
-      'lightweight': 'gpt-4o-mini',
+      'lightweight': 'gpt-5-mini',
       'reasoning': 'gpt-5.2-high',
+    }
+  elif active_provider == 'anthropic':
+    default_model_name = 'claude-opus-4-6'
+    env_var_name = 'ANTHROPIC_API_KEY'
+    default_categories = {
+      'lightweight': 'claude-sonnet-4-6',
+      'reasoning': 'claude-opus-4-6',
     }
   else:
     raise ValueError(f"CRITICAL: Unsupported provider '{active_provider}' requested.")

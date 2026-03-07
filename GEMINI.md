@@ -8,7 +8,8 @@ This document provides context to Gemini Code Assist to help it generate more ac
 
 **WPT-Gen** is an agentic Python CLI tool designed to increase browser interoperability by automating the creation of Web Platform Tests (WPT). It uses Large Language Models (LLMs) to identify testing gaps from Specifications and generate test cases.
 
-The architecture comprises a Python application using `typer` for the CLI interface, `google-genai` and `openai` for LLM interaction, `trafilatura` for context scraping, and `jinja2` for prompt templating. The workflow is characterized by four phases: Context Assembly, Requirements Analysis, Test Suggestions, and Test Generation.
+The architecture comprises a Python application using `typer` for the CLI interface, `google-genai`, `openai`, and `anthropic` for LLM interaction, `trafilatura` for context scraping, and `jinja2` for prompt templating.
+ The workflow is characterized by four phases: Context Assembly, Requirements Analysis, Test Suggestions, and Test Generation.
 
 ## 2. Local Development Workflow
 
@@ -32,7 +33,7 @@ Detailed architectural guidance, coding standards, and "how-to" guides for speci
 Because these are located in `.agents/skills/`, they are automatically active in your AI agent session. The available skills are:
 
 - `wpt-gen-cli`: Best practices for CLI infrastructure (`typer`), outputs (`rich`), and templating (`jinja2`).
-- `wpt-gen-llm`: LLM integrations, provider configuration (`google-genai`, `openai`), context scraping, and managing prompts.
+- `wpt-gen-llm`: LLM integrations, provider configuration (`google-genai`, `openai`, `anthropic`), context scraping, and managing prompts.
 - `wpt-gen-testing`: Guidelines for Python testing using `pytest`, including async tests (`pytest-asyncio`), mocking (`pytest-mock`), type safety (`mypy`), and syntax/style linting (`ruff`).
 - `wpt-gen-maintenance`: Instructions on managing `pyproject.toml` dependencies and using continuous integration commands via the `Makefile`.
 

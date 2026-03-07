@@ -9,10 +9,11 @@ This document outlines the best practices for LLM integrations within the `wpt-g
 
 ## 1. Multi-Provider Support
 
-WPT-Gen supports both Google Gemini and OpenAI models via a unified abstraction.
+WPT-Gen supports Google Gemini, OpenAI, and Anthropic models via a unified abstraction.
 
 - **Google GenAI (`google-genai`):** Used primarily for deep context reasoning (e.g., `gemini-3.1-pro-preview`) and fast generation (`gemini-3-flash-preview`). API keys are read from `GEMINI_API_KEY`.
 - **OpenAI (`openai`):** Used as an alternative provider. API keys are read from `OPENAI_API_KEY`.
+- **Anthropic (`anthropic`):** Used as an alternative provider (Claude models). API keys are read from `ANTHROPIC_API_KEY`.
 - **Configuration:** Model mapping rules (which model category is used for which generation phase) are defined in `wpt-gen.yml`.
 
 ## 2. Context Scraping
