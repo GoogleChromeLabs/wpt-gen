@@ -24,7 +24,7 @@ Read the `<spec_document>` (and `<mdn_document>` if available) and extract every
 
 DO NOT extract requirements for any other category.
 
-If the specification contains NO normative requirements for this specific category within the feature scope, it is expected and perfectly acceptable to return an empty list.
+If the specification contains NO normative requirements for this specific category within the feature scope, it is expected and perfectly acceptable to return an empty list, but you MUST provide a brief rationale within a `<rationale>` tag explaining why (e.g., the category is inapplicable or no absolute MUST/SHALL requirements were found).
 
 # STRICT OUTPUT FORMAT
 Your entire response must be a single `<requirements_list>` XML block. Do not wrap your response in markdown backticks.
@@ -38,4 +38,6 @@ If requirements are found:
 </requirements_list>
 
 If NO requirements are found for this category:
-<requirements_list></requirements_list>
+<requirements_list>
+  <rationale>[A brief explanation of why no normative requirements for {{category_name}} were found in the spec within the feature scope]</rationale>
+</requirements_list>
