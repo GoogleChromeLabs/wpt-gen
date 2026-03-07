@@ -187,7 +187,8 @@ async def test_run_requirements_extraction_cached(
 
   assert res == '<reqs>cached</reqs>'
   mock_ui.info.assert_called_once()
-  mock_ui.success.assert_called_once_with('Using cached requirements.')
+  mock_ui.success.assert_any_call('Using cached requirements.')
+  mock_ui.success.assert_any_call('Extracted 0 test requirements.')
 
 
 @pytest.mark.asyncio
