@@ -148,7 +148,20 @@ async def run_test_generation(
     )
     for prompt, root_name, suggestion_xml, system_instruction in prompts_to_confirm
   ]
-  results = await asyncio.gather(*tasks)
+
+  results = []
+  total_tasks = len(tasks)
+  with ui.progress_indicator(
+    f'Generating tests... ({total_tasks} outstanding)', total=total_tasks
+  ) as progress:
+    for future in asyncio.as_completed(tasks):
+      result = await future
+      results.append(result)
+      remaining = total_tasks - len(results)
+      progress.update(
+        description='Generating tests...', outstanding=remaining if remaining > 0 else None
+      )
+      progress.advance()
 
   # Flatten the list of lists (each task returns a list of files)
   final_results = [r for sublist in results for r in sublist]

@@ -15,13 +15,15 @@
 from __future__ import annotations
 
 import re
-from contextlib import AbstractContextManager
+from collections.abc import Generator
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
 from rich.syntax import Syntax
 from rich.table import Table
@@ -30,11 +32,21 @@ if TYPE_CHECKING:
   from wptgen.models import WebFeatureMetadata
 
 
+class ProgressIndicator(Protocol):
+  """Interface for updating a progress indicator."""
+
+  def advance(self, amount: float = 1) -> None: ...
+  def update(self, description: str | None = None, outstanding: int | None = None) -> None: ...
+
+
 class UIProvider(Protocol):
   """Semantic UI interface for the WPT generation workflow."""
 
   # Core interaction
   def status(self, message: str) -> AbstractContextManager[Any]: ...
+  def progress_indicator(
+    self, description: str, total: int
+  ) -> AbstractContextManager[ProgressIndicator]: ...
   def confirm(self, question: str, default: bool = True) -> bool: ...
 
   # Generic semantic messaging
@@ -86,6 +98,33 @@ class RichUIProvider:
 
   def status(self, message: str) -> AbstractContextManager[Any]:
     return self.console.status(message)
+
+  @contextmanager
+  def progress_indicator(
+    self, description: str, total: int
+  ) -> Generator[ProgressIndicator, None, None]:
+    with Progress(
+      SpinnerColumn(),
+      TextColumn('[progress.description]{task.description}'),
+      console=self.console,
+      transient=True,
+    ) as progress:
+      task_id = progress.add_task(description, total=total)
+
+      class _Indicator:
+        def advance(self, amount: float = 1) -> None:
+          progress.advance(task_id, advance=amount)
+
+        def update(self, description: str | None = None, outstanding: int | None = None) -> None:
+          kwargs: dict[str, Any] = {}
+          if description is not None:
+            if outstanding is not None:
+              kwargs['description'] = f'{description} ({outstanding} outstanding)'
+            else:
+              kwargs['description'] = description
+          progress.update(task_id, **kwargs)
+
+      yield _Indicator()
 
   def confirm(self, question: str, default: bool = True) -> bool:
     return Confirm.ask(question, default=default)
