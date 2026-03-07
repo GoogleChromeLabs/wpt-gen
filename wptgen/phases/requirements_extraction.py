@@ -150,9 +150,26 @@ async def run_requirements_extraction_categorized(
       )
 
     ui.info(f'Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests...')
-    responses = await asyncio.gather(
-      *[extract_for_category(name, desc) for name, desc in REQUIREMENT_CATEGORIES]
-    )
+    total_tasks = len(REQUIREMENT_CATEGORIES)
+    completed_count = 0
+
+    async def wrap_with_progress(name: str, desc: str) -> str | None:
+      nonlocal completed_count
+      res = await extract_for_category(name, desc)
+      completed_count += 1
+      remaining = total_tasks - completed_count
+      progress.update(
+        description='Extracting requirements...', outstanding=remaining if remaining > 0 else None
+      )
+      progress.advance()
+      return res
+
+    with ui.progress_indicator(
+      f'Extracting requirements... ({total_tasks} outstanding)', total=total_tasks
+    ) as progress:
+      responses = await asyncio.gather(
+        *[wrap_with_progress(name, desc) for name, desc in REQUIREMENT_CATEGORIES]
+      )
 
     all_requirements: list[str] = []
     requirement_counter = 1

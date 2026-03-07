@@ -137,3 +137,19 @@ def test_report_evaluation_result(ui: RichUIProvider, mock_console: MagicMock) -
   """Test report_evaluation_result semantic method."""
   ui.report_evaluation_result('test.html', success=True)
   mock_console.print.assert_called_once_with('[green]✔ test.html passed evaluation.[/green]')
+
+
+@patch('wptgen.ui.Progress')
+def test_progress_indicator(mock_progress_class: MagicMock, ui: RichUIProvider) -> None:
+  """Test that progress_indicator correctly uses rich.progress.Progress."""
+  mock_progress = mock_progress_class.return_value.__enter__.return_value
+  mock_progress.add_task.return_value = 'task_1'
+
+  with ui.progress_indicator('Testing...', total=10) as indicator:
+    indicator.advance(2)
+    indicator.update(description='Updated', outstanding=8)
+
+  mock_progress_class.assert_called_once()
+  mock_progress.add_task.assert_called_once_with('Testing...', total=10)
+  mock_progress.advance.assert_called_once_with('task_1', advance=2)
+  mock_progress.update.assert_called_once_with('task_1', description='Updated (8 outstanding)')

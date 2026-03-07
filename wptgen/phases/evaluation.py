@@ -109,7 +109,20 @@ async def run_test_evaluation(
       _evaluate_and_update(group, prompt, llm, ui, config, system_instruction, test_type_enum)
     )
 
-  await asyncio.gather(*tasks)
+  total_tasks = len(tasks)
+  completed_tasks = 0
+  with ui.progress_indicator(
+    f'Evaluating tests... ({total_tasks} outstanding)', total=total_tasks
+  ) as progress:
+    for future in asyncio.as_completed(tasks):
+      await future
+      completed_tasks += 1
+      remaining = total_tasks - completed_tasks
+      progress.update(
+        description='Evaluating tests...', outstanding=remaining if remaining > 0 else None
+      )
+      progress.advance()
+
   ui.on_phase_complete('Evaluation')
 
 
