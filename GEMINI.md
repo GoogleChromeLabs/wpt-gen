@@ -1,6 +1,6 @@
 # Gemini Code Assist Configuration for WPT-Gen
 
-<!-- Last analyzed commit: 9e50d6442631c49454a873bb37272629201199e7 -->
+<!-- Last analyzed commit: 6fdc9c2c2cc54901c46573df62838bbb0136876e -->
 
 This document provides context to Gemini Code Assist to help it generate more accurate and project-specific code suggestions for the `wpt-gen` repository.
 
@@ -9,7 +9,14 @@ This document provides context to Gemini Code Assist to help it generate more ac
 **WPT-Gen** is an agentic Python CLI tool designed to increase browser interoperability by automating the creation of Web Platform Tests (WPT). It uses Large Language Models (LLMs) to identify testing gaps from Specifications and generate test cases.
 
 The architecture comprises a Python application using `typer` for the CLI interface, `google-genai`, `openai`, and `anthropic` for LLM interaction, `trafilatura` for context scraping, and `jinja2` for prompt templating.
- The workflow is characterized by four phases: Context Assembly, Requirements Analysis, Test Suggestions, and Test Generation.
+
+The agentic workflow is divided into six distinct phases:
+1. **Context Assembly**: Scrapes W3C specifications and scans the local WPT directory for existing coverage.
+2. **Requirements Extraction**: Extracts testable normative requirements from the spec using LLMs.
+3. **Coverage Audit**: Performs a gap analysis to identify missing tests, producing worksheets and blueprints.
+4. **Test Generation**: Generates high-quality WPT test files (HTML/JS) based on the audit blueprints.
+5. **Evaluation (Self-Correction)**: Review and refinement of generated tests to ensure they adhere to WPT standards.
+6. **Test Execution**: Validates tests by running them through the local `./wpt run` infrastructure.
 
 ## 2. Local Development Workflow
 
@@ -36,6 +43,7 @@ Because these are located in `.agents/skills/`, they are automatically active in
 - `wpt-gen-llm`: LLM integrations, provider configuration (`google-genai`, `openai`, `anthropic`), context scraping, and managing prompts.
 - `wpt-gen-testing`: Guidelines for Python testing using `pytest`, including async tests (`pytest-asyncio`), mocking (`pytest-mock`), type safety (`mypy`), and syntax/style linting (`ruff`).
 - `wpt-gen-maintenance`: Instructions on managing `pyproject.toml` dependencies and using continuous integration commands via the `Makefile`.
+- `wpt-gen-finalization`: Mandatory steps for finalizing changes, running `make presubmit`, and preparing for submission.
 
 ## 4. Updating the Knowledge Base
 

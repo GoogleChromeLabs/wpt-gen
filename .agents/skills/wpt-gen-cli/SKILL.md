@@ -12,8 +12,13 @@ This document outlines the best practices for working with the CLI infrastructur
 WPT-Gen uses [Typer](https://typer.tiangolo.com/) for building its command-line interface.
 
 - **Routing:** Define subcommands and groups using `@app.command()` decorators.
-- **Type Hints:** Rely heavily on Python type hints to automatically generate CLI arguments and options (e.g., `web_feature_id: str = typer.Argument(...)`).
-- **Options:** Use `typer.Option` for defining named flags (e.g., `--provider`, `--wpt-dir`). Provide clear `help` strings.
+- **Type Hints:** Rely heavily on Python type hints to automatically generate CLI arguments and options.
+- **Common Options:** Most commands (especially `generate`) support a standard set of flags:
+    - `--provider` (`-p`): Override the LLM provider (`gemini`, `openai`, `anthropic`).
+    - `--wpt-dir` (`-w`): Override the local web-platform-tests repository path.
+    - `--config` (`-c`): Path to a custom `wpt-gen.yml`.
+    - `--show-responses` (`-s`): Display raw LLM-generated responses.
+    - `--use-lightweight` / `--use-reasoning`: Force a specific model category.
 
 ## 2. Rich Console Output
 

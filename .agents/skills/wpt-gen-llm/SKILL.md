@@ -14,15 +14,25 @@ WPT-Gen supports Google Gemini, OpenAI, and Anthropic models via a unified abstr
 - **Google GenAI (`google-genai`):** Used primarily for deep context reasoning (e.g., `gemini-3.1-pro-preview`) and fast generation (`gemini-3-flash-preview`). API keys are read from `GEMINI_API_KEY`.
 - **OpenAI (`openai`):** Used as an alternative provider. API keys are read from `OPENAI_API_KEY`.
 - **Anthropic (`anthropic`):** Used as an alternative provider (Claude models). API keys are read from `ANTHROPIC_API_KEY`.
-- **Configuration:** Model mapping rules (which model category is used for which generation phase) are defined in `wpt-gen.yml`.
 
-## 2. Context Scraping
+## 2. Phase-Based Model Mapping
+
+The agentic workflow uses different model categories based on the complexity of the task, as configured in `wpt-gen.yml`.
+
+- **Reasoning Models:** Used for complex analysis and extraction.
+    - **Requirements Extraction**: Identifies normative requirements from spec text.
+    - **Coverage Audit**: Performs deep gap analysis against existing tests.
+- **Lightweight Models:** Used for rapid generation and iterative refinement.
+    - **Test Generation**: Produces test code based on audit blueprints.
+    - **Evaluation**: Performs self-correction and validation of generated code.
+
+## 3. Context Scraping
 
 Providing context is critical for minimizing hallucinations.
 
 - **Trafilatura:** WPT-Gen uses `trafilatura` to extract text from W3C Specification URLs linked to web features.
 
-## 3. Prompt Management
+## 4. Prompt Management
 
 Prompt structure determines the output quality.
 
