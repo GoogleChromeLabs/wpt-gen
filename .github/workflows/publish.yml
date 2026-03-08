@@ -8,6 +8,9 @@ jobs:
   build-n-publish:
     name: Build and publish Python distribution
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/wpt-gen
     permissions:
       id-token: write  # Required for Trusted Publishing (OIDC)
       contents: read
