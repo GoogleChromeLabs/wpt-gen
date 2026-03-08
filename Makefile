@@ -1,6 +1,6 @@
 # Makefile for wpt-gen
 
-.PHONY: help install lint lint-fix format typecheck test check presubmit clean
+.PHONY: help install lint lint-fix format typecheck test check presubmit clean build publish
 
 # Variables
 PYTHON := python3
@@ -20,6 +20,8 @@ help:
 	@echo "  make test       - Run unit tests"
 	@echo "  make check      - Run all checks (format, typecheck, test)"
 	@echo "  make presubmit  - Run lint-fix, typecheck, and test"
+	@echo "  make build      - Build source and wheel distributions"
+	@echo "  make publish    - Upload the package to PyPI"
 	@echo "  make clean      - Remove build artifacts and caches"
 
 install:
@@ -41,8 +43,15 @@ typecheck:
 test:
 	$(PYTEST) tests/
 
+check: lint typecheck test
+
 presubmit: lint-fix typecheck test
 
+build: clean
+	$(PYTHON) -m build
+
+publish: build
+	$(PYTHON) -m twine upload dist/*
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build/ dist/ *.egg-info

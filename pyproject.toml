@@ -8,6 +8,22 @@ version = "0.1.0"
 description = "A CLI Tool for AI-Powered Web Platform Test Generation"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "Google LLC"}
+]
+keywords = ["web-platform-tests", "wpt", "ai", "llm", "testing", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     # Core LLM Integration
     "google-genai>=1.62.0",
@@ -27,6 +43,11 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/GoogleChromeLabs/wpt-gen"
+Repository = "https://github.com/GoogleChromeLabs/wpt-gen"
+Issues = "https://github.com/GoogleChromeLabs/wpt-gen/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.2",
@@ -36,6 +57,8 @@ dev = [
     "ruff>=0.15.0",
     "mypy>=1.19.1",
     "types-PyYAML>=6.0.12.20250915",
+    "build>=1.4.0",
+    "twine>=6.2.0",
 ]
 
 [project.scripts]
