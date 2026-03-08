@@ -67,9 +67,17 @@ flowchart TD
 
 ## Installation
 
+### From PyPI (Recommended)
+
+```bash
+pip install wpt-gen
+```
+
+### From Source (Development)
+
 ```bash
 # Clone the repository
-git clone https://github.com/google/wpt-gen.git
+git clone https://github.com/GoogleChromeLabs/wpt-gen.git
 cd wpt-gen
 
 # Install the package (using a virtual environment is recommended)
