@@ -22,6 +22,9 @@ The agentic workflow is divided into six distinct phases:
 
 This section outlines the tools and commands intended for local development. Managing dependencies, formatting, linting, and testing are facilitated via `make` targets using tools like `pytest`, `ruff`, and `mypy` defined in `pyproject.toml`.
 
+**CRITICAL: Virtual Environment**
+You MUST always operate within the Python virtual environment. Before running any Python scripts or `make` commands, you must either activate the environment or prefix your commands with the activation script (e.g., `source .venv/bin/activate && make test`). Never attempt to install or run packages system-wide.
+
 ### 2.1. Key Makefile Commands
 
 - **`make install`**: Installs dependencies in editable mode `pip install -e ".[dev]"`.
