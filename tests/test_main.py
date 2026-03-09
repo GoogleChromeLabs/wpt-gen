@@ -658,6 +658,42 @@ def test_doctor_command_failure(mocker: MockerFixture, mock_config: Config) -> N
   assert 'Some checks failed.' in result.stdout
 
 
+def test_list_models_command(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the list-models command prints the configured models."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+  result = runner.invoke(app, ['list-models'])
+
+  assert result.exit_code == 0
+  assert 'Configured Models' in result.stdout
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH, provider_override=None, require_api_key=False
+  )
+
+
+def test_list_models_command_provider_override(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the list-models command respects provider override."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+  result = runner.invoke(app, ['list-models', '--provider', 'openai'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH, provider_override='openai', require_api_key=False
+  )
+
+
+def test_list_models_command_error(mocker: MockerFixture) -> None:
+  """Test the list-models command handles errors gracefully."""
+  mocker.patch('wptgen.main.load_config', side_effect=ValueError('Invalid provider'))
+
+  result = runner.invoke(app, ['list-models', '--provider', 'fake'])
+
+  assert result.exit_code == 1
+  assert 'Error:' in result.stdout
+  assert 'Invalid provider' in result.stdout
+
+
 def test_main_callback() -> None:
   """Test the main callback."""
   from wptgen.main import main_callback

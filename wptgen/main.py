@@ -393,6 +393,43 @@ def config_command(
     raise typer.Exit(code=1) from e
 
 
+@app.command(name='list-models')
+def list_models(
+  provider: Annotated[
+    str | None,
+    typer.Option(
+      '--provider',
+      '-p',
+      help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+    ),
+  ] = None,
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Display the configured LLM models for the active provider.
+  """
+  try:
+    from rich.table import Table
+
+    config = load_config(config_path=config_path, provider_override=provider, require_api_key=False)
+
+    table = Table(title=f'Configured Models for {config.provider.capitalize()}')
+    table.add_column('Category', justify='left', style='cyan', no_wrap=True)
+    table.add_column('Model Name', justify='left', style='magenta')
+
+    table.add_row('default', config.default_model)
+    for cat_name, mod_name in config.categories.items():
+      table.add_row(cat_name, mod_name)
+
+    console.print()
+    console.print(table)
+  except Exception as e:
+    console.print(f'[bold red]Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
