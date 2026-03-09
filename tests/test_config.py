@@ -279,3 +279,16 @@ def test_load_config_max_parallel_requests(monkeypatch: pytest.MonkeyPatch) -> N
   # Case 2: Override to 20
   config = load_config(config_path='non_existent_dummy.yaml', max_parallel_requests_override=20)
   assert config.max_parallel_requests == 20
+
+
+def test_load_config_yes_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that yes_tests flag is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (False)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.yes_tests is False
+
+  # Case 2: Override to True
+  config = load_config(config_path='non_existent_dummy.yaml', yes_tests_override=True)
+  assert config.yes_tests is True

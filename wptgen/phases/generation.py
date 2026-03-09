@@ -71,7 +71,7 @@ async def run_test_generation(
     test_type = extract_xml_tag(suggestion, 'test_type') or 'Unknown'
 
     ui.report_test_suggestion(i + 1, title, description, test_type)
-    if ui.confirm('Generate this test?'):
+    if config.yes_tests or ui.confirm('Generate this test?'):
       approved_suggestions_xml.append(suggestion)
 
   if not approved_suggestions_xml:

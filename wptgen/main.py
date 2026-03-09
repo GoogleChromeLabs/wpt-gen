@@ -87,6 +87,13 @@ def generate(
     bool,
     typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
   ] = False,
+  yes_tests: Annotated[
+    bool,
+    typer.Option(
+      '--yes-tests',
+      help='Automatically confirm and generate all proposed test suggestions without prompting.',
+    ),
+  ] = False,
   suggestions_only: Annotated[
     bool,
     typer.Option(
@@ -218,6 +225,7 @@ def generate(
       output_dir_override=output_dir_str,
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
+      yes_tests_override=yes_tests,
       suggestions_only=suggestions_only,
       resume_override=resume,
       max_retries_override=max_retries,
