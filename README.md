@@ -148,17 +148,22 @@ The primary interface is the `generate` command, which requires a **Web Feature 
 wpt-gen generate grid
 ```
 
-### Command Options
+### Common Options
 
 | Option | Shorthand | Description |
 | :--- | :--- | :--- |
 | `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `grid`, `popover`). |
-| `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, or `anthropic`). |
+| `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
-| `--show-responses`| `-s` | Display every LLM-generated response to the user. |
-| `--use-lightweight`| | Use the provider's lightweight model for all LLM requests. |
-| `--use-reasoning`| | Use the provider's reasoning model for all LLM requests. |
+
+**Note:** For a full list of all 20+ options (including execution control, retries, and manual overrides), see the [CLI Command Reference](docs/cli.md).
+
+### Other Commands
+
+*   `wpt-gen clear-cache`: Clears local cache of specs and LLM responses.
+*   `wpt-gen version`: Displays the current version.
+
 
 
 ## Development
