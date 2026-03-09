@@ -637,3 +637,26 @@ def test_main_callback() -> None:
   from wptgen.main import main_callback
 
   main_callback()  # Should just pass
+
+
+def test_config_command(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the config command prints the resolved configuration."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+  result = runner.invoke(app, ['config'])
+
+  assert result.exit_code == 0
+  assert 'Resolved Configuration' in result.stdout
+  assert 'provider:' in result.stdout
+  mock_load_config.assert_called_once_with(config_path=DEFAULT_CONFIG_PATH, require_api_key=False)
+
+
+def test_config_command_error(mocker: MockerFixture) -> None:
+  """Test the config command handles errors gracefully."""
+  mocker.patch('wptgen.main.load_config', side_effect=ValueError('Invalid config'))
+
+  result = runner.invoke(app, ['config'])
+
+  assert result.exit_code == 1
+  assert 'Error:' in result.stdout
+  assert 'Invalid config' in result.stdout

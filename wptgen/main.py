@@ -296,6 +296,36 @@ def generate(
     raise typer.Exit(code=1) from e
 
 
+@app.command(name='config')
+def config_command(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Display the currently active, fully resolved configuration.
+  """
+  try:
+    import dataclasses
+
+    import yaml
+
+    config = load_config(config_path=config_path, require_api_key=False)
+    config_dict = dataclasses.asdict(config)
+
+    # Redact sensitive information
+    if config_dict.get('api_key'):
+      config_dict['api_key'] = '********'
+
+    yaml_str = yaml.dump(config_dict, sort_keys=False, default_flow_style=False)
+    console.print(
+      Panel(yaml_str, title='Resolved Configuration', border_style='blue', expand=False)
+    )
+  except Exception as e:
+    console.print(f'[bold red]Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
