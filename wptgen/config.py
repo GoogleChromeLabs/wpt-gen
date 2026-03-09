@@ -40,6 +40,7 @@ class Config:
   output_dir: str | None = None
   show_responses: bool = False
   yes_tokens: bool = False
+  yes_tests: bool = False
   suggestions_only: bool = False
   resume: bool = False
   max_retries: int = 3
@@ -118,6 +119,7 @@ def load_config(
   output_dir_override: str | None = None,
   show_responses: bool = False,
   yes_tokens_override: bool = False,
+  yes_tests_override: bool = False,
   suggestions_only: bool = False,
   resume_override: bool = False,
   max_retries_override: int | None = None,
@@ -192,6 +194,7 @@ def load_config(
 
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
+  yes_tests = yes_tests_override or yaml_data.get('yes_tests', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   resume = resume_override or yaml_data.get('resume', False)
   detailed_requirements = detailed_requirements_override or yaml_data.get(
@@ -244,6 +247,7 @@ def load_config(
     output_dir=output_dir,
     show_responses=show_responses,
     yes_tokens=yes_tokens,
+    yes_tests=yes_tests,
     suggestions_only=suggestions_only,
     resume=resume,
     max_retries=max_retries,

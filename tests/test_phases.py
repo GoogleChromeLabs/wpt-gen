@@ -474,3 +474,30 @@ async def test_run_test_generation_displays_worksheet(
 
   # Check that the worksheet was displayed
   mock_ui.report_audit_worksheet.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_yes_tests(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Verify that yes_tests config bypasses user confirmation."""
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestion_xml,
+  )
+  jinja_env = MagicMock()
+  mock_config.yes_tests = True
+
+  with (
+    patch('wptgen.phases.generation.confirm_prompts', return_value=None),
+    patch('wptgen.phases.generation.Path.read_text', return_value='Style Guide Content'),
+    patch('wptgen.phases.generation._generate_and_save', return_value=[]),
+  ):
+    await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  # Check that the confirmation prompt was NOT called
+  mock_ui.confirm.assert_not_called()
