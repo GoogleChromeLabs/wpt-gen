@@ -85,12 +85,13 @@ async def generate_safe(
 ) -> str:
   """Helper to run LLM generation in a thread and handle errors gracefully."""
   target_model = model or llm.model
+  effective_temperature = config.temperature if config.temperature is not None else temperature
   try:
     loop = asyncio.get_running_loop()
     with ui.status(f'Executing {task_name} ({target_model})...'):
       async with get_semaphore(config):
         response = await loop.run_in_executor(
-          None, llm.generate_content, prompt, system_instruction, temperature, model
+          None, llm.generate_content, prompt, system_instruction, effective_temperature, model
         )
 
     ui.success(f'{task_name} finished (using {target_model}).')

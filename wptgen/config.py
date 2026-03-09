@@ -56,6 +56,7 @@ class Config:
   wpt_channel: str = 'canary'
   execution_timeout: int | float = 90  # Default 1.5 minutes
   max_parallel_requests: int = 10
+  temperature: float | None = None
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -130,6 +131,7 @@ def load_config(
   skip_evaluation_override: bool = False,
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
+  temperature_override: float | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -258,4 +260,7 @@ def load_config(
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
     execution_timeout=yaml_data.get('execution_timeout', 90),
     max_parallel_requests=max_parallel_requests,
+    temperature=temperature_override
+    if temperature_override is not None
+    else yaml_data.get('temperature'),
   )
