@@ -181,6 +181,16 @@ async def run_test_execution(
       ui.error(f'Test execution failed after {max_retries} correction attempts.')
       break
 
+    passed_count = len(valid_rel_paths) - len(failing_tests)
+    if passed_count > 0:
+      ui.success(f'{passed_count} test(s) passed successfully.')
+
+    ui.print(f'\n[bold red]Found {len(failing_tests)} failing test(s):[/bold red]')
+    for test_id, error_msg in failing_tests.items():
+      ui.print(f'[red]✗ {test_id}[/red]')
+      indented_msg = '\n'.join(f'    {line}' for line in error_msg.splitlines())
+      ui.print(f'[dim]{indented_msg}[/dim]')
+
     # Correction loop
     for test_id, error_log in failing_tests.items():
       # Match test_id (e.g., /html/semantics/...) back to our valid_rel_paths
