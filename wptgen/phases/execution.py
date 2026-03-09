@@ -135,32 +135,39 @@ async def run_test_execution(
       break
 
     # If it failed, we parse the raw log
-    failing_tests = {}
+    failing_tests: dict[str, str] = {}
     if os.path.exists(log_path):
+      test_messages: dict[str, list[str]] = {}
       with open(log_path, encoding='utf-8') as f:
         for line in f:
           try:
             event = json.loads(line)
-            if event.get('action') == 'test_end' and event.get('status') in (
-              'FAIL',
-              'ERROR',
-              'TIMEOUT',
-              'CRASH',
-            ):
-              test_id = event.get('test', '')
-              msg = event.get('message') or event.get('expected') or 'No error message provided'
-              subtest_failures = []
-              if 'subtests' in event:
-                for subtest in event['subtests']:
-                  if subtest.get('status') in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH'):
-                    subtest_failures.append(
-                      f'{subtest.get("name", "unknown")}: {subtest.get("message", "FAIL")}'
-                    )
-              if subtest_failures:
-                msg += '\nSubtest Failures:\n' + '\n'.join(subtest_failures)
-              failing_tests[test_id] = msg
+            test_id = event.get('test')
+            if not test_id:
+              continue
+
+            if test_id not in test_messages:
+              test_messages[test_id] = []
+
+            action = event.get('action')
+            status = event.get('status')
+
+            if action == 'test_status':
+              if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH', 'PRECONDITION_FAILED'):
+                subtest_name = event.get('subtest', 'unknown')
+                msg = event.get('message', 'No message')
+                test_messages[test_id].append(f"Subtest '{subtest_name}': {status} - {msg}")
+            elif action == 'test_end':
+              if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH'):
+                msg = event.get('message') or event.get('expected') or f'Overall test {status}'
+                test_messages[test_id].insert(0, f'Test: {status} - {msg}')
           except json.JSONDecodeError:
             pass
+
+      for test_id, messages in test_messages.items():
+        if messages:
+          failing_tests[test_id] = '\n'.join(messages)
+
       os.remove(log_path)
 
     # If we couldn't parse any specific failures but it failed, something else went wrong
