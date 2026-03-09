@@ -332,12 +332,5 @@ async def test_run_test_execution_correction_loop_and_diff(
       # Assert the file was updated
       assert test_path.read_text(encoding='utf-8') == 'new code'
 
-      # Assert ui.print was called with a diff Syntax object
-      from rich.syntax import Syntax
-
-      syntax_called = False
-      for call in mock_ui.print.call_args_list:
-        if call.args and isinstance(call.args[0], Syntax):
-          syntax_called = True
-          break
-      assert syntax_called, 'Expected ui.print to be called with a diff Syntax object'
+      # Assert ui.print_diff was called
+      mock_ui.print_diff.assert_called_once_with('old code\n', 'new code', 'test_fail.html')
