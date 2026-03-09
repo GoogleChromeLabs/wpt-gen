@@ -305,8 +305,53 @@ class AnthropicClient(LLMClient):
     return token_count > limit
 
 
+class MockLLMClient(LLMClient):
+  def count_tokens(self, prompt: str, model: str | None = None) -> int:
+    """Returns a mock token count."""
+    return len(prompt.split())
+
+  def generate_content(
+    self,
+    prompt: str,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+    model: str | None = None,
+  ) -> str:
+    """Returns static dummy content based on the prompt or system instruction."""
+    system_instruction = system_instruction or ''
+
+    # Requirements Extraction
+    if 'EXTRACTION PROTOCOL' in system_instruction:
+      return '<requirements_list>\n  <requirement id="REQ-1">\n    <category>Existence</category>\n    <description>Mock requirement</description>\n  </requirement>\n</requirements_list>'
+
+    # Coverage Audit
+    elif 'THE AUDIT PROTOCOL' in system_instruction:
+      return '<audit_worksheet>\nR1: Mock requirement -> [UNCOVERED]\n</audit_worksheet>\n\n<test_suggestions>\n  <test_suggestion>\n    <title>Mock Test</title>\n    <description>Mock Description</description>\n    <test_type>JavaScript Test</test_type>\n    <pre_conditions><![CDATA[None]]></pre_conditions>\n    <steps>\n      <step>1. Mock Step 1</step>\n    </steps>\n    <expected_result>Mock Result</expected_result>\n  </test_suggestion>\n</test_suggestions>'
+
+    # Test Generation
+    elif 'BLUEPRINT MAPPING PROTOCOL' in system_instruction:
+      return '[FILE_1: .html]\n<!DOCTYPE html>\n<html>\n<head>\n<title>Mock Test</title>\n</head>\n<body></body>\n</html>\n[/FILE_1]'
+
+    # Evaluation
+    elif 'EVALUATION CRITERIA' in system_instruction:
+      return 'PASS'
+
+    return 'Mock response'
+
+  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
+    """Always returns False for the mock client."""
+    return False
+
+
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
+  if config.provider == 'mock':
+    return MockLLMClient(
+      api_key='mock',
+      model=config.default_model,
+      max_retries=config.max_retries,
+      timeout=config.timeout,
+    )
   assert config.api_key is not None, 'api_key must be set in configuration'
   if config.provider == 'gemini':
     return GeminiClient(

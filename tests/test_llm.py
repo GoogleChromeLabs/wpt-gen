@@ -19,7 +19,7 @@ from google.genai import types
 from pytest_mock import MockerFixture
 
 from wptgen.config import Config
-from wptgen.llm import GeminiClient, OpenAIClient, get_llm_client
+from wptgen.llm import GeminiClient, MockLLMClient, OpenAIClient, get_llm_client
 
 
 @pytest.fixture
@@ -385,3 +385,48 @@ def test_llm_client_custom_retries(mocker: MockerFixture, gemini_config: Config)
     client.generate_content('test')
 
   assert mock_instance.models.generate_content.call_count == 5
+
+
+@pytest.fixture
+def mock_config() -> Config:
+  """Provides a valid Mock configuration."""
+  return Config(
+    provider='mock',
+    default_model='mock-model',
+    api_key='mock-key',
+    wpt_path='dummy',
+    categories={'lightweight': 'mock-light', 'reasoning': 'mock-reasoning'},
+    phase_model_mapping={},
+  )
+
+
+def test_get_llm_client_mock(mock_config: Config) -> None:
+  """Test that the factory returns a MockLLMClient when configured for mock."""
+  client = get_llm_client(mock_config)
+  assert isinstance(client, MockLLMClient)
+  assert client.model == 'mock-model'
+
+
+def test_mock_generate_content(mock_config: Config) -> None:
+  client = get_llm_client(mock_config)
+  assert 'Mock requirement' in client.generate_content(
+    prompt='foo', system_instruction='EXTRACTION PROTOCOL'
+  )
+  assert 'Mock Test' in client.generate_content(
+    prompt='foo', system_instruction='BLUEPRINT MAPPING PROTOCOL'
+  )
+  assert '[UNCOVERED]' in client.generate_content(
+    prompt='foo', system_instruction='THE AUDIT PROTOCOL'
+  )
+  assert 'PASS' in client.generate_content(prompt='foo', system_instruction='EVALUATION CRITERIA')
+  assert 'Mock response' in client.generate_content(prompt='hello')
+
+
+def test_mock_count_tokens(mock_config: Config) -> None:
+  client = get_llm_client(mock_config)
+  assert client.count_tokens('one two three') == 3
+
+
+def test_mock_prompt_exceeds_input_token_limit(mock_config: Config) -> None:
+  client = get_llm_client(mock_config)
+  assert client.prompt_exceeds_input_token_limit('huge prompt') is False

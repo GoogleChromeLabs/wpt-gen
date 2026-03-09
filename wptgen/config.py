@@ -175,12 +175,19 @@ def load_config(
       'lightweight': 'claude-sonnet-4-6',
       'reasoning': 'claude-opus-4-6',
     }
+  elif active_provider == 'mock':
+    default_model_name = 'mock-model'
+    env_var_name = 'MOCK_API_KEY'
+    default_categories = {
+      'lightweight': 'mock-lightweight',
+      'reasoning': 'mock-reasoning',
+    }
   else:
     raise ValueError(f"CRITICAL: Unsupported provider '{active_provider}' requested.")
 
   # Enforce the environment variable constraint for the active provider
   api_key = os.environ.get(env_var_name)
-  if require_api_key and not api_key:
+  if require_api_key and active_provider != 'mock' and not api_key:
     raise ValueError(
       f'CRITICAL: {env_var_name} environment variable is missing. '
       f"Required when using the '{active_provider}' provider."

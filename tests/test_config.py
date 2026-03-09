@@ -61,6 +61,22 @@ def test_load_config_provider_override_openai(monkeypatch: pytest.MonkeyPatch) -
   }
 
 
+def test_load_config_provider_override_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test overriding the provider via the CLI flag to mock, bypassing API key."""
+  monkeypatch.delenv('MOCK_API_KEY', raising=False)
+  monkeypatch.delenv('GEMINI_API_KEY', raising=False)
+
+  config = load_config(config_path='non_existent_dummy.yaml', provider_override='mock')
+
+  assert config.provider == 'mock'
+  assert config.default_model == 'mock-model'
+  assert config.api_key is None
+  assert config.categories == {
+    'lightweight': 'mock-lightweight',
+    'reasoning': 'mock-reasoning',
+  }
+
+
 def test_load_config_missing_api_key_raises_error(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test that missing the required environment variable raises a ValueError."""
   # Ensure the environment variable is explicitly removed for this test

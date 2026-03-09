@@ -228,14 +228,16 @@ async def _generate_and_save(
         clean_content = fix_reftest_link(clean_content, filenames[1])
 
       output_path = output_dir / fname
-      output_path.write_text(clean_content, encoding='utf-8')
+      if config.provider != 'mock':
+        output_path.write_text(clean_content, encoding='utf-8')
       ui.report_test_generated(root_name, success=True, path=output_path)
       results.append((output_path, clean_content, suggestion_xml))
   else:
     # Single file fallback - if the LLM failed to use partitioning tags, default to .html
     clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
     output_path = output_dir / f'{root_name}.html'
-    output_path.write_text(clean_content, encoding='utf-8')
+    if config.provider != 'mock':
+      output_path.write_text(clean_content, encoding='utf-8')
     ui.report_test_generated(root_name, success=True, path=output_path, fallback=True)
     results.append((output_path, clean_content, suggestion_xml))
 
