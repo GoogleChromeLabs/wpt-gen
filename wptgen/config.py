@@ -87,6 +87,22 @@ def _get_default_cache_path() -> str:
     return str(home / '.cache' / 'wpt-gen')
 
 
+def _get_global_config_path() -> str:
+  """Returns a platform-appropriate global configuration path."""
+  home = Path.home()
+  if sys.platform == 'win32':
+    base = Path(os.environ.get('APPDATA', home / 'AppData' / 'Roaming'))
+    return str(base / 'wpt-gen' / 'config.yml')
+  elif sys.platform == 'darwin':
+    return str(home / 'Library' / 'Application Support' / 'wpt-gen' / 'config.yml')
+  else:
+    # Linux / Unix - Follow XDG spec if possible
+    xdg_config = os.environ.get('XDG_CONFIG_HOME')
+    if xdg_config:
+      return str(Path(xdg_config) / 'wpt-gen' / 'config.yml')
+    return str(home / '.config' / 'wpt-gen' / 'config.yml')
+
+
 DEFAULT_CONFIG_PATH = os.path.abspath('wpt-gen.yml')
 WPT_DEFAULT_PATH = os.path.abspath(os.path.join(os.getcwd(), os.pardir, 'wpt'))
 
@@ -145,6 +161,12 @@ def load_config(
   if path.exists():
     with open(path, encoding='utf-8') as f:
       yaml_data = yaml.safe_load(f) or {}
+  elif config_path == DEFAULT_CONFIG_PATH:
+    # Fallback to global config if the default local path does not exist
+    global_path = Path(_get_global_config_path())
+    if global_path.exists():
+      with open(global_path, encoding='utf-8') as f:
+        yaml_data = yaml.safe_load(f) or {}
 
   # Determine the active provider
   # CLI override takes precedence, then YAML default.

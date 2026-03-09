@@ -637,3 +637,40 @@ def test_main_callback() -> None:
   from wptgen.main import main_callback
 
   main_callback()  # Should just pass
+
+
+def test_init_command(mocker: MockerFixture) -> None:
+  """Test the init command successfully creates a configuration file."""
+  import yaml
+
+  with runner.isolated_filesystem():
+    # Mock the global config path so it creates the file within the isolated filesystem
+    global_config_path = str(Path('.config/wpt-gen/config.yml').resolve())
+    mocker.patch('wptgen.main._get_global_config_path', return_value=global_config_path)
+
+    # Inputs:
+    # 1. 'gemini' (provider)
+    # 2. '' (default model - accept default)
+    # 3. '' (lightweight model - accept default)
+    # 4. '' (reasoning model - accept default)
+    # 5. '/fake/wpt' (wpt_path)
+    result = runner.invoke(app, ['init'], input='gemini\n\n\n\n/fake/wpt\n')
+
+    assert result.exit_code == 0
+    assert 'Configuration saved successfully' in result.stdout
+
+    config_path = Path(global_config_path)
+    assert config_path.exists()
+
+    with open(config_path, encoding='utf-8') as f:
+      config_data = yaml.safe_load(f)
+
+    assert config_data['default_provider'] == 'gemini'
+    assert str(Path('/fake/wpt').resolve()) == config_data['wpt_path']
+    assert 'providers' in config_data
+    assert 'gemini' in config_data['providers']
+    assert config_data['providers']['gemini']['default_model'] == 'gemini-3.1-pro-preview'
+    assert (
+      config_data['providers']['gemini']['categories']['lightweight'] == 'gemini-3-flash-preview'
+    )
+    assert config_data['providers']['gemini']['categories']['reasoning'] == 'gemini-3.1-pro-preview'
