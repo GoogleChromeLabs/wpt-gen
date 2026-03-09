@@ -158,27 +158,24 @@ def test_extract_feature_metadata_defaults() -> None:
 
 def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
   """Test the happy path where HTML is downloaded and successfully converted to Markdown."""
-  # Mock the Trafilatura functions
-  mock_fetch = mocker.patch(
-    'wptgen.context.fetch_url', return_value='<html><body><h1>Spec</h1></body></html>'
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = (
+    b'<html><body><main><h1>Spec</h1><p>Text</p></main></body></html>'
   )
-  mock_extract = mocker.patch('wptgen.context.extract', return_value='# Spec Content')
+  mock_urlopen.return_value.__enter__.return_value = mock_response
 
   result = fetch_and_extract_text('https://example.com')
 
-  assert result == '# Spec Content'
-  mock_fetch.assert_called_once_with('https://example.com')
+  assert result == '# Spec\n\nText'
 
-  # Verify extract was called with our optimization flags
-  call_kwargs = mock_extract.call_args.kwargs
-  assert call_kwargs['output_format'] == 'markdown'
-  assert call_kwargs['include_links'] is False
-  assert call_kwargs['include_tables'] is True
+  mock_urlopen.assert_called_once()
 
 
 def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
   """Test that if the URL cannot be fetched, the function returns None."""
-  mocker.patch('wptgen.context.fetch_url', return_value=None)
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_urlopen.side_effect = Exception('Network error')
 
   result = fetch_and_extract_text('https://example.com')
 
@@ -186,9 +183,11 @@ def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
 
 
 def test_fetch_and_extract_text_extract_fails(mocker: MockerFixture) -> None:
-  """Test that if Trafilatura fails to extract meaningful text, the function returns None."""
-  mocker.patch('wptgen.context.fetch_url', return_value='<html></html>')
-  mocker.patch('wptgen.context.extract', return_value=None)
+  """Test that if no content is found, the function returns None."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = b'<html></html>'
+  mock_urlopen.return_value.__enter__.return_value = mock_response
 
   result = fetch_and_extract_text('https://example.com')
 

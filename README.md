@@ -16,7 +16,7 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 
 ## Key Features
 
-*   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch W3C Spec URLs and technical documentation.
+*   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch W3C Spec URLs, using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
