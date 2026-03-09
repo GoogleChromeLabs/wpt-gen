@@ -195,23 +195,28 @@ async def _evaluate_and_update(
 
       # Now save
       if p_test_new and test_path_item and c_test_new is not None:
-        if p_test_new != test_path_item[0]:
-          test_path_item[0].unlink(missing_ok=True)
+        p_old, old_content = test_path_item
+        if p_test_new != p_old:
+          p_old.unlink(missing_ok=True)
         p_test_new.write_text(c_test_new, encoding='utf-8')
         ui.report_evaluation_result(p_test_new.name, success=True, updated=True)
+        ui.print_diff(old_content, c_test_new, p_test_new.name)
 
       if p_ref_new and ref_path_item and c_ref_new is not None:
-        if p_ref_new != ref_path_item[0]:
-          ref_path_item[0].unlink(missing_ok=True)
+        p_old, old_content = ref_path_item
+        if p_ref_new != p_old:
+          p_old.unlink(missing_ok=True)
         p_ref_new.write_text(c_ref_new, encoding='utf-8')
         ui.report_evaluation_result(p_ref_new.name, success=True, updated=True)
+        ui.print_diff(old_content, c_ref_new, p_ref_new.name)
     else:
       # If it's a single file correction
       if len(files) == 1:
-        path = files[0][0]
+        path, old_content = files[0]
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
         path.write_text(clean_content, encoding='utf-8')
         ui.report_evaluation_result(path.name, success=True, updated=True)
+        ui.print_diff(old_content, clean_content, path.name)
       else:
         ui.report_evaluation_result(
           display_names,

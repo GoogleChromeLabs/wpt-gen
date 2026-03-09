@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import difflib
 import re
 from collections.abc import Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -55,6 +56,7 @@ class UIProvider(Protocol):
   def success(self, message: str) -> None: ...
   def warning(self, message: str) -> None: ...
   def error(self, message: str) -> None: ...
+  def print_diff(self, old_text: str, new_text: str, file_path: str) -> None: ...
 
   # Phase and lifecycle events
   def on_phase_start(self, phase_num: int, phase_name: str) -> None: ...
@@ -143,6 +145,20 @@ class RichUIProvider:
 
   def error(self, message: str) -> None:
     self.console.print(f'[bold red]✘[/bold red] {message}')
+
+  def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
+    diff = list(
+      difflib.unified_diff(
+        old_text.splitlines(),
+        new_text.splitlines(),
+        fromfile=f'a/{file_path}',
+        tofile=f'b/{file_path}',
+        lineterm='',
+      )
+    )
+    if diff:
+      diff_text = '\n'.join(diff)
+      self.console.print(Syntax(diff_text, 'diff', theme='monokai', line_numbers=False))
 
   def on_phase_start(self, phase_num: int, phase_name: str) -> None:
     self.console.print()
