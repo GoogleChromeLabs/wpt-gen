@@ -662,8 +662,8 @@ def test_config_command_error(mocker: MockerFixture) -> None:
   assert 'Invalid config' in result.stdout
 
 
-def test_init_command(mocker: MockerFixture) -> None:
-  """Test the init command successfully creates a configuration file."""
+def test_init_command_global(mocker: MockerFixture) -> None:
+  """Test the init command successfully creates a global configuration file."""
   import yaml
 
   with runner.isolated_filesystem():
@@ -677,7 +677,7 @@ def test_init_command(mocker: MockerFixture) -> None:
     # 3. '' (lightweight model - accept default)
     # 4. '' (reasoning model - accept default)
     # 5. '/fake/wpt' (wpt_path)
-    result = runner.invoke(app, ['init'], input='gemini\n\n\n\n/fake/wpt\n')
+    result = runner.invoke(app, ['init', '--global'], input='gemini\n\n\n\n/fake/wpt\n')
 
     assert result.exit_code == 0
     assert 'Configuration saved successfully' in result.stdout
@@ -697,3 +697,33 @@ def test_init_command(mocker: MockerFixture) -> None:
       config_data['providers']['gemini']['categories']['lightweight'] == 'gemini-3-flash-preview'
     )
     assert config_data['providers']['gemini']['categories']['reasoning'] == 'gemini-3.1-pro-preview'
+
+
+def test_init_command_local(mocker: MockerFixture) -> None:
+  """Test the init command successfully creates a local configuration file."""
+  import yaml
+
+  with runner.isolated_filesystem():
+    local_config_path = str(Path('wpt-gen.yml').resolve())
+
+    # Inputs:
+    # 1. 'gemini' (provider)
+    # 2. '' (default model - accept default)
+    # 3. '' (lightweight model - accept default)
+    # 4. '' (reasoning model - accept default)
+    # 5. '/fake/wpt' (wpt_path)
+    result = runner.invoke(
+      app, ['init', '--config', 'wpt-gen.yml'], input='gemini\n\n\n\n/fake/wpt\n'
+    )
+
+    assert result.exit_code == 0
+    assert 'Configuration saved successfully' in result.stdout
+
+    config_path = Path(local_config_path)
+    assert config_path.exists()
+
+    with open(config_path, encoding='utf-8') as f:
+      config_data = yaml.safe_load(f)
+
+    assert config_data['default_provider'] == 'gemini'
+    assert str(Path('/fake/wpt').resolve()) == config_data['wpt_path']
