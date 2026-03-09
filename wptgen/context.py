@@ -20,8 +20,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import markdownify
 import yaml
-from trafilatura import extract, fetch_url
+from bs4 import BeautifulSoup
 
 from wptgen.models import WebFeatureMetadata, WPTContext
 
@@ -58,6 +59,7 @@ def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
 
   try:
     # Use standard library to avoid bloating dependencies
+    # Set User-Agent to bypass generic bot filters and identify our crawler
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as response:
       yaml_content = response.read().decode('utf-8')
@@ -85,6 +87,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
   """
 
   try:
+    # Set User-Agent to bypass generic bot filters and identify our crawler
     req = urllib.request.Request(MDN_MAPPINGS_URL)
     with urllib.request.urlopen(req) as response:
       json_content = response.read().decode('utf-8')
@@ -127,22 +130,38 @@ def fetch_and_extract_text(url: str) -> str | None:
   """
   logger.info(f'Fetching content from: {url}')
 
-  # Fetch the raw HTML
-  downloaded_html = fetch_url(url)
-
-  if not downloaded_html:
-    logger.error(f'Failed to download HTML from {url}')
+  try:
+    # Set User-Agent to bypass generic bot filters and identify our crawler
+    req = urllib.request.Request(
+      url, headers={'User-Agent': 'Mozilla/5.0 (compatible; WPT-Gen/1.0)'}
+    )
+    with urllib.request.urlopen(req) as response:
+      html = response.read().decode('utf-8')
+  except Exception as e:
+    logger.error(f'Failed to download HTML from {url}: {e}')
     return None
 
-  # Extract the core content
-  content = extract(
-    downloaded_html,
-    output_format='markdown',
-    include_comments=False,
-    include_tables=True,  # Specs rely heavily on tables for state definitions
-    include_links=False,  # Strip hyperlinks to save tokens
+  soup = BeautifulSoup(html, 'lxml')
+
+  # Strip out boilerplate that isn't spec content
+  for element in soup(['nav', 'script', 'style', 'footer', 'head', 'link', 'meta', 'noscript']):
+    element.extract()
+
+  # Find the main content area. Specs usually use <main>, <div class="main">, or just body
+  main_content = soup.find('main') or soup.find('div', class_='main') or soup.find('body')
+
+  if not main_content:
+    logger.warning(f'Could not find main content block in {url}')
+    return None
+
+  # Convert the HTML tree to markdown, omitting link URLs to save token space
+  content = markdownify.markdownify(
+    str(main_content),
+    heading_style='ATX',
+    strip=['a', 'img', 'picture', 'video', 'audio', 'iframe'],
   )
 
+  content = content.strip()
   if not content:
     logger.warning(f'Could not extract meaningful text from {url}')
     return None
