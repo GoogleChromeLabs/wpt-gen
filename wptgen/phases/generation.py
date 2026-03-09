@@ -125,6 +125,7 @@ async def run_test_generation(
     final_prompt = gen_template.render(
       feature_name=context.metadata.name,
       feature_description=context.metadata.description,
+      spec_contents=context.spec_contents,
       test_suggestion_xml_block=suggestion_xml,
     )
 

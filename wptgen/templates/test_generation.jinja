@@ -1,3 +1,9 @@
 Generate a single WPT file for the feature "{{feature_name}}" ({{feature_description}}) based on the following blueprint:
 
 {{ test_suggestion_xml_block }}
+
+{% if spec_contents -%}
+# Specification Context
+The exact API definitions, interfaces, and expected behaviors for this feature:
+{{ spec_contents }}
+{%- endif %}
