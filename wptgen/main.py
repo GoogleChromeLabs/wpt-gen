@@ -303,6 +303,36 @@ def generate(
     raise typer.Exit(code=1) from e
 
 
+@app.command(name='config')
+def config_command(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Display the currently active, fully resolved configuration.
+  """
+  try:
+    import dataclasses
+
+    import yaml
+
+    config = load_config(config_path=config_path, require_api_key=False)
+    config_dict = dataclasses.asdict(config)
+
+    # Redact sensitive information
+    if config_dict.get('api_key'):
+      config_dict['api_key'] = '********'
+
+    yaml_str = yaml.dump(config_dict, sort_keys=False, default_flow_style=False)
+    console.print(
+      Panel(yaml_str, title='Resolved Configuration', border_style='blue', expand=False)
+    )
+  except Exception as e:
+    console.print(f'[bold red]Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
@@ -360,18 +390,28 @@ def version() -> None:
 
 
 @app.command(name='init')
-def init() -> None:
+def init(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+  global_config: Annotated[
+    bool, typer.Option('--global', help='Initialize the global configuration file.')
+  ] = False,
+) -> None:
   """
   Initialize a new wpt-gen configuration file interactively.
   """
-  config_path = Path(_get_global_config_path())
+  if global_config:
+    resolved_path = Path(_get_global_config_path())
+  else:
+    resolved_path = Path(config_path)
 
   # Ensure the directory exists
-  config_path.parent.mkdir(parents=True, exist_ok=True)
+  resolved_path.parent.mkdir(parents=True, exist_ok=True)
 
-  if config_path.exists():
+  if resolved_path.exists():
     overwrite = Confirm.ask(
-      f'[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{config_path}[/cyan]. Overwrite?',
+      f'[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?',
       default=False,
     )
     if not overwrite:
@@ -427,10 +467,10 @@ def init() -> None:
   }
 
   try:
-    with open(config_path, 'w', encoding='utf-8') as f:
+    with open(resolved_path, 'w', encoding='utf-8') as f:
       yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
     console.print(
-      f'\n[bold green]✔ Configuration saved successfully to [cyan]{config_path}[/cyan][/bold green]'
+      f'\n[bold green]✔ Configuration saved successfully to [cyan]{resolved_path}[/cyan][/bold green]'
     )
   except Exception as e:
     console.print(f'[bold red]Failed to save configuration:[/bold red] {str(e)}')
