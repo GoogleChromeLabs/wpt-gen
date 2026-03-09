@@ -200,16 +200,27 @@ def load_config(
       'lightweight': 'claude-sonnet-4-6',
       'reasoning': 'claude-opus-4-6',
     }
+  elif active_provider == 'mock':
+    default_model_name = 'mock-model'
+    env_var_name = 'MOCK_API_KEY'
+    default_categories = {
+      'lightweight': 'mock-model',
+      'reasoning': 'mock-model',
+    }
   else:
     raise ValueError(f"CRITICAL: Unsupported provider '{active_provider}' requested.")
 
   # Enforce the environment variable constraint for the active provider
-  api_key = os.environ.get(env_var_name)
-  if require_api_key and not api_key:
-    raise ValueError(
-      f'CRITICAL: {env_var_name} environment variable is missing. '
-      f"Required when using the '{active_provider}' provider."
-    )
+  api_key: str | None = None
+  if active_provider == 'mock':
+    api_key = 'mock_key'
+  else:
+    api_key = os.environ.get(env_var_name)
+    if require_api_key and not api_key:
+      raise ValueError(
+        f'CRITICAL: {env_var_name} environment variable is missing. '
+        f"Required when using the '{active_provider}' provider."
+      )
 
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
   output_dir_raw = output_dir_override or yaml_data.get('output_dir', '.')

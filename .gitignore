@@ -9,3 +9,4 @@ pycache/
 build/
 dist/
 .coverage
+.replays/*
