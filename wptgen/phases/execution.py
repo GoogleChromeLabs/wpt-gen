@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import difflib
 import json
 import os
 import tempfile
 from pathlib import Path
 
 from jinja2 import Environment
+from rich.syntax import Syntax
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -195,13 +197,23 @@ async def run_test_execution(
     for test_id, error_log in failing_tests.items():
       # Match test_id (e.g., /html/semantics/...) back to our valid_rel_paths
       matched_path: str | None = None
+      clean_test_id = test_id.split('?')[0]
       for valid_path in valid_rel_paths:
-        # WPT test IDs usually start with / and don't include the local wpt_root
-        if valid_path in test_id or test_id.lstrip('/') in valid_path:
+        # 1. Exact or partial match
+        if valid_path in clean_test_id or clean_test_id.lstrip('/') in valid_path:
+          matched_path = valid_path
+          break
+
+        # 2. Handle cases where the test runner generates an .html wrapper for a .js file
+        # e.g., valid_path = "fetch/.../test.any.js", test_id = "/fetch/.../test.any.html"
+        base_test_id = clean_test_id.rsplit('.', 1)[0]
+        base_valid_path = valid_path.rsplit('.', 1)[0]
+        if base_valid_path in base_test_id or base_test_id.lstrip('/') in base_valid_path:
           matched_path = valid_path
           break
 
       if not matched_path:
+        ui.warning(f'Could not find local source file to correct for test ID: {test_id}')
         continue
 
       full_path = wpt_root / matched_path
@@ -237,5 +249,18 @@ async def run_test_execution(
       if final_content:
         full_path.write_text(final_content, encoding='utf-8')
         ui.success(f'Updated {matched_path}')
+
+        diff = list(
+          difflib.unified_diff(
+            test_source_code.splitlines(),
+            final_content.splitlines(),
+            fromfile=f'a/{matched_path}',
+            tofile=f'b/{matched_path}',
+            lineterm='',
+          )
+        )
+        if diff:
+          diff_text = '\n'.join(diff)
+          ui.print(Syntax(diff_text, 'diff', theme='monokai', line_numbers=False))
 
   ui.on_phase_complete('Test Execution')
