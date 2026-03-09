@@ -789,3 +789,24 @@ def test_init_command_local(mocker: MockerFixture) -> None:
 
     assert config_data['default_provider'] == 'gemini'
     assert str(Path('/fake/wpt').resolve()) == config_data['wpt_path']
+
+
+def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the happy path execution of the audit command."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
+  mock_engine_instance = mock_engine_class.return_value
+
+  result = runner.invoke(app, ['audit', 'grid', '--provider', 'gemini'])
+
+  assert result.exit_code == 0
+  assert 'Target Feature' in result.stdout
+  assert 'Audit completed successfully' in result.stdout
+
+  mock_load_config.assert_called_once()
+  kwargs = mock_load_config.call_args.kwargs
+  assert kwargs['suggestions_only'] is True
+  assert kwargs['skip_evaluation_override'] is True
+  assert kwargs['provider_override'] == 'gemini'
+
+  mock_engine_instance.run_workflow.assert_called_once_with('grid')
