@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import difflib
 import json
 import os
 import tempfile
 from pathlib import Path
 
 from jinja2 import Environment
+from rich.syntax import Syntax
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -237,5 +239,18 @@ async def run_test_execution(
       if final_content:
         full_path.write_text(final_content, encoding='utf-8')
         ui.success(f'Updated {matched_path}')
+
+        diff = list(
+          difflib.unified_diff(
+            test_source_code.splitlines(),
+            final_content.splitlines(),
+            fromfile=f'a/{matched_path}',
+            tofile=f'b/{matched_path}',
+            lineterm='',
+          )
+        )
+        if diff:
+          diff_text = '\n'.join(diff)
+          ui.print(Syntax(diff_text, 'diff', theme='monokai', line_numbers=False))
 
   ui.on_phase_complete('Test Execution')
