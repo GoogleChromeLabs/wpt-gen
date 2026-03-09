@@ -165,7 +165,9 @@ class WPTGenEngine:
 
     # Phase 6: Test Execution
     if context.generated_tests:
-      await run_test_execution(context, self.config, self.ui, context.generated_tests)
+      await run_test_execution(
+        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+      )
 
     # Final cleanup of resume file on success
     resume_file = self._get_resume_file_path(web_feature_id)
