@@ -20,12 +20,19 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
 from rich.text import Text
 
-from wptgen.config import DEFAULT_CONFIG_PATH, DEFAULT_LLM_TIMEOUT, load_config
+from wptgen.config import (
+  DEFAULT_CONFIG_PATH,
+  DEFAULT_LLM_TIMEOUT,
+  _get_global_config_path,
+  load_config,
+)
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
 from wptgen.ui import RichUIProvider
@@ -297,7 +304,7 @@ def generate(
 
 
 @app.command(name='doctor')
-def doctor(
+def doctor_command(
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = DEFAULT_CONFIG_PATH,
@@ -356,6 +363,36 @@ def doctor(
     raise typer.Exit(code=1)
 
 
+@app.command(name='config')
+def config_command(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Display the currently active, fully resolved configuration.
+  """
+  try:
+    import dataclasses
+
+    import yaml
+
+    config = load_config(config_path=config_path, require_api_key=False)
+    config_dict = dataclasses.asdict(config)
+
+    # Redact sensitive information
+    if config_dict.get('api_key'):
+      config_dict['api_key'] = '********'
+
+    yaml_str = yaml.dump(config_dict, sort_keys=False, default_flow_style=False)
+    console.print(
+      Panel(yaml_str, title='Resolved Configuration', border_style='blue', expand=False)
+    )
+  except Exception as e:
+    console.print(f'[bold red]Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
@@ -410,6 +447,94 @@ def version() -> None:
     console.print(f'wpt-gen version {app_version("wpt-gen")}')
   except PackageNotFoundError:
     console.print('unknown')
+
+
+@app.command(name='init')
+def init(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+  global_config: Annotated[
+    bool, typer.Option('--global', help='Initialize the global configuration file.')
+  ] = False,
+) -> None:
+  """
+  Initialize a new wpt-gen configuration file interactively.
+  """
+  if global_config:
+    resolved_path = Path(_get_global_config_path())
+  else:
+    resolved_path = Path(config_path)
+
+  # Ensure the directory exists
+  resolved_path.parent.mkdir(parents=True, exist_ok=True)
+
+  if resolved_path.exists():
+    overwrite = Confirm.ask(
+      f'[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?',
+      default=False,
+    )
+    if not overwrite:
+      console.print('Aborted.')
+      return
+
+  provider = Prompt.ask(
+    'Preferred LLM Provider', choices=['gemini', 'openai', 'anthropic'], default='gemini'
+  )
+
+  # Define the default models for each provider
+  provider_defaults = {
+    'gemini': {
+      'default': 'gemini-3.1-pro-preview',
+      'lightweight': 'gemini-3-flash-preview',
+      'reasoning': 'gemini-3.1-pro-preview',
+    },
+    'openai': {
+      'default': 'gpt-5.2-high',
+      'lightweight': 'gpt-5-mini',
+      'reasoning': 'gpt-5.2-high',
+    },
+    'anthropic': {
+      'default': 'claude-opus-4-6',
+      'lightweight': 'claude-sonnet-4-6',
+      'reasoning': 'claude-opus-4-6',
+    },
+  }
+
+  defaults = provider_defaults[provider]
+
+  console.print(f'\n[cyan]Configuring models for {provider}[/cyan]')
+  default_model = Prompt.ask('Default model', default=defaults['default'])
+  lightweight_model = Prompt.ask('Lightweight model', default=defaults['lightweight'])
+  reasoning_model = Prompt.ask('Reasoning model', default=defaults['reasoning'])
+
+  wpt_path = Prompt.ask(
+    '\nAbsolute path to local web-platform-tests directory', default=str(Path.home() / 'wpt')
+  )
+
+  config_data = {
+    'default_provider': provider,
+    'wpt_path': str(Path(wpt_path).expanduser().resolve()),
+    'providers': {
+      provider: {
+        'default_model': default_model,
+        'categories': {
+          'lightweight': lightweight_model,
+          'reasoning': reasoning_model,
+        },
+      }
+    },
+  }
+
+  try:
+    with open(resolved_path, 'w', encoding='utf-8') as f:
+      yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+    console.print(
+      f'\n[bold green]✔ Configuration saved successfully to [cyan]{resolved_path}[/cyan][/bold green]'
+    )
+  except Exception as e:
+    console.print(f'[bold red]Failed to save configuration:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
 
 
 @app.callback()
