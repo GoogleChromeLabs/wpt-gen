@@ -632,6 +632,32 @@ def test_version_not_found(mocker: MockerFixture) -> None:
   assert 'unknown' in result.stdout
 
 
+def test_doctor_command_success(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the doctor command when all checks pass."""
+  mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mock_config.api_key = 'fake-key'
+
+  mocker.patch('pathlib.Path.is_dir', return_value=True)
+  mocker.patch('pathlib.Path.exists', return_value=True)
+  mocker.patch('os.access', return_value=True)
+
+  result = runner.invoke(app, ['doctor'])
+  assert result.exit_code == 0
+  assert 'All checks passed! System is ready.' in result.stdout
+
+
+def test_doctor_command_failure(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the doctor command when checks fail."""
+  mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mock_config.api_key = None
+
+  mocker.patch('pathlib.Path.is_dir', return_value=False)
+
+  result = runner.invoke(app, ['doctor'])
+  assert result.exit_code == 1
+  assert 'Some checks failed.' in result.stdout
+
+
 def test_main_callback() -> None:
   """Test the main callback."""
   from wptgen.main import main_callback

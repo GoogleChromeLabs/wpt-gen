@@ -296,6 +296,66 @@ def generate(
     raise typer.Exit(code=1) from e
 
 
+@app.command(name='doctor')
+def doctor(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Verify that all system prerequisites are met.
+  """
+  import os
+
+  success = True
+  console.print('[bold]WPT-Gen System Check[/bold]\n')
+
+  try:
+    config = load_config(config_path=config_path, require_api_key=False)
+    console.print('[bold green]✔[/bold green] Configuration loaded successfully.')
+  except Exception as e:
+    console.print(f'[bold red]✘[/bold red] Configuration error: {str(e)}')
+    raise typer.Exit(code=1) from e
+
+  if config.api_key:
+    console.print(f'[bold green]✔[/bold green] API key for {config.provider} is configured.')
+  else:
+    console.print(f'[bold red]✘[/bold red] API key for {config.provider} is missing.')
+    success = False
+
+  wpt_path = Path(config.wpt_path)
+  if wpt_path.is_dir():
+    console.print(f'[bold green]✔[/bold green] WPT directory found: {wpt_path}')
+    if (wpt_path / '.git').exists():
+      console.print('[bold green]✔[/bold green] WPT directory is a valid git repository.')
+    else:
+      console.print('[bold red]✘[/bold red] WPT directory is not a git repository.')
+      success = False
+
+    wpt_exec = wpt_path / 'wpt'
+    if wpt_exec.exists() and os.access(wpt_exec, os.X_OK):
+      console.print('[bold green]✔[/bold green] WPT executable (./wpt) is runnable.')
+    else:
+      console.print('[bold red]✘[/bold red] WPT executable (./wpt) is missing or not executable.')
+      success = False
+  else:
+    console.print(f'[bold red]✘[/bold red] WPT directory not found: {wpt_path}')
+    success = False
+
+  console.print()
+  if success:
+    console.print(
+      Panel('[bold green]All checks passed! System is ready.[/bold green]', expand=False)
+    )
+  else:
+    console.print(
+      Panel(
+        '[bold red]Some checks failed. Please resolve the issues above.[/bold red]', expand=False
+      )
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
