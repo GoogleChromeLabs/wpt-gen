@@ -430,6 +430,240 @@ def list_models(
     raise typer.Exit(code=1) from e
 
 
+@app.command(name='audit')
+def audit(
+  web_feature_id: Annotated[
+    str,
+    typer.Argument(help="The web feature ID to generate tests for (e.g., 'grid', 'popover')."),
+  ],
+  provider: Annotated[
+    str | None,
+    typer.Option(
+      '--provider',
+      '-p',
+      help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+    ),
+  ] = None,
+  wpt_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ] = None,
+  output_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--output-dir',
+      '-o',
+      help='Directory where generated tests will be saved.',
+      dir_okay=True,
+    ),
+  ] = None,
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+  show_responses: Annotated[
+    bool,
+    typer.Option(
+      '--show-responses', '-s', help='Display every LLM-generated response to the user.'
+    ),
+  ] = False,
+  yes_tokens: Annotated[
+    bool,
+    typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
+  ] = False,
+  resume: Annotated[
+    bool,
+    typer.Option(
+      '--resume',
+      help='Resume the workflow from the last successful phase.',
+    ),
+  ] = False,
+  max_retries: Annotated[
+    int,
+    typer.Option(
+      '--max-retries',
+      help='Maximum number of retries for LLM calls.',
+    ),
+  ] = 3,
+  timeout: Annotated[
+    int,
+    typer.Option(
+      '--timeout',
+      help='Timeout for LLM requests in seconds.',
+    ),
+  ] = DEFAULT_LLM_TIMEOUT,
+  spec_urls: Annotated[
+    str | None,
+    typer.Option(
+      '--spec-urls',
+      '-u',
+      help='Comma-separated list of spec URLs to use, bypassing automatic fetching.',
+    ),
+  ] = None,
+  description: Annotated[
+    str | None,
+    typer.Option(
+      '--description',
+      '-d',
+      help='Manually provide a description for the web feature.',
+    ),
+  ] = None,
+  detailed_requirements: Annotated[
+    bool,
+    typer.Option(
+      '--detailed-requirements',
+      help='Use a more detailed, iterative requirements extraction process.',
+    ),
+  ] = False,
+  categorized_requirements: Annotated[
+    bool,
+    typer.Option(
+      '--categorized-requirements',
+      help='Use a parallel, categorized requirements extraction process.',
+    ),
+  ] = False,
+  use_lightweight: Annotated[
+    bool,
+    typer.Option('--use-lightweight', help='Use the lightweight model for all LLM requests.'),
+  ] = False,
+  use_reasoning: Annotated[
+    bool,
+    typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
+  ] = False,
+  max_parallel_requests: Annotated[
+    int | None,
+    typer.Option(
+      '--max-parallel-requests',
+      help='Maximum number of parallel asynchronous LLM requests.',
+    ),
+  ] = None,
+  temperature: Annotated[
+    float | None,
+    typer.Option(
+      '--temperature',
+      help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
+    ),
+  ] = None,
+) -> None:
+  """
+  Perform a gap analysis and generate coverage blueprints without generating WPT files.
+  """
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
+
+  if use_lightweight and use_reasoning:
+    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+    raise typer.Exit(code=1)
+
+  if detailed_requirements and categorized_requirements:
+    ui.error('Cannot use both --detailed-requirements and --categorized-requirements.')
+    raise typer.Exit(code=1)
+
+  try:
+    # 1. Load configuration (merging YAML, env vars, and CLI overrides)
+
+    # Convert Path object back to string if it was provided, else pass None
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    output_dir_str = str(output_dir) if output_dir else None
+
+    # Parse spec_urls if provided
+    spec_urls_list = None
+    if spec_urls:
+      spec_urls_list = [u.strip() for u in spec_urls.split(',')]
+
+    config = load_config(
+      config_path=config_path,
+      provider_override=provider,
+      wpt_dir_override=wpt_dir_str,
+      output_dir_override=output_dir_str,
+      show_responses=show_responses,
+      yes_tokens_override=yes_tokens,
+      yes_tests_override=False,
+      suggestions_only=True,
+      resume_override=resume,
+      max_retries_override=max_retries,
+      timeout_override=timeout,
+      spec_urls_override=spec_urls_list,
+      feature_description_override=description,
+      detailed_requirements_override=detailed_requirements,
+      categorized_requirements_override=categorized_requirements,
+      use_lightweight_override=use_lightweight,
+      use_reasoning_override=use_reasoning,
+      skip_evaluation_override=True,
+      max_parallel_requests_override=max_parallel_requests,
+      temperature_override=temperature,
+    )
+
+    config_info = Text.assemble(
+      ('Provider: ', 'bold'),
+      (f'{config.provider}\n', 'green'),
+      ('Model:    ', 'bold'),
+      (f'{config.default_model}', 'green'),
+    )
+    console.print(
+      Panel(
+        config_info,
+        title='[bold]Configuration[/bold]',
+        title_align='left',
+        expand=False,
+        border_style='bright_black',
+      )
+    )
+
+    # 2. Instantiate the core engine
+    engine = WPTGenEngine(config=config, ui=ui)
+
+    # 3. Execute the workflow
+    # Note: In Phase 1, this will just print the skeleton output
+    engine.run_workflow(web_feature_id)
+
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
+
+  except LLMTimeoutError as e:
+    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except ValueError as e:
+    # Catch configuration errors (like missing API keys) and exit gracefully
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except WorkflowError:
+    console.print()
+    console.print(
+      Panel(
+        '[bold red]✘ Workflow completed with errors.[/bold red]',
+        border_style='red',
+        expand=False,
+      )
+    )
+    raise typer.Exit(code=1) from None
+  except Exception as e:
+    # Catch unexpected runtime errors
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='clear-cache')
 def clear_cache(
   config_path: Annotated[
