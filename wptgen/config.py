@@ -53,6 +53,7 @@ class Config:
   use_lightweight: bool = False
   use_reasoning: bool = False
   skip_evaluation: bool = False
+  max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
   execution_timeout: int | float = 90  # Default 1.5 minutes

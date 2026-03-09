@@ -13,17 +13,27 @@
 # limitations under the License.
 
 import asyncio
+import json
+import os
+import tempfile
 from pathlib import Path
 
+from jinja2 import Environment
+
 from wptgen.config import Config
+from wptgen.llm import LLMClient
 from wptgen.models import WorkflowContext
+from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
+from wptgen.utils import MARKDOWN_CODE_BLOCK_RE, parse_multi_file_response
 
 
 async def run_test_execution(
   context: WorkflowContext,
   config: Config,
+  llm: LLMClient,
   ui: UIProvider,
+  jinja_env: Environment,
   generated_tests: list[tuple[Path, str, str]],
 ) -> None:
   """Runs the execution phase for generated tests using ./wpt run."""
@@ -42,7 +52,7 @@ async def run_test_execution(
     ui.error(f'Could not find wpt executable at {wpt_executable}. Skipping execution.')
     return
 
-  valid_rel_paths = []
+  valid_rel_paths: list[str] = []
   for path, _content, _xml in generated_tests:
     # Skip reference files for reftests
     if '-ref' in path.name:
@@ -62,48 +72,170 @@ async def run_test_execution(
     ui.info('No valid test files to execute (all might be references or outside WPT root).')
     return
 
-  ui.print(
-    f'Running [cyan]{len(valid_rel_paths)}[/cyan] tests with {config.wpt_browser} {config.wpt_channel} '
-    f'(timeout: {config.execution_timeout}s)...'
-  )
+  correction_template = jinja_env.get_template('correction.jinja')
+  correction_system = jinja_env.get_template('correction_system.jinja')
+  max_retries = getattr(config, 'max_correction_retries', 2)
 
-  # Command: ./wpt run --channel <channel> <browser> <path1> <path2> ...
-  cmd = [
-    str(wpt_executable),
-    'run',
-    '--channel',
-    config.wpt_channel,
-    config.wpt_browser,
-  ] + valid_rel_paths
+  # Load the general style guide
+  resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
+  wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
 
-  # Execute the command
-  process = await asyncio.create_subprocess_exec(
-    *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
-  )
+  for retry in range(max_retries + 1):
+    if retry > 0:
+      ui.print(
+        f'\n[bold yellow]Automatic Test Correction (Attempt {retry}/{max_retries})[/bold yellow]'
+      )
 
-  try:
-    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=config.execution_timeout)
-  except asyncio.TimeoutError:
-    process.kill()
-    await process.wait()
-    ui.error(f'Test execution timed out after {config.execution_timeout}s.')
-  else:
-    if process.returncode != 0:
+    ui.print(
+      f'Running [cyan]{len(valid_rel_paths)}[/cyan] tests with {config.wpt_browser} {config.wpt_channel} '
+      f'(timeout: {config.execution_timeout}s)...'
+    )
+
+    with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
+      log_path = f.name
+
+    cmd = [
+      str(wpt_executable),
+      'run',
+      '--channel',
+      config.wpt_channel,
+      '--log-raw',
+      log_path,
+      config.wpt_browser,
+    ] + valid_rel_paths
+
+    process = await asyncio.create_subprocess_exec(
+      *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
+    )
+
+    try:
+      stdout, stderr = await asyncio.wait_for(
+        process.communicate(), timeout=config.execution_timeout
+      )
+    except asyncio.TimeoutError:
+      process.kill()
+      await process.wait()
+      ui.error(f'Test execution timed out after {config.execution_timeout}s.')
+      if os.path.exists(log_path):
+        os.remove(log_path)
+      return
+
+    output = ''
+    if stdout:
+      output += stdout.decode('utf-8', errors='replace')
+    if stderr:
+      if output:
+        output += '\n'
+      output += stderr.decode('utf-8', errors='replace')
+
+    if process.returncode == 0:
+      ui.success(f'Test execution succeeded for all {len(valid_rel_paths)} tests.')
+      if os.path.exists(log_path):
+        os.remove(log_path)
+      break
+
+    # If it failed, we parse the raw log
+    failing_tests: dict[str, str] = {}
+    if os.path.exists(log_path):
+      test_messages: dict[str, list[str]] = {}
+      with open(log_path, encoding='utf-8') as f:
+        for line in f:
+          try:
+            event = json.loads(line)
+            test_id = event.get('test')
+            if not test_id:
+              continue
+
+            if test_id not in test_messages:
+              test_messages[test_id] = []
+
+            action = event.get('action')
+            status = event.get('status')
+
+            if action == 'test_status':
+              if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH', 'PRECONDITION_FAILED'):
+                subtest_name = event.get('subtest', 'unknown')
+                msg = event.get('message', 'No message')
+                test_messages[test_id].append(f"Subtest '{subtest_name}': {status} - {msg}")
+            elif action == 'test_end':
+              if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH'):
+                msg = event.get('message') or event.get('expected') or f'Overall test {status}'
+                test_messages[test_id].insert(0, f'Test: {status} - {msg}')
+          except json.JSONDecodeError:
+            pass
+
+      for test_id, messages in test_messages.items():
+        if messages:
+          failing_tests[test_id] = '\n'.join(messages)
+
+      os.remove(log_path)
+
+    # If we couldn't parse any specific failures but it failed, something else went wrong
+    if not failing_tests:
       ui.error(f'Test execution failed with exit code {process.returncode}.')
-
-      # Print output
-      output = ''
-      if stdout:
-        output += stdout.decode('utf-8', errors='replace')
-      if stderr:
-        if output:
-          output += '\n'
-        output += stderr.decode('utf-8', errors='replace')
-
       if output.strip():
         ui.print(output.strip())
+      break
 
-    else:
-      ui.success(f'Test execution succeeded for all {len(valid_rel_paths)} tests.')
+    if retry == max_retries:
+      ui.error(f'Test execution failed after {max_retries} correction attempts.')
+      break
+
+    passed_count = len(valid_rel_paths) - len(failing_tests)
+    if passed_count > 0:
+      ui.success(f'{passed_count} test(s) passed successfully.')
+
+    ui.print(f'\n[bold red]Found {len(failing_tests)} failing test(s):[/bold red]')
+    for test_id, error_msg in failing_tests.items():
+      ui.print(f'[red]✗ {test_id}[/red]')
+      indented_msg = '\n'.join(f'    {line}' for line in error_msg.splitlines())
+      ui.print(f'[dim]{indented_msg}[/dim]')
+
+    # Correction loop
+    for test_id, error_log in failing_tests.items():
+      # Match test_id (e.g., /html/semantics/...) back to our valid_rel_paths
+      matched_path: str | None = None
+      for valid_path in valid_rel_paths:
+        # WPT test IDs usually start with / and don't include the local wpt_root
+        if valid_path in test_id or test_id.lstrip('/') in valid_path:
+          matched_path = valid_path
+          break
+
+      if not matched_path:
+        continue
+
+      full_path = wpt_root / matched_path
+      if not full_path.exists():
+        continue
+
+      test_source_code = full_path.read_text(encoding='utf-8')
+      prompt = correction_template.render(error_log=error_log, test_source_code=test_source_code)
+
+      system_instruction = correction_system.render(wpt_style_guide=wpt_style_guide)
+
+      ui.print(f'Attempting to correct [bold cyan]{matched_path}[/bold cyan]...')
+
+      corrected_content = await generate_safe(
+        prompt=prompt,
+        task_name=f'Correcting {matched_path}',
+        llm=llm,
+        ui=ui,
+        config=config,
+        system_instruction=system_instruction,
+      )
+
+      if not corrected_content:
+        continue
+
+      # Extract using multi file response or regex fallback
+      multi_files = parse_multi_file_response(corrected_content)
+      if multi_files:
+        final_content = multi_files[0][1]
+      else:
+        final_content = MARKDOWN_CODE_BLOCK_RE.sub('', corrected_content).strip()
+
+      if final_content:
+        full_path.write_text(final_content, encoding='utf-8')
+        ui.success(f'Updated {matched_path}')
 
   ui.on_phase_complete('Test Execution')

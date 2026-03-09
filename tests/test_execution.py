@@ -30,6 +30,18 @@ def mock_ui() -> MagicMock:
 
 
 @pytest.fixture
+def mock_llm() -> MagicMock:
+  return MagicMock()
+
+
+@pytest.fixture
+def mock_jinja_env() -> MagicMock:
+  env = MagicMock()
+  env.get_template.return_value = MagicMock()
+  return env
+
+
+@pytest.fixture
 def mock_config(tmp_path: Path) -> Config:
   """Fixture that provides a basic test configuration."""
   return Config(
@@ -49,7 +61,11 @@ def mock_config(tmp_path: Path) -> Config:
 
 @pytest.mark.asyncio
 async def test_run_test_execution_success_batch(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
+  tmp_path: Path,
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
   wpt_root.mkdir(parents=True)
@@ -70,7 +86,9 @@ async def test_run_test_execution_success_batch(
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
-    await run_test_execution(context, mock_config, mock_ui, generated_tests)
+    await run_test_execution(
+      context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+    )
 
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
@@ -87,7 +105,11 @@ async def test_run_test_execution_success_batch(
 
 @pytest.mark.asyncio
 async def test_run_test_execution_skips_references(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
+  tmp_path: Path,
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
   wpt_root.mkdir(parents=True)
@@ -108,7 +130,9 @@ async def test_run_test_execution_skips_references(
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
-    await run_test_execution(context, mock_config, mock_ui, generated_tests)
+    await run_test_execution(
+      context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+    )
 
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
@@ -120,7 +144,11 @@ async def test_run_test_execution_skips_references(
 
 @pytest.mark.asyncio
 async def test_run_test_execution_failure(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
+  tmp_path: Path,
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
   wpt_root.mkdir(parents=True)
@@ -136,7 +164,9 @@ async def test_run_test_execution_failure(
   mock_process.returncode = 1
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    await run_test_execution(context, mock_config, mock_ui, generated_tests)
+    await run_test_execution(
+      context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+    )
 
     mock_ui.error.assert_any_call('Test execution failed with exit code 1.')
     mock_ui.print.assert_any_call('some output\nsome error')
@@ -144,7 +174,11 @@ async def test_run_test_execution_failure(
 
 @pytest.mark.asyncio
 async def test_run_test_execution_timeout(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
+  tmp_path: Path,
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
   wpt_root.mkdir(parents=True)
@@ -167,7 +201,9 @@ async def test_run_test_execution_timeout(
   mock_process.communicate = slow_communicate
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    await run_test_execution(context, mock_config, mock_ui, generated_tests)
+    await run_test_execution(
+      context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+    )
 
     mock_process.kill.assert_called_once()
     mock_ui.error.assert_called_with(
@@ -177,7 +213,11 @@ async def test_run_test_execution_timeout(
 
 @pytest.mark.asyncio
 async def test_run_test_execution_all_filtered(
-  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
+  tmp_path: Path,
 ) -> None:
   wpt_root = Path(mock_config.wpt_path)
   wpt_root.mkdir(parents=True)
@@ -188,7 +228,7 @@ async def test_run_test_execution_all_filtered(
 
   context = WorkflowContext(feature_id='feat')
 
-  await run_test_execution(context, mock_config, mock_ui, generated_tests)
+  await run_test_execution(context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests)
 
   mock_ui.info.assert_called_with(
     'No valid test files to execute (all might be references or outside WPT root).'
@@ -197,18 +237,22 @@ async def test_run_test_execution_all_filtered(
 
 @pytest.mark.asyncio
 async def test_run_test_execution_missing_executable(
-  mock_config: Config, mock_ui: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, mock_jinja_env: MagicMock
 ) -> None:
   generated_tests = [(Path('test.html'), 'content', 'xml')]
   context = WorkflowContext(feature_id='feat')
 
-  await run_test_execution(context, mock_config, mock_ui, generated_tests)
+  await run_test_execution(context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests)
 
   mock_ui.error.assert_called()
   assert 'Could not find wpt executable' in mock_ui.error.call_args[0][0]
 
 
 @pytest.mark.asyncio
-async def test_run_test_execution_empty(mock_config: Config, mock_ui: MagicMock) -> None:
-  await run_test_execution(WorkflowContext(feature_id='feat'), mock_config, mock_ui, [])
+async def test_run_test_execution_empty(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, mock_jinja_env: MagicMock
+) -> None:
+  await run_test_execution(
+    WorkflowContext(feature_id='feat'), mock_config, mock_llm, mock_ui, mock_jinja_env, []
+  )
   mock_ui.info.assert_called_with('No tests to execute.')
