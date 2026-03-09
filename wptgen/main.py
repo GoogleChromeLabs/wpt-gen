@@ -168,6 +168,13 @@ def generate(
       help='Maximum number of parallel asynchronous LLM requests.',
     ),
   ] = None,
+  temperature: Annotated[
+    float | None,
+    typer.Option(
+      '--temperature',
+      help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -223,6 +230,7 @@ def generate(
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
       max_parallel_requests_override=max_parallel_requests,
+      temperature_override=temperature,
     )
 
     config_info = Text.assemble(
