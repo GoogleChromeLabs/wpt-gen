@@ -150,6 +150,17 @@ def validate_output_dir(output_dir: str) -> str:
   return str(path)
 
 
+def _deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+  """Recursively merges source into target, returning a new dictionary."""
+  result = target.copy()
+  for key, value in source.items():
+    if isinstance(value, dict) and isinstance(result.get(key), dict):
+      result[key] = _deep_merge(result[key], value)
+    else:
+      result[key] = value
+  return result
+
+
 def load_config(
   config_path: str = DEFAULT_CONFIG_PATH,
   provider_override: str | None = None,
@@ -265,7 +276,7 @@ def load_config(
 
   # Load model categories and phase mapping
   default_model = provider_settings.get('default_model', default_model_name)
-  categories = provider_settings.get('categories', default_categories)
+  categories = _deep_merge(default_categories, provider_settings.get('categories', {}))
 
   if use_lightweight_override:
     default_model = categories.get('lightweight', default_model)
@@ -279,7 +290,7 @@ def load_config(
     'generation': 'lightweight',
     'evaluation': 'lightweight',
   }
-  phase_model_mapping = yaml_data.get('phase_model_mapping', default_phase_mapping)
+  phase_model_mapping = _deep_merge(default_phase_mapping, yaml_data.get('phase_model_mapping', {}))
 
   return Config(
     provider=active_provider,
