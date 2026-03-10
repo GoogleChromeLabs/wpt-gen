@@ -32,7 +32,7 @@ FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
 def partition_requirements_xml(xml_string: str, max_threshold: int = 40) -> list[str]:
   if not xml_string:
     return []
-  matches = list(re.finditer(r'(?s)<requirement.*?>.*?</requirement>', xml_string))
+  matches = list(re.finditer(r'(?s)<requirement\b[^>]*>.*?</requirement>', xml_string))
   if not matches:
     return [xml_string] if xml_string.strip() else []
 
@@ -98,7 +98,7 @@ async def run_coverage_audit(
       requirements_list_xml=req_xml,
       wpt_context=context.wpt_context,
     )
-    req_count = req_xml.count('<requirement ')
+    req_count = len(re.findall(r'<requirement\b[^>]*>', req_xml))
     task_name = (
       f'Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)'
       if len(req_partitions) > 1

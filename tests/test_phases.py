@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -528,8 +529,8 @@ def test_partition_requirements_xml() -> None:
   reqs41 = '\n'.join(f'<requirement id="{i}">{i}</requirement>' for i in range(1, 42))
   parts41 = partition_requirements_xml(reqs41, max_threshold=40)
   assert len(parts41) == 2
-  assert parts41[0].count('<requirement ') == 21
-  assert parts41[1].count('<requirement ') == 20
+  assert len(re.findall(r'<requirement\b[^>]*>', parts41[0])) == 21
+  assert len(re.findall(r'<requirement\b[^>]*>', parts41[1])) == 20
   assert 'id="21"' in parts41[0]
   assert 'id="22"' in parts41[1]
 
@@ -537,8 +538,8 @@ def test_partition_requirements_xml() -> None:
   reqs42 = '\n'.join(f'<requirement id="{i}">{i}</requirement>' for i in range(1, 43))
   parts42 = partition_requirements_xml(reqs42, max_threshold=40)
   assert len(parts42) == 2
-  assert parts42[0].count('<requirement ') == 21
-  assert parts42[1].count('<requirement ') == 21
+  assert len(re.findall(r'<requirement\b[^>]*>', parts42[0])) == 21
+  assert len(re.findall(r'<requirement\b[^>]*>', parts42[1])) == 21
 
 
 def test_combine_audit_responses() -> None:
