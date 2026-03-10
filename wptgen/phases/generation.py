@@ -205,7 +205,7 @@ async def _generate_and_save(
   output_dir.mkdir(parents=True, exist_ok=True)
 
   # Check if we have multiple files (Reftests)
-  multi_files = parse_multi_file_response(content)
+  multi_files = parse_multi_file_response(content, strip_tentative=not config.tentative)
   if multi_files:
     raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or ''
     is_reftest = raw_test_type.lower() == 'reftest'

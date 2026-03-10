@@ -71,6 +71,7 @@ class Config:
   use_lightweight: bool = False
   use_reasoning: bool = False
   skip_evaluation: bool = False
+  tentative: bool = False
   max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
@@ -167,6 +168,7 @@ def load_config(
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
+  tentative_override: bool = False,
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
@@ -256,6 +258,7 @@ def load_config(
 
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
   skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
+  tentative = tentative_override or yaml_data.get('tentative', False)
 
   # Load model categories and phase mapping
   default_model = provider_settings.get('default_model', default_model_name)
@@ -298,6 +301,7 @@ def load_config(
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,
+    tentative=tentative,
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
     execution_timeout=yaml_data.get('execution_timeout', 90),

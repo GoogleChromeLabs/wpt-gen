@@ -163,7 +163,7 @@ async def _evaluate_and_update(
   else:
     # If it's not PASS, it should be the corrected file content
     # Check if we have multiple files in the response
-    multi_files = parse_multi_file_response(clean_response)
+    multi_files = parse_multi_file_response(clean_response, strip_tentative=not config.tentative)
     if multi_files:
       # For Reftests, we expect FILE_1 to be test and FILE_2 to be ref
       # We need to find which path is which
