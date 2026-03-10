@@ -20,7 +20,11 @@ import pytest
 from wptgen.config import Config
 from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
 from wptgen.phases.context_assembly import run_context_assembly
-from wptgen.phases.coverage_audit import combine_audit_responses, partition_requirements_xml
+from wptgen.phases.coverage_audit import (
+  combine_audit_responses,
+  partition_requirements_xml,
+  provide_coverage_report,
+)
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
@@ -310,10 +314,6 @@ async def test_provide_coverage_report(
   mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
   """Test saving and displaying the coverage report."""
-  from wptgen.phases.coverage_audit import (
-    provide_coverage_report,
-  )
-
   context = WorkflowContext(feature_id='feat-id', audit_response='Audit markdown')
   mock_config.output_dir = str(tmp_path)
 
