@@ -380,17 +380,14 @@ def config_command(
     config = load_config(config_path=config_path, require_api_key=False)
     config_dict = dataclasses.asdict(config)
 
-    # Redact sensitive information
-    if config_dict.get('api_key'):
-      config_dict['api_key'] = '********'
-
     if config.loaded_from:
       console.print(f'Reading configuration from: [cyan]{config.loaded_from}[/cyan]')
     else:
       console.print('Reading configuration from: [yellow]Defaults (no config file found)[/yellow]')
 
-    # Remove internal fields from display
+    # Remove internal or sensitive fields from display
     config_dict.pop('loaded_from', None)
+    config_dict.pop('api_key', None)
 
     yaml_str = yaml.dump(config_dict, sort_keys=False, default_flow_style=False)
     console.print(
