@@ -80,3 +80,42 @@ Print the current version of `wpt-gen`.
 ```bash
 wpt-gen version
 ```
+
+---
+
+## `wpt-gen config`
+
+Manage WPT-Gen configuration without manually editing the YAML file. If run without subcommands, it displays the currently active configuration.
+
+**Usage:**
+```bash
+wpt-gen config [COMMAND]
+```
+
+### Commands
+
+| Command | Description |
+| :--- | :--- |
+| `show` | Display the currently active, fully resolved configuration. |
+| `set` | Update an individual configuration setting using dot-notation. |
+
+### `wpt-gen config set`
+
+Update an individual configuration setting. Modifies the local or global `wpt-gen.yml` file.
+
+**Usage:**
+```bash
+wpt-gen config set <KEY> <VALUE> [OPTIONS]
+```
+
+**Examples:**
+```bash
+wpt-gen config set default_provider openai
+wpt-gen config set providers.gemini.default_model gemini-3.1-pro-preview
+wpt-gen config set show_responses true
+```
+
+#### Options
+| Option | Shorthand | Description |
+| :--- | :--- | :--- |
+| `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
