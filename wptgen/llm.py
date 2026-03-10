@@ -329,5 +329,9 @@ def get_llm_client(config: Config) -> LLMClient:
       max_retries=config.max_retries,
       timeout=config.timeout,
     )
+  elif config.provider == 'mock':
+    from wptgen.mock import get_mock_client
+
+    return get_mock_client(config)
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')
