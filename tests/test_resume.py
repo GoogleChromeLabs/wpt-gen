@@ -125,7 +125,7 @@ async def test_run_async_workflow_resume_skips_phases(
   engine._save_resume_state(context)
 
   mock_assembly = mocker.patch('wptgen.engine.run_context_assembly')
-  mock_extraction = mocker.patch('wptgen.engine.run_requirements_extraction')
+  mock_extraction = mocker.patch('wptgen.engine.run_requirements_extraction_categorized')
   mock_audit = mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
   mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=[])
 
@@ -150,7 +150,7 @@ async def test_run_async_workflow_cleans_up_resume_file(
   assert resume_file.exists()
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value='<reqs/>')
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value='<reqs/>')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
   mocker.patch('wptgen.engine.run_test_generation', return_value=[])
 
@@ -167,7 +167,7 @@ async def test_run_async_workflow_saves_after_each_phase(
   context = WorkflowContext(feature_id='test-feat')
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value='<reqs/>')
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value='<reqs/>')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
   mocker.patch('wptgen.engine.run_test_generation', return_value=[])
 

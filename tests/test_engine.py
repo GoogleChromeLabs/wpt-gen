@@ -84,7 +84,7 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
 
   mock_assembly = mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
   mock_extraction = mocker.patch(
-    'wptgen.engine.run_requirements_extraction', return_value=requirements
+    'wptgen.engine.run_requirements_extraction_categorized', return_value=requirements
   )
   mock_extraction_iterative = mocker.patch(
     'wptgen.engine.run_requirements_extraction_iterative', return_value=requirements
@@ -115,12 +115,12 @@ async def test_run_async_workflow_phase_failures(
 
   # Phase 2 failure
   mocker.patch('wptgen.engine.run_context_assembly', return_value=WorkflowContext(feature_id='f'))
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value=None)
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=None)
   with pytest.raises(WorkflowError, match='Phase 2: Requirements Extraction failed.'):
     await engine._run_async_workflow('feat-id')
 
   # Phase 3 failure
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value='reqs')
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value='reqs')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value=None)
   with pytest.raises(WorkflowError, match='Phase 3: Coverage Audit failed.'):
     await engine._run_async_workflow('feat-id')
@@ -142,7 +142,7 @@ async def test_run_async_workflow_suggestions_only(
   context = WorkflowContext(feature_id='test-feat', audit_response='audit')
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value='reqs')
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value='reqs')
   mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
   mock_provide = mocker.patch('wptgen.engine.provide_coverage_report', return_value=None)
   mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=[])
@@ -164,7 +164,7 @@ async def test_run_async_workflow_detailed_requirements(
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
   mock_extraction = mocker.patch(
-    'wptgen.engine.run_requirements_extraction', return_value=requirements
+    'wptgen.engine.run_requirements_extraction_categorized', return_value=requirements
   )
   mock_extraction_iterative = mocker.patch(
     'wptgen.engine.run_requirements_extraction_iterative', return_value=requirements
@@ -197,7 +197,7 @@ async def test_run_async_workflow_skip_evaluation(
   generated_tests = [('path', 'content', 'suggestion')]
 
   mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction', return_value=requirements)
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=requirements)
   mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
   mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
   mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)

@@ -160,11 +160,11 @@ def generate(
       help='Enable fetching metadata from the draft features directory.',
     ),
   ] = False,
-  categorized_requirements: Annotated[
+  single_prompt_requirements: Annotated[
     bool,
     typer.Option(
-      '--categorized-requirements',
-      help='Use a parallel, categorized requirements extraction process.',
+      '--single-prompt-requirements',
+      help='Use a single-prompt requirements extraction process (legacy).',
     ),
   ] = False,
   use_lightweight: Annotated[
@@ -224,8 +224,8 @@ def generate(
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
 
-  if detailed_requirements and categorized_requirements:
-    ui.error('Cannot use both --detailed-requirements and --categorized-requirements.')
+  if detailed_requirements and single_prompt_requirements:
+    ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
     raise typer.Exit(code=1)
 
   try:
@@ -256,7 +256,7 @@ def generate(
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
       draft_override=draft,
-      categorized_requirements_override=categorized_requirements,
+      single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
@@ -644,11 +644,11 @@ def audit(
       help='Enable fetching metadata from the draft features directory.',
     ),
   ] = False,
-  categorized_requirements: Annotated[
+  single_prompt_requirements: Annotated[
     bool,
     typer.Option(
-      '--categorized-requirements',
-      help='Use a parallel, categorized requirements extraction process.',
+      '--single-prompt-requirements',
+      help='Use a single-prompt requirements extraction process (legacy).',
     ),
   ] = False,
   use_lightweight: Annotated[
@@ -693,8 +693,8 @@ def audit(
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
 
-  if detailed_requirements and categorized_requirements:
-    ui.error('Cannot use both --detailed-requirements and --categorized-requirements.')
+  if detailed_requirements and single_prompt_requirements:
+    ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
     raise typer.Exit(code=1)
 
   try:
@@ -725,7 +725,7 @@ def audit(
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
       draft_override=draft,
-      categorized_requirements_override=categorized_requirements,
+      single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=True,

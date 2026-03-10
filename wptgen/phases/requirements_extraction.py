@@ -118,7 +118,11 @@ async def run_requirements_extraction_categorized(
     metadata = context.metadata
     assert metadata is not None
 
-    async def extract_for_category(category_name: str, category_description: str) -> str | None:
+    prompts_to_confirm = []
+    category_prompts = []
+    category_system_prompts = []
+
+    for category_name, category_description in REQUIREMENT_CATEGORIES:
       extraction_prompt = jinja_env.get_template(
         'requirements_extraction_categorized.jinja'
       ).render(
@@ -136,11 +140,22 @@ async def run_requirements_extraction_categorized(
         category_name=category_name,
         category_description=category_description,
       )
+      category_prompts.append(extraction_prompt)
+      category_system_prompts.append(extraction_system_prompt)
+      prompts_to_confirm.append((extraction_prompt, f'Requirements Extraction: {category_name}'))
 
-      # We don't confirm prompts individually for parallel requests to avoid UI mess
-      # Instead we could confirm the "template" once.
-      # For now, following the spirit of parallelized extraction.
+    await confirm_prompts(
+      prompts_to_confirm,
+      'Requirements Extraction (Categorized Parallel)',
+      llm,
+      ui,
+      config,
+      model=config.get_model_for_phase('requirements_extraction'),
+    )
 
+    async def extract_for_category(
+      category_name: str, extraction_prompt: str, extraction_system_prompt: str
+    ) -> str | None:
       return await generate_safe(
         extraction_prompt,
         f'Requirements Extraction: {category_name}',
@@ -156,9 +171,11 @@ async def run_requirements_extraction_categorized(
     total_tasks = len(REQUIREMENT_CATEGORIES)
     completed_count = 0
 
-    async def wrap_with_progress(name: str, desc: str) -> str | None:
+    async def wrap_with_progress(
+      name: str, extraction_prompt: str, extraction_system_prompt: str
+    ) -> str | None:
       nonlocal completed_count
-      res = await extract_for_category(name, desc)
+      res = await extract_for_category(name, extraction_prompt, extraction_system_prompt)
       completed_count += 1
       remaining = total_tasks - completed_count
       progress.update(
@@ -171,7 +188,12 @@ async def run_requirements_extraction_categorized(
       f'Extracting requirements... ({total_tasks} outstanding)', total=total_tasks
     ) as progress:
       responses = await asyncio.gather(
-        *[wrap_with_progress(name, desc) for name, desc in REQUIREMENT_CATEGORIES]
+        *[
+          wrap_with_progress(cat[0], prompt, sys_prompt)
+          for cat, prompt, sys_prompt in zip(
+            REQUIREMENT_CATEGORIES, category_prompts, category_system_prompts, strict=True
+          )
+        ]
       )
 
     all_requirements: list[str] = []
