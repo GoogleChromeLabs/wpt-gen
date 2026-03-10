@@ -100,10 +100,63 @@ def test_report_token_usage(ui: RichUIProvider, mock_console: MagicMock) -> None
   mock_console.print.assert_called_once()
 
 
-def test_report_llm_response(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test report_llm_response semantic method."""
-  ui.report_llm_response('response', 'Task')
+@patch('wptgen.ui.Syntax')
+def test_report_llm_response_js_suffix(
+  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  """Test report_llm_response uses 'javascript' lexer when a .js file is generated."""
+  response = "[FILE_1: test.any.js]\nconsole.log('test');\n[/FILE_1]"
+  ui.report_llm_response(response, 'Task')
+  mock_syntax.assert_called_once()
+  args, kwargs = mock_syntax.call_args
+  assert args[0] == response
+  assert args[1] == 'javascript'
   mock_console.print.assert_called_once()
+
+
+@patch('wptgen.ui.Syntax')
+def test_report_llm_response_html_suffix(
+  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  """Test report_llm_response uses 'html' lexer when a .html file is generated."""
+  response = '[FILE_1: test.html]\n<div></div>\n[/FILE_1]'
+  ui.report_llm_response(response, 'Task')
+  mock_syntax.assert_called_once()
+  assert mock_syntax.call_args[0][1] == 'html'
+  mock_console.print.assert_called_once()
+
+
+@patch('wptgen.ui.Syntax')
+def test_report_llm_response_fallback_gen(
+  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  """Test report_llm_response falls back to 'html' if task_name contains 'gen:' and no files are found."""
+  response = 'Some standard markdown response'
+  ui.report_llm_response(response, 'Gen: phase')
+  mock_syntax.assert_called_once()
+  assert mock_syntax.call_args[0][1] == 'html'
+
+
+@patch('wptgen.ui.Syntax')
+def test_report_llm_response_fallback_eval(
+  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  """Test report_llm_response falls back to 'html' if task_name contains 'eval:' and no files are found."""
+  response = 'Some standard markdown response'
+  ui.report_llm_response(response, 'Eval: phase')
+  mock_syntax.assert_called_once()
+  assert mock_syntax.call_args[0][1] == 'html'
+
+
+@patch('wptgen.ui.Syntax')
+def test_report_llm_response_fallback_default(
+  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  """Test report_llm_response falls back to 'xml' default if no files and not gen/eval task."""
+  response = 'Some standard markdown response'
+  ui.report_llm_response(response, 'Audit Phase')
+  mock_syntax.assert_called_once()
+  assert mock_syntax.call_args[0][1] == 'xml'
 
 
 def test_report_coverage_audit(ui: RichUIProvider, mock_console: MagicMock) -> None:

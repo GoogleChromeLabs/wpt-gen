@@ -29,6 +29,8 @@ from rich.prompt import Confirm
 from rich.syntax import Syntax
 from rich.table import Table
 
+from wptgen.utils import parse_multi_file_response
+
 if TYPE_CHECKING:
   from wptgen.models import WebFeatureMetadata
 
@@ -228,8 +230,18 @@ class RichUIProvider:
   def report_llm_response(self, response: str, task_name: str) -> None:
     # Determine syntax highlighting based on content (defaulting to xml).
     syntax_lexer = 'xml'
-    if 'gen:' in task_name.lower():
-      syntax_lexer = 'html'
+    parsed_files = parse_multi_file_response(response)
+
+    if parsed_files:
+      suffix = parsed_files[0][0].lower()
+      if suffix.endswith('.js'):
+        syntax_lexer = 'javascript'
+      elif suffix.endswith('.html'):
+        syntax_lexer = 'html'
+    else:
+      # Fallback to current logic if no file tags found
+      if 'gen:' in task_name.lower() or 'eval:' in task_name.lower():
+        syntax_lexer = 'html'
 
     syntax = Syntax(response, syntax_lexer, theme='monokai', line_numbers=True, word_wrap=True)
     self.console.print(
