@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,7 +21,13 @@ import pytest
 
 from wptgen.config import Config
 from wptgen.models import WorkflowContext
-from wptgen.phases.execution import run_test_execution
+from wptgen.phases.execution import (
+  _execute_wpt_run,
+  _filter_executable_tests,
+  _match_test_id_to_path,
+  _parse_test_results,
+  run_test_execution,
+)
 
 
 @pytest.fixture
@@ -97,8 +104,8 @@ async def test_run_test_execution_success_batch(
     assert 'chrome' in args
     assert 'canary' in args
     # Verify both tests are in the command line
-    assert str(test1.relative_to(wpt_root)) in args
-    assert str(test2.relative_to(wpt_root)) in args
+    assert test1.relative_to(wpt_root).as_posix() in args
+    assert test2.relative_to(wpt_root).as_posix() in args
 
     mock_ui.success.assert_called_with('Test execution succeeded for all 2 tests.')
 
@@ -136,8 +143,8 @@ async def test_run_test_execution_skips_references(
 
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
-    assert str(test1.relative_to(wpt_root)) in args
-    assert str(ref1.relative_to(wpt_root)) not in args
+    assert test1.relative_to(wpt_root).as_posix() in args
+    assert ref1.relative_to(wpt_root).as_posix() not in args
 
     mock_ui.success.assert_called_with('Test execution succeeded for all 1 tests.')
 
@@ -334,3 +341,105 @@ async def test_run_test_execution_correction_loop_and_diff(
 
       # Assert ui.print_diff was called
       mock_ui.print_diff.assert_called_once_with('old code\n', 'new code', 'test_fail.html')
+
+
+def test_match_test_id_to_path() -> None:
+  valid_paths = [
+    'fetch/api/request/request-keepalive.html',
+    'html/semantics/scripting-1/the-script-element/script-type-module.js',
+  ]
+  assert (
+    _match_test_id_to_path('/fetch/api/request/request-keepalive.html', valid_paths)
+    == valid_paths[0]
+  )
+  assert (
+    _match_test_id_to_path('/fetch/api/request/request-keepalive.html?foo=bar', valid_paths)
+    == valid_paths[0]
+  )
+  assert (
+    _match_test_id_to_path(
+      '/html/semantics/scripting-1/the-script-element/script-type-module.html', valid_paths
+    )
+    == valid_paths[1]
+  )
+  assert _match_test_id_to_path('/css/css-grid/grid-model.html', valid_paths) is None
+
+
+def test_filter_executable_tests(mock_ui: MagicMock, tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'fake' / 'wpt' / 'root'
+  wpt_root.mkdir(parents=True)
+  wpt_root = wpt_root.resolve()
+  generated_tests = [
+    (wpt_root / 'test1.html', 'content1', 'xml1'),
+    (wpt_root / 'test2-ref.html', 'content2', 'xml2'),
+    (tmp_path / 'some' / 'other' / 'path' / 'test3.html', 'content3', 'xml3'),
+  ]
+  valid_paths = _filter_executable_tests(generated_tests, wpt_root, mock_ui)
+  assert len(valid_paths) == 1
+  assert valid_paths[0] == 'test1.html'
+  mock_ui.warning.assert_called_once()
+
+
+def test_parse_test_results(tmp_path: Path) -> None:
+  log_file = tmp_path / 'wpt_run.json'
+  log_data = [
+    {
+      'action': 'test_status',
+      'test': '/test1.html',
+      'subtest': 'sub1',
+      'status': 'FAIL',
+      'message': 'Expected A got B',
+    },
+    {'action': 'test_end', 'test': '/test1.html', 'status': 'ERROR', 'message': 'Unhandled error'},
+    {'action': 'test_status', 'test': '/test2.html', 'subtest': 'sub2', 'status': 'PASS'},
+    {'action': 'test_end', 'test': '/test2.html', 'status': 'OK'},
+  ]
+  with open(log_file, 'w') as f:
+    for event in log_data:
+      f.write(json.dumps(event) + '\n')
+  failing_tests = _parse_test_results(str(log_file))
+  assert len(failing_tests) == 1
+  assert '/test1.html' in failing_tests
+  assert _parse_test_results(str(tmp_path / 'non_existent.json')) == {}
+
+
+@pytest.mark.asyncio
+async def test_execute_wpt_run_success(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  wpt_executable = wpt_root / 'wpt'
+  mock_process = AsyncMock()
+  mock_process.communicate.return_value = (b'stdout_data', b'stderr_data')
+  mock_process.returncode = 0
+  with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
+    returncode, output = await _execute_wpt_run(
+      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui
+    )
+    mock_exec.assert_called_once()
+    assert returncode == 0
+    assert 'stdout_data\nstderr_data' in output
+
+
+@pytest.mark.asyncio
+async def test_execute_wpt_run_timeout(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  wpt_executable = wpt_root / 'wpt'
+  mock_config.execution_timeout = 0.01
+  mock_process = AsyncMock()
+  mock_process.kill = MagicMock()
+
+  async def slow_communicate() -> tuple[bytes, bytes]:
+    await asyncio.sleep(1)
+    return b'', b''
+
+  mock_process.communicate = slow_communicate
+  with patch('asyncio.create_subprocess_exec', return_value=mock_process):
+    returncode, output = await _execute_wpt_run(
+      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui
+    )
+    assert returncode == -1
