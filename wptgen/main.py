@@ -30,6 +30,7 @@ from rich.text import Text
 from wptgen.config import (
   DEFAULT_CONFIG_PATH,
   DEFAULT_LLM_TIMEOUT,
+  DEFAULT_PROVIDER_MODELS,
   _get_global_config_path,
   load_config,
 )
@@ -755,26 +756,7 @@ def init(
     'Preferred LLM Provider', choices=['gemini', 'openai', 'anthropic'], default='gemini'
   )
 
-  # Define the default models for each provider
-  provider_defaults = {
-    'gemini': {
-      'default': 'gemini-3.1-pro-preview',
-      'lightweight': 'gemini-3-flash-preview',
-      'reasoning': 'gemini-3.1-pro-preview',
-    },
-    'openai': {
-      'default': 'gpt-5.2-high',
-      'lightweight': 'gpt-5-mini',
-      'reasoning': 'gpt-5.2-high',
-    },
-    'anthropic': {
-      'default': 'claude-opus-4-6',
-      'lightweight': 'claude-sonnet-4-6',
-      'reasoning': 'claude-opus-4-6',
-    },
-  }
-
-  defaults = provider_defaults[provider]
+  defaults = DEFAULT_PROVIDER_MODELS[provider]
 
   console.print(f'\n[cyan]Configuring models for {provider}[/cyan]')
   default_model = Prompt.ask('Default model', default=defaults['default'])
