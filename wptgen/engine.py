@@ -109,8 +109,8 @@ class WPTGenEngine:
 
     # Phase 2: Requirements Extraction
     if not context.requirements_xml:
-      if self.config.categorized_requirements:
-        requirements_xml = await run_requirements_extraction_categorized(
+      if self.config.single_prompt_requirements:
+        requirements_xml = await run_requirements_extraction(
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
         )
       elif self.config.detailed_requirements:
@@ -118,7 +118,7 @@ class WPTGenEngine:
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
         )
       else:
-        requirements_xml = await run_requirements_extraction(
+        requirements_xml = await run_requirements_extraction_categorized(
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
         )
       if not requirements_xml:

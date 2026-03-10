@@ -68,7 +68,7 @@ class Config:
   feature_description: str | None = None
   detailed_requirements: bool = False
   draft: bool = False
-  categorized_requirements: bool = False
+  single_prompt_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
   skip_evaluation: bool = False
@@ -166,7 +166,7 @@ def load_config(
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
   draft_override: bool = False,
-  categorized_requirements_override: bool = False,
+  single_prompt_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
@@ -243,8 +243,8 @@ def load_config(
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
   )
-  categorized_requirements = categorized_requirements_override or yaml_data.get(
-    'categorized_requirements', False
+  single_prompt_requirements = single_prompt_requirements_override or yaml_data.get(
+    'single_prompt_requirements', False
   )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
@@ -301,7 +301,7 @@ def load_config(
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
     draft=draft,
-    categorized_requirements=categorized_requirements,
+    single_prompt_requirements=single_prompt_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,
