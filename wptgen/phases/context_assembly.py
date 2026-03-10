@@ -33,7 +33,7 @@ async def run_context_assembly(
 ) -> WorkflowContext | None:
   ui.on_phase_start(1, 'Context Assembly')
 
-  feature_data = fetch_feature_yaml(web_feature_id)
+  feature_data = fetch_feature_yaml(web_feature_id, draft=config.draft)
   if not feature_data:
     if config.spec_urls and config.feature_description:
       ui.warning(f'Feature {web_feature_id} not found in the web-features repository.')
