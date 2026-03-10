@@ -19,7 +19,13 @@ from google.genai import types
 from pytest_mock import MockerFixture
 
 from wptgen.config import Config
-from wptgen.llm import GeminiClient, OpenAIClient, get_llm_client
+from wptgen.llm import (
+  AnthropicClient,
+  GeminiClient,
+  InvalidModelError,
+  OpenAIClient,
+  get_llm_client,
+)
 
 
 @pytest.fixture
@@ -385,3 +391,33 @@ def test_llm_client_custom_retries(mocker: MockerFixture, gemini_config: Config)
     client.generate_content('test')
 
   assert mock_instance.models.generate_content.call_count == 5
+
+
+def test_gemini_client_invalid_model(mocker: MockerFixture) -> None:
+  """Test that GeminiClient raises InvalidModelError on bad model."""
+  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+  mock_instance = mock_client_class.return_value
+  mock_instance.models.get.side_effect = Exception('Model not found')
+
+  with pytest.raises(InvalidModelError, match="Failed to verify Gemini model 'bad-model'"):
+    GeminiClient(api_key='mock', model='bad-model')
+
+
+def test_openai_client_invalid_model(mocker: MockerFixture) -> None:
+  """Test that OpenAIClient raises InvalidModelError on bad model."""
+  mock_client_class = mocker.patch('wptgen.llm.OpenAI')
+  mock_instance = mock_client_class.return_value
+  mock_instance.models.retrieve.side_effect = Exception('Model not found')
+
+  with pytest.raises(InvalidModelError, match="Failed to verify OpenAI model 'bad-model'"):
+    OpenAIClient(api_key='mock', model='bad-model')
+
+
+def test_anthropic_client_invalid_model(mocker: MockerFixture) -> None:
+  """Test that AnthropicClient raises InvalidModelError on bad model."""
+  mock_client_class = mocker.patch('wptgen.llm.anthropic.Anthropic')
+  mock_instance = mock_client_class.return_value
+  mock_instance.models.retrieve.side_effect = Exception('Model not found')
+
+  with pytest.raises(InvalidModelError, match="Failed to verify Anthropic model 'bad-model'"):
+    AnthropicClient(api_key='mock', model='bad-model')
