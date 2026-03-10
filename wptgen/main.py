@@ -731,19 +731,16 @@ def version() -> None:
 @app.command(name='init')
 def init(
   config_path: Annotated[
-    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
-  ] = DEFAULT_CONFIG_PATH,
-  global_config: Annotated[
-    bool, typer.Option('--global', help='Initialize the global configuration file.')
-  ] = False,
+    str | None, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = None,
 ) -> None:
   """
   Initialize a new wpt-gen configuration file interactively.
   """
-  if global_config:
-    resolved_path = Path(_get_global_config_path())
-  else:
+  if config_path:
     resolved_path = Path(config_path)
+  else:
+    resolved_path = Path(_get_global_config_path())
 
   # Ensure the directory exists
   resolved_path.parent.mkdir(parents=True, exist_ok=True)

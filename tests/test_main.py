@@ -756,7 +756,7 @@ def test_init_command_global(mocker: MockerFixture) -> None:
     # 3. '' (lightweight model - accept default)
     # 4. '' (reasoning model - accept default)
     # 5. '/fake/wpt' (wpt_path)
-    result = runner.invoke(app, ['init', '--global'], input='gemini\n\n\n\n/fake/wpt\n')
+    result = runner.invoke(app, ['init'], input='gemini\n\n\n\n/fake/wpt\n')
 
     assert result.exit_code == 0
     assert 'Configuration saved successfully' in result.stdout
