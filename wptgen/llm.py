@@ -38,6 +38,12 @@ class LLMTimeoutError(Exception):
   pass
 
 
+class InvalidModelError(Exception):
+  """Raised when the provided model is invalid or inaccessible."""
+
+  pass
+
+
 class LLMClient(ABC):
   """Abstract base class for all LLM providers."""
 
@@ -52,6 +58,11 @@ class LLMClient(ABC):
     self.model = model
     self.max_retries = max_retries
     self.timeout = timeout
+
+  @abstractmethod
+  def verify_model(self) -> None:
+    """Verifies that the requested model is valid and accessible."""
+    pass  # pragma: no cover
 
   @abstractmethod
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
@@ -90,6 +101,13 @@ class GeminiClient(LLMClient):
       api_key=self.api_key,
       http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
     )
+    self.verify_model()
+
+  def verify_model(self) -> None:
+    try:
+      self.client.models.get(model=self.model)
+    except Exception as e:
+      raise InvalidModelError(f"Failed to verify Gemini model '{self.model}': {e}") from e
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
@@ -163,6 +181,13 @@ class OpenAIClient(LLMClient):
   ):
     super().__init__(api_key, model, max_retries, timeout)
     self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
+    self.verify_model()
+
+  def verify_model(self) -> None:
+    try:
+      self.client.models.retrieve(self.model)
+    except Exception as e:
+      raise InvalidModelError(f"Failed to verify OpenAI model '{self.model}': {e}") from e
 
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
     """Returns the total number of tokens for the given prompt using tiktoken."""
@@ -235,6 +260,13 @@ class AnthropicClient(LLMClient):
   ):
     super().__init__(api_key, model, max_retries, timeout)
     self.client = anthropic.Anthropic(api_key=self.api_key, timeout=float(self.timeout))
+    self.verify_model()
+
+  def verify_model(self) -> None:
+    try:
+      self.client.models.retrieve(self.model)
+    except Exception as e:
+      raise InvalidModelError(f"Failed to verify Anthropic model '{self.model}': {e}") from e
 
   @retry(exceptions=Exception, max_attempts_attr='max_retries')
   def count_tokens(self, prompt: str, model: str | None = None) -> int:
