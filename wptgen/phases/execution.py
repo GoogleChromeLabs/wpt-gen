@@ -18,7 +18,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from jinja2 import Environment
+from jinja2 import Environment, Template
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -26,6 +26,78 @@ from wptgen.models import WorkflowContext
 from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import MARKDOWN_CODE_BLOCK_RE, parse_multi_file_response
+
+
+async def _correct_test(
+  test_id: str,
+  error_log: str,
+  valid_rel_paths: list[str],
+  wpt_root: Path,
+  correction_template: Template,
+  correction_system: Template,
+  wpt_style_guide: str,
+  llm: LLMClient,
+  ui: UIProvider,
+  config: Config,
+  semaphore: asyncio.Semaphore,
+) -> None:
+  """Helper function to correct a single failing test file concurrently."""
+  async with semaphore:
+    # Match test_id (e.g., /html/semantics/...) back to our valid_rel_paths
+    matched_path: str | None = None
+    clean_test_id = test_id.split('?')[0]
+    for valid_path in valid_rel_paths:
+      # 1. Exact or partial match
+      if valid_path in clean_test_id or clean_test_id.lstrip('/') in valid_path:
+        matched_path = valid_path
+        break
+
+      # 2. Handle cases where the test runner generates an .html wrapper for a .js file
+      # e.g., valid_path = "fetch/.../test.any.js", test_id = "/fetch/.../test.any.html"
+      base_test_id = clean_test_id.rsplit('.', 1)[0]
+      base_valid_path = valid_path.rsplit('.', 1)[0]
+      if base_valid_path in base_test_id or base_test_id.lstrip('/') in base_valid_path:
+        matched_path = valid_path
+        break
+
+    if not matched_path:
+      ui.warning(f'Could not find local source file to correct for test ID: {test_id}')
+      return
+
+    full_path = wpt_root / matched_path
+    if not full_path.exists():
+      return
+
+    test_source_code = full_path.read_text(encoding='utf-8')
+    prompt = correction_template.render(error_log=error_log, test_source_code=test_source_code)
+
+    system_instruction = correction_system.render(wpt_style_guide=wpt_style_guide)
+
+    ui.print(f'Attempting to correct [bold cyan]{matched_path}[/bold cyan]...')
+
+    corrected_content = await generate_safe(
+      prompt=prompt,
+      task_name=f'Correcting {matched_path}',
+      llm=llm,
+      ui=ui,
+      config=config,
+      system_instruction=system_instruction,
+    )
+
+    if not corrected_content:
+      return
+
+    # Extract using multi file response or regex fallback
+    multi_files = parse_multi_file_response(corrected_content)
+    if multi_files:
+      final_content = multi_files[0][1]
+    else:
+      final_content = MARKDOWN_CODE_BLOCK_RE.sub('', corrected_content).strip()
+
+    if final_content:
+      full_path.write_text(final_content, encoding='utf-8')
+      ui.success(f'Updated {matched_path}')
+      ui.print_diff(test_source_code, final_content, matched_path)
 
 
 async def run_test_execution(
@@ -192,61 +264,38 @@ async def run_test_execution(
       ui.print(f'[dim]{indented_msg}[/dim]')
 
     # Correction loop
+    semaphore = asyncio.Semaphore(getattr(config, 'max_parallel_requests', 5))
+    tasks = []
     for test_id, error_log in failing_tests.items():
-      # Match test_id (e.g., /html/semantics/...) back to our valid_rel_paths
-      matched_path: str | None = None
-      clean_test_id = test_id.split('?')[0]
-      for valid_path in valid_rel_paths:
-        # 1. Exact or partial match
-        if valid_path in clean_test_id or clean_test_id.lstrip('/') in valid_path:
-          matched_path = valid_path
-          break
-
-        # 2. Handle cases where the test runner generates an .html wrapper for a .js file
-        # e.g., valid_path = "fetch/.../test.any.js", test_id = "/fetch/.../test.any.html"
-        base_test_id = clean_test_id.rsplit('.', 1)[0]
-        base_valid_path = valid_path.rsplit('.', 1)[0]
-        if base_valid_path in base_test_id or base_test_id.lstrip('/') in base_valid_path:
-          matched_path = valid_path
-          break
-
-      if not matched_path:
-        ui.warning(f'Could not find local source file to correct for test ID: {test_id}')
-        continue
-
-      full_path = wpt_root / matched_path
-      if not full_path.exists():
-        continue
-
-      test_source_code = full_path.read_text(encoding='utf-8')
-      prompt = correction_template.render(error_log=error_log, test_source_code=test_source_code)
-
-      system_instruction = correction_system.render(wpt_style_guide=wpt_style_guide)
-
-      ui.print(f'Attempting to correct [bold cyan]{matched_path}[/bold cyan]...')
-
-      corrected_content = await generate_safe(
-        prompt=prompt,
-        task_name=f'Correcting {matched_path}',
-        llm=llm,
-        ui=ui,
-        config=config,
-        system_instruction=system_instruction,
+      tasks.append(
+        _correct_test(
+          test_id=test_id,
+          error_log=error_log,
+          valid_rel_paths=valid_rel_paths,
+          wpt_root=wpt_root,
+          correction_template=correction_template,
+          correction_system=correction_system,
+          wpt_style_guide=wpt_style_guide,
+          llm=llm,
+          ui=ui,
+          config=config,
+          semaphore=semaphore,
+        )
       )
 
-      if not corrected_content:
-        continue
+    total_tasks = len(tasks)
+    completed_tasks = 0
 
-      # Extract using multi file response or regex fallback
-      multi_files = parse_multi_file_response(corrected_content)
-      if multi_files:
-        final_content = multi_files[0][1]
-      else:
-        final_content = MARKDOWN_CODE_BLOCK_RE.sub('', corrected_content).strip()
-
-      if final_content:
-        full_path.write_text(final_content, encoding='utf-8')
-        ui.success(f'Updated {matched_path}')
-        ui.print_diff(test_source_code, final_content, matched_path)
+    with ui.progress_indicator(
+      f'Correcting tests... ({total_tasks} outstanding)', total=total_tasks
+    ) as progress:
+      for future in asyncio.as_completed(tasks):
+        await future
+        completed_tasks += 1
+        remaining = total_tasks - completed_tasks
+        progress.update(
+          description='Correcting tests...', outstanding=remaining if remaining > 0 else None
+        )
+        progress.advance()
 
   ui.on_phase_complete('Test Execution')
