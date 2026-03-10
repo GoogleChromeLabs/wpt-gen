@@ -702,7 +702,8 @@ def test_main_callback() -> None:
 
 
 def test_config_command(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test the config command prints the resolved configuration."""
+  """Test the config command prints the resolved configuration and its path."""
+  mock_config.loaded_from = '/dummy/path/wpt-gen.yml'
   mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['config'])
@@ -710,6 +711,22 @@ def test_config_command(mocker: MockerFixture, mock_config: Config) -> None:
   assert result.exit_code == 0
   assert 'Resolved Configuration' in result.stdout
   assert 'provider:' in result.stdout
+  assert 'Reading configuration from:' in result.stdout
+  assert '/dummy/path/wpt-gen.yml' in result.stdout
+  assert 'loaded_from:' not in result.stdout  # Ensure it's not in the YAML dump
+  mock_load_config.assert_called_once_with(config_path=DEFAULT_CONFIG_PATH, require_api_key=False)
+
+
+def test_config_command_defaults(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the config command prints the defaults message when no file is loaded."""
+  mock_config.loaded_from = None
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+  result = runner.invoke(app, ['config'])
+
+  assert result.exit_code == 0
+  assert 'Resolved Configuration' in result.stdout
+  assert 'Reading configuration from: Defaults (no config file found)' in result.stdout
   mock_load_config.assert_called_once_with(config_path=DEFAULT_CONFIG_PATH, require_api_key=False)
 
 

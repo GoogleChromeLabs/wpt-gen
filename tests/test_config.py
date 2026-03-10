@@ -292,3 +292,22 @@ def test_load_config_yes_tests(monkeypatch: pytest.MonkeyPatch) -> None:
   # Case 2: Override to True
   config = load_config(config_path='non_existent_dummy.yaml', yes_tests_override=True)
   assert config.yes_tests is True
+
+
+def test_load_config_loaded_from(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+  """Test that loaded_from is correctly set when a config file exists."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  config_file = tmp_path / 'wpt-gen.yml'
+  config_file.write_text('provider: openai', encoding='utf-8')
+
+  config = load_config(config_path=str(config_file), require_api_key=False)
+  assert config.loaded_from == str(config_file.resolve())
+
+
+def test_load_config_loaded_from_none(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that loaded_from is None when no config file exists."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  config = load_config(config_path='non_existent.yml', require_api_key=False)
+  assert config.loaded_from is None
