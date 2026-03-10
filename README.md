@@ -138,6 +138,19 @@ phase_model_mapping:
   generation: lightweight
 ```
 
+### 3. Managing Configuration via CLI
+You can use the built-in `config` command group to view or modify your settings without opening the YAML file manually.
+
+- **View Configuration:**
+  ```bash
+  wpt-gen config show
+  ```
+- **Update Configuration:** Use dot-notation to set specific values.
+  ```bash
+  wpt-gen config set default_provider "openai"
+  wpt-gen config set providers.gemini.default_model "gemini-3.1-pro-preview"
+  ```
+
 ## Usage
 
 The primary interface is the `generate` command, which requires a **Web Feature ID** (as defined in the [web-features](https://github.com/web-platform-dx/web-features) repository).

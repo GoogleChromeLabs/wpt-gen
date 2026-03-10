@@ -891,3 +891,87 @@ def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
     max_parallel_requests_override=None,
     temperature_override=None,
   )
+
+
+def test_config_show_command(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the explicit config show command."""
+  mock_config.loaded_from = '/dummy/path/wpt-gen.yml'
+  mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+  result = runner.invoke(app, ['config', 'show'])
+
+  assert result.exit_code == 0
+  assert 'Resolved Configuration' in result.stdout
+
+
+def test_config_set_command_flat(mocker: MockerFixture) -> None:
+  """Test setting a flat configuration value."""
+  from pathlib import Path
+
+  import yaml
+
+  with runner.isolated_filesystem():
+    config_file = Path('wpt-gen.yml')
+    config_file.write_text('default_provider: openai\n')
+
+    result = runner.invoke(
+      app, ['config', 'set', 'default_provider', 'gemini', '--config', str(config_file)]
+    )
+
+    assert result.exit_code == 0
+    assert 'Set default_provider = gemini' in result.stdout
+
+    with open(config_file) as f:
+      data = yaml.safe_load(f)
+    assert data['default_provider'] == 'gemini'
+
+
+def test_config_set_command_nested(mocker: MockerFixture) -> None:
+  """Test setting a nested configuration value."""
+  from pathlib import Path
+
+  import yaml
+
+  with runner.isolated_filesystem():
+    config_file = Path('wpt-gen.yml')
+    config_file.write_text('providers:\n  gemini:\n    default_model: old-model\n')
+
+    result = runner.invoke(
+      app,
+      [
+        'config',
+        'set',
+        'providers.gemini.default_model',
+        'new-model',
+        '--config',
+        str(config_file),
+      ],
+    )
+
+    assert result.exit_code == 0
+
+    with open(config_file) as f:
+      data = yaml.safe_load(f)
+    assert data['providers']['gemini']['default_model'] == 'new-model'
+
+
+def test_config_set_command_types(mocker: MockerFixture) -> None:
+  """Test type conversion for config set."""
+  from pathlib import Path
+
+  import yaml
+
+  with runner.isolated_filesystem():
+    config_file = Path('wpt-gen.yml')
+    config_file.write_text('')
+
+    runner.invoke(app, ['config', 'set', 'timeout', '120', '--config', str(config_file)])
+    runner.invoke(app, ['config', 'set', 'show_responses', 'true', '--config', str(config_file)])
+    runner.invoke(app, ['config', 'set', 'temperature', '0.5', '--config', str(config_file)])
+
+    with open(config_file) as f:
+      data = yaml.safe_load(f)
+
+    assert data['timeout'] == 120
+    assert data['show_responses'] is True
+    assert data['temperature'] == 0.5

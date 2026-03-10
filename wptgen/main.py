@@ -380,15 +380,14 @@ def doctor_command(
     raise typer.Exit(code=1)
 
 
-@app.command(name='config')
-def config_command(
-  config_path: Annotated[
-    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
-  ] = DEFAULT_CONFIG_PATH,
-) -> None:
-  """
-  Display the currently active, fully resolved configuration.
-  """
+config_app = typer.Typer(
+  help='Manage WPT-Gen configuration.',
+  add_completion=False,
+)
+app.add_typer(config_app, name='config')
+
+
+def _display_config(config_path: str) -> None:
   try:
     import dataclasses
 
@@ -412,6 +411,101 @@ def config_command(
     )
   except Exception as e:
     console.print(f'[bold red]Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
+@config_app.callback(invoke_without_command=True)
+def config_callback(
+  ctx: typer.Context,
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Manage WPT-Gen configuration. Displays active configuration if no subcommand is provided.
+  """
+  if ctx.invoked_subcommand is None:
+    _display_config(config_path)
+
+
+@config_app.command(name='show')
+def config_show(
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Display the currently active, fully resolved configuration.
+  """
+  _display_config(config_path)
+
+
+@config_app.command(name='set')
+def config_set(
+  key: Annotated[
+    str, typer.Argument(help='Configuration key using dot-notation (e.g., default_provider).')
+  ],
+  value: Annotated[str, typer.Argument(help='Value to set for the configuration key.')],
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Update an individual configuration setting using dot-notation.
+  """
+  from pathlib import Path
+  from typing import Any
+
+  import yaml
+
+  path = Path(config_path)
+  target_file = path
+
+  if not path.exists() and config_path == DEFAULT_CONFIG_PATH:
+    global_path = Path(_get_global_config_path())
+    if global_path.exists():
+      target_file = global_path
+
+  yaml_data: dict[str, Any] = {}
+  if target_file.exists():
+    try:
+      with open(target_file, encoding='utf-8') as f:
+        yaml_data = yaml.safe_load(f) or {}
+    except Exception as e:
+      console.print(f'[bold red]Error reading config file:[/bold red] {e}')
+      raise typer.Exit(code=1) from e
+
+  keys = key.split('.')
+  current = yaml_data
+  for k in keys[:-1]:
+    if k not in current or not isinstance(current[k], dict):
+      current[k] = {}
+    current = current[k]
+
+  typed_value: Any
+  val_lower = value.lower()
+  if val_lower == 'true':
+    typed_value = True
+  elif val_lower == 'false':
+    typed_value = False
+  elif value.isdigit():
+    typed_value = int(value)
+  else:
+    try:
+      typed_value = float(value)
+    except ValueError:
+      typed_value = value
+
+  current[keys[-1]] = typed_value
+
+  try:
+    with open(target_file, 'w', encoding='utf-8') as f:
+      yaml.dump(yaml_data, f, sort_keys=False, default_flow_style=False)
+    console.print(
+      f'[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = [yellow]{typed_value}[/yellow] in [magenta]{target_file.resolve()}[/magenta]'
+    )
+  except Exception as e:
+    console.print(f'[bold red]Error writing config file:[/bold red] {e}')
     raise typer.Exit(code=1) from e
 
 
