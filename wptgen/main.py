@@ -176,6 +176,13 @@ def generate(
       help='Skip the evaluation phase after generating tests.',
     ),
   ] = False,
+  tentative: Annotated[
+    bool,
+    typer.Option(
+      '--tentative',
+      help='Generate test files with the .tentative flag.',
+    ),
+  ] = False,
   max_parallel_requests: Annotated[
     int | None,
     typer.Option(
@@ -245,6 +252,7 @@ def generate(
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
+      tentative_override=tentative,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
     )
@@ -611,6 +619,7 @@ def audit(
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=True,
+      tentative_override=False,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
     )

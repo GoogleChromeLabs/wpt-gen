@@ -302,6 +302,32 @@ content 3
   assert parse_multi_file_response(raw_text) == expected
 
 
+def test_parse_multi_file_response_strip_tentative() -> None:
+  from wptgen.utils import parse_multi_file_response
+
+  raw_text = """
+[FILE_1: .tentative.https.html]
+content 1
+[/FILE_1]
+[FILE_2: my-test.tentative.any.js]
+content 2
+[/FILE_2]
+"""
+  # Default behavior (strip_tentative=False)
+  expected_no_strip = [
+    ('.tentative.https.html', 'content 1'),
+    ('.tentative.any.js', 'content 2'),
+  ]
+  assert parse_multi_file_response(raw_text) == expected_no_strip
+
+  # Stripped behavior (strip_tentative=True)
+  expected_stripped = [
+    ('.https.html', 'content 1'),
+    ('.any.js', 'content 2'),
+  ]
+  assert parse_multi_file_response(raw_text, strip_tentative=True) == expected_stripped
+
+
 def test_parse_multi_file_response_empty() -> None:
   from wptgen.utils import parse_multi_file_response
 

@@ -47,7 +47,9 @@ def parse_suggestions(raw_text: str) -> list[str]:
   return SUGGESTION_BLOCK_RE.findall(raw_text)
 
 
-def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
+def parse_multi_file_response(
+  raw_text: str, strip_tentative: bool = False
+) -> list[tuple[str, str]]:
   """Extracts multiple files from a partitioned LLM response.
 
   Expected format:
@@ -61,6 +63,10 @@ def parse_multi_file_response(raw_text: str) -> list[tuple[str, str]]:
   files = []
   for match in MULTI_FILE_RE.finditer(raw_text):
     suffix = match.group(2).strip()
+
+    if strip_tentative:
+      suffix = suffix.replace('.tentative', '')
+
     # Shave off the start if it doesn't lead with a period
     if suffix and not suffix.startswith('.'):
       dot_idx = suffix.find('.')
