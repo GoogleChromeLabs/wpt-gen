@@ -22,6 +22,7 @@ help:
 	@echo "  make presubmit  - Run lint-fix, typecheck, and test"
 	@echo "  make build      - Build source and wheel distributions"
 	@echo "  make publish    - Upload the package to PyPI"
+	@echo "  make clear-cache- Clear ruff, mypy, and pytest caches"
 	@echo "  make clean      - Remove build artifacts and caches"
 
 install:
@@ -53,6 +54,9 @@ build: clean
 publish: build
 	$(PYTHON) -m twine upload dist/*
 
-clean:
-	rm -rf .pytest_cache .mypy_cache .ruff_cache build/ dist/ *.egg-info
+clear-cache:
+	rm -rf .pytest_cache .mypy_cache .ruff_cache
 	find . -type d -name "__pycache__" -exec rm -rf {} +
+
+clean: clear-cache
+	rm -rf build/ dist/ *.egg-info

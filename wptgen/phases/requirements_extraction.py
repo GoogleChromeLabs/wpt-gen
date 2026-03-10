@@ -127,11 +127,8 @@ async def run_requirements_extraction_categorized(
       ).render(
         feature_name=metadata.name,
         feature_description=metadata.description,
-        spec_url=metadata.specs[0],
-        spec_contents=context.spec_contents,
+        specs=context.spec_contents,
         mdn_contents=context.mdn_contents,
-        category_name=category_name,
-        category_description=category_description,
       )
       extraction_system_prompt = jinja_env.get_template(
         'requirements_extraction_categorized_system.jinja'
