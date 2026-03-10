@@ -48,14 +48,17 @@ IGNORED_DEPENDENCIES = {
 MDN_MAPPINGS_URL = 'https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json'
 
 
-def fetch_feature_yaml(web_feature_id: str) -> dict[str, Any] | None:
+def fetch_feature_yaml(web_feature_id: str, draft: bool = False) -> dict[str, Any] | None:
   """
   Fetches the YAML definition for a given web feature ID from the
   web-platform-dx/web-features repository.
 
   Returns the parsed YAML dictionary, or None if the feature ID is not found.
   """
-  url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml'
+  if draft:
+    url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/{web_feature_id}.yml'
+  else:
+    url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml'
 
   try:
     # Use standard library to avoid bloating dependencies

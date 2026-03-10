@@ -97,6 +97,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -135,6 +136,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -169,6 +171,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -203,6 +206,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -237,6 +241,7 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -271,6 +276,7 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=True,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -304,6 +310,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -332,6 +339,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -397,6 +405,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     spec_urls_override=['https://url1.com', 'https://url2.com'],
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -431,6 +440,7 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     spec_urls_override=None,
     feature_description_override='Test Description',
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -465,6 +475,7 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -499,6 +510,7 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=True,
     use_reasoning_override=False,
@@ -533,6 +545,7 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=True,
@@ -567,6 +580,7 @@ def test_generate_categorized_requirements(mocker: MockerFixture, mock_config: C
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=True,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -601,6 +615,7 @@ def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Conf
     spec_urls_override=None,
     feature_description_override=None,
     detailed_requirements_override=False,
+    draft_override=False,
     categorized_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
@@ -842,3 +857,37 @@ def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
   assert kwargs['provider_override'] == 'gemini'
 
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
+
+
+def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --draft flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  result = runner.invoke(app, ['generate', 'grid', '--draft'])
+
+  assert result.exit_code == 0
+  mock_load_config.assert_called_once_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    yes_tests_override=False,
+    suggestions_only=False,
+    resume_override=False,
+    max_retries_override=3,
+    timeout_override=600,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=False,
+    draft_override=True,
+    categorized_requirements_override=False,
+    use_lightweight_override=False,
+    use_reasoning_override=False,
+    skip_evaluation_override=False,
+    tentative_override=False,
+    max_parallel_requests_override=None,
+    temperature_override=None,
+  )

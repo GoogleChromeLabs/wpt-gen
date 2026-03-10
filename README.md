@@ -155,6 +155,7 @@ wpt-gen generate grid
 | `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `grid`, `popover`). |
 | `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
+| `--draft` | | Enable fetching metadata from the draft features directory. |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 
 **Note:** For a full list of all 20+ options (including execution control, retries, and manual overrides), see the [CLI Command Reference](docs/cli.md).

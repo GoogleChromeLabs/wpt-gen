@@ -432,3 +432,23 @@ def test_gather_local_test_context_exception(tmp_path: Path, mocker: MockerFixtu
 
   context = gather_local_test_context([str(test_html)], str(wpt_root))
   assert context.test_contents == {}
+
+
+def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
+  """Test that fetching a draft feature constructs the correct URL."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = b"name: 'Draft Feature'"
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_feature_yaml('draft-feature', draft=True)
+
+  assert result == {'name': 'Draft Feature'}
+  mock_urlopen.assert_called_once()
+
+  request_obj = mock_urlopen.call_args[0][0]
+  assert (
+    request_obj.full_url
+    == 'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/draft-feature.yml'
+  )

@@ -67,6 +67,7 @@ class Config:
   spec_urls: list[str] | None = None
   feature_description: str | None = None
   detailed_requirements: bool = False
+  draft: bool = False
   categorized_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
@@ -164,6 +165,7 @@ def load_config(
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
+  draft_override: bool = False,
   categorized_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
@@ -237,6 +239,7 @@ def load_config(
   yes_tests = yes_tests_override or yaml_data.get('yes_tests', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   resume = resume_override or yaml_data.get('resume', False)
+  draft = draft_override or yaml_data.get('draft', False)
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
   )
@@ -297,6 +300,7 @@ def load_config(
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
+    draft=draft,
     categorized_requirements=categorized_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,

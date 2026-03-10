@@ -51,6 +51,7 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--spec-urls` | `-u` | Comma-separated list of W3C Spec URLs to use, bypassing automatic fetching. |
 | `--description` | `-d` | Provide a manual description/summary of the feature to the agent. |
 | `--detailed-requirements` | | Use an iterative process to extract highly granular requirements (slower). |
+| `--draft` | | Enable fetching metadata from the draft features directory. |
 | `--categorized-requirements` | | Extract requirements in parallel across technical categories (faster). |
 
 ---

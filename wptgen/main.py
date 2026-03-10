@@ -153,6 +153,13 @@ def generate(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  draft: Annotated[
+    bool,
+    typer.Option(
+      '--draft',
+      help='Enable fetching metadata from the draft features directory.',
+    ),
+  ] = False,
   categorized_requirements: Annotated[
     bool,
     typer.Option(
@@ -248,6 +255,7 @@ def generate(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      draft_override=draft,
       categorized_requirements_override=categorized_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
@@ -535,6 +543,13 @@ def audit(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  draft: Annotated[
+    bool,
+    typer.Option(
+      '--draft',
+      help='Enable fetching metadata from the draft features directory.',
+    ),
+  ] = False,
   categorized_requirements: Annotated[
     bool,
     typer.Option(
@@ -615,6 +630,7 @@ def audit(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      draft_override=draft,
       categorized_requirements_override=categorized_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
