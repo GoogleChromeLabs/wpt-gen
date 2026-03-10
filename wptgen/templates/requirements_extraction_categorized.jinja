@@ -5,9 +5,13 @@ Extract the core normative test requirements for the following feature and speci
   <feature_description>{{feature_description}}</feature_description>
 </feature_definition>
 
-<spec_document url="{{spec_url}}">
-{{spec_contents}}
+{% if specs -%}
+{% for url, content in specs.items() -%}
+<spec_document url="{{url}}">
+{{content}}
 </spec_document>
+{%- endfor %}
+{%- endif %}
 
 {% if mdn_contents -%}
 {% for content in mdn_contents -%}

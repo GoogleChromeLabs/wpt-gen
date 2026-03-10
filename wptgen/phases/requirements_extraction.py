@@ -51,8 +51,7 @@ async def run_requirements_extraction(
     extraction_prompt = jinja_env.get_template('requirements_extraction.jinja').render(
       feature_name=context.metadata.name,
       feature_description=context.metadata.description,
-      spec_url=context.metadata.specs[0],
-      spec_contents=context.spec_contents,
+      specs=context.spec_contents,
       mdn_contents=context.mdn_contents,
     )
     extraction_system_prompt = jinja_env.get_template(
@@ -272,8 +271,7 @@ async def run_requirements_extraction_iterative(
       extraction_prompt = jinja_env.get_template('requirements_extraction_iterative.jinja').render(
         feature_name=context.metadata.name,
         feature_description=context.metadata.description,
-        spec_url=context.metadata.specs[0],
-        spec_contents=context.spec_contents,
+        specs=context.spec_contents,
         mdn_contents=context.mdn_contents,
         existing_requirements_xml=existing_requirements_xml,
       )

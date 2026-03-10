@@ -64,7 +64,10 @@ async def run_context_assembly(
 
   ui.print('\nFetching spec content...')
   with ui.status('Fetching and extracting text...'):
-    spec_contents = fetch_and_extract_text(metadata.specs[0])
+    results = await asyncio.gather(
+      *[asyncio.to_thread(fetch_and_extract_text, url) for url in metadata.specs]
+    )
+    spec_contents = {url: res for url, res in zip(metadata.specs, results, strict=True) if res}
 
   if not spec_contents:
     ui.error('Failed to extract spec content.')
@@ -90,7 +93,7 @@ async def run_context_assembly(
       ]
 
   ui.report_context_summary(
-    len(spec_contents),
+    sum(len(content) for content in spec_contents.values()),
     len(mdn_contents) if mdn_contents else 0,
     len(wpt_context.test_contents),
     len(wpt_context.dependency_contents),

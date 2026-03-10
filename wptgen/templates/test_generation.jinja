@@ -2,8 +2,12 @@ Generate a single WPT file for the feature "{{feature_name}}" ({{feature_descrip
 
 {{ test_suggestion_xml_block }}
 
-{% if spec_contents -%}
+{% if specs -%}
 # Specification Context
 The exact API definitions, interfaces, and expected behaviors for this feature:
-{{ spec_contents }}
+{% for url, content in specs.items() -%}
+<spec_document url="{{url}}">
+{{ content }}
+</spec_document>
+{%- endfor %}
 {%- endif %}

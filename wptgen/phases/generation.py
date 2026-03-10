@@ -86,7 +86,7 @@ async def run_test_generation(
   gen_template = jinja_env.get_template('test_generation.jinja')
   system_template = jinja_env.get_template('test_generation_system.jinja')
 
-  spec_url = context.metadata.specs[0] if context.metadata and context.metadata.specs else None
+  spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
   prompts_to_confirm: list[tuple[str, str, str, str]] = []
 
   # Keep track of filenames used in this run to avoid collisions
@@ -94,10 +94,11 @@ async def run_test_generation(
   output_dir = Path(config.output_dir or '.')
 
   for suggestion_xml in approved_suggestions_xml:
-    # Inject specification URL if available
-    if spec_url:
+    # Inject specification URLs if available
+    if spec_urls:
+      spec_url_tags = '\n'.join([f'  <spec_url>{url}</spec_url>' for url in spec_urls])
       suggestion_xml = suggestion_xml.replace(
-        '</test_suggestion>', f'  <spec_url>{spec_url}</spec_url>\n</test_suggestion>'
+        '</test_suggestion>', f'{spec_url_tags}\n</test_suggestion>'
       )
 
     # Extract and normalize test type
@@ -125,7 +126,7 @@ async def run_test_generation(
     final_prompt = gen_template.render(
       feature_name=context.metadata.name,
       feature_description=context.metadata.description,
-      spec_contents=context.spec_contents,
+      specs=context.spec_contents,
       test_suggestion_xml_block=suggestion_xml,
     )
 
