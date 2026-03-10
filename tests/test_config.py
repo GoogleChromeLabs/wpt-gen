@@ -311,3 +311,62 @@ def test_load_config_loaded_from_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
   config = load_config(config_path='non_existent.yml', require_api_key=False)
   assert config.loaded_from is None
+
+
+def test_deep_merge_utility() -> None:
+  """Test the _deep_merge helper handles nested objects correctly."""
+  from wptgen.config import _deep_merge
+
+  target = {'a': 1, 'b': {'x': 10, 'y': 20}, 'c': {'z': 30}}
+  source = {'b': {'x': 100}, 'c': 40, 'd': 50}
+
+  merged = _deep_merge(target, source)
+  assert merged == {'a': 1, 'b': {'x': 100, 'y': 20}, 'c': 40, 'd': 50}
+  # Ensure original target is not mutated
+  assert target == {'a': 1, 'b': {'x': 10, 'y': 20}, 'c': {'z': 30}}
+
+
+def test_load_config_deep_merges_phase_mapping(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """Test that setting a single nested property preserves sibling defaults."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  config_file = tmp_path / 'wpt-gen.yml'
+  # Simulate the YAML created by `config set phase_model_mapping.generation reasoning`
+  # when no other config exists.
+  config_file.write_text('phase_model_mapping:\n  generation: reasoning\n', encoding='utf-8')
+
+  config = load_config(config_path=str(config_file))
+
+  # The generation property should be overridden
+  assert config.phase_model_mapping['generation'] == 'reasoning'
+  # Default sibling properties should be preserved
+  assert config.phase_model_mapping['requirements_extraction'] == 'reasoning'
+  assert config.phase_model_mapping['coverage_audit'] == 'reasoning'
+  assert config.phase_model_mapping['evaluation'] == 'lightweight'
+
+
+def test_load_config_deep_merges_categories(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """Test that overriding a single category preserves other default categories."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  config_file = tmp_path / 'wpt-gen.yml'
+  config_file.write_text(
+    """
+providers:
+  gemini:
+    categories:
+      lightweight: gemini-custom-flash
+""",
+    encoding='utf-8',
+  )
+
+  config = load_config(config_path=str(config_file))
+
+  # The lightweight category should be overridden
+  assert config.categories['lightweight'] == 'gemini-custom-flash'
+  # The reasoning default category should be preserved
+  assert config.categories['reasoning'] == 'gemini-3.1-pro-preview'
