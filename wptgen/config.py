@@ -26,6 +26,24 @@ DEFAULT_LLM_TIMEOUT = 600
 # Minimum allowed timeout for Gemini API (10 seconds)
 MIN_LLM_TIMEOUT = 10
 
+DEFAULT_PROVIDER_MODELS = {
+  'gemini': {
+    'default': 'gemini-3.1-pro-preview',
+    'lightweight': 'gemini-3-flash-preview',
+    'reasoning': 'gemini-3.1-pro-preview',
+  },
+  'openai': {
+    'default': 'gpt-5.2-high',
+    'lightweight': 'gpt-5-mini',
+    'reasoning': 'gpt-5.2-high',
+  },
+  'anthropic': {
+    'default': 'claude-opus-4-6',
+    'lightweight': 'claude-sonnet-4-6',
+    'reasoning': 'claude-opus-4-6',
+  },
+}
+
 
 @dataclass
 class Config:
@@ -183,29 +201,22 @@ def load_config(
   provider_settings = providers_config.get(active_provider, {})
 
   # Provide sensible defaults if the YAML is missing the specific provider block
-  if active_provider == 'gemini':
-    default_model_name = 'gemini-3.1-pro-preview'
-    env_var_name = 'GEMINI_API_KEY'
-    default_categories = {
-      'lightweight': 'gemini-3-flash-preview',
-      'reasoning': 'gemini-3.1-pro-preview',
-    }
-  elif active_provider == 'openai':
-    default_model_name = 'gpt-5.2-high'
-    env_var_name = 'OPENAI_API_KEY'
-    default_categories = {
-      'lightweight': 'gpt-5-mini',
-      'reasoning': 'gpt-5.2-high',
-    }
-  elif active_provider == 'anthropic':
-    default_model_name = 'claude-opus-4-6'
-    env_var_name = 'ANTHROPIC_API_KEY'
-    default_categories = {
-      'lightweight': 'claude-sonnet-4-6',
-      'reasoning': 'claude-opus-4-6',
-    }
-  else:
+  if active_provider not in DEFAULT_PROVIDER_MODELS:
     raise ValueError(f"CRITICAL: Unsupported provider '{active_provider}' requested.")
+
+  provider_defaults = DEFAULT_PROVIDER_MODELS[active_provider]
+  default_model_name = provider_defaults['default']
+  default_categories = {
+    'lightweight': provider_defaults['lightweight'],
+    'reasoning': provider_defaults['reasoning'],
+  }
+
+  if active_provider == 'gemini':
+    env_var_name = 'GEMINI_API_KEY'
+  elif active_provider == 'openai':
+    env_var_name = 'OPENAI_API_KEY'
+  elif active_provider == 'anthropic':
+    env_var_name = 'ANTHROPIC_API_KEY'
 
   # Enforce the environment variable constraint for the active provider
   api_key = os.environ.get(env_var_name)
