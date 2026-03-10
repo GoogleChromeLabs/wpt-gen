@@ -98,10 +98,11 @@ async def run_coverage_audit(
       requirements_list_xml=req_xml,
       wpt_context=context.wpt_context,
     )
+    req_count = req_xml.count('<requirement ')
     task_name = (
-      f'Coverage Audit (Partition {i + 1}/{len(req_partitions)})'
+      f'Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)'
       if len(req_partitions) > 1
-      else 'Coverage Audit'
+      else f'Coverage Audit ({req_count} requirements)'
     )
     prompts.append((prompt, task_name))
 
@@ -118,11 +119,12 @@ async def run_coverage_audit(
 
   # Execute all partitions asynchronously
   tasks = []
-  for prompt, task_name in prompts:
-    tasks.append(
-      generate_safe(
-        prompt,
-        task_name,
+  for i, (prompt, task_name) in enumerate(prompts):
+
+    async def _run_with_index(idx: int, p: str, t_name: str) -> tuple[int, str]:
+      res = await generate_safe(
+        p,
+        t_name,
         llm,
         ui,
         config,
@@ -130,14 +132,31 @@ async def run_coverage_audit(
         temperature=0.01,
         model=config.get_model_for_phase('coverage_audit'),
       )
-    )
+      return idx, res
 
-  responses = await asyncio.gather(*tasks)
+    tasks.append(asyncio.create_task(_run_with_index(i, prompt, task_name)))
 
-  if len(responses) == 1:
-    audit_response = responses[0]
-  else:
+  total_tasks = len(tasks)
+  results_map = {}
+
+  if total_tasks > 1:
+    with ui.progress_indicator(
+      f'Running coverage audit... ({total_tasks} outstanding)', total=total_tasks
+    ) as progress:
+      for future in asyncio.as_completed(tasks):
+        idx, result = await future
+        results_map[idx] = result
+        remaining = total_tasks - len(results_map)
+        progress.update(
+          description='Running coverage audit...', outstanding=remaining if remaining > 0 else None
+        )
+        progress.advance()
+
+    responses = [results_map[i] for i in range(total_tasks)]
     audit_response = combine_audit_responses(responses)
+  else:
+    idx, result = await tasks[0]
+    audit_response = result
 
   context.audit_response = audit_response
   return audit_response
