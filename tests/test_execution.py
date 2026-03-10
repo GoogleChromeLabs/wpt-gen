@@ -104,8 +104,8 @@ async def test_run_test_execution_success_batch(
     assert 'chrome' in args
     assert 'canary' in args
     # Verify both tests are in the command line
-    assert str(test1.relative_to(wpt_root)) in args
-    assert str(test2.relative_to(wpt_root)) in args
+    assert test1.relative_to(wpt_root).as_posix() in args
+    assert test2.relative_to(wpt_root).as_posix() in args
 
     mock_ui.success.assert_called_with('Test execution succeeded for all 2 tests.')
 
@@ -143,8 +143,8 @@ async def test_run_test_execution_skips_references(
 
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
-    assert str(test1.relative_to(wpt_root)) in args
-    assert str(ref1.relative_to(wpt_root)) not in args
+    assert test1.relative_to(wpt_root).as_posix() in args
+    assert ref1.relative_to(wpt_root).as_posix() not in args
 
     mock_ui.success.assert_called_with('Test execution succeeded for all 1 tests.')
 
@@ -365,12 +365,14 @@ def test_match_test_id_to_path() -> None:
   assert _match_test_id_to_path('/css/css-grid/grid-model.html', valid_paths) is None
 
 
-def test_filter_executable_tests(mock_ui: MagicMock) -> None:
-  wpt_root = Path('/fake/wpt/root')
+def test_filter_executable_tests(mock_ui: MagicMock, tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'fake' / 'wpt' / 'root'
+  wpt_root.mkdir(parents=True)
+  wpt_root = wpt_root.resolve()
   generated_tests = [
     (wpt_root / 'test1.html', 'content1', 'xml1'),
     (wpt_root / 'test2-ref.html', 'content2', 'xml2'),
-    (Path('/some/other/path/test3.html'), 'content3', 'xml3'),
+    (tmp_path / 'some' / 'other' / 'path' / 'test3.html', 'content3', 'xml3'),
   ]
   valid_paths = _filter_executable_tests(generated_tests, wpt_root, mock_ui)
   assert len(valid_paths) == 1

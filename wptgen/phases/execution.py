@@ -58,7 +58,7 @@ def _filter_executable_tests(
     resolved_path = path.resolve()
     try:
       rel_path = resolved_path.relative_to(wpt_root)
-      valid_rel_paths.append(str(rel_path))
+      valid_rel_paths.append(rel_path.as_posix())
     except ValueError:
       ui.warning(
         f'Test {path.name} is not located under wpt root ({wpt_root}). Cannot execute via wpt run.'
