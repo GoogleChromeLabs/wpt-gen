@@ -59,6 +59,7 @@ class Config:
   execution_timeout: int | float = 90  # Default 1.5 minutes
   max_parallel_requests: int = 10
   temperature: float | None = None
+  loaded_from: str | None = None
 
   def get_model_for_phase(self, phase_name: str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -158,16 +159,19 @@ def load_config(
   """
   path = Path(config_path)
   yaml_data: dict[str, Any] = {}
+  loaded_from: str | None = None
 
   if path.exists():
     with open(path, encoding='utf-8') as f:
       yaml_data = yaml.safe_load(f) or {}
+    loaded_from = str(path.resolve())
   elif config_path == DEFAULT_CONFIG_PATH:
     # Fallback to global config if the default local path does not exist
     global_path = Path(_get_global_config_path())
     if global_path.exists():
       with open(global_path, encoding='utf-8') as f:
         yaml_data = yaml.safe_load(f) or {}
+      loaded_from = str(global_path.resolve())
 
   # Determine the active provider
   # CLI override takes precedence, then YAML default.
@@ -290,4 +294,5 @@ def load_config(
     temperature=temperature_override
     if temperature_override is not None
     else yaml_data.get('temperature'),
+    loaded_from=loaded_from,
   )
