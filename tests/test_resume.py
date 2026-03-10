@@ -66,7 +66,7 @@ def test_workflow_context_serialization() -> None:
   context = WorkflowContext(
     feature_id='test-feat',
     metadata=metadata,
-    spec_contents='Spec contents',
+    spec_contents={'http://spec': 'Spec contents'},
     wpt_context=wpt_context,
     requirements_xml='<reqs/>',
     audit_response='<audit/>',

@@ -88,7 +88,7 @@ class WorkflowContext:
 
   feature_id: str
   metadata: WebFeatureMetadata | None = None
-  spec_contents: str | None = None
+  spec_contents: dict[str, str] | None = None
   wpt_context: WPTContext | None = None
   requirements_xml: str | None = None
   audit_response: str | None = None
@@ -122,10 +122,16 @@ class WorkflowContext:
     if data.get('generated_tests'):
       generated_tests = [(Path(p), c, s) for p, c, s in data['generated_tests']]
 
+    spec_contents = data.get('spec_contents')
+    if isinstance(spec_contents, str):
+      # Fallback for old cache format
+      spec_url = metadata.specs[0] if metadata and metadata.specs else 'unknown'
+      spec_contents = {spec_url: spec_contents}
+
     return cls(
       feature_id=data['feature_id'],
       metadata=metadata,
-      spec_contents=data.get('spec_contents'),
+      spec_contents=spec_contents,
       wpt_context=wpt_context,
       requirements_xml=data.get('requirements_xml'),
       audit_response=data.get('audit_response'),

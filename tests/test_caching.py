@@ -73,7 +73,7 @@ async def test_requirements_cache_miss(
   context = WorkflowContext(
     feature_id='test-feat',
     metadata=metadata,
-    spec_contents='spec content',
+    spec_contents={'http://spec': 'spec content'},
   )
   cache_dir = tmp_path / 'cache'
   cache_dir.mkdir()
@@ -147,7 +147,7 @@ async def test_requirements_cache_hit_reject(
   context = WorkflowContext(
     feature_id=web_feature_id,
     metadata=metadata,
-    spec_contents='spec content',
+    spec_contents={'http://spec': 'spec content'},
   )
 
   # User rejects cache

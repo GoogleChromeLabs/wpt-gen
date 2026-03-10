@@ -88,7 +88,7 @@ async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicM
     assert context.feature_id == 'feat-id'
     assert context.metadata is not None
     assert context.metadata.name == 'Feat'
-    assert context.spec_contents == 'Spec Content'
+    assert context.spec_contents == {'http://spec': 'Spec Content'}
     mock_ui.on_phase_start.assert_called_once_with(1, 'Context Assembly')
     mock_ui.report_metadata.assert_called_once()
 
@@ -173,7 +173,7 @@ async def test_run_requirements_extraction_cached(
   context = WorkflowContext(
     feature_id='feat',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
+    spec_contents={'http://spec': 'Spec'},
   )
   cache_dir = tmp_path
   cache_file = cache_dir / 'feat__requirements.xml'
@@ -199,7 +199,7 @@ async def test_run_requirements_extraction_categorized(
   context = WorkflowContext(
     feature_id='feat',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
+    spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
@@ -238,7 +238,7 @@ async def test_run_requirements_extraction_categorized_partial_empty(
   context = WorkflowContext(
     feature_id='feat-partial',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
+    spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
@@ -274,7 +274,7 @@ async def test_run_requirements_extraction_categorized_with_rationale(
   context = WorkflowContext(
     feature_id='feat-rationale',
     metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
-    spec_contents='Spec',
+    spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
