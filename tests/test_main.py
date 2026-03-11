@@ -838,6 +838,38 @@ def test_init_command_local(mocker: MockerFixture) -> None:
     assert str(Path('/fake/wpt').resolve()) == config_data['wpt_path']
 
 
+def test_init_command_with_wpt_path_flag(mocker: MockerFixture) -> None:
+  """Test the init command accepts --wpt-path and skips the prompt."""
+  import yaml
+
+  with runner.isolated_filesystem():
+    local_config_path = str(Path('wpt-gen.yml').resolve())
+
+    # Inputs:
+    # 1. 'gemini' (provider)
+    # 2. '' (default model - accept default)
+    # 3. '' (lightweight model - accept default)
+    # 4. '' (reasoning model - accept default)
+    # NO WPT PATH PROMPT because of the flag
+    result = runner.invoke(
+      app,
+      ['init', '--config', 'wpt-gen.yml', '--wpt-path', '/flag/wpt'],
+      input='gemini\n\n\n\n',
+    )
+
+    assert result.exit_code == 0
+    assert 'Configuration saved successfully' in result.stdout
+
+    config_path = Path(local_config_path)
+    assert config_path.exists()
+
+    with open(config_path, encoding='utf-8') as f:
+      config_data = yaml.safe_load(f)
+
+    assert config_data['default_provider'] == 'gemini'
+    assert str(Path('/flag/wpt').resolve()) == config_data['wpt_path']
+
+
 def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
   """Test the happy path execution of the audit command."""
   mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
