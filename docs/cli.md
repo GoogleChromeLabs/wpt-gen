@@ -34,6 +34,7 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--suggestions-only` | Stop after generating test blueprints/suggestions. Skip the actual test file generation. |
 | `--yes-tokens` | Automatically confirm all prompts related to LLM token counts. |
 | `--skip-evaluation`, `--no-eval` | Skip the Phase 5 (Evaluation) step. |
+| `--skip-execution`, `--no-exec` | Skip the Phase 6 (Test Execution) step (useful if the browser implementation is not completed). |
 | `--max-parallel-requests` | Limit the number of concurrent asynchronous LLM requests. |
 
 #### Model Configuration

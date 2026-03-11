@@ -102,6 +102,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -141,6 +142,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -176,6 +178,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -211,6 +214,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -246,6 +250,7 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -281,6 +286,7 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -315,6 +321,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=True,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -344,6 +351,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=True,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -410,6 +418,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -445,6 +454,7 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -480,6 +490,7 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -515,6 +526,7 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     use_lightweight_override=True,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -550,6 +562,7 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     use_lightweight_override=False,
     use_reasoning_override=True,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -585,6 +598,7 @@ def test_generate_single_prompt_requirements(mocker: MockerFixture, mock_config:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -620,6 +634,7 @@ def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Conf
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=5,
     temperature_override=None,
@@ -886,6 +901,7 @@ def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
   kwargs = mock_load_config.call_args.kwargs
   assert kwargs['suggestions_only'] is True
   assert kwargs['skip_evaluation_override'] is True
+  assert kwargs['skip_execution_override'] is True
   assert kwargs['provider_override'] == 'gemini'
 
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
@@ -919,6 +935,7 @@ def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
     use_lightweight_override=False,
     use_reasoning_override=False,
     skip_evaluation_override=False,
+    skip_execution_override=False,
     tentative_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
@@ -1007,3 +1024,68 @@ def test_config_set_command_types(mocker: MockerFixture) -> None:
     assert data['timeout'] == 120
     assert data['show_responses'] is True
     assert data['temperature'] == 0.5
+
+
+def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test that the --skip-execution/--no-exec flag is correctly passed to load_config."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mocker.patch('wptgen.main.WPTGenEngine')
+
+  # Run with --skip-execution
+  result = runner.invoke(app, ['generate', 'grid', '--skip-execution'])
+  assert result.exit_code == 0
+  mock_load_config.assert_called_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    yes_tests_override=False,
+    suggestions_only=False,
+    resume_override=False,
+    max_retries_override=3,
+    timeout_override=600,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=False,
+    draft_override=False,
+    single_prompt_requirements_override=False,
+    use_lightweight_override=False,
+    use_reasoning_override=False,
+    skip_evaluation_override=False,
+    skip_execution_override=True,
+    tentative_override=False,
+    max_parallel_requests_override=None,
+    temperature_override=None,
+  )
+
+  # Run with --no-exec alias
+  mock_load_config.reset_mock()
+  result = runner.invoke(app, ['generate', 'grid', '--no-exec'])
+  assert result.exit_code == 0
+  mock_load_config.assert_called_with(
+    config_path=DEFAULT_CONFIG_PATH,
+    provider_override=None,
+    wpt_dir_override=None,
+    output_dir_override=None,
+    show_responses=False,
+    yes_tokens_override=False,
+    yes_tests_override=False,
+    suggestions_only=False,
+    resume_override=False,
+    max_retries_override=3,
+    timeout_override=600,
+    spec_urls_override=None,
+    feature_description_override=None,
+    detailed_requirements_override=False,
+    draft_override=False,
+    single_prompt_requirements_override=False,
+    use_lightweight_override=False,
+    use_reasoning_override=False,
+    skip_evaluation_override=False,
+    skip_execution_override=True,
+    tentative_override=False,
+    max_parallel_requests_override=None,
+    temperature_override=None,
+  )
