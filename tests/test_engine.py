@@ -230,3 +230,147 @@ async def test_run_async_workflow_skip_execution(
 
   mock_exec.assert_not_called()
   mock_ui.info.assert_called_with('Skipping Phase 6: Test Execution.')
+
+
+def test_engine_load_resume_state_invalid_json(
+  mocker: MockerFixture, tmp_path: Path, mock_config: Config
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+  resume_file = tmp_path / 'mock_feature_resume.json'
+  resume_file.write_text('invalid json')
+  mocker.patch('wptgen.engine.WPTGenEngine._get_resume_file_path', return_value=resume_file)
+  result = engine._load_resume_state('mock_feature')
+  assert result is None
+
+
+@pytest.mark.asyncio
+async def test_engine_single_prompt_requirements(
+  mocker: MockerFixture, mock_config: Config
+) -> None:
+  mock_config.single_prompt_requirements = True
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+
+  mock_context = WorkflowContext(feature_id='mock_feature', wpt_context='mock_context')
+
+  mocker.patch(
+    'wptgen.engine.run_context_assembly', new_callable=AsyncMock, return_value=mock_context
+  )
+  mocker.patch(
+    'wptgen.engine.run_requirements_extraction', new_callable=AsyncMock, return_value='<xml></xml>'
+  )
+  mocker.patch(
+    'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit_response'
+  )
+  mocker.patch(
+    'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
+  )
+  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
+
+  await engine._run_async_workflow('mock_feature')
+
+  import wptgen.engine
+
+  wptgen.engine.run_requirements_extraction.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_engine_skip_phase_4(mocker: MockerFixture, mock_config: Config) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+
+  mock_context = WorkflowContext(
+    feature_id='mock_feature',
+    wpt_context='mock_context',
+    requirements_xml='<xml></xml>',
+    audit_response='mock_audit',
+    generated_tests=['mock_test_1'],
+  )
+
+  mocker.patch(
+    'wptgen.engine.run_context_assembly', new_callable=AsyncMock, return_value=mock_context
+  )
+  mocker.patch(
+    'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit'
+  )
+  mocker.patch('wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=[])
+  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
+
+  await engine._run_async_workflow('mock_feature')
+
+  ui_mock.success.assert_any_call('Skipping Phase 4: Tests already generated.')
+
+
+def test_engine_load_resume_state_missing(
+  mocker: MockerFixture, tmp_path: Path, mock_config: Config
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+  resume_file = tmp_path / 'non_existent.json'
+  mocker.patch('wptgen.engine.WPTGenEngine._get_resume_file_path', return_value=resume_file)
+  result = engine._load_resume_state('mock_feature')
+  assert result is None
+
+
+@pytest.mark.asyncio
+async def test_engine_resume_workflow_success(mocker: MockerFixture, mock_config: Config) -> None:
+  mock_config.resume = True
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+
+  mock_context = WorkflowContext(
+    feature_id='mock_feature',
+    wpt_context='mock_context',
+    requirements_xml='<xml>',
+    audit_response='audit',
+    generated_tests=['test'],
+  )
+  mocker.patch('wptgen.engine.WPTGenEngine._load_resume_state', return_value=mock_context)
+
+  mocker.patch(
+    'wptgen.engine.run_context_assembly', new_callable=AsyncMock, return_value=mock_context
+  )
+  mocker.patch(
+    'wptgen.engine.run_requirements_extraction_categorized',
+    new_callable=AsyncMock,
+    return_value='<xml></xml>',
+  )
+  mocker.patch(
+    'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit'
+  )
+  mocker.patch(
+    'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
+  )
+  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
+
+  await engine._run_async_workflow('mock_feature')
+
+  ui_mock.success.assert_any_call('Resuming workflow for mock_feature')
+
+
+def test_engine_load_resume_state_success(
+  mocker: MockerFixture, tmp_path: Path, mock_config: Config
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  engine = WPTGenEngine(mock_config, ui_mock)
+  resume_file = tmp_path / 'mock_feature_resume.json'
+  resume_file.write_text(
+    '{"feature_id": "mock_feature", "metadata": null, "spec_contents": null, "wpt_context": null, "requirements_xml": null, "audit_response": null, "suggestions": [], "approved_suggestions_xml": [], "mdn_contents": null, "generated_tests": null}'
+  )
+  mocker.patch('wptgen.engine.WPTGenEngine._get_resume_file_path', return_value=resume_file)
+  result = engine._load_resume_state('mock_feature')
+  assert result is not None
+  assert result.feature_id == 'mock_feature'
