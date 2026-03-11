@@ -337,7 +337,7 @@ async def test_run_test_execution_correction_loop_and_diff(
       mock_generate_safe.assert_called_once()
 
       # Assert the file was updated
-      assert test_path.read_text(encoding='utf-8') == 'new code'
+      assert test_path.read_text(encoding='utf-8') == 'new code\n'
 
       # Assert ui.print_diff was called
       mock_ui.print_diff.assert_called_once_with('old code\n', 'new code', 'test_fail.html')
