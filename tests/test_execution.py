@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import json
+import typing
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -28,6 +29,12 @@ from wptgen.phases.execution import (
   _parse_test_results,
   run_test_execution,
 )
+
+
+async def _mock_stream(data: bytes) -> typing.AsyncGenerator[bytes, None]:
+  if data:
+    for line in data.splitlines(keepends=True):
+      yield line
 
 
 @pytest.fixture
@@ -88,7 +95,8 @@ async def test_run_test_execution_success_batch(
   context = WorkflowContext(feature_id='feat')
 
   mock_process = AsyncMock()
-  mock_process.communicate.return_value = (b'stdout', b'stderr')
+  mock_process.stdout = _mock_stream(b'stdout')
+  mock_process.stderr = _mock_stream(b'stderr')
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
@@ -132,7 +140,8 @@ async def test_run_test_execution_skips_references(
   context = WorkflowContext(feature_id='feat')
 
   mock_process = AsyncMock()
-  mock_process.communicate.return_value = (b'stdout', b'stderr')
+  mock_process.stdout = _mock_stream(b'stdout')
+  mock_process.stderr = _mock_stream(b'stderr')
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
@@ -166,7 +175,8 @@ async def test_run_test_execution_failure(
   context = WorkflowContext(feature_id='feat')
 
   mock_process = AsyncMock()
-  mock_process.communicate.return_value = (b'some output', b'some error')
+  mock_process.stdout = _mock_stream(b'some output')
+  mock_process.stderr = _mock_stream(b'some error')
   mock_process.returncode = 1
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
@@ -402,7 +412,8 @@ async def test_execute_wpt_run_success(
   wpt_root.mkdir()
   wpt_executable = wpt_root / 'wpt'
   mock_process = AsyncMock()
-  mock_process.communicate.return_value = (b'stdout_data', b'stderr_data')
+  mock_process.stdout = _mock_stream(b'stdout_data')
+  mock_process.stderr = _mock_stream(b'stderr_data')
   mock_process.returncode = 0
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
     returncode, output = await _execute_wpt_run(
@@ -424,11 +435,13 @@ async def test_execute_wpt_run_timeout(
   mock_process = AsyncMock()
   mock_process.kill = MagicMock()
 
-  async def slow_communicate() -> tuple[bytes, bytes]:
+  async def slow_wait() -> int:
     await asyncio.sleep(0.02)
-    return b'', b''
+    return 0
 
-  mock_process.communicate = slow_communicate
+  mock_process.wait = slow_wait
+  mock_process.stdout = _mock_stream(b'')
+  mock_process.stderr = _mock_stream(b'')
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
     returncode, output = await _execute_wpt_run(
       wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 0.01

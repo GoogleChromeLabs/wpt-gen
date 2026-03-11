@@ -95,8 +95,28 @@ async def _execute_wpt_run(
     *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
   )
 
+  stdout_chunks: list[str] = []
+  stderr_chunks: list[str] = []
+
+  async def stream_output(
+    stream: asyncio.StreamReader | None, chunks: list[str], style: str | None = None
+  ) -> None:
+    if stream is None:
+      return
+    async for line in stream:
+      decoded_line = line.decode('utf-8', errors='replace')
+      chunks.append(decoded_line)
+      ui.print(decoded_line.rstrip('\n'), style=style)
+
+  async def communicate_and_stream() -> None:
+    await asyncio.gather(
+      stream_output(process.stdout, stdout_chunks, style='dim'),
+      stream_output(process.stderr, stderr_chunks, style='dim red'),
+    )
+    await process.wait()
+
   try:
-    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=execution_timeout)
+    await asyncio.wait_for(communicate_and_stream(), timeout=execution_timeout)
   except asyncio.TimeoutError:
     process.kill()
     await process.wait()
@@ -104,12 +124,12 @@ async def _execute_wpt_run(
     return -1, ''
 
   output = ''
-  if stdout:
-    output += stdout.decode('utf-8', errors='replace')
-  if stderr:
+  if stdout_chunks:
+    output += ''.join(stdout_chunks)
+  if stderr_chunks:
     if output:
       output += '\n'
-    output += stderr.decode('utf-8', errors='replace')
+    output += ''.join(stderr_chunks)
 
   return process.returncode if process.returncode is not None else -1, output
 
