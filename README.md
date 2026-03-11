@@ -43,7 +43,7 @@ flowchart TD
     subgraph Generation[Test Generation & Execution]
         G --> H{{Test Generation}}
         H --> I{{Evaluation}}
-        I --> J[{{Test Execution & Self-Correction}}]
+        I --> J{{Test Execution & Self-Correction}}
     end
 
     classDef llm fill:#4B0082,stroke:#333,stroke-width:2px;
