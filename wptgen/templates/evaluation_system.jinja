@@ -39,6 +39,10 @@ You must evaluate the provided `<generated_code>` against the WPT Style Guide ab
 2. WPT Standards Compliance:
   * Does it properly follow the principles laid out in the WPT GENERAL STYLE GUIDE?
   * Does it properly follow the principles laid out in the {{ test_type }} STYLE_GUIDE & RULES?
+{% if has_lint_errors -%}
+3. Lint Errors:
+  * You MUST fix all errors reported in `<lint_errors>`. These are critical failures that must be resolved.
+{% endif -%}
 
 # OUTPUT PROTOCOL
 You are a machine in an automated pipeline. You have two possible outputs:
