@@ -29,6 +29,7 @@ from wptgen.utils import (
   extract_xml_tag,
   fix_reftest_link,
   parse_multi_file_response,
+  strip_trailing_whitespace,
 )
 
 
@@ -199,7 +200,9 @@ async def _evaluate_and_update(
         p_old, old_content = test_path_item
         if p_test_new != p_old:
           p_old.unlink(missing_ok=True)
-        p_test_new.write_text(ensure_trailing_newline(c_test_new), encoding='utf-8')
+        p_test_new.write_text(
+          ensure_trailing_newline(strip_trailing_whitespace(c_test_new)), encoding='utf-8'
+        )
         ui.report_evaluation_result(p_test_new.name, success=True, updated=True)
         ui.print_diff(old_content, c_test_new, p_test_new.name)
 
@@ -207,7 +210,9 @@ async def _evaluate_and_update(
         p_old, old_content = ref_path_item
         if p_ref_new != p_old:
           p_old.unlink(missing_ok=True)
-        p_ref_new.write_text(ensure_trailing_newline(c_ref_new), encoding='utf-8')
+        p_ref_new.write_text(
+          ensure_trailing_newline(strip_trailing_whitespace(c_ref_new)), encoding='utf-8'
+        )
         ui.report_evaluation_result(p_ref_new.name, success=True, updated=True)
         ui.print_diff(old_content, c_ref_new, p_ref_new.name)
     else:
@@ -215,7 +220,9 @@ async def _evaluate_and_update(
       if len(files) == 1:
         path, old_content = files[0]
         clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
-        path.write_text(ensure_trailing_newline(clean_content), encoding='utf-8')
+        path.write_text(
+          ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'
+        )
         ui.report_evaluation_result(path.name, success=True, updated=True)
         ui.print_diff(old_content, clean_content, path.name)
       else:

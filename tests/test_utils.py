@@ -445,3 +445,14 @@ def test_ensure_trailing_newline() -> None:
   assert ensure_trailing_newline('test\r\n') == 'test\n'
   assert ensure_trailing_newline('test\n\n\n') == 'test\n'
   assert ensure_trailing_newline('test \n') == 'test \n'
+
+
+def test_strip_trailing_whitespace() -> None:
+  from wptgen.utils import strip_trailing_whitespace
+
+  assert strip_trailing_whitespace('') == ''
+  assert strip_trailing_whitespace('test  ') == 'test'
+  assert strip_trailing_whitespace('test \nline 2 \t') == 'test\nline 2'
+  assert strip_trailing_whitespace('  test') == '  test'
+  assert strip_trailing_whitespace('line1  \nline2') == 'line1\nline2'
+  assert strip_trailing_whitespace('line1 \r\nline2 \r\n') == 'line1\r\nline2\r\n'
