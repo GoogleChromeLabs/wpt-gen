@@ -16,7 +16,7 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 
 ## Key Features
 
-*   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch W3C Spec URLs, using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
+*   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch specification and MDN documentation (if available), using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
@@ -35,19 +35,19 @@ flowchart TD
     end
 
     subgraph Analysis[Requirement & Gap Analysis]
-        B & D --> E{{Phase 2: Requirements Extraction}}
-        E --> F{{Phase 3: Coverage Audit}}
+        B & D --> E{{Requirements Extraction}}
+        E --> F{{Coverage Audit}}
         F --> G[Test Blueprints]
     end
 
     subgraph Generation[Test Generation & Execution]
-        G --> H{{Phase 4: Test Generation}}
-        H --> I{{Phase 5: Evaluation & Self-Correction}}
-        I --> J[Phase 6: Test Execution]
+        G --> H{{Test Generation}}
+        H --> I{{Evaluation}}
+        I --> J[{{Test Execution & Self-Correction}}]
     end
 
     classDef llm fill:#4B0082,stroke:#333,stroke-width:2px;
-    class E,F,H,I llm;
+    class E,F,H,I,J llm;
 ```
 
 ### Workflow Phases
@@ -56,8 +56,8 @@ flowchart TD
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
 3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
 4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using Jinja2 templates and specific style guide instructions.
-5.  **Phase 5: Evaluation (Self-Correction):** A secondary LLM pass reviews the generated code against WPT standards and the original requirements, providing fixes or optimizations before final output.
-6.  **Phase 6: Test Execution:** Integrates with the `./wpt run` CLI to verify that the newly generated tests are valid and functional in a real browser environment.
+5.  **Phase 5: Evaluation:** A secondary LLM pass reviews the generated code against WPT standards and the original requirements, providing fixes or optimizations before final output.
+6.  **Phase 6: Test Execution & Self-Correction:** Integrates with the `./wpt run` CLI to execute the generated tests in a real browser environment. If tests fail, it automatically parses the logs, feeds the error output back into the LLM, and attempts to dynamically correct the test code in a loop.
 
 ## Prerequisites
 
@@ -83,12 +83,7 @@ cd wpt-gen
 # Install the package (using a virtual environment is recommended)
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
-```
-
-To install development dependencies:
-```bash
-pip install -e ".[dev]"
+make install
 ```
 
 ## Configuration
@@ -107,12 +102,17 @@ export ANTHROPIC_API_KEY="your_anthropic_api_key"
 ```
 
 ### 2. YAML Configuration (`wpt-gen.yml`)
-Create a `wpt-gen.yml` in the root of the project to manage defaults:
+Run `wpt-gen init` to generate a `wpt-gen.yml` configuration file with sensible defaults:
+
+```bash
+wpt-gen init --wpt-path /path/to/your/local/wpt
+```
+
+This will create a configuration file that looks like this:
 
 ```yaml
 default_provider: gemini
 wpt_path: /path/to/your/local/wpt  # Path to your local WPT checkout
-show_responses: false              # Set to true to see raw LLM outputs by default
 
 providers:
   gemini:
@@ -158,20 +158,20 @@ The primary interface is the `generate` command, which requires a **Web Feature 
 ### Basic Generation
 
 ```bash
-wpt-gen generate grid
+wpt-gen generate font-family
 ```
 
 ### Common Options
 
 | Option | Shorthand | Description |
 | :--- | :--- | :--- |
-| `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `grid`, `popover`). |
+| `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `font-family`, `popover`). |
 | `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--draft` | | Enable fetching metadata from the draft features directory. |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 
-**Note:** For a full list of all 20+ options (including execution control, retries, and manual overrides), see the [CLI Command Reference](docs/cli.md).
+**Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including execution control, retries, and manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).
 
 ### Other Commands
 
@@ -183,22 +183,27 @@ wpt-gen generate grid
 ## Development
 
 ### Running Tests
-We use `pytest` for unit and integration testing.
+We use `pytest` for unit and integration testing. Run tests easily via:
 
 ```bash
-pytest
+make test
 ```
 
 ### Linting & Formatting
-We use `ruff` to maintain code quality and `mypy` for type checking.
+We use `ruff` to maintain code quality and `mypy` for type checking. You can run these using `make` commands:
 
 ```bash
 # Lint and format
-ruff check .
-ruff format .
+make lint-fix
 
 # Type check
-mypy .
+make typecheck
+
+# Run all checks (format, lint, typecheck, tests)
+make check
+
+# Prepare for PR (runs lint-fix, typecheck, and test)
+make presubmit
 ```
 
 ## AI Assistant Integration
