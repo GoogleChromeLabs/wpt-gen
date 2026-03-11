@@ -169,6 +169,7 @@ wpt-gen generate font-family
 | `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--draft` | | Enable fetching metadata from the draft features directory. |
+| `--skip-execution` | `--no-exec` | Skip the test execution phase (useful if the browser implementation is not completed). |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 
 **Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including execution control, retries, and manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).

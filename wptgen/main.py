@@ -183,6 +183,14 @@ def generate(
       help='Skip the evaluation phase after generating tests.',
     ),
   ] = False,
+  skip_execution: Annotated[
+    bool,
+    typer.Option(
+      '--skip-execution',
+      '--no-exec',
+      help='Skip the test execution phase after generating tests.',
+    ),
+  ] = False,
   tentative: Annotated[
     bool,
     typer.Option(
@@ -260,6 +268,7 @@ def generate(
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
+      skip_execution_override=skip_execution,
       tentative_override=tentative,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
@@ -729,6 +738,7 @@ def audit(
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=True,
+      skip_execution_override=True,
       tentative_override=False,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
