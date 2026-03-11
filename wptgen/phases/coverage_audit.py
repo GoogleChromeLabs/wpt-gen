@@ -98,6 +98,13 @@ async def run_coverage_audit(
       requirements_list_xml=req_xml,
       wpt_context=context.wpt_context,
     )
+
+    if llm.prompt_exceeds_input_token_limit(
+      prompt, model=config.get_model_for_phase('coverage_audit')
+    ):
+      ui.error('This test suite to too large to audit.')
+      return None
+
     req_count = len(re.findall(r'<requirement\b[^>]*>', req_xml))
     task_name = (
       f'Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)'
