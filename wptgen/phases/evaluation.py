@@ -36,7 +36,7 @@ async def _run_wpt_lint(path: Path, wpt_dir: Path) -> str | None:
   """Runs ./wpt lint on the given path and returns the error output if any."""
   try:
     # Use path relative to wpt_dir for cleaner output
-    rel_path = str(path.relative_to(wpt_dir))
+    rel_path = str(path.resolve().relative_to(wpt_dir.resolve()))
     process = await asyncio.create_subprocess_exec(
       './wpt',
       'lint',

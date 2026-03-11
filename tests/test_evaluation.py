@@ -388,6 +388,41 @@ async def test_run_wpt_lint_exception(
 
 
 @pytest.mark.asyncio
+async def test_run_wpt_lint_relative_wpt_dir(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  import os
+
+  from wptgen.phases.evaluation import _run_wpt_lint
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'', b'')
+  mock_process.returncode = 0
+  mock_exec = mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  wpt_dir = tmp_path / 'wpt'
+  wpt_dir.mkdir(parents=True, exist_ok=True)
+  test_file = wpt_dir / 'test.html'
+  test_file.touch()
+
+  original_cwd = Path.cwd()
+  try:
+    os.chdir(tmp_path)
+    # The relative path from tmp_path to tmp_path/wpt is simply 'wpt'
+    rel_wpt_dir = Path('wpt')
+
+    # Run lint with absolute test_file path and relative wpt_dir path
+    result = await _run_wpt_lint(test_file.absolute(), rel_wpt_dir)
+
+    assert result is None
+    mock_exec.assert_called_once()
+    # Assert that the relative path passed to wpt lint is correct
+    assert mock_exec.call_args[0][2] == 'test.html'
+  finally:
+    os.chdir(original_cwd)
+
+
+@pytest.mark.asyncio
 async def test_run_test_evaluation_non_reftest_multi_file(
   mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
