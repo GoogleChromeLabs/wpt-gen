@@ -33,6 +33,27 @@ from wptgen.utils import (
 )
 
 
+async def _run_wpt_lint(paths: list[Path], wpt_dir: Path) -> str | None:
+  """Runs ./wpt lint on the given paths and returns the error output if any."""
+  try:
+    # Use paths relative to wpt_dir for cleaner output
+    rel_paths = [str(p.relative_to(wpt_dir)) for p in paths]
+    process = await asyncio.create_subprocess_exec(
+      './wpt',
+      'lint',
+      *rel_paths,
+      cwd=wpt_dir,
+      stdout=asyncio.subprocess.PIPE,
+      stderr=asyncio.subprocess.STDOUT,
+    )
+    stdout, _ = await process.communicate()
+    if process.returncode != 0:
+      return stdout.decode('utf-8').strip()
+    return None
+  except Exception as e:
+    return f'Failed to run ./wpt lint: {e}'
+
+
 async def run_test_evaluation(
   context: WorkflowContext,
   config: Config,
@@ -73,11 +94,16 @@ async def run_test_evaluation(
     guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
+    # Run linting for the grouped test paths
+    group_paths = [p for p, _ in group]
+    lint_errors = await _run_wpt_lint(group_paths, Path(config.wpt_path))
+
     # Render the system instruction with both general and type-specific rules
     system_instruction = system_template.render(
       wpt_style_guide=wpt_style_guide,
       test_type=test_type_enum.value,
       test_type_guide=test_type_guide,
+      has_lint_errors=bool(lint_errors),
     )
 
     # Format the code content, using multi-file partitioning for Reftests ONLY
@@ -106,6 +132,7 @@ async def run_test_evaluation(
     prompt = evaluation_template.render(
       test_suggestion_xml=suggestion_xml,
       generated_code_content=generated_code_content.strip(),
+      lint_errors=lint_errors,
     )
     tasks.append(
       _evaluate_and_update(group, prompt, llm, ui, config, system_instruction, test_type_enum)
