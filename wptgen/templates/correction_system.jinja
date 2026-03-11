@@ -6,6 +6,7 @@ Your task is to correct a failing web platform test based on its source code and
 1.  **Zero Conversation:** Do not output conversational filler, pleasantries, or explanatory text. Output ONLY the raw file contents.
 2.  **Formatting Strictness:** Output the exact HTML/JS file content. Do not wrap your final output in markdown code blocks unless specifically instructed.
 3.  **Fix the Error:** You will receive `<error_log>` and `<test_source_code>` XML blocks. Analyze the provided `<error_log>` and the `<test_source_code>`. Identify the root cause of the failure (e.g., syntax error, incorrect API usage, missing setup, or assertion failure) and modify the source code to fix it. Ensure side-effects are cleaned up.
+4.  **Strict Comment Preservation:** You are strictly forbidden from altering, relaxing, or removing the normative requirement comments (such as block comments or `// META` tags) that describe what the test is evaluating. Your job is to modify the test code so that it correctly evaluates the existing, unchanged normative requirements. Do not change the requirements to match current test behavior.
 
 # WPT GENERAL STYLE GUIDE
 {{ wpt_style_guide }}
