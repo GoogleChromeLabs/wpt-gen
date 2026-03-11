@@ -1143,3 +1143,19 @@ def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> 
     temperature_override=None,
     wpt_binary_override=None,
   )
+
+
+def test_chromestatus_success(mocker: MockerFixture, mock_config: Config) -> None:
+  """Test the happy path execution of the chromestatus command."""
+  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
+  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
+  mock_engine_instance = mock_engine_class.return_value
+
+  result = runner.invoke(app, ['chromestatus', '123', '--provider', 'gemini'])
+
+  assert result.exit_code == 0
+  assert 'ChromeStatus Feature ID' in result.stdout
+  assert 'Workflow completed successfully' in result.stdout
+
+  mock_load_config.assert_called_once()
+  mock_engine_instance.run_chromestatus_workflow.assert_called_once_with('123')

@@ -21,7 +21,10 @@ from jinja2 import Environment, FileSystemLoader
 from wptgen.config import Config
 from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext
-from wptgen.phases.context_assembly import run_context_assembly
+from wptgen.phases.context_assembly import (
+  run_chromestatus_context_assembly,
+  run_context_assembly,
+)
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
 from wptgen.phases.evaluation import run_test_evaluation
 from wptgen.phases.execution import run_test_execution
@@ -68,6 +71,10 @@ class WPTGenEngine:
     """Entry point for the synchronous CLI to launch the async workflow."""
     asyncio.run(self._run_async_workflow(web_feature_id))
 
+  def run_chromestatus_workflow(self, feature_id: str) -> None:
+    """Entry point for the synchronous CLI to launch the ChromeStatus async workflow."""
+    asyncio.run(self._run_async_chromestatus_workflow(feature_id))
+
   def _get_resume_file_path(self, web_feature_id: str) -> Path:
     """Returns the path to the resume file for a given web feature ID."""
     return self.cache_dir / f'resume_{web_feature_id}.json'
@@ -106,6 +113,30 @@ class WPTGenEngine:
       if not context:
         raise WorkflowError('Phase 1: Context Assembly failed.')
       self._save_resume_state(context)
+
+    await self._run_phases_from_extraction(context)
+
+  async def _run_async_chromestatus_workflow(self, feature_id: str) -> None:
+    """Orchestrates the end-to-end WPT generation workflow starting from ChromeStatus."""
+    context_id = f'chromestatus_{feature_id}'
+    context = None
+    if self.config.resume:
+      context = self._load_resume_state(context_id)
+      if context:
+        self.ui.success(f'Resuming workflow for {context_id}')
+
+    # Phase 1: ChromeStatus Context Assembly
+    if not context or not context.wpt_context:
+      context = await run_chromestatus_context_assembly(feature_id, self.config, self.ui)
+      if not context:
+        raise WorkflowError('Phase 1: ChromeStatus Context Assembly failed.')
+      self._save_resume_state(context)
+
+    await self._run_phases_from_extraction(context)
+
+  async def _run_phases_from_extraction(self, context: WorkflowContext) -> None:
+    """Runs the remaining phases of the workflow starting from Requirements Extraction."""
+    web_feature_id = context.feature_id
 
     # Phase 2: Requirements Extraction
     if not context.requirements_xml:
@@ -165,9 +196,11 @@ class WPTGenEngine:
 
     # Phase 6: Test Execution
     if context.generated_tests and not self.config.skip_execution:
-      await run_test_execution(
+      success = await run_test_execution(
         context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
       )
+      if not success:
+        raise WorkflowError('Phase 6: Test Execution failed.')
     elif context.generated_tests and self.config.skip_execution:
       self.ui.info('Skipping Phase 6: Test Execution.')
 
