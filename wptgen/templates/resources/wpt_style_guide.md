@@ -24,7 +24,6 @@ Follow these steps to determine the correct filename suffix for a test. The goal
 Determine the primary file format based on the content of your test:
 - **`.html`**: Use for standard web-based tests (HTML/XHTML/SVG/XML).
 - **`.js`**: Use for pure JavaScript tests, especially if you want to use the automated boilerplate generation (see Step 4).
-- **`.py`**: Use ONLY for `wdspec` (WebDriver protocol) tests.
 
 #### Step 2: Choose Test Feature Flags (Optional)
 If your test requires specific server features or environment settings, append these flags (preceded and followed by a `.`). These come **after** any test type flag.
@@ -53,10 +52,9 @@ Assemble the parts in this specific order:
 
 **Result**: `.https.sub.html`
 
-##### Quick Check Table for LLMs:
+##### Quick Check Table:
 | If the test contains... | Use Suffix... |
 | :--- | :--- |
-| WebDriver Protocol (Python) | `.py` |
 | Needs HTTPS | `.https.html` |
 | JS test running in multiple scopes | `.any.js` |
 | Server-side `{{variable}}` substitution | `.sub.html` |
