@@ -65,3 +65,29 @@ async def test_run_coverage_audit_token_limit_exceeded(
 
   assert result is None
   mock_ui.error.assert_called_once_with('This test suite to too large to audit.')
+
+
+def test_combine_audit_responses_all_satisfied() -> None:
+  from wptgen.phases.coverage_audit import combine_audit_responses
+
+  responses = [
+    '<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
+    '<status>SATISFIED</status>\n<audit_worksheet>W2</audit_worksheet>',
+  ]
+  result = combine_audit_responses(responses)
+  assert '<status>SATISFIED</status>' in result
+  assert '<audit_worksheet>\nW1\nW2\n</audit_worksheet>' in result
+  assert 'test_suggestions' not in result
+
+
+def test_combine_audit_responses_with_suggestions() -> None:
+  from wptgen.phases.coverage_audit import combine_audit_responses
+
+  responses = [
+    '<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
+    '<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>',
+  ]
+  result = combine_audit_responses(responses)
+  assert '<status>TESTS_NEEDED</status>' in result
+  assert '<audit_worksheet>\nW1\nW2\n</audit_worksheet>' in result
+  assert '<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>' in result
