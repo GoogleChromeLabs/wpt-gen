@@ -34,7 +34,7 @@ You must evaluate the provided `<generated_code>` against the WPT Style Guide ab
 
 1. Blueprint Alignment (No Hallucinations):
   * Does the code explicitly test the `<expected_result>` using the exact `<steps>` defined in the blueprint?
-  * Does the code hallucinate APIs, properties, or methods that are not explicitly mandated by the blueprint?
+  * Does the code hallucinate APIs, properties, or methods that are not explicitly mandated by the blueprint? (CRITICAL: You may be testing brand-new or undocumented browser features. Do NOT treat unknown APIs as hallucinations simply because you do not recognize them. Assume any API explicitly mandated by the blueprint is valid.)
   * Is the `<title>` from the blueprint correctly used as the test name?
 2. WPT Standards Compliance:
   * Does it properly follow the principles laid out in the WPT GENERAL STYLE GUIDE?
