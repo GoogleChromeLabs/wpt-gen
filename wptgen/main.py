@@ -850,6 +850,10 @@ def init(
   config_path: Annotated[
     str | None, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = None,
+  wpt_path: Annotated[
+    str | None,
+    typer.Option('--wpt-path', help='Absolute path to local web-platform-tests directory.'),
+  ] = None,
 ) -> None:
   """
   Initialize a new wpt-gen configuration file interactively.
@@ -882,9 +886,10 @@ def init(
   lightweight_model = Prompt.ask('Lightweight model', default=defaults['lightweight'])
   reasoning_model = Prompt.ask('Reasoning model', default=defaults['reasoning'])
 
-  wpt_path = Prompt.ask(
-    '\nAbsolute path to local web-platform-tests directory', default=str(Path.home() / 'wpt')
-  )
+  if wpt_path is None:
+    wpt_path = Prompt.ask(
+      '\nAbsolute path to local web-platform-tests directory', default=str(Path.home() / 'wpt')
+    )
 
   config_data = {
     'default_provider': provider,
