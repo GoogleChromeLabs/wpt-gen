@@ -55,15 +55,10 @@ def partition_requirements_xml(xml_string: str, max_threshold: int = 40) -> list
 
 
 def combine_audit_responses(responses: list[str]) -> str:
-  overall_status = 'SATISFIED'
   combined_worksheets = []
   combined_suggestions = []
 
   for resp in responses:
-    status = extract_xml_tag(resp, 'status')
-    if status == 'TESTS_NEEDED':
-      overall_status = 'TESTS_NEEDED'
-
     worksheet = extract_xml_tag(resp, 'audit_worksheet')
     if worksheet:
       combined_worksheets.append(worksheet.strip())
@@ -71,12 +66,16 @@ def combine_audit_responses(responses: list[str]) -> str:
     suggestions = parse_suggestions(resp)
     combined_suggestions.extend(suggestions)
 
+  overall_status = 'TESTS_NEEDED' if combined_suggestions else 'SATISFIED'
+
   final_response = f'<status>{overall_status}</status>\n'
   final_response += (
     '<audit_worksheet>\n' + '\n'.join(combined_worksheets) + '\n</audit_worksheet>\n'
   )
   if combined_suggestions:
-    final_response += '\n'.join(combined_suggestions)
+    final_response += (
+      '<test_suggestions>\n' + '\n'.join(combined_suggestions) + '\n</test_suggestions>\n'
+    )
 
   return final_response
 
