@@ -77,7 +77,6 @@ class Config:
   max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
-  execution_timeout: int | float = 90  # Default 1.5 minutes
   max_parallel_requests: int = 10
   temperature: float | None = None
   loaded_from: str | None = None
@@ -323,7 +322,6 @@ def load_config(
     tentative=tentative,
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
-    execution_timeout=yaml_data.get('execution_timeout', 90),
     max_parallel_requests=max_parallel_requests,
     temperature=temperature_override
     if temperature_override is not None

@@ -78,6 +78,7 @@ async def _execute_wpt_run(
   log_path: str,
   config: Config,
   ui: UIProvider,
+  execution_timeout: int | float,
 ) -> tuple[int, str]:
   """Executes the `wpt run` subprocess and captures output."""
   cmd = [
@@ -95,11 +96,11 @@ async def _execute_wpt_run(
   )
 
   try:
-    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=config.execution_timeout)
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=execution_timeout)
   except asyncio.TimeoutError:
     process.kill()
     await process.wait()
-    ui.error(f'Test execution timed out after {config.execution_timeout}s.')
+    ui.error(f'Test execution timed out after {execution_timeout}s.')
     return -1, ''
 
   output = ''
@@ -302,16 +303,18 @@ async def run_test_execution(
         f'\n[bold yellow]Automatic Test Correction (Attempt {retry}/{max_retries})[/bold yellow]'
       )
 
+    execution_timeout = min(30 * len(valid_rel_paths), 900)
+
     ui.print(
       f'Running [cyan]{len(valid_rel_paths)}[/cyan] tests with {config.wpt_browser} {config.wpt_channel} '
-      f'(timeout: {config.execution_timeout}s)...'
+      f'(timeout: {execution_timeout}s)...'
     )
 
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
       log_path = f.name
 
     returncode, output = await _execute_wpt_run(
-      wpt_executable, wpt_root, valid_rel_paths, log_path, config, ui
+      wpt_executable, wpt_root, valid_rel_paths, log_path, config, ui, execution_timeout
     )
 
     if returncode == -1 and not output:

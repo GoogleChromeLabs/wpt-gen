@@ -62,7 +62,6 @@ def mock_config(tmp_path: Path) -> Config:
     output_dir=str(tmp_path / 'output'),
     wpt_browser='chrome',
     wpt_channel='canary',
-    execution_timeout=300,
   )
 
 
@@ -196,26 +195,18 @@ async def test_run_test_execution_timeout(
 
   context = WorkflowContext(feature_id='feat')
 
-  mock_config.execution_timeout = 0.01
-
   mock_process = AsyncMock()
   mock_process.kill = MagicMock()
-
-  async def slow_communicate() -> tuple[bytes, bytes]:
-    await asyncio.sleep(1)
-    return b'stdout', b'stderr'
-
-  mock_process.communicate = slow_communicate
+  mock_process.communicate = AsyncMock()
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    await run_test_execution(
-      context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
-    )
+    with patch('asyncio.wait_for', side_effect=asyncio.TimeoutError):
+      await run_test_execution(
+        context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+      )
 
-    mock_process.kill.assert_called_once()
-    mock_ui.error.assert_called_with(
-      f'Test execution timed out after {mock_config.execution_timeout}s.'
-    )
+      mock_process.kill.assert_called_once()
+      mock_ui.error.assert_called_with('Test execution timed out after 30s.')
 
 
 @pytest.mark.asyncio
@@ -415,7 +406,7 @@ async def test_execute_wpt_run_success(
   mock_process.returncode = 0
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
     returncode, output = await _execute_wpt_run(
-      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui
+      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 30
     )
     mock_exec.assert_called_once()
     assert returncode == 0
@@ -429,17 +420,17 @@ async def test_execute_wpt_run_timeout(
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
   wpt_executable = wpt_root / 'wpt'
-  mock_config.execution_timeout = 0.01
+
   mock_process = AsyncMock()
   mock_process.kill = MagicMock()
 
   async def slow_communicate() -> tuple[bytes, bytes]:
-    await asyncio.sleep(1)
+    await asyncio.sleep(0.02)
     return b'', b''
 
   mock_process.communicate = slow_communicate
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
     returncode, output = await _execute_wpt_run(
-      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui
+      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 0.01
     )
     assert returncode == -1
