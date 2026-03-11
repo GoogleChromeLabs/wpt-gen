@@ -436,26 +436,20 @@ def test_fix_reftest_link_prepend() -> None:
   assert result == '<link rel="match" href="ref.html">\n<div>No head or html tags here</div>'
 
 
-def test_ensure_trailing_newline() -> None:
-  from wptgen.utils import ensure_trailing_newline
+def test_clean_file_content() -> None:
+  from wptgen.utils import clean_file_content
 
-  assert ensure_trailing_newline('') == '\n'
-  assert ensure_trailing_newline('test') == 'test\n'
-  assert ensure_trailing_newline('test\n') == 'test\n'
-  assert ensure_trailing_newline('test\r\n') == 'test\n'
-  assert ensure_trailing_newline('test\n\n\n') == 'test\n'
-  assert ensure_trailing_newline('test \n') == 'test \n'
-
-
-def test_strip_trailing_whitespace() -> None:
-  from wptgen.utils import strip_trailing_whitespace
-
-  assert strip_trailing_whitespace('') == ''
-  assert strip_trailing_whitespace('test  ') == 'test'
-  assert strip_trailing_whitespace('test \nline 2 \t') == 'test\nline 2'
-  assert strip_trailing_whitespace('  test') == '  test'
-  assert strip_trailing_whitespace('line1  \nline2') == 'line1\nline2'
-  assert strip_trailing_whitespace('line1 \r\nline2 \r\n') == 'line1\r\nline2\r\n'
+  assert clean_file_content('') == '\n'
+  assert clean_file_content('test') == 'test\n'
+  assert clean_file_content('test\n') == 'test\n'
+  assert clean_file_content('test\r\n') == 'test\n'
+  assert clean_file_content('test\n\n\n') == 'test\n'
+  assert clean_file_content('test \n') == 'test\n'
+  assert clean_file_content('test  ') == 'test\n'
+  assert clean_file_content('test \nline 2 \t') == 'test\nline 2\n'
+  assert clean_file_content('  test') == '  test\n'
+  assert clean_file_content('line1  \nline2') == 'line1\nline2\n'
+  assert clean_file_content('line1 \r\nline2 \r\n') == 'line1\r\nline2\n'
 
 
 def test_ensure_testharness_imports_already_present() -> None:

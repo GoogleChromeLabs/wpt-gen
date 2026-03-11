@@ -27,9 +27,8 @@ from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
-  ensure_trailing_newline,
+  clean_file_content,
   parse_multi_file_response,
-  strip_trailing_whitespace,
 )
 
 
@@ -225,9 +224,7 @@ async def _correct_test(
       final_content = MARKDOWN_CODE_BLOCK_RE.sub('', corrected_content).strip()
 
     if final_content:
-      full_path.write_text(
-        ensure_trailing_newline(strip_trailing_whitespace(final_content)), encoding='utf-8'
-      )
+      full_path.write_text(clean_file_content(final_content), encoding='utf-8')
       ui.success(f'Updated {matched_path}')
       ui.print_diff(test_source_code, final_content, matched_path)
 
