@@ -33,15 +33,15 @@ from wptgen.utils import (
 )
 
 
-async def _run_wpt_lint(paths: list[Path], wpt_dir: Path) -> str | None:
-  """Runs ./wpt lint on the given paths and returns the error output if any."""
+async def _run_wpt_lint(path: Path, wpt_dir: Path) -> str | None:
+  """Runs ./wpt lint on the given path and returns the error output if any."""
   try:
-    # Use paths relative to wpt_dir for cleaner output
-    rel_paths = [str(p.relative_to(wpt_dir)) for p in paths]
+    # Use path relative to wpt_dir for cleaner output
+    rel_path = str(path.relative_to(wpt_dir))
     process = await asyncio.create_subprocess_exec(
       './wpt',
       'lint',
-      *rel_paths,
+      rel_path,
       cwd=wpt_dir,
       stdout=asyncio.subprocess.PIPE,
       stderr=asyncio.subprocess.STDOUT,
@@ -95,16 +95,15 @@ async def run_test_evaluation(
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
     # Run linting for the grouped test paths
-    group_paths = [p for p, _ in group]
-    lint_errors = await _run_wpt_lint(group_paths, Path(config.wpt_path))
-
-    # Render the system instruction with both general and type-specific rules
-    system_instruction = system_template.render(
-      wpt_style_guide=wpt_style_guide,
-      test_type=test_type_enum.value,
-      test_type_guide=test_type_guide,
-      has_lint_errors=bool(lint_errors),
-    )
+    lint_errors_dict = {}
+    for p, _ in group:
+      ui.print(f'Running `./wpt lint` on {p.name}...')
+      errs = await _run_wpt_lint(p, Path(config.wpt_path))
+      if errs:
+        ui.print(f'Lint errors found for {p.name}:\n{errs}')
+        lint_errors_dict[p] = errs
+      else:
+        ui.print(f'No lint errors found for {p.name}.')
 
     # Format the code content, using multi-file partitioning for Reftests ONLY
     if test_type_enum == TestType.REFTEST and len(group) > 1:
@@ -123,16 +122,42 @@ async def run_test_evaluation(
           f'[FILE_1: {suffix_test}]\n{c_test}\n[/FILE_1]\n\n'
           f'[FILE_2: {suffix_ref}]\n{c_ref}\n[/FILE_2]'
         )
+
+        formatted_lint_errors = []
+        if p_test in lint_errors_dict:
+          formatted_lint_errors.append(f'[FILE_1: {suffix_test}]\n{lint_errors_dict[p_test]}')
+        if p_ref in lint_errors_dict:
+          formatted_lint_errors.append(f'[FILE_2: {suffix_ref}]\n{lint_errors_dict[p_ref]}')
+        lint_errors_str = '\n\n'.join(formatted_lint_errors) if formatted_lint_errors else None
       else:
         generated_code_content = '\n\n'.join([c for p, c in group])
+        formatted_lint_errors = []
+        for p, errs in lint_errors_dict.items():
+          formatted_lint_errors.append(f'[{p.name}]\n{errs}')
+        lint_errors_str = '\n\n'.join(formatted_lint_errors) if formatted_lint_errors else None
     else:
       # For non-reftests, pass raw content without tags
       generated_code_content = group[0][1]
+      formatted_lint_errors = []
+      for p, errs in lint_errors_dict.items():
+        if len(group) > 1:
+          formatted_lint_errors.append(f'[{p.name}]\n{errs}')
+        else:
+          formatted_lint_errors.append(errs)
+      lint_errors_str = '\n\n'.join(formatted_lint_errors) if formatted_lint_errors else None
+
+    # Render the system instruction with both general and type-specific rules
+    system_instruction = system_template.render(
+      wpt_style_guide=wpt_style_guide,
+      test_type=test_type_enum.value,
+      test_type_guide=test_type_guide,
+      has_lint_errors=bool(lint_errors_str),
+    )
 
     prompt = evaluation_template.render(
       test_suggestion_xml=suggestion_xml,
       generated_code_content=generated_code_content.strip(),
-      lint_errors=lint_errors,
+      lint_errors=lint_errors_str,
     )
     tasks.append(
       _evaluate_and_update(group, prompt, llm, ui, config, system_instruction, test_type_enum)
