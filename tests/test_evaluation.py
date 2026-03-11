@@ -356,3 +356,192 @@ new ref content
   mock_ui.report_evaluation_result.assert_any_call(
     'feat-001-ref.sub.html', success=True, updated=True
   )
+
+
+@pytest.mark.asyncio
+async def test_run_wpt_lint_error(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  from wptgen.phases.evaluation import _run_wpt_lint
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Mock lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  result = await _run_wpt_lint(Path('/mock/wpt/test.html'), Path('/mock/wpt'))
+  assert result == 'Mock lint error'
+
+
+@pytest.mark.asyncio
+async def test_run_wpt_lint_exception(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  from wptgen.phases.evaluation import _run_wpt_lint
+
+  mocker.patch('asyncio.create_subprocess_exec', side_effect=Exception('Mock exec error'))
+  result = await _run_wpt_lint(Path('/mock/wpt/test.html'), Path('/mock/wpt'))
+  assert result is not None
+  assert result is not None
+
+  assert 'Failed to run ./wpt lint: Mock exec error' in result
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_non_reftest_multi_file(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test1 = Path(mock_config.wpt_path) / 'test1.html'
+  test1.parent.mkdir(parents=True, exist_ok=True)
+  test2 = tmp_path / 'test2.html'
+  test1.write_text('content1')
+  test2.write_text('content2')
+
+  suggestion = '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>'
+  generated_tests = [(test1, 'content1', suggestion), (test2, 'content2', suggestion)]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  mocker.patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide')
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value='PASS')
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  mock_ui.report_evaluation_result.assert_any_call('test1.html, test2.html', success=True)
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_reftest_single_correction(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test = tmp_path / 'reftest.html'
+  ref = tmp_path / 'reftest-ref.html'
+  test.write_text('test content')
+  ref.write_text('ref content')
+
+  suggestion = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_tests = [(test, 'test content', suggestion), (ref, 'ref content', suggestion)]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  # Mock LLM returning a single string WITHOUT [FILE_1] tags
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value='Just one file output')
+  mocker.patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide')
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  mock_ui.report_evaluation_result.assert_any_call(
+    'reftest.html, reftest-ref.html',
+    success=False,
+    message='Received single-file correction for multi-file test reftest.html, reftest-ref.html. Skipping.',
+  )
+
+
+@pytest.mark.asyncio
+async def test_run_wpt_lint_success_and_no_errors(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test1 = Path(mock_config.wpt_path) / 'test1.html'
+  test1.parent.mkdir(parents=True, exist_ok=True)
+  test1.write_text('content1')
+
+  suggestion = '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>'
+  generated_tests = [(test1, 'content1', suggestion)]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'', b'')
+  mock_process.returncode = 0
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  mocker.patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide')
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value='PASS')
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  mock_ui.print.assert_any_call('[green]No lint errors found for test1.html![/green]')
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_reftest_three_files(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test1 = Path(mock_config.wpt_path) / 'test1.html'
+  test1.parent.mkdir(parents=True, exist_ok=True)
+  test2 = Path(mock_config.wpt_path) / 'test2.html'
+  test3 = Path(mock_config.wpt_path) / 'test3.html'
+  test1.write_text('content1')
+  test2.write_text('content2')
+  test3.write_text('content3')
+
+  suggestion = '<test_suggestion><test_type>Reftest</test_type></test_suggestion>'
+  generated_tests = [
+    (test1, 'content1', suggestion),
+    (test2, 'content2', suggestion),
+    (test3, 'content3', suggestion),
+  ]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  mocker.patch('wptgen.phases.evaluation.Path.read_text', return_value='Guide')
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value='PASS')
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  mock_ui.report_evaluation_result.assert_any_call(
+    'test1.html, test2.html, test3.html', success=True
+  )
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_single_file_with_multifile_block(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test_path = tmp_path / 'test.html'
+  test_path.write_text('original')
+
+  suggestion = '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>'
+  generated_tests = [(test_path, 'original', suggestion)]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  # LLM responds with a multi-file block for a single file test, and changes the suffix!
+  mock_response = '[FILE_1: .https.html]\nupdated content\n[/FILE_1]'
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value=mock_response)
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  new_test_path = tmp_path / 'test.https.html'
+  assert new_test_path.exists()
+  assert new_test_path.read_text() == 'updated content\n'
+  assert not test_path.exists()
+
+  mock_ui.report_evaluation_result.assert_called_with(
+    new_test_path.name, success=True, updated=True
+  )

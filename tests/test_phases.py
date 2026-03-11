@@ -568,3 +568,36 @@ R3: COVERED
   assert 'R3: COVERED' in combined
   assert '<test_suggestion>Suggestion 1</test_suggestion>' in combined
   assert '<test_suggestion>Suggestion 2</test_suggestion>' in combined
+
+
+@pytest.mark.asyncio
+async def test_process_generation_result_single_file_fallback(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  from wptgen.phases.generation import _generate_and_save
+
+  mock_config.output_dir = str(tmp_path)
+
+  content = '```html\nfallback html content\n```'
+  suggestion_xml = '<test_suggestion></test_suggestion>'
+
+  mocker.patch('wptgen.phases.generation.parse_multi_file_response', return_value=[])
+  mock_llm = MagicMock()
+  mocker.patch('wptgen.phases.generation.generate_safe', return_value=content)
+
+  results = await _generate_and_save(
+    prompt='mock prompt',
+    root_name='test-root',
+    suggestion_xml=suggestion_xml,
+    llm=mock_llm,
+    ui=mock_ui,
+    config=mock_config,
+  )
+
+  assert len(results) == 1
+  assert results[0][0] == tmp_path / 'test-root.html'
+  assert 'fallback html content' in results[0][1]
+
+  mock_ui.report_test_generated.assert_called_with(
+    'test-root', success=True, path=results[0][0], fallback=True
+  )

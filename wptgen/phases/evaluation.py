@@ -271,7 +271,22 @@ async def _evaluate_and_update(
       # If it's a single file correction
       if len(files) == 1:
         path, old_content = files[0]
-        clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
+
+        # If the LLM returned it as a multi-file block for some reason (e.g. [FILE_1: .https.html])
+        if multi_files:
+          new_suffix, fcontent = multi_files[0]
+          clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', fcontent).strip()
+
+          # Rename the file if the suffix changed
+          root = path.name.split('.', 1)[0]
+          new_path = path.with_name(f'{root}{new_suffix}')
+
+          if new_path != path:
+            path.unlink(missing_ok=True)
+            path = new_path
+        else:
+          clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
+
         path.write_text(
           ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'
         )
