@@ -84,7 +84,7 @@ async def run_requirements_extraction(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
-  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
   ui.success(f'Extracted {count} test requirements.')
 
   context.requirements_xml = requirements_xml
@@ -200,7 +200,7 @@ async def run_requirements_extraction_categorized(
         continue
 
       # Extract individual <requirement> blocks.
-      new_reqs = re.findall(r'(<requirement.*?>.*?</requirement>)', response, re.DOTALL)
+      new_reqs = re.findall(r'(<requirement\b[^>]*>.*?</requirement>)', response, re.DOTALL)
 
       if not new_reqs:
         # If no requirements, look for a rationale.
@@ -228,7 +228,7 @@ async def run_requirements_extraction_categorized(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
-  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
   ui.success(f'Extracted {count} test requirements.')
   context.requirements_xml = requirements_xml
   return requirements_xml
@@ -305,7 +305,7 @@ async def run_requirements_extraction_iterative(
         break
 
       # Extract individual <requirement> blocks.
-      new_reqs = re.findall(r'(<requirement.*?>.*?</requirement>)', response, re.DOTALL)
+      new_reqs = re.findall(r'(<requirement\b[^>]*>.*?</requirement>)', response, re.DOTALL)
 
       if not new_reqs:
         ui.warning('No new requirements found in this iteration. Stopping.')
@@ -337,7 +337,7 @@ async def run_requirements_extraction_iterative(
     # Save to cache
     cache_file.write_text(requirements_xml, encoding='utf-8')
 
-  count = len(re.findall(r'<requirement.*?>', requirements_xml))
+  count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
   ui.success(f'Extracted {count} test requirements.')
   context.requirements_xml = requirements_xml
   return requirements_xml
