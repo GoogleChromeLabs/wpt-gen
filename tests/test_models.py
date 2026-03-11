@@ -1,8 +1,10 @@
+from typing import Any
+
 from wptgen.models import WorkflowContext
 
 
 def test_workflow_context_from_dict_legacy_spec_contents() -> None:
-  data = {
+  data: dict[str, Any] = {
     'feature_id': 'mock_feature',
     'metadata': {'name': 'Mock Feature', 'description': 'Mock', 'specs': ['https://mock.spec']},
     'spec_contents': 'Legacy spec content string',
@@ -19,7 +21,7 @@ def test_workflow_context_from_dict_legacy_spec_contents() -> None:
 
 
 def test_workflow_context_from_dict_legacy_spec_contents_no_metadata() -> None:
-  data = {
+  data: dict[str, Any] = {
     'feature_id': 'mock_feature',
     'metadata': None,
     'spec_contents': 'Legacy spec content string',

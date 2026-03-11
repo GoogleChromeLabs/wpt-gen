@@ -35,7 +35,7 @@ def mock_config(tmp_path: Path) -> Config:
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_no_cache(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -52,13 +52,14 @@ async def test_run_requirements_extraction_no_cache(
     base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
   )
 
+  assert result is not None
   assert '<requirement>' in result
   assert (tmp_path / 'test__requirements.xml').exists()
 
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_fails(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -75,7 +76,7 @@ async def test_run_requirements_extraction_fails(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_iterative_cache(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_ui.confirm.return_value = True
@@ -85,12 +86,14 @@ async def test_run_requirements_extraction_iterative_cache(
   result = await run_requirements_extraction_iterative(
     base_context, mock_config, mock_llm, mock_ui, MagicMock(), tmp_path
   )
+  assert result is not None
+
   assert result == 'cached iterative'
 
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_iterative_fails(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -110,7 +113,7 @@ async def test_run_requirements_extraction_iterative_fails(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_iterative_success_and_save(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -133,13 +136,14 @@ async def test_run_requirements_extraction_iterative_success_and_save(
   result = await run_requirements_extraction_iterative(
     base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
   )
+  assert result is not None
   assert '<requirement>' in result
   assert (tmp_path / 'test__requirements.xml').exists()
 
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_fails(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -157,7 +161,7 @@ async def test_run_requirements_extraction_categorized_fails(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_success_and_save(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -180,14 +184,16 @@ async def test_run_requirements_extraction_categorized_success_and_save(
   result = await run_requirements_extraction_categorized(
     base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
   )
+  assert result is not None
   assert '<requirement id="R1">' in result
+  assert result is not None
   assert '<requirement id="R2">' in result
   assert (tmp_path / 'test__requirements.xml').exists()
 
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_cache_success(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_ui.confirm.return_value = True
@@ -197,12 +203,14 @@ async def test_run_requirements_extraction_cache_success(
   result = await run_requirements_extraction(
     base_context, mock_config, mock_llm, mock_ui, MagicMock(), tmp_path
   )
+  assert result is not None
+
   assert result == 'cached basic'
 
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_iterative_rationale(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -231,7 +239,7 @@ async def test_run_requirements_extraction_iterative_rationale(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_iterative_exhausted(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -255,7 +263,7 @@ async def test_run_requirements_extraction_iterative_exhausted(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_max_iter(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_llm = MagicMock()
@@ -280,7 +288,7 @@ async def test_run_requirements_extraction_categorized_max_iter(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_cache(
-  mocker: MagicMock, base_context, mock_config, tmp_path
+  mocker: MagicMock, base_context: WorkflowContext, mock_config: Config, tmp_path: Path
 ) -> None:
   mock_ui = MagicMock()
   mock_ui.confirm.return_value = True
@@ -290,4 +298,6 @@ async def test_run_requirements_extraction_categorized_cache(
   result = await run_requirements_extraction_categorized(
     base_context, mock_config, mock_llm, mock_ui, MagicMock(), tmp_path
   )
+  assert result is not None
+
   assert result == 'cached categorized'

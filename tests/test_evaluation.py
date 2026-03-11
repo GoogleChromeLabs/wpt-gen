@@ -381,6 +381,9 @@ async def test_run_wpt_lint_exception(
 
   mocker.patch('asyncio.create_subprocess_exec', side_effect=Exception('Mock exec error'))
   result = await _run_wpt_lint(Path('/mock/wpt/test.html'), Path('/mock/wpt'))
+  assert result is not None
+  assert result is not None
+
   assert 'Failed to run ./wpt lint: Mock exec error' in result
 
 
@@ -507,4 +510,38 @@ async def test_run_test_evaluation_reftest_three_files(
 
   mock_ui.report_evaluation_result.assert_any_call(
     'test1.html, test2.html, test3.html', success=True
+  )
+
+
+@pytest.mark.asyncio
+async def test_run_test_evaluation_single_file_with_multifile_block(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  context = WorkflowContext(feature_id='feat')
+  jinja_env = MagicMock()
+
+  test_path = tmp_path / 'test.html'
+  test_path.write_text('original')
+
+  suggestion = '<test_suggestion><test_type>JavaScript Test</test_type></test_suggestion>'
+  generated_tests = [(test_path, 'original', suggestion)]
+
+  mock_process = mocker.AsyncMock()
+  mock_process.communicate.return_value = (b'Lint error', b'')
+  mock_process.returncode = 1
+  mocker.patch('asyncio.create_subprocess_exec', return_value=mock_process)
+
+  # LLM responds with a multi-file block for a single file test, and changes the suffix!
+  mock_response = '[FILE_1: .https.html]\nupdated content\n[/FILE_1]'
+  mocker.patch('wptgen.phases.evaluation.generate_safe', return_value=mock_response)
+
+  await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
+
+  new_test_path = tmp_path / 'test.https.html'
+  assert new_test_path.exists()
+  assert new_test_path.read_text() == 'updated content\n'
+  assert not test_path.exists()
+
+  mock_ui.report_evaluation_result.assert_called_with(
+    new_test_path.name, success=True, updated=True
   )

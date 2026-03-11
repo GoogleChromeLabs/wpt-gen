@@ -254,7 +254,7 @@ async def test_engine_single_prompt_requirements(
   mocker.patch('wptgen.engine.get_llm_client')
   engine = WPTGenEngine(mock_config, ui_mock)
 
-  mock_context = WorkflowContext(feature_id='mock_feature', wpt_context='mock_context')
+  mock_context = WorkflowContext(feature_id='mock_feature')
 
   mocker.patch(
     'wptgen.engine.run_context_assembly', new_callable=AsyncMock, return_value=mock_context
@@ -274,9 +274,11 @@ async def test_engine_single_prompt_requirements(
 
   await engine._run_async_workflow('mock_feature')
 
+  from typing import cast
+
   import wptgen.engine
 
-  wptgen.engine.run_requirements_extraction.assert_called_once()
+  cast(AsyncMock, wptgen.engine.run_requirements_extraction).assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -287,10 +289,9 @@ async def test_engine_skip_phase_4(mocker: MockerFixture, mock_config: Config) -
 
   mock_context = WorkflowContext(
     feature_id='mock_feature',
-    wpt_context='mock_context',
     requirements_xml='<xml></xml>',
     audit_response='mock_audit',
-    generated_tests=['mock_test_1'],
+    generated_tests=[(Path('mock_test_1.html'), 'content', '<xml>')],
   )
 
   mocker.patch(
@@ -330,10 +331,9 @@ async def test_engine_resume_workflow_success(mocker: MockerFixture, mock_config
 
   mock_context = WorkflowContext(
     feature_id='mock_feature',
-    wpt_context='mock_context',
     requirements_xml='<xml>',
     audit_response='audit',
-    generated_tests=['test'],
+    generated_tests=[(Path('test.html'), 'content', '<xml>')],
   )
   mocker.patch('wptgen.engine.WPTGenEngine._load_resume_state', return_value=mock_context)
 
