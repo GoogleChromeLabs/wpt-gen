@@ -36,6 +36,13 @@ MAX_DELAY = 60.0
 MAX_RETRIES = 5
 
 
+def ensure_trailing_newline(content: str) -> str:
+  """Ensures the string ends with exactly one newline character."""
+  if not content:
+    return '\n'
+  return content.rstrip('\r\n') + '\n'
+
+
 def extract_xml_tag(text: str, tag: str) -> str | None:
   """Extracts the content of an XML-like tag from a string."""
   match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)

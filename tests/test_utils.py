@@ -434,3 +434,14 @@ def test_fix_reftest_link_prepend() -> None:
   content = '<div>No head or html tags here</div>'
   result = fix_reftest_link(content, 'ref.html')
   assert result == '<link rel="match" href="ref.html">\n<div>No head or html tags here</div>'
+
+
+def test_ensure_trailing_newline() -> None:
+  from wptgen.utils import ensure_trailing_newline
+
+  assert ensure_trailing_newline('') == '\n'
+  assert ensure_trailing_newline('test') == 'test\n'
+  assert ensure_trailing_newline('test\n') == 'test\n'
+  assert ensure_trailing_newline('test\r\n') == 'test\n'
+  assert ensure_trailing_newline('test\n\n\n') == 'test\n'
+  assert ensure_trailing_newline('test \n') == 'test \n'

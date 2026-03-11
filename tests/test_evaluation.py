@@ -101,7 +101,7 @@ async def test_run_test_evaluation_correction(
   with patch('wptgen.phases.evaluation.Path.read_text', return_value=style_guide_content):
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
-  assert test_path.read_text() == 'corrected content'
+  assert test_path.read_text() == 'corrected content\n'
   mock_ui.report_evaluation_result.assert_any_call(test_path.name, success=True, updated=True)
 
 
@@ -168,7 +168,7 @@ async def test_run_test_evaluation_with_markdown(
   with patch('wptgen.phases.evaluation.Path.read_text', return_value=style_guide_content):
     await run_test_evaluation(context, mock_config, mock_llm, mock_ui, jinja_env, generated_tests)
 
-  assert test_path.read_text() == 'corrected markdown content'
+  assert test_path.read_text() == 'corrected markdown content\n'
   mock_ui.report_evaluation_result.assert_any_call(test_path.name, success=True, updated=True)
 
 
@@ -230,7 +230,7 @@ corrected ref content
 
   assert '<link rel="match" href="test-ref.html">' in test_path.read_text()
   assert 'corrected test content' in test_path.read_text()
-  assert ref_path.read_text() == 'corrected ref content'
+  assert ref_path.read_text() == 'corrected ref content\n'
   mock_ui.report_evaluation_result.assert_any_call('test.html', success=True, updated=True)
   mock_ui.report_evaluation_result.assert_any_call('test-ref.html', success=True, updated=True)
 
@@ -347,7 +347,7 @@ new ref content
   assert not test_path.exists()
 
   assert new_ref_path.exists()
-  assert new_ref_path.read_text() == 'new ref content'
+  assert new_ref_path.read_text() == 'new ref content\n'
   assert not ref_path.exists()
 
   mock_ui.report_evaluation_result.assert_any_call(
