@@ -86,6 +86,10 @@ promise_test(async t => {
 }, "Fetch data test");
 ```
 
+**Important Rules for Promise Tests:**
+*   **Sequential Execution:** Unlike asynchronous tests, `testharness.js` queues promise tests so the next test won't start until the previous one finishes.
+*   **Do Not Mix with Async Steps:** Avoid mixing `promise_test` logic with callback functions like `t.step_func()`. This produces confusing tests and can cause the next test to begin before the promise settles. Wrap asynchronous behaviors into the promise chain instead.
+
 ### 4.3 Asynchronous Tests (`async_test`)
 Use for callback-based APIs. You must manually manage `step`, `done`, and `step_func`.
 ```javascript
@@ -95,6 +99,10 @@ async_test(t => {
   }));
 }, "DOMContentLoaded event");
 ```
+
+**Important Rules for Async Tests:**
+*   **Concurrency:** `testharness.js` doesn't impose scheduling on async tests; they run whenever step functions are invoked. Multiple tests in the same global can run concurrently. Take care not to let them interfere with each other.
+*   **Unreached Code:** For asynchronous callbacks that should never execute, use `t.unreached_func("Reason")`.
 
 ---
 
@@ -114,7 +122,7 @@ async_test(t => {
 ## 6. Core Best Practices
 
 ### 6.1 State Cleanup
-Always clean up global state (DOM, cookies, storage) to ensure test independence. Use `add_cleanup()`.
+Always clean up global state (DOM, cookies, storage) to ensure test independence. Use `add_cleanup()`. If the test was created using `promise_test`, cleanup functions may optionally return a Promise to delay the completion of the test until the cleanup promise settles.
 ```javascript
 promise_test(async t => {
   const el = document.createElement("div");
@@ -126,7 +134,7 @@ promise_test(async t => {
 ```
 
 ### 6.2 Avoid Timers
-Never use `setTimeout` with a hardcoded delay to "wait" for something.
+**DO NOT** use `setTimeout` with a hardcoded delay to "wait" for something.
 *   **Wait for an event**: Use `EventWatcher` or a Promise.
 *   **Check a condition**: Use `t.step_wait(() => condition)`.
 *   **Necessary delays**: Use `t.step_timeout(callback, delay)`.
@@ -135,6 +143,19 @@ Never use `setTimeout` with a hardcoded delay to "wait" for something.
 *   **UTF-8**: Always use UTF-8 (and `<meta charset=utf-8>` in HTML).
 *   **Independence**: Tests should not rely on external network resources or specific fonts (use [Ahem](/docs/writing-tests/ahem.md) for font testing).
 *   **Short & Focused**: Keep tests as concise as possible. Avoid testing unrelated features.
+
+
+### 6.4 AbortSignal Support
+Use `t.get_signal()` to get an `AbortSignal` that is automatically aborted when the test finishes. This is highly recommended when testing APIs that support `AbortSignal` to automatically clean up event listeners or fetch requests.
+```javascript
+promise_test(async t => {
+  const signal = t.get_signal();
+  document.body.addEventListener('click', () => {}, { once: true, signal });
+}, 'AbortSignal example');
+```
+
+### 6.5 Fetching JSON Data
+Use the helper `fetch_json('data.json')` instead of `fetch('data.json').then(r => r.json())`. This ensures compatibility with environments where `fetch()` is not exposed, such as `ShadowRealm`.
 
 ---
 
@@ -200,3 +221,42 @@ Cache-Control: no-cache
 
 ### 9.3 Static Responses (`.asis`)
 Use `.asis` files for byte-for-byte literal HTTP responses (including status line and headers). This is useful for testing invalid or edge-case HTTP responses.
+
+---
+
+## 10. Testing Across Globals
+
+You can consolidate tests from other documents or Web Workers into your main test document.
+
+### 10.1 Consolidating from other documents
+Use `fetch_tests_from_window(child_window)` to run tests in a child window or iframe and report them in the current context.
+
+### 10.2 Web Workers
+Use `fetch_tests_from_worker(worker)` to fetch test results from a worker. This function returns a promise that resolves once all remote tests have completed.
+
+```javascript
+(async function() {
+  await fetch_tests_from_worker(new Worker("worker-1.js"));
+  await fetch_tests_from_worker(new Worker("worker-2.js"));
+})();
+```
+
+**Worker Testing Quirks:**
+*   Workers rely on the client HTML document for reporting.
+*   The client document controls the test timeout.
+*   Dedicated and shared workers behave as if the `explicit_done` setup option is true, meaning `done()` must be called in the worker script to indicate completion (except for Service Workers which rely on the `install` event).
+
+---
+
+## 11. Harness Configuration (`setup()`)
+
+The `setup(options)` or `promise_setup(func)` functions configure the global test harness.
+
+**Common Options:**
+*   `explicit_done`: Wait for a manual call to `done()` before declaring all tests complete.
+*   `single_test`: Enables Single Page Test mode.
+*   `allow_uncaught_exception`: Disables treating uncaught exceptions as errors (useful when testing `window.onerror`).
+*   `hide_test_state`: Hides the test state UI during execution to prevent interference with visual tests.
+
+**Managing Timeouts Manually:**
+If a test has a race condition between the harness timing out and the test failing (e.g., waiting for an event that never occurs), you can use `t.force_timeout()` instead of `assert_unreached()`. This immediately fails the test with a status of `TIMEOUT` and should only be used as a last resort.
