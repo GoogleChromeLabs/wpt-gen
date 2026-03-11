@@ -52,6 +52,8 @@ flowchart TD
 
 ### Workflow Phases
 
+For an in-depth explanation of the internal logic, inputs, outputs, and LLM integrations for each phase, see the [Workflow Phases Documentation](docs/workflow-phases.md).
+
 1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
 3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
