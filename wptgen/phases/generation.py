@@ -24,14 +24,13 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
+  clean_file_content,
   ensure_testharness_imports,
-  ensure_trailing_newline,
   extract_xml_tag,
   fix_reftest_link,
   get_next_available_root,
   parse_multi_file_response,
   parse_suggestions,
-  strip_trailing_whitespace,
 )
 
 
@@ -238,9 +237,7 @@ async def _generate_and_save(
         clean_content = ensure_testharness_imports(clean_content)
 
       output_path = output_dir / fname
-      output_path.write_text(
-        ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'
-      )
+      output_path.write_text(clean_file_content(clean_content), encoding='utf-8')
       ui.report_test_generated(root_name, success=True, path=output_path)
       results.append((output_path, clean_content, suggestion_xml))
   else:
@@ -251,9 +248,7 @@ async def _generate_and_save(
       clean_content = ensure_testharness_imports(clean_content)
 
     output_path = output_dir / f'{root_name}.html'
-    output_path.write_text(
-      ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'
-    )
+    output_path.write_text(clean_file_content(clean_content), encoding='utf-8')
     ui.report_test_generated(root_name, success=True, path=output_path, fallback=True)
     results.append((output_path, clean_content, suggestion_xml))
 

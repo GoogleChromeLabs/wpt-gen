@@ -36,18 +36,12 @@ MAX_DELAY = 60.0
 MAX_RETRIES = 5
 
 
-def ensure_trailing_newline(content: str) -> str:
-  """Ensures the string ends with exactly one newline character."""
+def clean_file_content(content: str) -> str:
+  """Removes trailing whitespace from every line and ensures exactly one trailing newline."""
   if not content:
     return '\n'
+  content = re.sub(r'[ \t]+(\r?)$', r'\1', content, flags=re.MULTILINE)
   return content.rstrip('\r\n') + '\n'
-
-
-def strip_trailing_whitespace(content: str) -> str:
-  """Removes trailing whitespace from every line in a string."""
-  if not content:
-    return content
-  return re.sub(r'[ \t]+(\r?)$', r'\1', content, flags=re.MULTILINE)
 
 
 def extract_xml_tag(text: str, tag: str) -> str | None:
