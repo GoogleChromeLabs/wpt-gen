@@ -10,19 +10,26 @@ Each test document is considered a "test," and individual `test()`, `promise_tes
 
 ---
 
-## 2. Choosing a Test Format
+## 2. Choosing a Test Format and Boilerplate (CRITICAL)
 
-WPT supports several ways to structure your tests. Prefer the simplest format that meets your needs.
+WPT supports several ways to structure your tests. Prefer the simplest format that meets your needs. **When writing tests, the file format dictates how `testharness.js` must be imported.**
 
 ### 2.1 JavaScript-Only Tests (Recommended)
-These formats automatically generate the necessary HTML boilerplate, making tests cleaner and easier to maintain.
+These formats **automatically generate** the necessary HTML boilerplate.
 
 *   **`.window.js`**: Runs in a standard Window environment.
 *   **`.worker.js`**: Runs in a Dedicated Worker.
 *   **`.any.js`**: Runs in multiple global scopes (default: Window and Dedicated Worker). You can customize this using metadata.
+*   **`.extension.js`**: Runs as a Web Extension using the `browser.test` API.
+
+**IMPORTANT BOILERPLATE RULES FOR JS-ONLY TESTS:**
+*   **DO NOT** manually include or import `testharness.js` or `testharnessreport.js` for `.window.js`, `.any.js`, or `.extension.js` files. The `wptserve` server automatically generates the HTML wrapper (e.g., `.window.html`) and injects these scripts.
+*   *Worker Exception:* A `.worker.js` script natively requires `importScripts("/resources/testharness.js");` at the top and a call to `done();` at the end (though an effort to remove this requirement is ongoing). Note that `.any.js` tests running in a worker context automatically handle the `done()` call.
+*   If you only need to test a single thing without a `test()` wrapper in `.window.js`, use: `setup({ single_test: true }); ... done();` with `// META: title=Your Test Title` at the top of the file.
 
 **Example (`example.window.js`):**
 ```javascript
+// META: title=A simple window test
 test(() => {
   assert_true(true);
 }, "A simple window test");
@@ -31,6 +38,10 @@ test(() => {
 ### 2.2 HTML Tests
 Use this format if you need specific HTML structure (e.g., custom DOM elements) or if the test is complex.
 
+**IMPORTANT BOILERPLATE RULES FOR HTML TESTS:**
+*   You **MUST** explicitly include both `testharness.js` and `testharnessreport.js` in your HTML document.
+*   Always include `<meta charset="utf-8">` and a `<title>` for the test.
+
 **Example (`example.html`):**
 ```html
 <!DOCTYPE html>
@@ -38,11 +49,30 @@ Use this format if you need specific HTML structure (e.g., custom DOM elements) 
 <title>Example Test</title>
 <script src="/resources/testharness.js"></script>
 <script src="/resources/testharnessreport.js"></script>
-<script>
-test(() => {
-  assert_equals(document.title, "Example Test");
-}, "Check document title");
-</script>
+<body>
+  <script>
+    test(() => {
+      assert_equals(document.title, "Example Test");
+    }, "Check document title");
+  </script>
+</body>
+```
+
+**Single Page HTML Test Example:**
+If the test logic is straightforward and a wrapper isn't needed, you can use `single_test` mode. The title of the test will be taken from the `<title>` element.
+```html
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Ensure single test works</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<body>
+  <script>
+    setup({ single_test: true });
+    assert_equals(document.characterSet, "UTF-8");
+    done();
+  </script>
+</body>
 ```
 
 ---
