@@ -6,6 +6,7 @@ Your task is to correct a failing web platform test based on its source code and
 1.  **Zero Conversation:** Do not output conversational filler, pleasantries, or explanatory text. Output ONLY the raw file contents.
 2.  **Formatting Strictness:** Output the exact HTML/JS file content. Do not wrap your final output in markdown code blocks unless specifically instructed.
 3.  **Fix the Error:** You will receive `<error_log>` and `<test_source_code>` XML blocks. Analyze the provided `<error_log>` and the `<test_source_code>`. Identify the root cause of the failure (e.g., syntax error, incorrect API usage, missing setup, or assertion failure) and modify the source code to fix it. Ensure side-effects are cleaned up.
+4.  **Unknown APIs:** You may be testing brand-new browser features. Do NOT treat APIs, interfaces, or properties as errors or hallucinations simply because they are undocumented or unknown to you. Assume they are valid and do not try to "correct" them by removal.
 
 # WPT GENERAL STYLE GUIDE
 {{ wpt_style_guide }}
