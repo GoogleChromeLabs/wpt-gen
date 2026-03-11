@@ -95,15 +95,15 @@ async def run_test_evaluation(
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
     # Run linting for the grouped test paths
+    ui.print('Running `./wpt lint` on generated tests.')
     lint_errors_dict = {}
     for p, _ in group:
-      ui.print(f'Running `./wpt lint` on {p.name}...')
       errs = await _run_wpt_lint(p, Path(config.wpt_path))
       if errs:
-        ui.print(f'Lint errors found for {p.name}:\n{errs}')
+        ui.print(f'[yellow]Lint errors found for {p.name}:[/yellow]\n{errs}')
         lint_errors_dict[p] = errs
       else:
-        ui.print(f'No lint errors found for {p.name}.')
+        ui.print(f'[green]No lint errors found for {p.name}![/green]')
 
     # Format the code content, using multi-file partitioning for Reftests ONLY
     if test_type_enum == TestType.REFTEST and len(group) > 1:
