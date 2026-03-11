@@ -102,6 +102,14 @@ If your test requires DOM manipulation or animation before the screenshot, use t
   });
 </script>
 ```
+
+**Waiting for events and avoiding timers:**
+The use of `setTimeout` in tests is strictly prohibited because it is an observed source of instability when running in CI. Instead, prefer event-driven approaches: wait for an event (e.g., `load`, `DOMContentLoaded`, or custom events) to indicate readiness, or use two `requestAnimationFrame` calls to ensure rendering steps have completed. These alternatives improve reliability and consistency across different environments.
+
+In some cases, such as reftests that compare frames after a specific animation duration (e.g., APNG tests), the use of a timeout may be acceptable. When doing so, consider documenting the reason.
+
+**DO NOT** Use `setTimeout` in your tests.
+
 The harness follows this sequence:
 1. Wait for `load` and fonts.
 2. Fire `TestRendered` on the root element.
@@ -134,6 +142,7 @@ Print reftests verify paginated output.
 ### Essential Metadata
 - **Charset**: Always include `<meta charset="utf-8">`.
 - **Conciseness**: Omit `<html>` and `<head>` tags if possible to keep the test focused.
+- **Timeouts**: Execution of tests is subject to a global timeout. Long-running tests may opt into a longer timeout by providing a `<meta>` element: `<meta name="timeout" content="long">`.
 - **Specification Links**:
     - **Required for CSS tests**, recommended for others.
     - Use `<link rel="help" href="...">` to link to the relevant spec section.

@@ -54,6 +54,12 @@ The most effective crashtests are the most minimal. Avoid any extraneous HTML, C
 
 By default, the test runner finishes a crashtest once the `load` event fires and the initial paint is complete. If your test needs to perform work after the initial load, use `test-wait`.
 
+### Avoid Timers (**Do NOT** use `setTimeout`)
+The use of timers (like `setTimeout`) in tests is strongly discouraged because it is an observed source of instability in CI environments. Instead of guessing an appropriate timeout, always prefer event-driven approaches:
+- Wait for explicit events (e.g., `load`, `DOMContentLoaded`, or custom events) to indicate readiness.
+- Use **two** `requestAnimationFrame` calls to ensure rendering steps have completed.
+These alternatives improve reliability and consistency across different environments. If a test must fail when something doesn't happen, let it run to the full harness timeout rather than guessing a shorter timeout.
+
 ### The `test-wait` Class
 Add the `test-wait` class to the root element (`<html>`). The test will remain active until this class is removed.
 
@@ -87,6 +93,13 @@ The test runner fires a `TestRendered` event at the root element when it's ready
 
 ## 5. Advanced Features
 
+### Long Timeouts
+Execution of tests on a page is subject to a global timeout (defaulting to 10s). If your crashtest includes computationally heavy steps, large memory allocations, or an intentional long-running operation, it may incorrectly time out before the browser has a chance to settle. In this case, opt into a longer timeout (defaulting to 60s) by providing a `<meta>` element:
+
+```html
+<meta name="timeout" content="long">
+```
+
 ### User Interactions (`testdriver.js`)
 If a crash is triggered by user interaction, use `testdriver.js`.
 
@@ -116,6 +129,8 @@ You can use standard WPT filename flags with crashtests:
 - [ ] **Descriptive Filenames**: Use a concise, descriptive name (e.g., `flex-direction-change-crash.html`).
 - [ ] **UTF-8 Encoding**: Always include `<meta charset="utf-8">`.
 - [ ] **Cross-Browser Compatibility**: Ensure the test doesn't rely on features exclusive to one browser, unless testing that specific browser's behavior.
+- [ ] **Avoid Timers**: Never use `setTimeout`. Instead, use two `requestAnimationFrame` calls or wait for explicit events to manage test pacing and avoid flakiness.
+- [ ] **Handle Timeouts Correctly**: If a test needs more time, use `<meta name="timeout" content="long">` instead of shortening timers or trying to bypass the global timeout.
 - [ ] **Regressions**: If the test is a fix for a bug, include a `link` with `rel="help"` pointing to the bug report.
 - [ ] **CSS Metadata**: For tests in the `css/` directory, a `link` with `rel="help"` pointing to the relevant specification section is **required**.
 - [ ] **Lint Your Test**: Run `./wpt lint` before submitting to ensure your test follows all style and formatting rules.

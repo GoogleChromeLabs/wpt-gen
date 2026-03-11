@@ -84,6 +84,12 @@ Use a `<meta name="assert">` tag to provide a concise description of what the te
 <meta name="assert" content="Checks that flex-direction: row-reverse correctly mirrors the main axis.">
 ```
 
+### 2.4 Timeouts
+Execution of tests is subject to a global timeout (default 10s). Long-running tests may opt into a longer timeout (60s) by providing a `<meta>` element:
+```html
+<meta name="timeout" content="long">
+```
+
 ---
 
 ## 3. General Principles
@@ -109,6 +115,17 @@ Tests **must not** depend on external network resources. Use local support files
 
 ### 3.5 Be Self-Describing
 It should be obvious to a human reviewer whether the test passed or failed.
+
+### 3.6 Avoid Timers (DO NOT use `setTimeout`)
+The use of timers in tests is discouraged and `setTimeout` is strictly prohibited. This is due to an observed source of instability on test running in CI.
+*   **Do** prefer event-driven approaches: wait for an event (e.g., `load`, `DOMContentLoaded`, or custom events) to indicate readiness.
+*   **Do** use two `requestAnimationFrame` calls to ensure rendering steps have completed.
+*   **Do NOT** use standard `setTimeout` functions. If a timeout is strictly necessary (e.g., testing that an event is *not* fired), use harness-specific functions (like `step_timeout` for `testharness.js`) and consider documenting the reason.
+
+### 3.7 Test Independence and Cleanup
+Tests must be independent and not interfere with each other.
+*   **Do** clean up any state that will persist beyond the test itself (e.g., global variables, appended DOM elements) once the test has a result.
+*   For `testharness.js` tests, register cleanup callbacks using the `add_cleanup()` method to ensure state is reset when the test finishes.
 
 ---
 
