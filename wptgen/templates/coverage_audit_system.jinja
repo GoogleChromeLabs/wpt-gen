@@ -18,7 +18,8 @@ You must process the inputs and output your response in TWO distinct XML blocks.
 ## BLOCK 1: <audit_worksheet>
 You must perform your mapping here.
 1. Read every requirement provided in the `<requirements_list>`.
-2. For each requirement, scan the `<test_suite>`.
+2. Group your output by the exact `<category>` variations present in the `<requirements_list>`.
+3. For each requirement, scan the `<test_suite>`.
    - **Check for Receipts:** Pay special attention to HTML/JS comments in the test files that explicitly quote spec requirements. If a test comments that it covers a requirement, trust it.
    - If covered, cite the specific test file and mark it `[COVERED]`.
    - If missing, mark it `[UNCOVERED]`.
@@ -40,11 +41,11 @@ If there are `[UNCOVERED]` requirements, you MUST generate exactly one `<test_su
 Your entire response must follow this exact structure, with no text outside the tags. Do not wrap your response in markdown blocks:
 
 <audit_worksheet>
-[Existence]
+[Category 1 Name Derived from <requirements_list>]
 R1: [Requirement Text] -> [COVERED by filename.html]
 R2: [Requirement Text] -> [UNCOVERED]
 
-[Common Use Cases]
+[Category 2 Name Derived from <requirements_list>]
 R3: [Requirement Text] -> [COVERED by filename.html]
 </audit_worksheet>
 

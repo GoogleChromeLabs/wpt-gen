@@ -81,6 +81,7 @@ async def run_test_evaluation(
   system_template = jinja_env.get_template('evaluation_system.jinja')
 
   tasks = []
+  ui.print('Running `./wpt lint` on generated tests.')
   for suggestion_xml, group in grouped_tests.items():
     # Extract and normalize test type
     raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
@@ -95,7 +96,6 @@ async def run_test_evaluation(
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
     # Run linting for the grouped test paths
-    ui.print('Running `./wpt lint` on generated tests.')
     lint_errors_dict = {}
     for p, _ in group:
       errs = await _run_wpt_lint(p, Path(config.wpt_path))
