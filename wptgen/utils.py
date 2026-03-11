@@ -256,3 +256,42 @@ def retry(
     return wrapper
 
   return decorator
+
+
+def ensure_testharness_imports(content: str) -> str:
+  """Ensures testharness.js and testharnessreport.js are imported in HTML tests."""
+  th_js = '<script src="/resources/testharness.js"></script>'
+  thr_js = '<script src="/resources/testharnessreport.js"></script>'
+
+  has_th = '/resources/testharness.js' in content
+  has_thr = '/resources/testharnessreport.js' in content
+
+  if has_th and has_thr:
+    return content
+
+  imports_to_add = []
+  if not has_th:
+    imports_to_add.append(th_js)
+  if not has_thr:
+    imports_to_add.append(thr_js)
+
+  import_str = '\n'.join(imports_to_add)
+
+  # Try to inject inside <head>
+  head_match = re.search(r'(<head[^>]*>)', content, re.IGNORECASE)
+  if head_match:
+    return content[: head_match.end()] + '\n' + import_str + '\n' + content[head_match.end() :]
+
+  # Try to inject inside <html>
+  html_match = re.search(r'(<html[^>]*>)', content, re.IGNORECASE)
+  if html_match:
+    return (
+      content[: html_match.end()]
+      + '\n<head>\n'
+      + import_str
+      + '\n</head>\n'
+      + content[html_match.end() :]
+    )
+
+  # Fallback: prepend
+  return import_str + '\n' + content

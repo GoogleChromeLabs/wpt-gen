@@ -24,6 +24,7 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
+  ensure_testharness_imports,
   ensure_trailing_newline,
   extract_xml_tag,
   fix_reftest_link,
@@ -209,10 +210,12 @@ async def _generate_and_save(
 
   # Check if we have multiple files (Reftests)
   multi_files = parse_multi_file_response(content, strip_tentative=not config.tentative)
-  if multi_files:
-    raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or ''
-    is_reftest = raw_test_type.lower() == 'reftest'
+  raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or ''
+  test_type_lower = raw_test_type.lower()
+  is_reftest = test_type_lower == 'reftest'
+  is_crashtest = test_type_lower == 'crashtest'
 
+  if multi_files:
     # Pre-calculate filenames to know the reference name
     filenames = []
     for i, (suffix, _) in enumerate(multi_files, 1):
@@ -231,6 +234,9 @@ async def _generate_and_save(
       if i == 0 and is_reftest and len(filenames) >= 2:
         clean_content = fix_reftest_link(clean_content, filenames[1])
 
+      if fname.endswith('.html') and not is_reftest and not is_crashtest:
+        clean_content = ensure_testharness_imports(clean_content)
+
       output_path = output_dir / fname
       output_path.write_text(
         ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'
@@ -240,6 +246,10 @@ async def _generate_and_save(
   else:
     # Single file fallback - if the LLM failed to use partitioning tags, default to .html
     clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', content).strip()
+
+    if not is_reftest and not is_crashtest:
+      clean_content = ensure_testharness_imports(clean_content)
+
     output_path = output_dir / f'{root_name}.html'
     output_path.write_text(
       ensure_trailing_newline(strip_trailing_whitespace(clean_content)), encoding='utf-8'

@@ -456,3 +456,63 @@ def test_strip_trailing_whitespace() -> None:
   assert strip_trailing_whitespace('  test') == '  test'
   assert strip_trailing_whitespace('line1  \nline2') == 'line1\nline2'
   assert strip_trailing_whitespace('line1 \r\nline2 \r\n') == 'line1\r\nline2\r\n'
+
+
+def test_ensure_testharness_imports_already_present() -> None:
+  from wptgen.utils import ensure_testharness_imports
+
+  content = """<!DOCTYPE html>
+<html>
+<head>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+</head>
+<body></body>
+</html>"""
+  assert ensure_testharness_imports(content) == content
+
+
+def test_ensure_testharness_imports_missing_both_with_head() -> None:
+  from wptgen.utils import ensure_testharness_imports
+
+  content = """<!DOCTYPE html>
+<html>
+<head>
+<title>Test</title>
+</head>
+<body></body>
+</html>"""
+  result = ensure_testharness_imports(content)
+  assert '<script src="/resources/testharness.js"></script>' in result
+  assert '<script src="/resources/testharnessreport.js"></script>' in result
+  assert '<head>\n<script' in result
+
+
+def test_ensure_testharness_imports_missing_both_with_html_no_head() -> None:
+  from wptgen.utils import ensure_testharness_imports
+
+  content = '<html><body></body></html>'
+  result = ensure_testharness_imports(content)
+  assert '<html>\n<head>\n<script src="/resources/testharness.js"></script>' in result
+  assert '</head>\n<body>' in result
+
+
+def test_ensure_testharness_imports_missing_both_no_html() -> None:
+  from wptgen.utils import ensure_testharness_imports
+
+  content = '<body>Just body</body>'
+  result = ensure_testharness_imports(content)
+  assert result.startswith(
+    '<script src="/resources/testharness.js"></script>\n<script src="/resources/testharnessreport.js"></script>\n<body>'
+  )
+
+
+def test_ensure_testharness_imports_partial() -> None:
+  from wptgen.utils import ensure_testharness_imports
+
+  content = """<head>
+<script src="/resources/testharness.js"></script>
+</head>"""
+  result = ensure_testharness_imports(content)
+  assert result.count('/resources/testharness.js') == 1
+  assert result.count('/resources/testharnessreport.js') == 1
