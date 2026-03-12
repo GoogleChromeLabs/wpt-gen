@@ -59,6 +59,8 @@ class Config:
   show_responses: bool = False
   yes_tokens: bool = False
   yes_tests: bool = False
+  yes_cache: bool = False
+  no_cache: bool = False
   suggestions_only: bool = False
   resume: bool = False
   max_retries: int = 3
@@ -169,6 +171,8 @@ def load_config(
   show_responses: bool = False,
   yes_tokens_override: bool = False,
   yes_tests_override: bool = False,
+  yes_cache_override: bool = False,
+  no_cache_override: bool = False,
   suggestions_only: bool = False,
   resume_override: bool = False,
   max_retries_override: int | None = None,
@@ -249,6 +253,8 @@ def load_config(
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)
   yes_tests = yes_tests_override or yaml_data.get('yes_tests', False)
+  yes_cache = yes_cache_override or yaml_data.get('yes_cache', False)
+  no_cache = no_cache_override or yaml_data.get('no_cache', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   resume = resume_override or yaml_data.get('resume', False)
   draft = draft_override or yaml_data.get('draft', False)
@@ -305,6 +311,8 @@ def load_config(
     show_responses=show_responses,
     yes_tokens=yes_tokens,
     yes_tests=yes_tests,
+    yes_cache=yes_cache,
+    no_cache=no_cache,
     suggestions_only=suggestions_only,
     resume=resume,
     max_retries=max_retries,

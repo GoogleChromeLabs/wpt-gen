@@ -43,9 +43,20 @@ async def run_requirements_extraction(
 
   if cache_file.exists():
     ui.info(f'Found cached requirements for {web_feature_id}.')
-    if ui.confirm('Use cached requirements?'):
+    use_cache = False
+    if config.yes_cache:
+      use_cache = True
+      ui.success('Automatically using cached requirements (--yes-cache).')
+    elif config.no_cache:
+      use_cache = False
+      ui.info('Automatically ignoring cached requirements (--no-cache).')
+    else:
+      use_cache = ui.confirm('Use cached requirements?')
+
+    if use_cache:
       requirements_xml = cache_file.read_text(encoding='utf-8')
-      ui.success('Using cached requirements.')
+      if not config.yes_cache:
+        ui.success('Using cached requirements.')
 
   if not requirements_xml:
     extraction_prompt = jinja_env.get_template('requirements_extraction.jinja').render(
@@ -109,9 +120,20 @@ async def run_requirements_extraction_categorized(
 
   if cache_file.exists():
     ui.info(f'Found cached requirements for {web_feature_id}.')
-    if ui.confirm('Use cached requirements?'):
+    use_cache = False
+    if config.yes_cache:
+      use_cache = True
+      ui.success('Automatically using cached requirements (--yes-cache).')
+    elif config.no_cache:
+      use_cache = False
+      ui.info('Automatically ignoring cached requirements (--no-cache).')
+    else:
+      use_cache = ui.confirm('Use cached requirements?')
+
+    if use_cache:
       requirements_xml = cache_file.read_text(encoding='utf-8')
-      ui.success('Using cached requirements.')
+      if not config.yes_cache:
+        ui.success('Using cached requirements.')
 
   if not requirements_xml:
     metadata = context.metadata
@@ -252,9 +274,20 @@ async def run_requirements_extraction_iterative(
 
   if cache_file.exists():
     ui.info(f'Found cached requirements for {web_feature_id}.')
-    if ui.confirm('Use cached requirements?'):
+    use_cache = False
+    if config.yes_cache:
+      use_cache = True
+      ui.success('Automatically using cached requirements (--yes-cache).')
+    elif config.no_cache:
+      use_cache = False
+      ui.info('Automatically ignoring cached requirements (--no-cache).')
+    else:
+      use_cache = ui.confirm('Use cached requirements?')
+
+    if use_cache:
       requirements_xml = cache_file.read_text(encoding='utf-8')
-      ui.success('Using cached requirements.')
+      if not config.yes_cache:
+        ui.success('Using cached requirements.')
 
   if not requirements_xml:
     all_requirements: list[str] = []
