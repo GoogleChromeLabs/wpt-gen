@@ -79,6 +79,7 @@ class Config:
   max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
+  wpt_binary: str | None = None
   max_parallel_requests: int = 10
   temperature: float | None = None
   loaded_from: str | None = None
@@ -190,6 +191,7 @@ def load_config(
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
+  wpt_binary_override: str | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -330,6 +332,7 @@ def load_config(
     tentative=tentative,
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
+    wpt_binary=wpt_binary_override or yaml_data.get('wpt_binary'),
     max_parallel_requests=max_parallel_requests,
     temperature=temperature_override
     if temperature_override is not None

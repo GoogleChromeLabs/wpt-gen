@@ -226,6 +226,13 @@ def generate(
       help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
     ),
   ] = None,
+  wpt_binary: Annotated[
+    str | None,
+    typer.Option(
+      '--binary',
+      help='Path to a custom browser binary executable for the execution phase.',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -292,6 +299,7 @@ def generate(
       tentative_override=tentative,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
+      wpt_binary_override=wpt_binary,
     )
 
     config_info = Text.assemble(
