@@ -495,8 +495,6 @@ def chromestatus(
   Generate Web Platform Tests for a specific ChromeStatus feature.
   """
   # TODO: Implement config path support for chromestatus
-  # TODO: Implement resume support for chromestatus
-  # TODO: Implement detailed requirements for chromestatus
 
   banner = Panel(
     Align.center(
