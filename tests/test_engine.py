@@ -292,6 +292,7 @@ async def test_engine_skip_phase_4(mocker: MockerFixture, mock_config: Config) -
     requirements_xml='<xml></xml>',
     audit_response='mock_audit',
     generated_tests=[(Path('mock_test_1.html'), 'content', '<xml>')],
+    completed_sub_tasks={'phase_2_extraction', 'phase_4_generation'},
   )
 
   mocker.patch(

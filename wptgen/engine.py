@@ -108,22 +108,41 @@ class WPTGenEngine:
       self._save_resume_state(context)
 
     # Phase 2: Requirements Extraction
-    if not context.requirements_xml:
+    if not context.is_sub_task_complete('phase_2_extraction'):
       if self.config.single_prompt_requirements:
         requirements_xml = await run_requirements_extraction(
-          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+          context,
+          self.config,
+          self.llm,
+          self.ui,
+          self.jinja_env,
+          self.cache_dir,
+          self._save_resume_state,
         )
       elif self.config.detailed_requirements:
         requirements_xml = await run_requirements_extraction_iterative(
-          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+          context,
+          self.config,
+          self.llm,
+          self.ui,
+          self.jinja_env,
+          self.cache_dir,
+          self._save_resume_state,
         )
       else:
         requirements_xml = await run_requirements_extraction_categorized(
-          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+          context,
+          self.config,
+          self.llm,
+          self.ui,
+          self.jinja_env,
+          self.cache_dir,
+          self._save_resume_state,
         )
       if not requirements_xml:
         raise WorkflowError('Phase 2: Requirements Extraction failed.')
       context.requirements_xml = requirements_xml
+      context.mark_sub_task_complete('phase_2_extraction')
       self._save_resume_state(context)
 
     # Phase 3: Coverage Audit
@@ -146,11 +165,11 @@ class WPTGenEngine:
       return
 
     # Phase 4: User Selection & Generation
-    if not context.generated_tests:
-      generated_tests = await run_test_generation(
-        context, self.config, self.llm, self.ui, self.jinja_env
+    if not context.is_sub_task_complete('phase_4_generation'):
+      context.generated_tests = await run_test_generation(
+        context, self.config, self.llm, self.ui, self.jinja_env, self._save_resume_state
       )
-      context.generated_tests = generated_tests
+      context.mark_sub_task_complete('phase_4_generation')
       self._save_resume_state(context)
     else:
       self.ui.success('Skipping Phase 4: Tests already generated.')
@@ -158,7 +177,13 @@ class WPTGenEngine:
     # Phase 5: Evaluation
     if context.generated_tests and not self.config.skip_evaluation:
       await run_test_evaluation(
-        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        context,
+        self.config,
+        self.llm,
+        self.ui,
+        self.jinja_env,
+        context.generated_tests,
+        self._save_resume_state,
       )
     elif context.generated_tests and self.config.skip_evaluation:
       self.ui.info('Skipping Phase 5: Evaluation.')
@@ -166,7 +191,13 @@ class WPTGenEngine:
     # Phase 6: Test Execution
     if context.generated_tests and not self.config.skip_execution:
       await run_test_execution(
-        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        context,
+        self.config,
+        self.llm,
+        self.ui,
+        self.jinja_env,
+        context.generated_tests,
+        self._save_resume_state,
       )
     elif context.generated_tests and self.config.skip_execution:
       self.ui.info('Skipping Phase 6: Test Execution.')

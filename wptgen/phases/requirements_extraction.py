@@ -14,6 +14,7 @@
 
 import asyncio
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from jinja2 import Environment
@@ -32,6 +33,7 @@ async def run_requirements_extraction(
   ui: UIProvider,
   jinja_env: Environment,
   cache_dir: Path,
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> str | None:
   ui.on_phase_start(2, 'Requirements Extraction')
 
@@ -98,6 +100,7 @@ async def run_requirements_extraction_categorized(
   ui: UIProvider,
   jinja_env: Environment,
   cache_dir: Path,
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> str | None:
   ui.on_phase_start(2, 'Requirements Extraction (Categorized)')
 
@@ -241,6 +244,7 @@ async def run_requirements_extraction_iterative(
   ui: UIProvider,
   jinja_env: Environment,
   cache_dir: Path,
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> str | None:
   ui.on_phase_start(2, 'Requirements Extraction (Iterative)')
 
@@ -320,6 +324,12 @@ async def run_requirements_extraction_iterative(
         )
         all_requirements.append(re_indexed)
         requirement_counter += 1
+
+      context.requirements_xml = (
+        '<requirements_list>\n  ' + '\n  '.join(all_requirements) + '\n</requirements_list>'
+      )
+      if save_state_callback:
+        save_state_callback(context)
 
       iteration += 1
     else:

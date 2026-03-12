@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from jinja2 import Environment, Template
@@ -243,15 +244,24 @@ async def _correct_failing_tests(
   llm: LLMClient,
   ui: UIProvider,
   config: Config,
+  context: WorkflowContext,
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> None:
   """Handles the loop that renders templates and corrects failing tests concurrently."""
+  import hashlib
+
   semaphore = asyncio.Semaphore(getattr(config, 'max_parallel_requests', 5))
   tasks = []
   for test_id, error_log in failing_tests.items():
-    tasks.append(
-      _correct_test(
-        test_id=test_id,
-        error_log=error_log,
+    task_id = f'exec_corr_{hashlib.md5((test_id + error_log).encode("utf-8")).hexdigest()}'
+    if context.is_sub_task_complete(task_id):
+      ui.info(f'Skipping already attempted correction for {test_id}')
+      continue
+
+    async def correct_and_update(tid: str, el: str, t_id: str) -> None:
+      await _correct_test(
+        test_id=tid,
+        error_log=el,
         valid_rel_paths=valid_rel_paths,
         wpt_root=wpt_root,
         correction_template=correction_template,
@@ -262,7 +272,11 @@ async def _correct_failing_tests(
         config=config,
         semaphore=semaphore,
       )
-    )
+      context.mark_sub_task_complete(t_id)
+      if save_state_callback:
+        save_state_callback(context)
+
+    tasks.append(correct_and_update(test_id, error_log, task_id))
 
   total_tasks = len(tasks)
   completed_tasks = 0
@@ -287,6 +301,7 @@ async def run_test_execution(
   ui: UIProvider,
   jinja_env: Environment,
   generated_tests: list[tuple[Path, str, str]],
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> None:
   """Runs the execution phase for generated tests using ./wpt run."""
   ui.on_phase_start(6, 'Test Execution')
@@ -384,6 +399,8 @@ async def run_test_execution(
       llm,
       ui,
       config,
+      context,
+      save_state_callback,
     )
 
   ui.on_phase_complete('Test Execution')

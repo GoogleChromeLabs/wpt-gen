@@ -121,6 +121,7 @@ async def test_run_async_workflow_resume_skips_phases(
     metadata=WebFeatureMetadata(name='Test', description='Desc', specs=[]),
     wpt_context=WPTContext(),
     requirements_xml='<reqs/>',
+    completed_sub_tasks={'phase_2_extraction'},
   )
   engine._save_resume_state(context)
 

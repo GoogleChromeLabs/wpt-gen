@@ -96,6 +96,13 @@ class WorkflowContext:
   approved_suggestions_xml: list[str] = field(default_factory=list)
   mdn_contents: list[str] | None = None
   generated_tests: list[tuple[Path, str, str]] | None = None
+  completed_sub_tasks: set[str] = field(default_factory=set)
+
+  def mark_sub_task_complete(self, task_id: str) -> None:
+    self.completed_sub_tasks.add(task_id)
+
+  def is_sub_task_complete(self, task_id: str) -> bool:
+    return task_id in self.completed_sub_tasks
 
   def to_dict(self) -> dict[str, Any]:
     data = {
@@ -111,6 +118,7 @@ class WorkflowContext:
       'generated_tests': (
         [(str(p), c, s) for p, c, s in self.generated_tests] if self.generated_tests else None
       ),
+      'completed_sub_tasks': list(self.completed_sub_tasks),
     }
     return data
 
@@ -139,4 +147,5 @@ class WorkflowContext:
       approved_suggestions_xml=data.get('approved_suggestions_xml', []),
       mdn_contents=data.get('mdn_contents'),
       generated_tests=generated_tests,
+      completed_sub_tasks=set(data.get('completed_sub_tasks', [])),
     )

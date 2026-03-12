@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import asyncio
+import hashlib
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
 from jinja2 import Environment
@@ -60,6 +62,7 @@ async def run_test_evaluation(
   ui: UIProvider,
   jinja_env: Environment,
   generated_tests: list[tuple[Path, str, str]],
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> None:
   """Runs the evaluation phase for generated tests."""
   ui.on_phase_start(5, 'Evaluation')
@@ -79,9 +82,14 @@ async def run_test_evaluation(
   evaluation_template = jinja_env.get_template('evaluation.jinja')
   system_template = jinja_env.get_template('evaluation_system.jinja')
 
-  tasks = []
   ui.print('Running `./wpt lint` on generated tests.')
+  tasks = []
   for suggestion_xml, group in grouped_tests.items():
+    task_id = f'eval_{hashlib.md5(suggestion_xml.encode("utf-8")).hexdigest()}'
+    if context.is_sub_task_complete(task_id):
+      ui.info('Skipping already evaluated group.')
+      continue
+
     # Extract and normalize test type
     raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
     test_type_enum = TestType.JAVASCRIPT
@@ -158,8 +166,17 @@ async def run_test_evaluation(
       generated_code_content=generated_code_content.strip(),
       lint_errors=lint_errors_str,
     )
+
+    async def evaluate_and_update_wrapper(
+      g: list[tuple[Path, str]], p: str, si: str, tt: TestType, tid: str
+    ) -> None:
+      await _evaluate_and_update(g, p, llm, ui, config, si, tt)
+      context.mark_sub_task_complete(tid)
+      if save_state_callback:
+        save_state_callback(context)
+
     tasks.append(
-      _evaluate_and_update(group, prompt, llm, ui, config, system_instruction, test_type_enum)
+      evaluate_and_update_wrapper(group, prompt, system_instruction, test_type_enum, task_id)
     )
 
   total_tasks = len(tasks)

@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import asyncio
+import hashlib
+from collections.abc import Callable
 from pathlib import Path
 
 from jinja2 import Environment
@@ -40,18 +42,23 @@ async def run_test_generation(
   llm: LLMClient,
   ui: UIProvider,
   jinja_env: Environment,
+  save_state_callback: Callable[[WorkflowContext], None] | None = None,
 ) -> list[tuple[Path, str, str]]:
   ui.on_phase_start(4, 'User Selection & Generation')
 
   assert context.audit_response is not None
   assert context.metadata is not None
 
+  # Initialize generated tests list if None
+  if context.generated_tests is None:
+    context.generated_tests = []
+
   # Check for satisfaction status
   status = extract_xml_tag(context.audit_response, 'status')
   if status and status.strip() == 'SATISFIED':
     ui.success('All identified test requirements have been satisfied.')
     ui.info('No new test suggestions were generated because existing coverage is sufficient.')
-    return []
+    return context.generated_tests
 
   # Display the audit worksheet in a formatted table
   audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
@@ -62,7 +69,7 @@ async def run_test_generation(
 
   if not suggestions:
     ui.warning('No valid <test_suggestion> blocks found in the LLM response.')
-    return []
+    return context.generated_tests
 
   ui.success(f'{len(suggestions)} new test suggestions found!\n')
 
@@ -72,13 +79,21 @@ async def run_test_generation(
     description = extract_xml_tag(suggestion, 'description') or 'No description provided.'
     test_type = extract_xml_tag(suggestion, 'test_type') or 'Unknown'
 
+    task_id = f'test_gen_{hashlib.md5(suggestion.encode("utf-8")).hexdigest()}'
+    if context.is_sub_task_complete(task_id):
+      ui.info(f'Skipping already completed test: {title}')
+      continue
+
     ui.report_test_suggestion(i + 1, title, description, test_type)
     if config.yes_tests or ui.confirm('Generate this test?'):
-      approved_suggestions_xml.append(suggestion)
+      approved_suggestions_xml.append((suggestion, task_id))
 
   if not approved_suggestions_xml:
-    ui.warning('No tests selected. Exiting.')
-    return []
+    if context.generated_tests:
+      ui.success('All selected tests were already generated in a previous run.')
+    else:
+      ui.warning('No tests selected. Exiting.')
+    return context.generated_tests
 
   # Load the general style guide
   resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
@@ -89,13 +104,13 @@ async def run_test_generation(
   system_template = jinja_env.get_template('test_generation_system.jinja')
 
   spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
-  prompts_to_confirm: list[tuple[str, str, str, str]] = []
+  prompts_to_confirm: list[tuple[str, str, str, str, str]] = []
 
   # Keep track of filenames used in this run to avoid collisions
   used_names: set[str] = set()
   output_dir = Path(config.output_dir or '.')
 
-  for suggestion_xml in approved_suggestions_xml:
+  for suggestion_xml, task_id in approved_suggestions_xml:
     # Inject specification URLs if available
     if spec_urls:
       spec_url_tags = '\n'.join([f'  <spec_url>{url}</spec_url>' for url in spec_urls])
@@ -132,11 +147,13 @@ async def run_test_generation(
       test_suggestion_xml_block=suggestion_xml,
     )
 
-    prompts_to_confirm.append((final_prompt, root_name, suggestion_xml, system_instruction))
+    prompts_to_confirm.append(
+      (final_prompt, root_name, suggestion_xml, system_instruction, task_id)
+    )
 
   # Single confirmation for ALL tests
   await confirm_prompts(
-    [(p, f'{r}.*') for p, r, s, si in prompts_to_confirm],
+    [(p, f'{r}.*') for p, r, s, si, t in prompts_to_confirm],
     f'Generate {len(prompts_to_confirm)} Tests',
     llm,
     ui,
@@ -146,11 +163,25 @@ async def run_test_generation(
 
   ui.report_generation_start(len(prompts_to_confirm))
 
-  tasks = [
-    _generate_and_save(
+  async def generate_and_update(
+    prompt: str, root_name: str, suggestion_xml: str, system_instruction: str, task_id: str
+  ) -> list[tuple[Path, str, str]]:
+    result_files = await _generate_and_save(
       prompt, root_name, suggestion_xml, llm, ui, config, system_instruction, temperature=0.1
     )
-    for prompt, root_name, suggestion_xml, system_instruction in prompts_to_confirm
+
+    assert context.generated_tests is not None
+    context.generated_tests.extend(result_files)
+    context.mark_sub_task_complete(task_id)
+
+    if save_state_callback:
+      save_state_callback(context)
+
+    return result_files
+
+  tasks = [
+    generate_and_update(prompt, root_name, suggestion_xml, system_instruction, task_id)
+    for prompt, root_name, suggestion_xml, system_instruction, task_id in prompts_to_confirm
   ]
 
   results = []
@@ -172,7 +203,7 @@ async def run_test_generation(
 
   ui.report_generation_summary(final_results)
 
-  return final_results
+  return context.generated_tests
 
 
 async def _generate_and_save(
