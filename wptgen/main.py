@@ -357,6 +357,252 @@ def generate(
     raise typer.Exit(code=1) from e
 
 
+@app.command()
+def chromestatus(
+  feature_id: Annotated[
+    str,
+    typer.Argument(help='The ChromeStatus feature ID.'),
+  ],
+  provider: Annotated[
+    str | None,
+    typer.Option(
+      '--provider',
+      '-p',
+      help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+    ),
+  ] = None,
+  wpt_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ] = None,
+  output_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--output-dir',
+      '-o',
+      help='Directory where generated tests will be saved.',
+      dir_okay=True,
+    ),
+  ] = None,
+  show_responses: Annotated[
+    bool,
+    typer.Option(
+      '--show-responses', '-s', help='Display every LLM-generated response to the user.'
+    ),
+  ] = False,
+  yes_tokens: Annotated[
+    bool,
+    typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
+  ] = False,
+  yes_tests: Annotated[
+    bool,
+    typer.Option(
+      '--yes-tests',
+      help='Automatically confirm and generate all proposed test suggestions without prompting.',
+    ),
+  ] = False,
+  suggestions_only: Annotated[
+    bool,
+    typer.Option(
+      '--suggestions-only',
+      help='Only show test suggestions and skip the test generation step.',
+    ),
+  ] = False,
+  max_retries: Annotated[
+    int,
+    typer.Option(
+      '--max-retries',
+      help='Maximum number of retries for LLM calls.',
+    ),
+  ] = 3,
+  timeout: Annotated[
+    int,
+    typer.Option(
+      '--timeout',
+      help='Timeout for LLM requests in seconds.',
+    ),
+  ] = DEFAULT_LLM_TIMEOUT,
+  spec_urls: Annotated[
+    str | None,
+    typer.Option(
+      '--spec-urls',
+      '-u',
+      help='Comma-separated list of spec URLs to use, bypassing automatic fetching.',
+    ),
+  ] = None,
+  description: Annotated[
+    str | None,
+    typer.Option(
+      '--description',
+      '-d',
+      help='Manually provide a description for the web feature.',
+    ),
+  ] = None,
+  use_lightweight: Annotated[
+    bool,
+    typer.Option('--use-lightweight', help='Use the lightweight model for all LLM requests.'),
+  ] = False,
+  use_reasoning: Annotated[
+    bool,
+    typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
+  ] = False,
+  skip_evaluation: Annotated[
+    bool,
+    typer.Option(
+      '--skip-evaluation',
+      '--no-eval',
+      help='Skip the evaluation phase after generating tests.',
+    ),
+  ] = False,
+  skip_execution: Annotated[
+    bool,
+    typer.Option(
+      '--skip-execution',
+      '--no-exec',
+      help='Skip the test execution phase after generating tests.',
+    ),
+  ] = False,
+  tentative: Annotated[
+    bool,
+    typer.Option(
+      '--tentative',
+      help='Generate test files with the .tentative flag.',
+    ),
+  ] = False,
+  max_parallel_requests: Annotated[
+    int | None,
+    typer.Option(
+      '--max-parallel-requests',
+      help='Maximum number of parallel asynchronous LLM requests.',
+    ),
+  ] = None,
+  temperature: Annotated[
+    float | None,
+    typer.Option(
+      '--temperature',
+      help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
+    ),
+  ] = None,
+) -> None:
+  """
+  Generate Web Platform Tests for a specific ChromeStatus feature.
+  """
+  # TODO: Implement config path support for chromestatus
+
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation (ChromeStatus)[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]ChromeStatus Feature ID:[/bold] [cyan]{feature_id}[/cyan]\n')
+
+  if use_lightweight and use_reasoning:
+    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+    raise typer.Exit(code=1)
+
+  try:
+    # 1. Load configuration (merging YAML, env vars, and CLI overrides)
+
+    # Convert Path object back to string if it was provided, else pass None
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    output_dir_str = str(output_dir) if output_dir else None
+
+    # Parse spec_urls if provided
+    spec_urls_list = None
+    if spec_urls:
+      spec_urls_list = [u.strip() for u in spec_urls.split(',')]
+
+    config = load_config(
+      config_path=DEFAULT_CONFIG_PATH,
+      provider_override=provider,
+      wpt_dir_override=wpt_dir_str,
+      output_dir_override=output_dir_str,
+      show_responses=show_responses,
+      yes_tokens_override=yes_tokens,
+      yes_tests_override=yes_tests,
+      suggestions_only=suggestions_only,
+      resume_override=False,
+      max_retries_override=max_retries,
+      timeout_override=timeout,
+      spec_urls_override=spec_urls_list,
+      feature_description_override=description,
+      detailed_requirements_override=False,
+      single_prompt_requirements_override=False,
+      use_lightweight_override=use_lightweight,
+      use_reasoning_override=use_reasoning,
+      skip_evaluation_override=skip_evaluation,
+      skip_execution_override=skip_execution,
+      tentative_override=tentative,
+      max_parallel_requests_override=max_parallel_requests,
+      temperature_override=temperature,
+    )
+
+    config_info = Text.assemble(
+      ('Provider: ', 'bold'),
+      (f'{config.provider}\n', 'green'),
+      ('Model:    ', 'bold'),
+      (f'{config.default_model}', 'green'),
+    )
+    console.print(
+      Panel(
+        config_info,
+        title='[bold]Configuration[/bold]',
+        title_align='left',
+        expand=False,
+        border_style='bright_black',
+      )
+    )
+
+    # 2. Instantiate the core engine
+    engine = WPTGenEngine(config=config, ui=ui)
+
+    # 3. Execute the workflow
+    engine.run_chromestatus_workflow(feature_id)
+
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Workflow completed successfully![/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
+
+  except LLMTimeoutError as e:
+    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except ValueError as e:
+    # Catch configuration errors (like missing API keys) and exit gracefully
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except WorkflowError:
+    console.print()
+    console.print(
+      Panel(
+        '[bold red]✘ Workflow completed with errors.[/bold red]',
+        border_style='red',
+        expand=False,
+      )
+    )
+    raise typer.Exit(code=1) from None
+  except Exception as e:
+    # Catch unexpected runtime errors
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='doctor')
 def doctor_command(
   config_path: Annotated[

@@ -92,6 +92,7 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   mock_audit = mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
   mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
   mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
+  mock_exec = mocker.patch('wptgen.engine.run_test_execution', return_value=True)
 
   await engine._run_async_workflow('feat-id')
 
@@ -101,6 +102,7 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   mock_audit.assert_called_once()
   mock_gen.assert_called_once()
   mock_eval.assert_called_once()
+  mock_exec.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -201,6 +203,7 @@ async def test_run_async_workflow_skip_evaluation(
   mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
   mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
   mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', return_value=True)
 
   await engine._run_async_workflow('feat-id')
 
@@ -269,7 +272,7 @@ async def test_engine_single_prompt_requirements(
     'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
   )
   mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=True)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')
@@ -302,7 +305,7 @@ async def test_engine_skip_phase_4(mocker: MockerFixture, mock_config: Config) -
   )
   mocker.patch('wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=[])
   mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=True)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')
@@ -352,7 +355,7 @@ async def test_engine_resume_workflow_success(mocker: MockerFixture, mock_config
     'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
   )
   mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
+  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=True)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')

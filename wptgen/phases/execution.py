@@ -289,13 +289,18 @@ async def run_test_execution(
   ui: UIProvider,
   jinja_env: Environment,
   generated_tests: list[tuple[Path, str, str]],
-) -> None:
-  """Runs the execution phase for generated tests using ./wpt run."""
+) -> bool:
+  """
+  Runs the execution phase for generated tests using ./wpt run.
+
+  Returns:
+    True if all tests passed (possibly after correction), False otherwise.
+  """
   ui.on_phase_start(6, 'Test Execution')
 
   if not generated_tests:
     ui.info('No tests to execute.')
-    return
+    return True
 
   ui.print(f'Executing [bold]{len(generated_tests)}[/bold] generated files...')
 
@@ -304,13 +309,13 @@ async def run_test_execution(
 
   if not wpt_executable.exists():
     ui.error(f'Could not find wpt executable at {wpt_executable}. Skipping execution.')
-    return
+    return False
 
   valid_rel_paths = _filter_executable_tests(generated_tests, wpt_root, ui)
 
   if not valid_rel_paths:
     ui.info('No valid test files to execute (all might be references or outside WPT root).')
-    return
+    return True
 
   correction_template = jinja_env.get_template('correction.jinja')
   correction_system = jinja_env.get_template('correction_system.jinja')
@@ -320,6 +325,7 @@ async def run_test_execution(
   resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
   wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
 
+  success = False
   for retry in range(max_retries + 1):
     if retry > 0:
       ui.print(
@@ -343,12 +349,13 @@ async def run_test_execution(
     if returncode == -1 and not output:
       if os.path.exists(log_path):
         os.remove(log_path)
-      return
+      return False
 
     if returncode == 0:
       ui.success(f'Test execution succeeded for all {len(valid_rel_paths)} tests.')
       if os.path.exists(log_path):
         os.remove(log_path)
+      success = True
       break
 
     failing_tests = _parse_test_results(log_path)
@@ -360,10 +367,11 @@ async def run_test_execution(
       ui.error(f'Test execution failed with exit code {returncode}.')
       if output.strip():
         ui.print(output.strip())
-      break
+      return False
 
     if retry == max_retries:
       ui.error(f'Test execution failed after {max_retries} correction attempts.')
+      success = False
       break
 
     passed_count = len(valid_rel_paths) - len(failing_tests)
@@ -389,3 +397,4 @@ async def run_test_execution(
     )
 
   ui.on_phase_complete('Test Execution')
+  return success
