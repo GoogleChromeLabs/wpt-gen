@@ -102,6 +102,20 @@ def generate(
       help='Automatically confirm and generate all proposed test suggestions without prompting.',
     ),
   ] = False,
+  yes_cache: Annotated[
+    bool,
+    typer.Option(
+      '--yes-cache',
+      help='Automatically use the cache if it exists without prompting.',
+    ),
+  ] = False,
+  no_cache: Annotated[
+    bool,
+    typer.Option(
+      '--no-cache',
+      help='Automatically ignore and overwrite the cache if it exists without prompting.',
+    ),
+  ] = False,
   suggestions_only: Annotated[
     bool,
     typer.Option(
@@ -232,6 +246,10 @@ def generate(
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
 
+  if yes_cache and no_cache:
+    ui.error('Cannot use both --yes-cache and --no-cache.')
+    raise typer.Exit(code=1)
+
   if detailed_requirements and single_prompt_requirements:
     ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
     raise typer.Exit(code=1)
@@ -256,6 +274,8 @@ def generate(
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       yes_tests_override=yes_tests,
+      yes_cache_override=yes_cache,
+      no_cache_override=no_cache,
       suggestions_only=suggestions_only,
       resume_override=resume,
       max_retries_override=max_retries,
@@ -602,6 +622,20 @@ def audit(
     bool,
     typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
   ] = False,
+  yes_cache: Annotated[
+    bool,
+    typer.Option(
+      '--yes-cache',
+      help='Automatically use the cache if it exists without prompting.',
+    ),
+  ] = False,
+  no_cache: Annotated[
+    bool,
+    typer.Option(
+      '--no-cache',
+      help='Automatically ignore and overwrite the cache if it exists without prompting.',
+    ),
+  ] = False,
   resume: Annotated[
     bool,
     typer.Option(
@@ -702,6 +736,10 @@ def audit(
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
 
+  if yes_cache and no_cache:
+    ui.error('Cannot use both --yes-cache and --no-cache.')
+    raise typer.Exit(code=1)
+
   if detailed_requirements and single_prompt_requirements:
     ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
     raise typer.Exit(code=1)
@@ -726,6 +764,8 @@ def audit(
       show_responses=show_responses,
       yes_tokens_override=yes_tokens,
       yes_tests_override=False,
+      yes_cache_override=yes_cache,
+      no_cache_override=no_cache,
       suggestions_only=True,
       resume_override=resume,
       max_retries_override=max_retries,
