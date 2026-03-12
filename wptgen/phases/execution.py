@@ -87,8 +87,10 @@ async def _execute_wpt_run(
     config.wpt_channel,
     '--log-raw',
     log_path,
-    config.wpt_browser,
-  ] + valid_rel_paths
+  ]
+  if config.wpt_binary:
+    cmd.extend(['--binary', config.wpt_binary])
+  cmd.extend([config.wpt_browser] + valid_rel_paths)
 
   process = await asyncio.create_subprocess_exec(
     *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
