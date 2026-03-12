@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -26,6 +27,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
 from wptgen.config import DEFAULT_LLM_TIMEOUT, Config
+from wptgen.observability import Tracer
 from wptgen.utils import retry
 
 # Default retry configuration for LLM calls
@@ -53,11 +55,13 @@ class LLMClient(ABC):
     model: str,
     max_retries: int = MAX_RETRIES,
     timeout: int = DEFAULT_LLM_TIMEOUT,
+    tracer: Tracer | None = None,
   ):
     self.api_key = api_key
     self.model = model
     self.max_retries = max_retries
     self.timeout = timeout
+    self.tracer = tracer
 
   @abstractmethod
   def verify_model(self) -> None:
@@ -93,8 +97,9 @@ class GeminiClient(LLMClient):
     model: str,
     max_retries: int = MAX_RETRIES,
     timeout: int = DEFAULT_LLM_TIMEOUT,
+    tracer: Tracer | None = None,
   ):
-    super().__init__(api_key, model, max_retries, timeout)
+    super().__init__(api_key, model, max_retries, timeout, tracer)
     # Initialize the official Google GenAI client
     # Casting timeout to milliseconds to ensure it's interpreted correctly by the SDK
     self.client = genai.Client(
@@ -136,14 +141,33 @@ class GeminiClient(LLMClient):
       config.temperature = temperature
 
     try:
+      start_time = time.time()
       response = self.client.models.generate_content(
         model=target_model, contents=prompt, config=config
       )
+      latency = time.time() - start_time
     except httpx.TimeoutException as e:
       raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
 
     if response.text is None:
       raise ValueError('Gemini API returned no text.')
+
+    token_usage = (
+      response.usage_metadata.total_token_count
+      if hasattr(response, 'usage_metadata') and response.usage_metadata
+      else None
+    )
+    if self.tracer:
+      self.tracer.record(
+        prompt=prompt,
+        system_instruction=system_instruction,
+        model=target_model,
+        temperature=temperature,
+        raw_response=response.text,
+        token_usage=token_usage,
+        latency=latency,
+      )
+
     return response.text
 
   def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
@@ -178,8 +202,9 @@ class OpenAIClient(LLMClient):
     model: str,
     max_retries: int = MAX_RETRIES,
     timeout: int = DEFAULT_LLM_TIMEOUT,
+    tracer: Tracer | None = None,
   ):
-    super().__init__(api_key, model, max_retries, timeout)
+    super().__init__(api_key, model, max_retries, timeout, tracer)
     self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
     self.verify_model()
 
@@ -214,15 +239,32 @@ class OpenAIClient(LLMClient):
     messages.append({'role': 'user', 'content': prompt})
 
     try:
+      start_time = time.time()
       response = self.client.chat.completions.create(
         model=target_model, messages=messages, temperature=temperature
       )
+      latency = time.time() - start_time
     except openai.APITimeoutError as e:
       raise LLMTimeoutError(f'OpenAI API request timed out after {self.timeout}s: {e}') from e
 
     content = response.choices[0].message.content
     if content is None:
       raise ValueError('OpenAI API returned no content.')
+
+    token_usage = (
+      response.usage.total_tokens if hasattr(response, 'usage') and response.usage else None
+    )
+    if self.tracer:
+      self.tracer.record(
+        prompt=prompt,
+        system_instruction=system_instruction,
+        model=target_model,
+        temperature=temperature,
+        raw_response=content,
+        token_usage=token_usage,
+        latency=latency,
+      )
+
     return content
 
   def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
@@ -257,8 +299,9 @@ class AnthropicClient(LLMClient):
     model: str,
     max_retries: int = MAX_RETRIES,
     timeout: int = DEFAULT_LLM_TIMEOUT,
+    tracer: Tracer | None = None,
   ):
-    super().__init__(api_key, model, max_retries, timeout)
+    super().__init__(api_key, model, max_retries, timeout, tracer)
     self.client = anthropic.Anthropic(api_key=self.api_key, timeout=float(self.timeout))
     self.verify_model()
 
@@ -301,7 +344,9 @@ class AnthropicClient(LLMClient):
       kwargs['temperature'] = temperature
 
     try:
+      start_time = time.time()
       response = self.client.messages.create(**kwargs)
+      latency = time.time() - start_time
     except anthropic.APITimeoutError as e:
       raise LLMTimeoutError(f'Anthropic API request timed out after {self.timeout}s: {e}') from e
 
@@ -312,6 +357,23 @@ class AnthropicClient(LLMClient):
     content = response.content[0].text
     if not isinstance(content, str):
       raise ValueError('Anthropic API returned no text.')
+
+    token_usage = (
+      response.usage.input_tokens + response.usage.output_tokens
+      if hasattr(response, 'usage') and response.usage
+      else None
+    )
+    if self.tracer:
+      self.tracer.record(
+        prompt=prompt,
+        system_instruction=system_instruction,
+        model=target_model,
+        temperature=temperature,
+        raw_response=content,
+        token_usage=token_usage,
+        latency=latency,
+      )
+
     return content
 
   def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
@@ -340,12 +402,16 @@ class AnthropicClient(LLMClient):
 def get_llm_client(config: Config) -> LLMClient:
   """Factory function to instantiate the correct LLM provider."""
   assert config.api_key is not None, 'api_key must be set in configuration'
+
+  tracer = Tracer(save_traces=config.save_traces) if getattr(config, 'save_traces', False) else None
+
   if config.provider == 'gemini':
     return GeminiClient(
       api_key=config.api_key,
       model=config.default_model,
       max_retries=config.max_retries,
       timeout=config.timeout,
+      tracer=tracer,
     )
   elif config.provider == 'openai':
     return OpenAIClient(
@@ -353,6 +419,7 @@ def get_llm_client(config: Config) -> LLMClient:
       model=config.default_model,
       max_retries=config.max_retries,
       timeout=config.timeout,
+      tracer=tracer,
     )
   elif config.provider == 'anthropic':
     return AnthropicClient(
@@ -360,6 +427,7 @@ def get_llm_client(config: Config) -> LLMClient:
       model=config.default_model,
       max_retries=config.max_retries,
       timeout=config.timeout,
+      tracer=tracer,
     )
   else:
     raise ValueError(f'Unsupported provider: {config.provider}')

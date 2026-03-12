@@ -76,6 +76,7 @@ class Config:
   skip_evaluation: bool = False
   skip_execution: bool = False
   tentative: bool = False
+  save_traces: bool = False
   max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
@@ -188,6 +189,7 @@ def load_config(
   skip_evaluation_override: bool = False,
   skip_execution_override: bool = False,
   tentative_override: bool = False,
+  save_traces_override: bool = False,
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
@@ -283,6 +285,7 @@ def load_config(
   skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
   skip_execution = skip_execution_override or yaml_data.get('skip_execution', False)
   tentative = tentative_override or yaml_data.get('tentative', False)
+  save_traces = save_traces_override or yaml_data.get('save_traces', False)
 
   # Load model categories and phase mapping
   default_model = provider_settings.get('default_model', default_model_name)
@@ -330,6 +333,7 @@ def load_config(
     skip_evaluation=skip_evaluation,
     skip_execution=skip_execution,
     tentative=tentative,
+    save_traces=save_traces,
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
     wpt_binary=wpt_binary_override or yaml_data.get('wpt_binary'),
