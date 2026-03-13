@@ -14,6 +14,7 @@
 
 import random
 import re
+import subprocess
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -289,3 +290,93 @@ def ensure_testharness_imports(content: str) -> str:
 
   # Fallback: prepend
   return import_str + '\n' + content
+
+
+def get_recent_test_files(
+  target_dir: str | Path,
+  file_extension: str,
+  limit: int = 3,
+  max_tokens: int = 15000,
+  token_counter: Callable[[str], int] | None = None,
+  allowed_files: list[str] | set[str] | None = None,
+) -> list[tuple[str, str]]:
+  """Queries the local Git repository to find the most recently modified files.
+
+  Args:
+    target_dir: The directory to search within.
+    file_extension: The required file extension (e.g., '.html', '-ref.html').
+    limit: The maximum number of files to return. Default is 3.
+    max_tokens: The maximum allowed tokens for a file to be included.
+    token_counter: An optional callable to count tokens. If None, uses a
+      character-based heuristic (len(content) / 4).
+    allowed_files: An optional list/set of absolute file paths to filter by.
+      If provided, only files that exactly match a path in this list will be included.
+
+  Returns:
+    A list of tuples containing (filename, file_content) for the matched files.
+  """
+  target_path = Path(target_dir)
+  if not target_path.exists() or not target_path.is_dir():
+    return []
+
+  try:
+    result = subprocess.run(
+      [
+        'git',
+        'log',
+        '--name-only',
+        '--pretty=format:',
+        '--diff-filter=d',
+        '--',
+        str(target_path),
+      ],
+      capture_output=True,
+      text=True,
+      check=True,
+    )
+  except subprocess.CalledProcessError:
+    return []
+
+  seen = set()
+  files = []
+
+  for line in result.stdout.splitlines():
+    line = line.strip()
+    if not line:
+      continue
+
+    if line in seen:
+      continue
+    seen.add(line)
+
+    if not line.endswith(file_extension):
+      continue
+
+    filepath = Path(line)
+    if not filepath.exists() or not filepath.is_file():
+      continue
+
+    if allowed_files is not None:
+      abs_path = str(filepath.resolve())
+      if abs_path not in allowed_files:
+        continue
+
+    try:
+      content = filepath.read_text(encoding='utf-8')
+    except Exception:
+      continue
+
+    if token_counter:
+      tokens = token_counter(content)
+    else:
+      tokens = len(content) // 4
+
+    if tokens > max_tokens:
+      continue
+
+    files.append((filepath.name, content))
+
+    if len(files) >= limit:
+      break
+
+  return files
