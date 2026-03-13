@@ -20,6 +20,19 @@ You will receive a `<test_suggestion>` XML blueprint. You must map its fields to
 # {{ test_type }} STYLE GUIDE & RULES
 {{ test_type_guide }}
 
+{% if golden_examples %}
+# GOLDEN EXAMPLES
+To ensure the generated test matches the specific undocumented styles, variable naming conventions, and setup routines used by maintainers in this specific directory, analyze and mimic the following recently authored tests:
+
+{% for filename, content in golden_examples -%}
+Golden Example (File: {{ filename }}):
+```
+{{ content }}
+```
+
+{% endfor %}
+{% endif %}
+
 # OUTPUT FORMAT
 {% if test_type == "Reftest" -%}
 You MUST generate exactly two files: the test file and the reference file.

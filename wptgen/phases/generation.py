@@ -18,6 +18,7 @@ from pathlib import Path
 from jinja2 import Environment
 
 from wptgen.config import Config
+from wptgen.context import find_feature_tests
 from wptgen.llm import LLMClient
 from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
@@ -29,6 +30,7 @@ from wptgen.utils import (
   extract_xml_tag,
   fix_reftest_link,
   get_next_available_root,
+  get_recent_test_files,
   parse_multi_file_response,
   parse_suggestions,
 )
@@ -118,8 +120,34 @@ async def run_test_generation(
     guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
     test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
 
+    # Fetch relevant files for this feature to enforce golden example scope
+    allowed_files_set = set()
+    if output_dir.exists() and output_dir.is_dir():
+      allowed_files_list = find_feature_tests(str(output_dir), context.feature_id)
+      allowed_files_set = set(allowed_files_list)
+
+    # Determine extension to search for golden examples
+    file_extension = '.html'
+    if test_type_enum == TestType.JAVASCRIPT and '.js' in root_name:
+      file_extension = '.js'
+    elif test_type_enum == TestType.REFTEST:
+      # We could look for '-ref.html' but '.html' covers both tests and refs.
+      file_extension = '.html'
+
+    golden_examples = get_recent_test_files(
+      target_dir=output_dir,
+      file_extension=file_extension,
+      limit=3,
+      max_tokens=15000,
+      token_counter=lambda c: llm.count_tokens(
+        c, model=config.get_model_for_phase(WorkflowPhase.GENERATION)
+      ),
+      allowed_files=allowed_files_set,
+    )
+
     # Render the system instruction with both general and type-specific rules
     system_instruction = system_template.render(
+      golden_examples=golden_examples,
       wpt_style_guide=wpt_style_guide,
       test_type=test_type_enum.value,
       test_type_guide=test_type_guide,
