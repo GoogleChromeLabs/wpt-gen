@@ -60,7 +60,7 @@ def update_web_features_yml(
     rel_path = test_path.relative_to(output_dir)
 
     if not is_path_covered(rel_path, existing_patterns):
-      new_patterns.append(str(rel_path))
+      new_patterns.append(rel_path.as_posix())
 
   if new_patterns:
     for p in new_patterns:
