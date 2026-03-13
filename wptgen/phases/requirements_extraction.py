@@ -20,7 +20,7 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext
+from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 
@@ -75,7 +75,7 @@ async def run_requirements_extraction(
       llm,
       ui,
       config,
-      model=config.get_model_for_phase('requirements_extraction'),
+      model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
     )
 
     requirements_xml = await generate_safe(
@@ -86,7 +86,7 @@ async def run_requirements_extraction(
       config,
       system_instruction=extraction_system_prompt,
       temperature=0.01,
-      model=config.get_model_for_phase('requirements_extraction'),
+      model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
     )
 
     if not requirements_xml:
@@ -168,7 +168,7 @@ async def run_requirements_extraction_categorized(
       llm,
       ui,
       config,
-      model=config.get_model_for_phase('requirements_extraction'),
+      model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
     )
 
     async def extract_for_category(
@@ -182,7 +182,7 @@ async def run_requirements_extraction_categorized(
         config,
         system_instruction=extraction_system_prompt,
         temperature=0.01,
-        model=config.get_model_for_phase('requirements_extraction'),
+        model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
       )
 
     ui.info(f'Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests...')
@@ -316,7 +316,7 @@ async def run_requirements_extraction_iterative(
           llm,
           ui,
           config,
-          model=config.get_model_for_phase('requirements_extraction'),
+          model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
         )
 
       response = await generate_safe(
@@ -327,7 +327,7 @@ async def run_requirements_extraction_iterative(
         config,
         system_instruction=extraction_system_prompt,
         temperature=0.01,
-        model=config.get_model_for_phase('requirements_extraction'),
+        model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
       )
 
       if not response:

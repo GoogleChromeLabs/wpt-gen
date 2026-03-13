@@ -36,6 +36,7 @@ from wptgen.config import (
 )
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
+from wptgen.models import WorkflowPhase
 from wptgen.ui import RichUIProvider
 
 # Initialize Typer app and Rich console
@@ -130,6 +131,23 @@ def generate(
       help='Resume the workflow from the last successful phase.',
     ),
   ] = False,
+  resume_from: Annotated[
+    WorkflowPhase | None,
+    typer.Option(
+      '--resume-from',
+      help='Resume the workflow explicitly from a specific phase.',
+    ),
+  ] = None,
+  state_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--state-dir',
+      '--tests-dir',
+      help='Directory containing the necessary artifacts to hydrate the requested phase.',
+      dir_okay=True,
+      exists=True,
+    ),
+  ] = None,
   max_retries: Annotated[
     int,
     typer.Option(
@@ -292,6 +310,8 @@ def generate(
       no_cache_override=no_cache,
       suggestions_only=suggestions_only,
       resume_override=resume,
+      resume_from_override=resume_from,
+      state_dir_override=str(state_dir) if state_dir else None,
       max_retries_override=max_retries,
       timeout_override=timeout,
       spec_urls_override=spec_urls_list,
@@ -659,6 +679,23 @@ def audit(
       help='Resume the workflow from the last successful phase.',
     ),
   ] = False,
+  resume_from: Annotated[
+    WorkflowPhase | None,
+    typer.Option(
+      '--resume-from',
+      help='Resume the workflow explicitly from a specific phase.',
+    ),
+  ] = None,
+  state_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--state-dir',
+      '--tests-dir',
+      help='Directory containing the necessary artifacts to hydrate the requested phase.',
+      dir_okay=True,
+      exists=True,
+    ),
+  ] = None,
   max_retries: Annotated[
     int,
     typer.Option(
@@ -791,6 +828,8 @@ def audit(
       no_cache_override=no_cache,
       suggestions_only=True,
       resume_override=resume,
+      resume_from_override=resume_from,
+      state_dir_override=str(state_dir) if state_dir else None,
       max_retries_override=max_retries,
       timeout_override=timeout,
       spec_urls_override=spec_urls_list,

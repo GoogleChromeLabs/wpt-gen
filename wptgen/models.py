@@ -18,6 +18,15 @@ from pathlib import Path
 from typing import Any
 
 
+class WorkflowPhase(str, Enum):
+  CONTEXT_ASSEMBLY = 'context_assembly'
+  REQUIREMENTS_EXTRACTION = 'requirements_extraction'
+  COVERAGE_AUDIT = 'coverage_audit'
+  GENERATION = 'generation'
+  EVALUATION = 'evaluation'
+  EXECUTION = 'execution'
+
+
 class TestType(Enum):
   JAVASCRIPT = 'JavaScript Test'
   REFTEST = 'Reftest'
