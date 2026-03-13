@@ -83,6 +83,13 @@ def generate(
       dir_okay=True,
     ),
   ] = None,
+  wf_yml_update: Annotated[
+    bool,
+    typer.Option(
+      '--wf-yml-update',
+      help='Update WEB_FEATURES.yml with generated tests.',
+    ),
+  ] = False,
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = DEFAULT_CONFIG_PATH,
@@ -274,6 +281,10 @@ def generate(
   console.print(banner)
   console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
+  if wf_yml_update and not output_dir:
+    ui.error('--output-dir is required when using --wf-yml-update.')
+    raise typer.Exit(code=1)
+
   if use_lightweight and use_reasoning:
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
@@ -351,7 +362,14 @@ def generate(
 
     # 3. Execute the workflow
     # Note: In Phase 1, this will just print the skeleton output
-    engine.run_workflow(web_feature_id)
+    context = engine.run_workflow(web_feature_id)
+
+    if wf_yml_update and output_dir and context and context.generated_tests:
+      from wptgen.metadata import update_web_features_yml
+
+      generated_paths = [path for path, _, _ in context.generated_tests]
+      update_web_features_yml(output_dir, web_feature_id, generated_paths)
+      console.print(f'[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]')
 
     console.print()
     console.print(
@@ -645,6 +663,13 @@ def audit(
       dir_okay=True,
     ),
   ] = None,
+  wf_yml_update: Annotated[
+    bool,
+    typer.Option(
+      '--wf-yml-update',
+      help='Update WEB_FEATURES.yml with generated tests.',
+    ),
+  ] = False,
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = DEFAULT_CONFIG_PATH,
@@ -791,6 +816,10 @@ def audit(
   )
   console.print(banner)
   console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
+
+  if wf_yml_update and not output_dir:
+    ui.error('--output-dir is required when using --wf-yml-update.')
+    raise typer.Exit(code=1)
 
   if use_lightweight and use_reasoning:
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
