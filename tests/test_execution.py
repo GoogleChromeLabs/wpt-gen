@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import json
+import signal
 import typing
 from pathlib import Path
 from typing import Any
@@ -206,17 +207,22 @@ async def test_run_test_execution_timeout(
   context = WorkflowContext(feature_id='feat')
 
   mock_process = AsyncMock()
-  mock_process.kill = MagicMock()
+  mock_process.pid = 9999
   mock_process.communicate = AsyncMock()
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
     with patch('asyncio.wait_for', side_effect=asyncio.TimeoutError):
-      await run_test_execution(
-        context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
-      )
+      with patch('sys.platform', 'linux'):
+        with patch('os.getpgid', return_value=12345, create=True) as mock_getpgid:
+          with patch('os.killpg', create=True) as mock_killpg:
+            await run_test_execution(
+              context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
+            )
 
-      mock_process.kill.assert_called_once()
-      mock_ui.error.assert_called_with('Test execution timed out after 30s.')
+            mock_getpgid.assert_called_once_with(9999)
+            sig = getattr(signal, 'SIGKILL', 9)
+            mock_killpg.assert_called_once_with(12345, sig)
+            mock_ui.error.assert_called_with('Test execution timed out after 30s.')
 
 
 @pytest.mark.asyncio
@@ -433,7 +439,7 @@ async def test_execute_wpt_run_timeout(
   wpt_executable = wpt_root / 'wpt'
 
   mock_process = AsyncMock()
-  mock_process.kill = MagicMock()
+  mock_process.pid = 8888
 
   async def slow_wait() -> int:
     await asyncio.sleep(0.02)
@@ -443,7 +449,45 @@ async def test_execute_wpt_run_timeout(
   mock_process.stdout = _mock_stream(b'')
   mock_process.stderr = _mock_stream(b'')
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    returncode, output = await _execute_wpt_run(
-      wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 0.01
-    )
-    assert returncode == -1
+    with patch('sys.platform', 'linux'):
+      with patch('os.getpgid', return_value=54321, create=True) as mock_getpgid:
+        with patch('os.killpg', create=True) as mock_killpg:
+          returncode, output = await _execute_wpt_run(
+            wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 0.01
+          )
+          assert returncode == -1
+          mock_getpgid.assert_called_once_with(8888)
+          sig = getattr(signal, 'SIGKILL', 9)
+          mock_killpg.assert_called_once_with(54321, sig)
+
+
+@pytest.mark.asyncio
+async def test_execute_wpt_run_timeout_windows(
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  wpt_executable = wpt_root / 'wpt'
+
+  mock_process = AsyncMock()
+  mock_process.pid = 8888
+
+  async def slow_wait() -> int:
+    await asyncio.sleep(0.02)
+    return 0
+
+  mock_process.wait = slow_wait
+  mock_process.stdout = _mock_stream(b'')
+  mock_process.stderr = _mock_stream(b'')
+  with patch('asyncio.create_subprocess_exec', return_value=mock_process):
+    with patch('sys.platform', 'win32'):
+      with patch('subprocess.run') as mock_run:
+        returncode, output = await _execute_wpt_run(
+          wpt_executable, wpt_root, ['test1.html'], '/tmp/log.json', mock_config, mock_ui, 0.01
+        )
+        assert returncode == -1
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert 'taskkill' in args
+        assert '/T' in args
+        assert '8888' in args

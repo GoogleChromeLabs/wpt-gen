@@ -15,8 +15,12 @@
 import asyncio
 import json
 import os
+import signal
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, Template
 
@@ -92,9 +96,15 @@ async def _execute_wpt_run(
     cmd.extend(['--binary', config.wpt_binary])
   cmd.extend([config.wpt_browser] + valid_rel_paths)
 
-  process = await asyncio.create_subprocess_exec(
-    *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(wpt_root)
-  )
+  kwargs: dict[str, Any] = {
+    'stdout': asyncio.subprocess.PIPE,
+    'stderr': asyncio.subprocess.PIPE,
+    'cwd': str(wpt_root),
+  }
+  if sys.platform != 'win32':
+    kwargs['start_new_session'] = True
+
+  process = await asyncio.create_subprocess_exec(*cmd, **kwargs)
 
   stdout_chunks: list[str] = []
   stderr_chunks: list[str] = []
@@ -119,7 +129,24 @@ async def _execute_wpt_run(
   try:
     await asyncio.wait_for(communicate_and_stream(), timeout=execution_timeout)
   except asyncio.TimeoutError:
-    process.kill()
+    if sys.platform == 'win32':
+      try:
+        subprocess.run(
+          ['taskkill', '/F', '/T', '/PID', str(process.pid)],
+          stdout=subprocess.DEVNULL,
+          stderr=subprocess.DEVNULL,
+          check=False,
+        )
+      except Exception:
+        process.kill()  # Safe final fallback if taskkill fails
+    else:
+      try:
+        # signal.SIGKILL is not available on Windows, so we use getattr to avoid AttributeError
+        # even though this branch is never executed on Windows.
+        sig = getattr(signal, 'SIGKILL', 9)
+        os.killpg(os.getpgid(process.pid), sig)
+      except ProcessLookupError:
+        pass  # Process may have already exited
     await process.wait()
     ui.error(f'Test execution timed out after {execution_timeout}s.')
     return -1, ''
