@@ -194,6 +194,26 @@ def test_fetch_and_extract_text_extract_fails(mocker: MockerFixture) -> None:
   assert result is None
 
 
+def test_fetch_and_extract_text_preserves_internal_links(mocker: MockerFixture) -> None:
+  """Test that internal spec links are preserved while external links are stripped."""
+  mock_urlopen = mocker.patch('urllib.request.urlopen')
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = (
+    b'<html><body><main><h1>Spec</h1>\n'
+    b'<p>Link to <a href="#section-1">Section 1</a>.</p>\n'
+    b'<p>Link to <a href="https://external.com/path">External</a>.</p>\n'
+    b'</main></body></html>'
+  )
+  mock_urlopen.return_value.__enter__.return_value = mock_response
+
+  result = fetch_and_extract_text('https://example.com')
+
+  assert result is not None
+  assert '[Section 1](#section-1)' in result
+  assert 'Link to External.' in result
+  assert 'https://external.com' not in result
+
+
 def test_resolve_patterns_basic_and_recursive(tmp_path: Path) -> None:
   """Test that _resolve_patterns correctly handles standard and recursive globs."""
   # Create a mock directory structure

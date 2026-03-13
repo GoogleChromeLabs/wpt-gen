@@ -157,11 +157,18 @@ def fetch_and_extract_text(url: str) -> str | None:
     logger.warning(f'Could not find main content block in {url}')
     return None
 
-  # Convert the HTML tree to markdown, omitting link URLs to save token space
+  # Pre-process <a> tags to preserve internal specification links (fragments)
+  # but strip external URLs to conserve token limits.
+  for a_tag in main_content.find_all('a'):
+    href = a_tag.get('href')
+    if not isinstance(href, str) or not href.startswith('#'):
+      a_tag.unwrap()
+
+  # Convert the HTML tree to markdown, omitting external link URLs to save token space
   content = markdownify.markdownify(
     str(main_content),
     heading_style='ATX',
-    strip=['a', 'img', 'picture', 'video', 'audio', 'iframe'],
+    strip=['img', 'picture', 'video', 'audio', 'iframe'],
   )
 
   content = content.strip()
