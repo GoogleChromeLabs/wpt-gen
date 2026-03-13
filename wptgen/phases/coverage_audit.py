@@ -21,7 +21,7 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import WorkflowContext
+from wptgen.models import WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import extract_xml_tag, parse_suggestions
@@ -99,7 +99,7 @@ async def run_coverage_audit(
     )
 
     if llm.prompt_exceeds_input_token_limit(
-      prompt, model=config.get_model_for_phase('coverage_audit')
+      prompt, model=config.get_model_for_phase(WorkflowPhase.COVERAGE_AUDIT)
     ):
       ui.error('This test suite to too large to audit.')
       return None
@@ -120,7 +120,7 @@ async def run_coverage_audit(
     llm,
     ui,
     config,
-    model=config.get_model_for_phase('coverage_audit'),
+    model=config.get_model_for_phase(WorkflowPhase.COVERAGE_AUDIT),
   )
 
   # Execute all partitions asynchronously
@@ -136,7 +136,7 @@ async def run_coverage_audit(
         config,
         system_instruction=audit_system_prompt,
         temperature=0.01,
-        model=config.get_model_for_phase('coverage_audit'),
+        model=config.get_model_for_phase(WorkflowPhase.COVERAGE_AUDIT),
       )
       return idx, res
 

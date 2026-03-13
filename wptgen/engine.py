@@ -158,12 +158,12 @@ class WPTGenEngine:
     state_dir = Path(self.config.state_dir) if self.config.state_dir else self.cache_dir
     state_dir.mkdir(parents=True, exist_ok=True)
 
-    if phase == WorkflowPhase.REQUIREMENTS and context.requirements_xml:
+    if phase == WorkflowPhase.REQUIREMENTS_EXTRACTION and context.requirements_xml:
       req_file = state_dir / 'requirements.json'
       with open(req_file, 'w', encoding='utf-8') as f:
         json.dump({'requirements_xml': context.requirements_xml}, f, indent=2)
 
-    elif phase == WorkflowPhase.AUDIT and context.audit_response:
+    elif phase == WorkflowPhase.COVERAGE_AUDIT and context.audit_response:
       audit_file = state_dir / 'blueprints.json'
       with open(audit_file, 'w', encoding='utf-8') as f:
         json.dump({'audit_response': context.audit_response}, f, indent=2)
@@ -192,8 +192,8 @@ class WPTGenEngine:
       context = WorkflowContext(feature_id=web_feature_id)
 
     phases_order = [
-      WorkflowPhase.REQUIREMENTS,
-      WorkflowPhase.AUDIT,
+      WorkflowPhase.REQUIREMENTS_EXTRACTION,
+      WorkflowPhase.COVERAGE_AUDIT,
       WorkflowPhase.GENERATION,
       WorkflowPhase.EVALUATION,
       WorkflowPhase.EXECUTION,
@@ -214,7 +214,7 @@ class WPTGenEngine:
       self._save_resume_state(context)
 
     # Phase 2: Requirements Extraction
-    if should_run(WorkflowPhase.REQUIREMENTS, bool(context.requirements_xml)):
+    if should_run(WorkflowPhase.REQUIREMENTS_EXTRACTION, bool(context.requirements_xml)):
       if self.config.single_prompt_requirements:
         requirements_xml = await run_requirements_extraction(
           context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
@@ -231,10 +231,10 @@ class WPTGenEngine:
         raise WorkflowError('Phase 2: Requirements Extraction failed.')
       context.requirements_xml = requirements_xml
       self._save_resume_state(context)
-      self._save_phase_artifacts(context, WorkflowPhase.REQUIREMENTS)
+      self._save_phase_artifacts(context, WorkflowPhase.REQUIREMENTS_EXTRACTION)
 
     # Phase 3: Coverage Audit
-    if should_run(WorkflowPhase.AUDIT, bool(context.audit_response)):
+    if should_run(WorkflowPhase.COVERAGE_AUDIT, bool(context.audit_response)):
       audit_response = await run_coverage_audit(
         context, self.config, self.llm, self.ui, self.jinja_env
       )
@@ -242,7 +242,7 @@ class WPTGenEngine:
         raise WorkflowError('Phase 3: Coverage Audit failed.')
       context.audit_response = audit_response
       self._save_resume_state(context)
-      self._save_phase_artifacts(context, WorkflowPhase.AUDIT)
+      self._save_phase_artifacts(context, WorkflowPhase.COVERAGE_AUDIT)
 
     # Skip Phase 4 if the user only wants the coverage audit report.
     if self.config.suggestions_only:

@@ -20,7 +20,7 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
+from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import generate_safe, validate_requirements_preserved
 from wptgen.ui import UIProvider
 from wptgen.utils import (
@@ -200,7 +200,7 @@ async def _evaluate_and_update(
     config,
     system_instruction,
     temperature=0.01,
-    model=config.get_model_for_phase('evaluation'),
+    model=config.get_model_for_phase(WorkflowPhase.EVALUATION),
   )
 
   if not response:

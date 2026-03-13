@@ -89,8 +89,9 @@ class Config:
   temperature: float | None = None
   loaded_from: str | None = None
 
-  def get_model_for_phase(self, phase_name: str) -> str | None:
+  def get_model_for_phase(self, phase: WorkflowPhase | str) -> str | None:
     """Resolves the model name for a given workflow phase."""
+    phase_name = phase.value if isinstance(phase, WorkflowPhase) else phase
     if self.use_lightweight:
       return self.categories.get('lightweight')
     if self.use_reasoning:
@@ -311,10 +312,10 @@ def load_config(
 
   # Ensure default mapping if missing in YAML
   default_phase_mapping = {
-    'requirements_extraction': 'reasoning',
-    'coverage_audit': 'reasoning',
-    'generation': 'lightweight',
-    'evaluation': 'lightweight',
+    WorkflowPhase.REQUIREMENTS_EXTRACTION.value: 'reasoning',
+    WorkflowPhase.COVERAGE_AUDIT.value: 'reasoning',
+    WorkflowPhase.GENERATION.value: 'lightweight',
+    WorkflowPhase.EVALUATION.value: 'lightweight',
   }
   phase_model_mapping = _deep_merge(default_phase_mapping, yaml_data.get('phase_model_mapping', {}))
 

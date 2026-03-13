@@ -19,8 +19,9 @@ from typing import Any
 
 
 class WorkflowPhase(str, Enum):
-  REQUIREMENTS = 'requirements'
-  AUDIT = 'audit'
+  CONTEXT_ASSEMBLY = 'context_assembly'
+  REQUIREMENTS_EXTRACTION = 'requirements_extraction'
+  COVERAGE_AUDIT = 'coverage_audit'
   GENERATION = 'generation'
   EVALUATION = 'evaluation'
   EXECUTION = 'execution'

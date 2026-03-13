@@ -19,7 +19,7 @@ from jinja2 import Environment
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
+from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
@@ -141,7 +141,7 @@ async def run_test_generation(
     llm,
     ui,
     config,
-    model=config.get_model_for_phase('generation'),
+    model=config.get_model_for_phase(WorkflowPhase.GENERATION),
   )
 
   ui.report_generation_start(len(prompts_to_confirm))
@@ -196,7 +196,7 @@ async def _generate_and_save(
     config,
     system_instruction,
     temperature,
-    model=config.get_model_for_phase('generation'),
+    model=config.get_model_for_phase(WorkflowPhase.GENERATION),
   )
 
   if not content:

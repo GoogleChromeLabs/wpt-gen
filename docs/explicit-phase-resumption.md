@@ -26,8 +26,9 @@ You can explicitly resume a workflow using the `--resume-from` and `--state-dir`
 ### `--resume-from <phase>`
 
 This flag tells WPT-Gen to skip all phases prior to the specified phase and begin execution there. Valid phases are:
-- `requirements` (Phase 2)
-- `audit` (Phase 3)
+- `context_assembly` (Phase 1)
+- `requirements_extraction` (Phase 2)
+- `coverage_audit` (Phase 3)
 - `generation` (Phase 4)
 - `evaluation` (Phase 5)
 - `execution` (Phase 6)
@@ -43,7 +44,7 @@ If you've already extracted requirements but want to re-run the Coverage Audit (
 
 ```bash
 wpt-gen generate popover \
-  --resume-from audit \
+  --resume-from coverage_audit \
   --state-dir ./my-saved-state/
 ```
 
