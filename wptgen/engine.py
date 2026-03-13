@@ -64,9 +64,9 @@ class WPTGenEngine:
     self.cache_dir = Path(self.config.cache_path)
     self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-  def run_workflow(self, web_feature_id: str) -> None:
+  def run_workflow(self, web_feature_id: str) -> WorkflowContext:
     """Entry point for the synchronous CLI to launch the async workflow."""
-    asyncio.run(self._run_async_workflow(web_feature_id))
+    return asyncio.run(self._run_async_workflow(web_feature_id))
 
   def _get_resume_file_path(self, web_feature_id: str) -> Path:
     """Returns the path to the resume file for a given web feature ID."""
@@ -176,7 +176,7 @@ class WPTGenEngine:
       with open(tests_json, 'w', encoding='utf-8') as f:
         json.dump(tests_data, f, indent=2)
 
-  async def _run_async_workflow(self, web_feature_id: str) -> None:
+  async def _run_async_workflow(self, web_feature_id: str) -> WorkflowContext:
     """Orchestrates the end-to-end WPT generation workflow."""
     context = None
 
@@ -251,7 +251,7 @@ class WPTGenEngine:
       resume_file = self._get_resume_file_path(web_feature_id)
       if resume_file.exists():
         resume_file.unlink()
-      return
+      return context
 
     # Phase 4: User Selection & Generation
     if should_run(WorkflowPhase.GENERATION, bool(context.generated_tests)):
@@ -286,3 +286,5 @@ class WPTGenEngine:
     resume_file = self._get_resume_file_path(web_feature_id)
     if resume_file.exists():
       resume_file.unlink()
+
+    return context

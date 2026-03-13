@@ -767,6 +767,13 @@ def test_version_not_found(mocker: MockerFixture) -> None:
   assert 'unknown' in result.stdout
 
 
+def test_generate_wf_yml_update_validation(mocker: MockerFixture) -> None:
+  """Test that --wf-yml-update without --output-dir exits with an error."""
+  result = runner.invoke(app, ['generate', 'my-feature', '--wf-yml-update'])
+  assert result.exit_code == 1
+  assert '--output-dir is required when using --wf-yml-update' in result.stdout
+
+
 def test_doctor_command_success(mocker: MockerFixture, mock_config: Config) -> None:
   """Test the doctor command when all checks pass."""
   mocker.patch('wptgen.main.load_config', return_value=mock_config)
