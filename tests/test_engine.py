@@ -20,7 +20,7 @@ from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.engine import WorkflowError, WPTGenEngine
-from wptgen.models import WorkflowContext
+from wptgen.models import WorkflowContext, WorkflowPhase
 
 
 @pytest.fixture
@@ -266,7 +266,9 @@ async def test_engine_single_prompt_requirements(
     'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit_response'
   )
   mocker.patch(
-    'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
+    'wptgen.engine.run_test_generation',
+    new_callable=AsyncMock,
+    return_value=[(Path('mock_test.html'), 'c', 's')],
   )
   mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
   mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
@@ -349,7 +351,9 @@ async def test_engine_resume_workflow_success(mocker: MockerFixture, mock_config
     'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit'
   )
   mocker.patch(
-    'wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=['mock_test']
+    'wptgen.engine.run_test_generation',
+    new_callable=AsyncMock,
+    return_value=[(Path('mock_test.html'), 'c', 's')],
   )
   mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
   mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
@@ -374,3 +378,62 @@ def test_engine_load_resume_state_success(
   result = engine._load_resume_state('mock_feature')
   assert result is not None
   assert result.feature_id == 'mock_feature'
+
+
+def test_engine_hydrate_context(mocker: MockerFixture, tmp_path: Path, mock_config: Config) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  mock_config.state_dir = str(tmp_path / 'state')
+  Path(mock_config.state_dir).mkdir(parents=True, exist_ok=True)
+
+  (Path(mock_config.state_dir) / 'requirements.json').write_text(
+    '{"requirements_xml": "<test-reqs/>"}'
+  )
+  (Path(mock_config.state_dir) / 'blueprints.json').write_text(
+    '{"audit_response": "<test-audit/>"}'
+  )
+
+  engine = WPTGenEngine(mock_config, ui_mock)
+  context = engine._hydrate_context('mock_feature')
+
+  assert context.requirements_xml == '<test-reqs/>'
+  assert context.audit_response == '<test-audit/>'
+  assert context.feature_id == 'mock_feature'
+
+
+@pytest.mark.asyncio
+async def test_engine_resume_from_generation(
+  mocker: MockerFixture, mock_config: Config, tmp_path: Path
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  mock_config.resume_from = WorkflowPhase.GENERATION
+  mock_config.state_dir = str(tmp_path / 'state')
+  Path(mock_config.state_dir).mkdir(parents=True, exist_ok=True)
+
+  # create dummy WPTGenEngine and mock out hydrate context
+  engine = WPTGenEngine(mock_config, ui_mock)
+  mock_context = WorkflowContext(feature_id='mock_feature', generated_tests=[])
+
+  mocker.patch.object(engine, '_hydrate_context', return_value=mock_context)
+
+  mock_assembly = mocker.patch('wptgen.engine.run_context_assembly')
+  mock_reqs = mocker.patch('wptgen.engine.run_requirements_extraction_categorized')
+  mock_audit = mocker.patch('wptgen.engine.run_coverage_audit')
+  mock_gen = mocker.patch(
+    'wptgen.engine.run_test_generation', return_value=[(Path('test.html'), 'content', '<xml>')]
+  )
+  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation')
+  mock_exec = mocker.patch('wptgen.engine.run_test_execution')
+
+  await engine._run_async_workflow('mock_feature')
+
+  # Assert prior phases were skipped
+  mock_assembly.assert_not_called()
+  mock_reqs.assert_not_called()
+  mock_audit.assert_not_called()
+
+  # Assert requested phase and subsequent phases were run
+  mock_gen.assert_called_once()
+  mock_eval.assert_called_once()
+  mock_exec.assert_called_once()

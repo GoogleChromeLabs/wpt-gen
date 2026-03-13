@@ -21,6 +21,8 @@ from typing import Any
 
 import yaml
 
+from wptgen.models import WorkflowPhase
+
 # Default timeout for LLM requests in seconds (10 minutes)
 DEFAULT_LLM_TIMEOUT = 600
 # Minimum allowed timeout for Gemini API (10 seconds)
@@ -77,6 +79,8 @@ class Config:
   skip_execution: bool = False
   tentative: bool = False
   save_traces: bool = False
+  resume_from: WorkflowPhase | None = None
+  state_dir: str | None = None
   max_correction_retries: int = 2
   wpt_browser: str = 'chrome'
   wpt_channel: str = 'canary'
@@ -177,6 +181,8 @@ def load_config(
   no_cache_override: bool = False,
   suggestions_only: bool = False,
   resume_override: bool = False,
+  resume_from_override: WorkflowPhase | None = None,
+  state_dir_override: str | None = None,
   max_retries_override: int | None = None,
   timeout_override: int | None = None,
   spec_urls_override: list[str] | None = None,
@@ -261,6 +267,13 @@ def load_config(
   no_cache = no_cache_override or yaml_data.get('no_cache', False)
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   resume = resume_override or yaml_data.get('resume', False)
+
+  resume_from_raw = resume_from_override or yaml_data.get('resume_from')
+  resume_from = WorkflowPhase(resume_from_raw) if resume_from_raw else None
+
+  state_dir_raw = state_dir_override or yaml_data.get('state_dir')
+  state_dir = str(Path(state_dir_raw).expanduser().resolve()) if state_dir_raw else None
+
   draft = draft_override or yaml_data.get('draft', False)
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
@@ -334,6 +347,8 @@ def load_config(
     skip_execution=skip_execution,
     tentative=tentative,
     save_traces=save_traces,
+    resume_from=resume_from,
+    state_dir=state_dir,
     wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
     wpt_channel=yaml_data.get('wpt_channel', 'canary'),
     wpt_binary=wpt_binary_override or yaml_data.get('wpt_binary'),
