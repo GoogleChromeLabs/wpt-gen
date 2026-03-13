@@ -21,7 +21,7 @@ from jinja2 import Environment
 from wptgen.config import Config
 from wptgen.llm import LLMClient
 from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
-from wptgen.phases.utils import generate_safe, validate_requirements_preserved
+from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
@@ -249,11 +249,6 @@ async def _evaluate_and_update(
       # Now save
       if p_test_new and test_path_item and c_test_new is not None:
         p_old, old_content = test_path_item
-        if not validate_requirements_preserved(old_content, c_test_new):
-          ui.warning(
-            f'LLM altered requirement comments in {p_old.name}. Rejecting evaluation change.'
-          )
-          return
         if p_test_new != p_old:
           p_old.unlink(missing_ok=True)
         p_test_new.write_text(clean_file_content(c_test_new), encoding='utf-8')
@@ -262,11 +257,6 @@ async def _evaluate_and_update(
 
       if p_ref_new and ref_path_item and c_ref_new is not None:
         p_old, old_content = ref_path_item
-        if not validate_requirements_preserved(old_content, c_ref_new):
-          ui.warning(
-            f'LLM altered requirement comments in {p_old.name}. Rejecting evaluation change.'
-          )
-          return
         if p_ref_new != p_old:
           p_old.unlink(missing_ok=True)
         p_ref_new.write_text(clean_file_content(c_ref_new), encoding='utf-8')
@@ -291,12 +281,6 @@ async def _evaluate_and_update(
             path = new_path
         else:
           clean_content = MARKDOWN_CODE_BLOCK_RE.sub('', clean_response).strip()
-
-        if not validate_requirements_preserved(old_content, clean_content):
-          ui.warning(
-            f'LLM altered requirement comments in {path.name}. Rejecting evaluation change.'
-          )
-          return
 
         path.write_text(clean_file_content(clean_content), encoding='utf-8')
         ui.report_evaluation_result(path.name, success=True, updated=True)
