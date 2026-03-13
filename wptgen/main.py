@@ -36,7 +36,7 @@ from wptgen.config import (
 )
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
-from wptgen.models import WorkflowPhase
+from wptgen.models import WorkflowContext, WorkflowPhase
 from wptgen.ui import RichUIProvider
 
 # Initialize Typer app and Rich console
@@ -101,6 +101,13 @@ def generate(
     typer.Option(
       '--yes-tests',
       help='Automatically confirm and generate all proposed test suggestions without prompting.',
+    ),
+  ] = False,
+  sync: Annotated[
+    bool,
+    typer.Option(
+      '--sync',
+      help='Automatically update local WEB_FEATURES.yml files with generated test paths.',
     ),
   ] = False,
   yes_cache: Annotated[
@@ -328,6 +335,7 @@ def generate(
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       wpt_binary_override=wpt_binary,
+      sync_override=sync,
     )
 
     config_info = Text.assemble(
@@ -1026,6 +1034,65 @@ def init(
     )
   except Exception as e:
     console.print(f'[bold red]Failed to save configuration:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
+@app.command()
+def sync(
+  web_feature_id: Annotated[
+    str,
+    typer.Argument(help="The web feature ID to sync (e.g., 'grid', 'popover')."),
+  ],
+  tests_dir: Annotated[
+    Path,
+    typer.Argument(
+      help='Directory containing the tests to sync.',
+      exists=True,
+      file_okay=False,
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ],
+  wpt_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ] = None,
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+) -> None:
+  """
+  Manually sync existing tests in a directory to WEB_FEATURES.yml.
+  """
+  try:
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    config = load_config(
+      config_path=config_path, wpt_dir_override=wpt_dir_str, require_api_key=False
+    )
+    engine = WPTGenEngine(config, ui)
+
+    context = WorkflowContext(feature_id=web_feature_id)
+
+    # Find all test files in tests_dir (HTML, JS)
+    test_files = sorted(list(tests_dir.glob('**/*.html')) + list(tests_dir.glob('**/*.js')))
+
+    context.generated_tests = [(p, '', '') for p in test_files]
+
+    if not context.generated_tests:
+      ui.warning(f'No test files found in {tests_dir}')
+      return
+
+    engine._sync_generated_tests(context)
+
+  except Exception as e:
+    ui.error(f'Sync failed: {e}')
     raise typer.Exit(code=1) from e
 
 

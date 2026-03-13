@@ -19,6 +19,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from wptgen.config import Config
+from wptgen.context import find_feature_yaml_files
 from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext, WorkflowPhase
 from wptgen.phases.context_assembly import run_context_assembly
@@ -32,6 +33,7 @@ from wptgen.phases.requirements_extraction import (
   run_requirements_extraction_iterative,
 )
 from wptgen.ui import UIProvider
+from wptgen.utils import sync_web_features_yaml
 
 __all__ = [
   'WPTGenEngine',
@@ -286,3 +288,47 @@ class WPTGenEngine:
     resume_file = self._get_resume_file_path(web_feature_id)
     if resume_file.exists():
       resume_file.unlink()
+
+    # Step 7: Sync generated tests to WEB_FEATURES.yml if requested
+    if self.config.sync and context.generated_tests:
+      self._sync_generated_tests(context)
+
+  def _sync_generated_tests(self, context: WorkflowContext) -> None:
+    """Synchronizes generated and accepted tests with WEB_FEATURES.yml."""
+    if not context.generated_tests:
+      return
+
+    self.ui.info(f'Syncing {len(context.generated_tests)} tests to WEB_FEATURES.yml...')
+
+    yaml_files = find_feature_yaml_files(self.config.wpt_path, context.feature_id)
+    if not yaml_files:
+      self.ui.warning(
+        f"Could not find any WEB_FEATURES.yml containing feature '{context.feature_id}'"
+      )
+      return
+
+    # Extract relative paths for the tests.
+    # WPT-Gen usually saves tests to an output directory.
+    # We should normalize these paths relative to the WPT root or the YAML file.
+    # For now, we'll use paths relative to the WPT root if possible.
+    wpt_root = Path(self.config.wpt_path).resolve()
+    new_paths = []
+    for test_path, _, _ in context.generated_tests:
+      try:
+        # If the test is inside WPT root, use relative path
+        rel_path = test_path.resolve().relative_to(wpt_root)
+        new_paths.append(str(rel_path))
+      except ValueError:
+        # Fallback to just the filename if it's outside
+        new_paths.append(test_path.name)
+
+    success_count = 0
+    for yaml_path in yaml_files:
+      if sync_web_features_yaml(yaml_path, context.feature_id, new_paths):
+        self.ui.success(f'Successfully updated {yaml_path}')
+        success_count += 1
+      else:
+        self.ui.error(f'Failed to update {yaml_path}')
+
+    if success_count > 0:
+      self.ui.success(f'Synced tests to {success_count} metadata file(s).')

@@ -289,3 +289,119 @@ def ensure_testharness_imports(content: str) -> str:
 
   # Fallback: prepend
   return import_str + '\n' + content
+
+
+def sync_web_features_yaml(yaml_path: Path, feature_id: str, new_files: list[str]) -> bool:
+  """
+  Surgically appends new file paths to a specific feature block in WEB_FEATURES.yml.
+
+  This function attempts to locate the specific web-feature-id block and append
+  the new test paths to the 'files' or 'tests' array while preserving
+  existing file structure and comments.
+
+  Args:
+    yaml_path: Path to the WEB_FEATURES.yml file.
+    feature_id: The ID of the web feature (e.g., 'grid').
+    new_files: A list of new test file paths to register.
+
+  Returns:
+    True if the update was successful, False otherwise.
+  """
+  if not yaml_path.exists():
+    return False
+
+  try:
+    content = yaml_path.read_text(encoding='utf-8')
+  except Exception:
+    return False
+
+  lines = content.splitlines()
+  feature_idx = -1
+
+  # Step 1: Find the feature block: "- name: feature_id"
+  # We use a regex that matches the start of a list item or a standalone name field
+  # while allowing for optional quotes around the feature_id.
+  name_pattern = re.compile(
+    rf'^\s*(?:-\s+)?name:\s+["\']?{re.escape(feature_id)}["\']?\s*(?:#.*)?$'
+  )
+
+  for i, line in enumerate(lines):
+    if name_pattern.match(line):
+      feature_idx = i
+      break
+
+  if feature_idx == -1:
+    return False
+
+  # Step 2: Determine the indentation of the feature block
+  # If it's a list item, the indent is based on the start of the line.
+  base_indent = len(lines[feature_idx]) - len(lines[feature_idx].lstrip())
+
+  # Step 3: Find the "files:" or "tests:" key within this feature block
+  # We search forward until we hit another feature or the end of the file.
+  target_key_idx = -1
+  for i in range(feature_idx + 1, len(lines)):
+    line = lines[i]
+    if not line.strip():
+      continue
+
+    curr_indent = len(line) - len(line.lstrip())
+
+    # If we hit a new feature at the same or less indentation, we've left the block
+    if curr_indent <= base_indent and line.lstrip().startswith('-'):
+      break
+
+    if re.search(r'^\s+(?:files|tests):', line):
+      target_key_idx = i
+      break
+
+  if target_key_idx == -1:
+    # If the key doesn't exist, we could add it, but for now we follow the issue
+    # and assume it exists to "append to the array".
+    return False
+
+  # Step 4: Find the last item in the existing list to determine insertion point
+  # and indentation level for the new items.
+  last_item_idx = target_key_idx
+  list_indent = -1
+
+  # Handle inline empty lists: "files: []"
+  if '[]' in lines[target_key_idx]:
+    lines[target_key_idx] = lines[target_key_idx].replace('[]', '').rstrip()
+    # We'll use a default indent of base_indent + 2 spaces for the new list
+    list_indent = base_indent + 2
+  else:
+    for i in range(target_key_idx + 1, len(lines)):
+      line = lines[i]
+      if not line.strip():
+        continue
+
+      curr_indent = len(line) - len(line.lstrip())
+
+      # If we hit a line with less or equal indentation than the base feature,
+      # we've left the current feature block.
+      if curr_indent <= base_indent:
+        break
+
+      if line.lstrip().startswith('-'):
+        last_item_idx = i
+        list_indent = curr_indent
+
+  if list_indent == -1:
+    # Fallback if no existing items found
+    list_indent = base_indent + 4
+
+  # Step 5: Format and insert the new lines
+  # We normalize paths to be relative to the directory containing the YAML file
+  # if they are absolute, but here we assume the passed paths are already correct
+  # for the YAML file (usually relative to WPT root or YAML parent).
+  new_entries = [f"{' ' * list_indent}- '{f}'" for f in new_files]
+
+  # Insert after the last found item
+  lines[last_item_idx + 1 : last_item_idx + 1] = new_entries
+
+  try:
+    yaml_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    return True
+  except Exception:
+    return False

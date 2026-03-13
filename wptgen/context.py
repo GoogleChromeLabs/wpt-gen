@@ -215,6 +215,32 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
   return sorted(relevant_files)
 
 
+def find_feature_yaml_files(target_directory: str, feature_id: str) -> list[Path]:
+  """
+  Finds all WEB_FEATURES.yml files that contain a specific feature ID.
+  """
+  base_dir = Path(target_directory).resolve()
+  if not base_dir.is_dir():
+    return []
+
+  yaml_files: list[Path] = []
+  target_metadata_file = 'WEB_FEATURES.yml'
+
+  for yaml_path in base_dir.rglob(target_metadata_file):
+    try:
+      with open(yaml_path, encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+      if not data or 'features' not in data:
+        continue
+
+      if any(f.get('name') == feature_id for f in data['features']):
+        yaml_files.append(yaml_path)
+    except Exception:
+      continue
+
+  return yaml_files
+
+
 def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
   """
   Helper function to match file patterns recursively against files in a directory.

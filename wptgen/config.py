@@ -87,6 +87,7 @@ class Config:
   wpt_binary: str | None = None
   max_parallel_requests: int = 10
   temperature: float | None = None
+  sync: bool = False
   loaded_from: str | None = None
 
   def get_model_for_phase(self, phase: WorkflowPhase | str) -> str | None:
@@ -201,6 +202,7 @@ def load_config(
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
   wpt_binary_override: str | None = None,
+  sync_override: bool = False,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -357,5 +359,6 @@ def load_config(
     temperature=temperature_override
     if temperature_override is not None
     else yaml_data.get('temperature'),
+    sync=sync_override or yaml_data.get('sync', False),
     loaded_from=loaded_from,
   )
