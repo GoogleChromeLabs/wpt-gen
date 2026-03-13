@@ -9,3 +9,6 @@ pycache/
 build/
 dist/
 .coverage
+
+# Local wpt-gen artifacts
+.wptgen/

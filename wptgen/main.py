@@ -212,6 +212,13 @@ def generate(
       help='Generate test files with the .tentative flag.',
     ),
   ] = False,
+  save_traces: Annotated[
+    bool,
+    typer.Option(
+      '--save-traces',
+      help='Save LLM interaction traces to the .wptgen/traces/ directory.',
+    ),
+  ] = False,
   max_parallel_requests: Annotated[
     int | None,
     typer.Option(
@@ -297,6 +304,7 @@ def generate(
       skip_evaluation_override=skip_evaluation,
       skip_execution_override=skip_execution,
       tentative_override=tentative,
+      save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       wpt_binary_override=wpt_binary,
@@ -710,6 +718,13 @@ def audit(
     bool,
     typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
   ] = False,
+  save_traces: Annotated[
+    bool,
+    typer.Option(
+      '--save-traces',
+      help='Save LLM interaction traces to the .wptgen/traces/ directory.',
+    ),
+  ] = False,
   max_parallel_requests: Annotated[
     int | None,
     typer.Option(
@@ -788,6 +803,7 @@ def audit(
       skip_evaluation_override=True,
       skip_execution_override=True,
       tentative_override=False,
+      save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
     )
