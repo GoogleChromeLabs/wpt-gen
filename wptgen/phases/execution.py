@@ -23,7 +23,7 @@ from jinja2 import Environment, Template
 from wptgen.config import Config
 from wptgen.llm import LLMClient
 from wptgen.models import WorkflowContext
-from wptgen.phases.utils import generate_safe, validate_requirements_preserved
+from wptgen.phases.utils import generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   MARKDOWN_CODE_BLOCK_RE,
@@ -226,10 +226,6 @@ async def _correct_test(
       final_content = MARKDOWN_CODE_BLOCK_RE.sub('', corrected_content).strip()
 
     if final_content:
-      if not validate_requirements_preserved(test_source_code, final_content):
-        ui.warning(f'LLM altered requirement comments in {matched_path}. Rejecting change.')
-        return
-
       full_path.write_text(clean_file_content(final_content), encoding='utf-8')
       ui.success(f'Updated {matched_path}')
       ui.print_diff(test_source_code, final_content, matched_path)
