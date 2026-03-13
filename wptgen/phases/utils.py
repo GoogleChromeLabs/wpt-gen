@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import re
 
 import typer
 
@@ -23,39 +22,6 @@ from wptgen.ui import UIProvider
 
 # Global semaphore to limit parallel LLM requests
 _llm_semaphore: asyncio.Semaphore | None = None
-
-
-def validate_requirements_preserved(original_code: str, new_code: str) -> bool:
-  """
-  Validates that requirement comments in the original code are preserved exactly in the new code.
-  Requirements are typically contained in block comments (/* ... */) or HTML comments (<!-- ... -->).
-  """
-
-  def extract_comments(code: str) -> list[str]:
-    comments = []
-    for match in re.finditer(r'/\*[\s\S]*?\*/|<!--[\s\S]*?-->', code):
-      normalized = re.sub(r'\s+', ' ', match.group(0)).strip()
-      if len(normalized) > 20:
-        comments.append(normalized)
-    return comments
-
-  original_comments = extract_comments(original_code)
-  new_code_normalized = re.sub(r'\s+', ' ', new_code)
-
-  for comment in original_comments:
-    if comment not in new_code_normalized:
-      return False
-
-  for line in original_code.split('\n'):
-    line = line.strip()
-    if line.startswith('// '):
-      cleaned = re.sub(r'^//\s*', '', line).strip()
-      if len(cleaned) > 20:
-        req_normalized = re.sub(r'\s+', ' ', cleaned)
-        if req_normalized not in new_code_normalized:
-          return False
-
-  return True
 
 
 def get_semaphore(config: Config) -> asyncio.Semaphore:
