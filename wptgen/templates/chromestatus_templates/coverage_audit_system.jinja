@@ -55,6 +55,7 @@ R3: [Requirement Text] -> [COVERED by filename.html]
   <test_suggestion>
     <title>[Short Descriptive Title]</title>
     <description>[The exact text taken from the requirement description]</description>
+    {%- if not brief_suggestions %}
     <test_type>[Explicitly categorize the test. e.g. "JavaScript test", "Reftest", "Crashtest"]</test_type>
     <pre_conditions><![CDATA[e.g., "None", HTML body with <div id='target'></div>]]></pre_conditions>
     <steps>
@@ -62,5 +63,6 @@ R3: [Requirement Text] -> [COVERED by filename.html]
       <step>2. [Second step...]</step>
     </steps>
     <expected_result>[Exact assertion needed. e.g., "Promise rejects with TypeError"]</expected_result>
+    {%- endif %}
   </test_suggestion>
 </test_suggestions>
