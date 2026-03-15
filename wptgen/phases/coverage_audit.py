@@ -112,8 +112,10 @@ async def run_coverage_audit(
     )
     prompts.append((prompt, task_name))
 
+  spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
+
   audit_system_prompt = jinja_env.get_template('coverage_audit_system.jinja').render(
-    brief_suggestions=config.brief_suggestions
+    brief_suggestions=config.brief_suggestions, spec_urls=spec_urls
   )
 
   await confirm_prompts(
