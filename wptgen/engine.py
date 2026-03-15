@@ -245,12 +245,13 @@ class WPTGenEngine:
       self._save_phase_artifacts(context, WorkflowPhase.COVERAGE_AUDIT)
 
     # Skip Phase 4 if the user only wants the coverage audit report.
-    if self.config.suggestions_only:
+    if self.config.suggestions_only or self.config.brief_suggestions:
       await provide_coverage_report(context, self.config, self.ui)
       # Cleanup resume file if it exists, as this is a terminal state for suggestions-only
       resume_file = self._get_resume_file_path(web_feature_id)
       if resume_file.exists():
         resume_file.unlink()
+
       return context
 
     # Phase 4: User Selection & Generation

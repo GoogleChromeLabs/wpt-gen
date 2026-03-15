@@ -437,3 +437,22 @@ async def test_engine_resume_from_generation(
   mock_gen.assert_called_once()
   mock_eval.assert_called_once()
   mock_exec.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_async_workflow_brief_suggestions(
+  engine: WPTGenEngine, mocker: MockerFixture
+) -> None:
+  engine.config.brief_suggestions = True
+  context = WorkflowContext(feature_id='test-feat', audit_response='audit')
+
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value='reqs')
+  mocker.patch('wptgen.engine.run_coverage_audit', return_value='audit')
+  mock_provide = mocker.patch('wptgen.engine.provide_coverage_report', return_value=None)
+  mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=[])
+
+  await engine._run_async_workflow(web_feature_id='test-feat')
+
+  mock_provide.assert_called_once_with(context, engine.config, engine.ui)
+  mock_gen.assert_not_called()
