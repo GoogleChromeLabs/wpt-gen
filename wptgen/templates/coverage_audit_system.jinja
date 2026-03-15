@@ -62,5 +62,10 @@ R3: [Requirement Text] -> [COVERED by filename.html]
     </steps>
     <expected_result>[Exact assertion needed. e.g., "Promise rejects with TypeError"]</expected_result>
     {%- endif %}
+    {%- if brief_suggestions and spec_urls %}
+    {%- for url in spec_urls %}
+    <spec_url>{{ url }}</spec_url>
+    {%- endfor %}
+    {%- endif %}
   </test_suggestion>
 </test_suggestions>
