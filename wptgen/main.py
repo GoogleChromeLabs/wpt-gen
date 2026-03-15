@@ -131,6 +131,13 @@ def generate(
       help='Only show test suggestions and skip the test generation step.',
     ),
   ] = False,
+  brief_suggestions: Annotated[
+    bool,
+    typer.Option(
+      '--brief-suggestions',
+      help='Only generate test titles and descriptions for suggestions (omits detailed blueprints).',
+    ),
+  ] = False,
   resume: Annotated[
     bool,
     typer.Option(
@@ -320,6 +327,7 @@ def generate(
       yes_cache_override=yes_cache,
       no_cache_override=no_cache,
       suggestions_only=suggestions_only,
+      brief_suggestions=brief_suggestions,
       resume_override=resume,
       resume_from_override=resume_from,
       state_dir_override=str(state_dir) if state_dir else None,
@@ -697,6 +705,13 @@ def audit(
       help='Automatically ignore and overwrite the cache if it exists without prompting.',
     ),
   ] = False,
+  brief_suggestions: Annotated[
+    bool,
+    typer.Option(
+      '--brief-suggestions',
+      help='Only generate test titles and descriptions for suggestions (omits detailed blueprints).',
+    ),
+  ] = False,
   resume: Annotated[
     bool,
     typer.Option(
@@ -856,6 +871,7 @@ def audit(
       yes_cache_override=yes_cache,
       no_cache_override=no_cache,
       suggestions_only=True,
+      brief_suggestions=brief_suggestions,
       resume_override=resume,
       resume_from_override=resume_from,
       state_dir_override=str(state_dir) if state_dir else None,

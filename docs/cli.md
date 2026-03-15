@@ -32,6 +32,7 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | :--- | :--- |
 | `--resume` | Resume the workflow from the last successful phase for this feature ID. |
 | `--suggestions-only` | Stop after generating test blueprints/suggestions. Skip the actual test file generation. |
+| `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed blueprints. |
 | `--yes-tokens` | Automatically confirm all prompts related to LLM token counts. |
 | `--skip-evaluation`, `--no-eval` | Skip the Phase 5 (Evaluation) step. |
 | `--skip-execution`, `--no-exec` | Skip the Phase 6 (Test Execution) step (useful if the browser implementation is not completed). |

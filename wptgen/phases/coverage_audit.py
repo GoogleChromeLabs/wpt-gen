@@ -112,7 +112,9 @@ async def run_coverage_audit(
     )
     prompts.append((prompt, task_name))
 
-  audit_system_prompt = jinja_env.get_template('coverage_audit_system.jinja').render()
+  audit_system_prompt = jinja_env.get_template('coverage_audit_system.jinja').render(
+    brief_suggestions=config.brief_suggestions
+  )
 
   await confirm_prompts(
     prompts,
