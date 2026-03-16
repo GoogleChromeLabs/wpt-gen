@@ -237,6 +237,13 @@ def generate(
       help='Skip the test execution phase after generating tests.',
     ),
   ] = False,
+  agentic_generation: Annotated[
+    bool,
+    typer.Option(
+      '--agentic-generation',
+      help='Enable agentic generation pipeline orchestration.',
+    ),
+  ] = False,
   tentative: Annotated[
     bool,
     typer.Option(
@@ -342,6 +349,7 @@ def generate(
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
       skip_execution_override=skip_execution,
+      agentic_generation_override=agentic_generation,
       tentative_override=tentative,
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,

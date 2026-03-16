@@ -78,6 +78,7 @@ class Config:
   use_reasoning: bool = False
   skip_evaluation: bool = False
   skip_execution: bool = False
+  agentic_generation: bool = False
   tentative: bool = False
   save_traces: bool = False
   resume_from: WorkflowPhase | None = None
@@ -197,6 +198,7 @@ def load_config(
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
   skip_execution_override: bool = False,
+  agentic_generation_override: bool = False,
   tentative_override: bool = False,
   save_traces_override: bool = False,
   require_api_key: bool = True,
@@ -301,6 +303,7 @@ def load_config(
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
   skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
   skip_execution = skip_execution_override or yaml_data.get('skip_execution', False)
+  agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
   tentative = tentative_override or yaml_data.get('tentative', False)
   save_traces = save_traces_override or yaml_data.get('save_traces', False)
 
@@ -350,6 +353,7 @@ def load_config(
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,
     skip_execution=skip_execution,
+    agentic_generation=agentic_generation,
     tentative=tentative,
     save_traces=save_traces,
     resume_from=resume_from,
