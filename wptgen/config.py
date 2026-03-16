@@ -79,6 +79,7 @@ class Config:
   skip_evaluation: bool = False
   skip_execution: bool = False
   agentic_generation: bool = False
+  agentic_yolo: bool = False
   tentative: bool = False
   save_traces: bool = False
   resume_from: WorkflowPhase | None = None
@@ -199,6 +200,7 @@ def load_config(
   skip_evaluation_override: bool = False,
   skip_execution_override: bool = False,
   agentic_generation_override: bool = False,
+  agentic_yolo_override: bool = False,
   tentative_override: bool = False,
   save_traces_override: bool = False,
   require_api_key: bool = True,
@@ -304,6 +306,9 @@ def load_config(
   skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
   skip_execution = skip_execution_override or yaml_data.get('skip_execution', False)
   agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
+  agentic_yolo = agentic_yolo_override or yaml_data.get('agentic_yolo', False)
+  if agentic_yolo:
+    agentic_generation = True
   tentative = tentative_override or yaml_data.get('tentative', False)
   save_traces = save_traces_override or yaml_data.get('save_traces', False)
 
@@ -354,6 +359,7 @@ def load_config(
     skip_evaluation=skip_evaluation,
     skip_execution=skip_execution,
     agentic_generation=agentic_generation,
+    agentic_yolo=agentic_yolo,
     tentative=tentative,
     save_traces=save_traces,
     resume_from=resume_from,

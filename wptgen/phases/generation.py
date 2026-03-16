@@ -222,9 +222,12 @@ async def _generate_agentic_loop(
 
     prompt = agentic_template.render(test_suggestion_xml_block=modified_xml)
 
-    # Use bash -ic to force an interactive shell so it loads aliases/nvm.
-    # -p ensures the CLI exits automatically after completion.
-    cmd = ['bash', '-ic', f'gemini --model {model} -p "$0"', prompt]
+    if config.agentic_yolo:
+      # Use bash -ic to force an interactive shell so it loads aliases/nvm.
+      # -p ensures the CLI exits automatically after completion.
+      cmd = ['bash', '-ic', f'gemini --yolo --model {model} -p "$0"', prompt]
+    else:
+      cmd = ['bash', '-ic', f'gemini --model {model} "$0"', prompt]
 
     ui.print(
       f'\n[bold blue]Starting Agentic Generation #{i + 1} for: {context.feature_id}[/bold blue]'

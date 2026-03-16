@@ -244,6 +244,13 @@ def generate(
       help='Enable agentic generation pipeline orchestration.',
     ),
   ] = False,
+  agentic_yolo: Annotated[
+    bool,
+    typer.Option(
+      '--agentic-yolo',
+      help='Enable agentic generation in YOLO mode.',
+    ),
+  ] = False,
   tentative: Annotated[
     bool,
     typer.Option(
@@ -350,6 +357,7 @@ def generate(
       skip_evaluation_override=skip_evaluation,
       skip_execution_override=skip_execution,
       agentic_generation_override=agentic_generation,
+      agentic_yolo_override=agentic_yolo,
       tentative_override=tentative,
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,
