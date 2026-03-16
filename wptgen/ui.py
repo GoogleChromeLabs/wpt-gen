@@ -78,10 +78,10 @@ class UIProvider(Protocol):
     auto_confirmed: bool = False,
   ) -> None: ...
   def report_llm_response(self, response: str, task_name: str) -> None: ...
-  def report_coverage_audit(self, audit_response: str) -> None: ...
+  def report_coverage_audit(self, audit_response: str | None = None) -> None: ...
   def report_audit_worksheet(self, worksheet_text: str) -> None: ...
   def report_test_suggestion(
-    self, suggestion_index: int, title: str, description: str, test_type: str
+    self, suggestion_index: int, title: str, description: str, test_type: str | None = None
   ) -> None: ...
   def report_generation_start(self, count: int) -> None: ...
   def report_test_generated(
@@ -253,12 +253,13 @@ class RichUIProvider:
       )
     )
 
-  def report_coverage_audit(self, audit_response: str) -> None:
+  def report_coverage_audit(self, audit_response: str | None = None) -> None:
     self.console.print()
     self.console.rule('[bold cyan]Coverage Audit Report')
     self.console.print()
-    self.console.print(Markdown(audit_response))
-    self.console.print()
+    if audit_response:
+      self.console.print(Markdown(audit_response))
+      self.console.print()
 
   def report_audit_worksheet(self, worksheet_text: str) -> None:
     table = Table(title='Coverage Audit Worksheet', show_header=True, header_style='bold cyan')
@@ -288,12 +289,15 @@ class RichUIProvider:
     self.console.print()
 
   def report_test_suggestion(
-    self, suggestion_index: int, title: str, description: str, test_type: str
+    self, suggestion_index: int, title: str, description: str, test_type: str | None = None
   ) -> None:
+    content = f'[bold cyan]Description:[/bold cyan] {description}'
+    if test_type:
+      content += f'\n[bold cyan]Test Type:[/bold cyan] {test_type}'
+
     self.console.print(
       Panel(
-        f'[bold cyan]Description:[/bold cyan] {description}\n'
-        f'[bold cyan]Test Type:[/bold cyan] {test_type}',
+        content,
         title=f'[bold cyan] Test Suggestion #{suggestion_index}:[/bold cyan] [white]{title}[/white]',
         border_style='blue',
         expand=False,

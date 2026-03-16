@@ -210,8 +210,12 @@ async def test_run_test_execution_timeout(
   mock_process.pid = 9999
   mock_process.communicate = AsyncMock()
 
+  async def mock_wait_for(coro: Any, timeout: float) -> Any:
+    coro.close()
+    raise asyncio.TimeoutError()
+
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    with patch('asyncio.wait_for', side_effect=asyncio.TimeoutError):
+    with patch('asyncio.wait_for', side_effect=mock_wait_for):
       with patch('sys.platform', 'linux'):
         with patch('os.getpgid', return_value=12345, create=True) as mock_getpgid:
           with patch('os.killpg', create=True) as mock_killpg:
