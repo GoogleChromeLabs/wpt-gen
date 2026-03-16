@@ -69,6 +69,9 @@ class UIProvider(Protocol):
   def report_context_summary(
     self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
   ) -> None: ...
+  def report_chromestatus_context_summary(
+    self, spec_len: int, explainer_count: int, test_count: int
+  ) -> None: ...
   def report_token_usage(
     self,
     phase_name: str,
@@ -193,6 +196,15 @@ class RichUIProvider:
       f'{mdn_count} MDN pages, '
       f'{test_count} tests, '
       f'{dep_count} dependency files.'
+    )
+
+  def report_chromestatus_context_summary(
+    self, spec_len: int, explainer_count: int, test_count: int
+  ) -> None:
+    self.success(
+      f'Context gathered: {spec_len} chars of spec, '
+      f'{explainer_count} explainers, '
+      f'{test_count} tests.'
     )
 
   def report_token_usage(

@@ -21,7 +21,15 @@ from jinja2 import Environment, FileSystemLoader
 from wptgen.config import Config
 from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext, WorkflowPhase
-from wptgen.phases.context_assembly import run_context_assembly
+from wptgen.phases.chromestatus_requirements_extraction import (
+  run_chromestatus_requirements_extraction,
+  run_chromestatus_requirements_extraction_categorized,
+  run_chromestatus_requirements_extraction_iterative,
+)
+from wptgen.phases.context_assembly import (
+  run_chromestatus_context_assembly,
+  run_context_assembly,
+)
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
 from wptgen.phases.evaluation import run_test_evaluation
 from wptgen.phases.execution import run_test_execution
@@ -39,6 +47,9 @@ __all__ = [
   'run_requirements_extraction',
   'run_requirements_extraction_categorized',
   'run_requirements_extraction_iterative',
+  'run_chromestatus_requirements_extraction',
+  'run_chromestatus_requirements_extraction_categorized',
+  'run_chromestatus_requirements_extraction_iterative',
   'run_coverage_audit',
   'provide_coverage_report',
   'run_test_generation',
@@ -67,6 +78,10 @@ class WPTGenEngine:
   def run_workflow(self, web_feature_id: str) -> WorkflowContext:
     """Entry point for the synchronous CLI to launch the async workflow."""
     return asyncio.run(self._run_async_workflow(web_feature_id))
+
+  def run_chromestatus_workflow(self, feature_id: str) -> WorkflowContext:
+    """Entry point for the synchronous CLI to launch the ChromeStatus async workflow."""
+    return asyncio.run(self._run_async_chromestatus_workflow(feature_id))
 
   def _get_resume_file_path(self, web_feature_id: str) -> Path:
     """Returns the path to the resume file for a given web feature ID."""
@@ -153,6 +168,20 @@ class WPTGenEngine:
 
     return context
 
+  def should_run(self, phase: WorkflowPhase | None, has_data: bool) -> bool:
+    phases_order = [
+      WorkflowPhase.REQUIREMENTS_EXTRACTION,
+      WorkflowPhase.COVERAGE_AUDIT,
+      WorkflowPhase.GENERATION,
+      WorkflowPhase.EVALUATION,
+      WorkflowPhase.EXECUTION,
+    ]
+    if self.config.resume_from:
+      target_idx = phases_order.index(phase) if phase else -1
+      resume_idx = phases_order.index(self.config.resume_from)
+      return target_idx >= resume_idx
+    return not has_data
+
   def _save_phase_artifacts(self, context: WorkflowContext, phase: WorkflowPhase) -> None:
     """Explicitly serializes structured output of major phases to disk."""
     state_dir = Path(self.config.state_dir) if self.config.state_dir else self.cache_dir
@@ -191,20 +220,7 @@ class WPTGenEngine:
     if not context:
       context = WorkflowContext(feature_id=web_feature_id)
 
-    phases_order = [
-      WorkflowPhase.REQUIREMENTS_EXTRACTION,
-      WorkflowPhase.COVERAGE_AUDIT,
-      WorkflowPhase.GENERATION,
-      WorkflowPhase.EVALUATION,
-      WorkflowPhase.EXECUTION,
-    ]
-
-    def should_run(phase: WorkflowPhase | None, has_data: bool) -> bool:
-      if self.config.resume_from:
-        target_idx = phases_order.index(phase) if phase else -1
-        resume_idx = phases_order.index(self.config.resume_from)
-        return target_idx >= resume_idx
-      return not has_data
+    should_run = self.should_run
 
     # Phase 1: Context Assembly
     if should_run(None, bool(context.wpt_context)):
@@ -212,6 +228,122 @@ class WPTGenEngine:
       if not context:
         raise WorkflowError('Phase 1: Context Assembly failed.')
       self._save_resume_state(context)
+
+    await self._run_phases_from_extraction(context)
+    return context
+
+  async def _run_async_chromestatus_workflow(self, feature_id: str) -> WorkflowContext:
+    """Orchestrates the end-to-end WPT generation workflow starting from ChromeStatus."""
+    context_id = f'chromestatus_{feature_id}'
+    context = None
+    if self.config.resume:
+      context = self._load_resume_state(context_id)
+      if context:
+        self.ui.success(f'Resuming workflow for {context_id}')
+
+    # Phase 1: ChromeStatus Context Assembly
+    if not context or not context.wpt_context:
+      context = await run_chromestatus_context_assembly(feature_id, self.config, self.ui)
+      if not context:
+        raise WorkflowError('Phase 1: ChromeStatus Context Assembly failed.')
+      self._save_resume_state(context)
+
+    await self._run_chromestatus_phases_from_extraction(context)
+    return context
+
+  async def _run_chromestatus_phases_from_extraction(
+    self, context: WorkflowContext
+  ) -> WorkflowContext:
+    """Runs the remaining phases of the chromestatus workflow starting from Requirements Extraction."""
+    web_feature_id = context.feature_id
+    should_run = self.should_run
+
+    # Phase 2: ChromeStatus Requirements Extraction
+    if not context.requirements_xml:
+      if self.config.single_prompt_requirements:
+        requirements_xml = await run_chromestatus_requirements_extraction(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      elif self.config.detailed_requirements:
+        requirements_xml = await run_chromestatus_requirements_extraction_iterative(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      else:
+        requirements_xml = await run_chromestatus_requirements_extraction_categorized(
+          context, self.config, self.llm, self.ui, self.jinja_env, self.cache_dir
+        )
+      if not requirements_xml:
+        raise WorkflowError('Phase 2: ChromeStatus Requirements Extraction failed.')
+      context.requirements_xml = requirements_xml
+      self._save_resume_state(context)
+
+    # Phase 3: Coverage Audit
+    if not context.audit_response:
+      audit_response = await run_coverage_audit(
+        context, self.config, self.llm, self.ui, self.jinja_env
+      )
+      if not audit_response:
+        raise WorkflowError('Phase 3: Coverage Audit failed.')
+      context.audit_response = audit_response
+      self._save_resume_state(context)
+
+    # Skip Phase 4 if the user only wants the coverage audit report.
+    if self.config.suggestions_only or self.config.brief_suggestions:
+      await provide_coverage_report(context, self.config, self.ui)
+      # Cleanup resume file if it exists, as this is a terminal state for suggestions-only
+      resume_file = self._get_resume_file_path(web_feature_id)
+      if resume_file.exists():
+        resume_file.unlink()
+
+      return context
+
+    # Phase 4: User Selection & Generation
+    if should_run(WorkflowPhase.GENERATION, bool(context.generated_tests)):
+      generated_tests = await run_test_generation(
+        context, self.config, self.llm, self.ui, self.jinja_env
+      )
+      context.generated_tests = generated_tests
+      self._save_resume_state(context)
+      self._save_phase_artifacts(context, WorkflowPhase.GENERATION)
+    elif context.generated_tests:
+      self.ui.success('Skipping Phase 4: Tests already generated.')
+
+    if self.config.agentic_generation:
+      self.ui.info(
+        'Agentic generation enabled: Skipping Phase 5 (Evaluation) and Phase 6 (Execution) as they will be handled natively downstream.'
+      )
+    else:
+      # Phase 5: Evaluation
+      should_run_eval = should_run(WorkflowPhase.EVALUATION, False)
+      if should_run_eval and context.generated_tests and not self.config.skip_evaluation:
+        await run_test_evaluation(
+          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        )
+      elif context.generated_tests and (self.config.skip_evaluation or not should_run_eval):
+        self.ui.info('Skipping Phase 5: Evaluation.')
+
+      # Phase 6: Test Execution
+      should_run_exec = should_run(WorkflowPhase.EXECUTION, False)
+      if should_run_exec and context.generated_tests and not self.config.skip_execution:
+        success = await run_test_execution(
+          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        )
+        if not success:
+          raise WorkflowError('Phase 6: Test Execution failed.')
+      elif context.generated_tests and (self.config.skip_execution or not should_run_exec):
+        self.ui.info('Skipping Phase 6: Test Execution.')
+
+    # Final cleanup of resume file on success
+    resume_file = self._get_resume_file_path(web_feature_id)
+    if resume_file.exists():
+      resume_file.unlink()
+
+    return context
+
+  async def _run_phases_from_extraction(self, context: WorkflowContext) -> WorkflowContext:
+    """Runs the remaining phases of the workflow starting from Requirements Extraction."""
+    web_feature_id = context.feature_id
+    should_run = self.should_run
 
     # Phase 2: Requirements Extraction
     if should_run(WorkflowPhase.REQUIREMENTS_EXTRACTION, bool(context.requirements_xml)):
@@ -282,9 +414,11 @@ class WPTGenEngine:
       # Phase 6: Test Execution
       should_run_exec = should_run(WorkflowPhase.EXECUTION, False)
       if should_run_exec and context.generated_tests and not self.config.skip_execution:
-        await run_test_execution(
+        success = await run_test_execution(
           context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
         )
+        if not success:
+          raise WorkflowError('Phase 6: Test Execution failed.')
       elif context.generated_tests and (self.config.skip_execution or not should_run_exec):
         self.ui.info('Skipping Phase 6: Test Execution.')
 

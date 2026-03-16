@@ -13,12 +13,16 @@
 # limitations under the License.
 
 import asyncio
+from pathlib import Path
 
 from wptgen.config import Config
 from wptgen.context import (
   WebFeatureMetadata,
+  extract_chromestatus_metadata,
   extract_feature_metadata,
+  extract_wpt_paths_from_descr,
   fetch_and_extract_text,
+  fetch_chromestatus_feature,
   fetch_feature_yaml,
   fetch_mdn_urls,
   find_feature_tests,
@@ -104,5 +108,105 @@ async def run_context_assembly(
     metadata=metadata,
     spec_contents=spec_contents,
     mdn_contents=mdn_contents,
+    wpt_context=wpt_context,
+  )
+
+
+async def run_chromestatus_context_assembly(
+  feature_id: str, config: Config, ui: UIProvider
+) -> WorkflowContext | None:
+  ui.on_phase_start(1, 'ChromeStatus Context Assembly')
+
+  feature_data = fetch_chromestatus_feature(feature_id)
+  if not feature_data:
+    ui.error(f'ChromeStatus feature {feature_id} not found.')
+    return None
+
+  metadata = extract_chromestatus_metadata(feature_data)
+
+  # Override with CLI options if provided
+  if config.spec_urls:
+    metadata.specs = config.spec_urls
+  if config.feature_description:
+    metadata.description = config.feature_description
+
+  if not metadata.specs:
+    ui.error('No specification URL found in ChromeStatus data.')
+    return None
+
+  # Detailed resource discovery logging
+  spec_link = feature_data.get('spec_link')
+  standards_spec = (
+    feature_data.get('standards', {}).get('spec')
+    if isinstance(feature_data.get('standards'), dict)
+    else None
+  )
+  found_specs = {s for s in [spec_link, standards_spec] if s}
+
+  explainers = feature_data.get('explainer_links', [])
+  if not isinstance(explainers, list):
+    explainers = []
+
+  wpt_descr = feature_data.get('wpt_descr', '')
+  raw_test_paths = extract_wpt_paths_from_descr(wpt_descr)
+
+  ui.print(
+    f'Found [cyan]{len(found_specs)}[/cyan] spec links, '
+    f"[cyan]{len(raw_test_paths)}[/cyan] test references in 'wpt_descr', and "
+    f'[cyan]{len(explainers)}[/cyan] explainer links.'
+  )
+
+  ui.report_metadata(metadata)
+
+  ui.print('\nFetching spec content...')
+  with ui.status('Fetching and extracting text...'):
+    results = await asyncio.gather(
+      *[asyncio.to_thread(fetch_and_extract_text, url) for url in metadata.specs]
+    )
+    spec_contents = {url: res for url, res in zip(metadata.specs, results, strict=True) if res}
+
+  if not spec_contents:
+    ui.error('Failed to extract spec content.')
+    return None
+
+  # Use wpt_descr to find existing tests
+  wpt_descr = feature_data.get('wpt_descr', '')
+  test_paths = []
+  if wpt_descr:
+    ui.print("Extracting existing test paths from 'wpt_descr'...")
+    raw_paths = extract_wpt_paths_from_descr(wpt_descr)
+    if raw_paths:
+      ui.print(f"Found {len(raw_paths)} test references in 'wpt_descr'.")
+      for rp in raw_paths:
+        local_path = Path(config.wpt_path) / rp.lstrip('/')
+        if local_path.exists():
+          if local_path.is_file():
+            test_paths.append(str(local_path))
+          elif local_path.is_dir():
+            # If it's a directory, include all files inside
+            test_paths.extend([str(f) for f in local_path.rglob('*') if f.is_file()])
+    else:
+      ui.print("No test references found in 'wpt_descr'.")
+
+  if test_paths:
+    ui.print(f'Gathering context for {len(test_paths)} local WPT test files...')
+    wpt_context = gather_local_test_context(test_paths, config.wpt_path)
+  else:
+    ui.warning(
+      "No local WPT files found for the references in 'wpt_descr'. Skipping local WPT scan."
+    )
+    wpt_context = gather_local_test_context([], config.wpt_path)
+
+  ui.report_chromestatus_context_summary(
+    sum(len(content) for content in spec_contents.values()),
+    len(explainers),
+    len(wpt_context.test_contents),
+  )
+
+  return WorkflowContext(
+    feature_id=f'chromestatus_{feature_id}',
+    metadata=metadata,
+    spec_contents=spec_contents,
+    mdn_contents=None,  # MDN docs are not used in ChromeStatus workflow
     wpt_context=wpt_context,
   )

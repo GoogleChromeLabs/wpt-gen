@@ -26,7 +26,13 @@ from bs4 import BeautifulSoup
 
 from wptgen.models import WebFeatureMetadata, WPTContext
 
-__all__ = ['WebFeatureMetadata', 'WPTContext']
+__all__ = [
+  'WebFeatureMetadata',
+  'WPTContext',
+  'fetch_chromestatus_feature',
+  'extract_chromestatus_metadata',
+  'extract_wpt_paths_from_descr',
+]
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +87,27 @@ def fetch_feature_yaml(web_feature_id: str, draft: bool = False) -> dict[str, An
     raise e
 
 
+def fetch_chromestatus_feature(feature_id: str) -> dict[str, Any] | None:
+  """
+  Fetches feature data from the ChromeStatus Features API.
+  """
+  url = f'https://chromestatus.com/api/v0/features/{feature_id}'
+  try:
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req) as response:
+      content = response.read().decode('utf-8')
+      # ChromeStatus API prepends )]}' followed by a newline for XSSI protection
+      if content.startswith(")]}'\n"):
+        content = content[5:]
+      data = json.loads(content)
+      if isinstance(data, dict):
+        return data
+      return None
+  except (urllib.error.HTTPError, json.JSONDecodeError) as e:
+    logger.warning(f'Could not fetch or parse ChromeStatus feature {feature_id}: {e}')
+    return None
+
+
 def fetch_mdn_urls(web_feature_id: str) -> list[str]:
   """
   Fetches the MDN mapping for a given web feature ID from the
@@ -123,6 +150,84 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata
     description=str(feature_data.get('description', '')),
     specs=specs,
   )
+
+
+def extract_chromestatus_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata:
+  """
+  Extracts the high-level metadata (name and description) from ChromeStatus feature data.
+
+  Returns:
+    WebFeatureMetadata object containing important feature metadata.
+  """
+  name = str(feature_data.get('name', 'Unknown Feature'))
+  summary = str(feature_data.get('summary', ''))
+
+  explainers = feature_data.get('explainer_links', [])
+  if not isinstance(explainers, list):
+    explainers = []
+
+  explainer_str = ''
+  if explainers:
+    explainer_str = '\n\nExplainers:\n' + '\n'.join(explainers)
+
+  description = f'{summary}{explainer_str}'.strip()
+
+  specs = []
+  # Check spec_link first
+  spec_link = feature_data.get('spec_link')
+  if spec_link:
+    specs.append(spec_link)
+
+  # Check standards.spec
+  standards = feature_data.get('standards', {})
+  if isinstance(standards, dict):
+    std_spec = standards.get('spec')
+    if std_spec and std_spec not in specs:
+      specs.append(std_spec)
+
+  # Include explainers as "specs" so they get fetched for context
+  for ex in explainers:
+    if ex and ex not in specs:
+      specs.append(ex)
+
+  return WebFeatureMetadata(
+    name=name,
+    description=description,
+    specs=specs,
+  )
+
+
+def extract_wpt_paths_from_descr(wpt_descr: str) -> list[str]:
+  """
+  Extracts potential WPT paths from the ChromeStatus wpt_descr field.
+  Supports wpt.fyi results URLs and text-based paths.
+  """
+  if not wpt_descr:
+    return []
+
+  paths = []
+  # Match wpt.fyi results URLs
+  # Example: https://wpt.fyi/results/css/css-grid/grid-model/grid-discretizing-001.html
+  wpt_fyi_regex = re.compile(r'https://wpt\.fyi/results/([^?#\s]+)')
+  matches = wpt_fyi_regex.findall(wpt_descr)
+  for m in matches:
+    # Remove trailing slashes and normalize
+    clean_path = m.strip('/')
+    if clean_path and clean_path not in paths:
+      paths.append(clean_path)
+
+  # Also look for things that look like paths (e.g. /css/css-grid/...)
+  # This matches paths starting with / or appearing as standalone path-like strings
+  path_regex = re.compile(
+    r'(?:^|\s)/?([a-zA-Z0-9\-_./]+\.(?:html|js|https\.html|any\.js|window\.js))'
+  )
+  path_matches = path_regex.findall(wpt_descr)
+  for pm in path_matches:
+    clean_pm = pm.strip('/')
+    if clean_pm not in paths:
+      paths.append(clean_pm)
+
+  return paths
 
 
 def fetch_and_extract_text(url: str) -> str | None:
