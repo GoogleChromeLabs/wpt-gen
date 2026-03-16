@@ -80,6 +80,9 @@ async def run_test_generation(
     ui.warning('No tests selected. Exiting.')
     return []
 
+  if config.agentic_generation:
+    return await _generate_agentic_loop(approved_suggestions_xml, context, config, ui, jinja_env)
+
   # Load the general style guide
   resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
   wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
@@ -173,6 +176,73 @@ async def run_test_generation(
   ui.report_generation_summary(final_results)
 
   return final_results
+
+
+async def _generate_agentic_loop(
+  approved_suggestions_xml: list[str],
+  context: WorkflowContext,
+  config: Config,
+  ui: UIProvider,
+  jinja_env: Environment,
+) -> list[tuple[Path, str, str]]:
+  """Runs the gemini CLI as a subprocess to handle test generation natively."""
+  ui.report_generation_start(len(approved_suggestions_xml))
+
+  model = config.get_model_for_phase(WorkflowPhase.GENERATION) or config.default_model
+  agentic_template = jinja_env.get_template('agentic_test_generation.jinja')
+
+  for i, suggestion_xml in enumerate(approved_suggestions_xml):
+    # Inject <web_feature_id> before the closing tag so the agent knows the directory target
+    modified_xml = suggestion_xml.replace(
+      '</test_suggestion>',
+      f'  <web_feature_id>{context.feature_id}</web_feature_id>\n</test_suggestion>',
+    )
+
+    prompt = agentic_template.render(test_suggestion_xml_block=modified_xml)
+
+    # Use bash -ic to force an interactive shell so it loads aliases/nvm.
+    # -p ensures the CLI exits automatically after completion.
+    cmd = ['bash', '-ic', f'gemini --model {model} -p "$0"', prompt]
+
+    ui.print(
+      f'\n[bold blue]Starting Agentic Generation #{i + 1} for: {context.feature_id}[/bold blue]'
+    )
+
+    process = await asyncio.create_subprocess_exec(
+      *cmd,
+      cwd=config.wpt_path,
+      stdout=asyncio.subprocess.PIPE,
+      stderr=asyncio.subprocess.PIPE,
+    )
+
+    async def _stream_output(stream: asyncio.StreamReader | None, is_error: bool = False) -> None:
+      if not stream:
+        return
+      while True:
+        line = await stream.readline()
+        if not line:
+          break
+        text = line.decode('utf-8').rstrip()
+        if is_error:
+          ui.print(f'[red]{text}[/red]')
+        else:
+          ui.print(text)
+
+    await asyncio.gather(
+      _stream_output(process.stdout), _stream_output(process.stderr, is_error=True)
+    )
+
+    await process.wait()
+
+    if process.returncode != 0:
+      ui.error(
+        f'Agentic generation for suggestion #{i + 1} failed with exit code {process.returncode}'
+      )
+    else:
+      ui.success(f'Agentic generation for suggestion #{i + 1} completed successfully.')
+
+  # Agentic generation handles saving and execution natively, so we return an empty memory state.
+  return []
 
 
 async def _generate_and_save(

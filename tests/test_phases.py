@@ -14,7 +14,7 @@
 
 import re
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -449,6 +449,60 @@ async def test_run_test_generation_failure(
 
   assert res == []
   mock_ui.report_generation_summary.assert_called_once_with([])
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_agentic(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Test that agentic generation uses subprocess to call gemini."""
+  mock_config.agentic_generation = True
+  mock_config.wpt_path = '/mock/wpt'
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    audit_response=suggestion_xml,
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value.render.return_value = 'Use the wpt-generator skill to generate the following test\n<web_feature_id>feat</web_feature_id>'
+
+  mock_ui.confirm.return_value = True
+
+  mock_process = AsyncMock()
+
+  # Set up streaming output mocks
+  stdout_mock = AsyncMock()
+  stdout_mock.readline = AsyncMock(side_effect=[b'stdout line\n', b''])
+  mock_process.stdout = stdout_mock
+
+  stderr_mock = AsyncMock()
+  stderr_mock.readline = AsyncMock(side_effect=[b'stderr error\n', b''])
+  mock_process.stderr = stderr_mock
+
+  mock_process.returncode = 0
+  mock_process.wait = AsyncMock()
+
+  with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
+    res = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  assert res == []
+  mock_exec.assert_called_once()
+
+  args, kwargs = mock_exec.call_args
+  assert args[0] == 'bash'
+  assert args[1] == '-ic'
+  assert 'gemini --model' in args[2]
+  assert '-p "$0"' in args[2]
+  assert 'Use the wpt-generator skill to generate the following test' in args[3]
+  assert '<web_feature_id>feat</web_feature_id>' in args[3]
+  assert kwargs['cwd'] == '/mock/wpt'
+
+  mock_ui.print.assert_any_call('stdout line')
+  mock_ui.print.assert_any_call('[red]stderr error[/red]')
+  mock_ui.success.assert_any_call('Agentic generation for suggestion #1 completed successfully.')
 
 
 @pytest.mark.asyncio
