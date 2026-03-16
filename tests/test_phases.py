@@ -500,8 +500,8 @@ async def test_run_test_generation_agentic(
   assert '<web_feature_id>feat</web_feature_id>' in args[3]
   assert kwargs['cwd'] == '/mock/wpt'
 
-  mock_ui.print.assert_any_call('stdout line')
-  mock_ui.print.assert_any_call('[red]stderr error[/red]')
+  mock_ui.print.assert_any_call('[cyan]│[/cyan] stdout line')
+  mock_ui.print.assert_any_call('[cyan]│[/cyan] [white]stderr error[/white]')
   mock_ui.success.assert_any_call('Agentic generation for suggestion #1 completed successfully.')
 
 

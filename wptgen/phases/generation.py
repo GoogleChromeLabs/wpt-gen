@@ -16,6 +16,7 @@ import asyncio
 from pathlib import Path
 
 from jinja2 import Environment
+from rich.rule import Rule
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
@@ -207,6 +208,7 @@ async def _generate_agentic_loop(
     ui.print(
       f'\n[bold blue]Starting Agentic Generation #{i + 1} for: {context.feature_id}[/bold blue]'
     )
+    ui.print(Rule('[bold cyan]🤖 Gemini CLI[/bold cyan]', style='cyan', align='left'))
 
     process = await asyncio.create_subprocess_exec(
       *cmd,
@@ -215,7 +217,7 @@ async def _generate_agentic_loop(
       stderr=asyncio.subprocess.PIPE,
     )
 
-    async def _stream_output(stream: asyncio.StreamReader | None, is_error: bool = False) -> None:
+    async def _stream_output(stream: asyncio.StreamReader | None, is_stderr: bool = False) -> None:
       if not stream:
         return
       while True:
@@ -223,16 +225,17 @@ async def _generate_agentic_loop(
         if not line:
           break
         text = line.decode('utf-8').rstrip()
-        if is_error:
-          ui.print(f'[red]{text}[/red]')
+        if is_stderr:
+          ui.print(f'[cyan]│[/cyan] [white]{text}[/white]')
         else:
-          ui.print(text)
+          ui.print(f'[cyan]│[/cyan] {text}')
 
     await asyncio.gather(
-      _stream_output(process.stdout), _stream_output(process.stderr, is_error=True)
+      _stream_output(process.stdout), _stream_output(process.stderr, is_stderr=True)
     )
 
     await process.wait()
+    ui.print(Rule(style='cyan'))
 
     if process.returncode != 0:
       ui.error(
