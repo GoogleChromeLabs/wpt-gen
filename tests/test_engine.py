@@ -232,6 +232,33 @@ async def test_run_async_workflow_skip_execution(
   mock_ui.info.assert_called_with('Skipping Phase 6: Test Execution.')
 
 
+@pytest.mark.asyncio
+async def test_run_async_workflow_agentic_generation(
+  engine: WPTGenEngine, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+  """Verifies that Phase 5 and 6 are skipped when config.agentic_generation is True."""
+  engine.config.agentic_generation = True
+  context = WorkflowContext(feature_id='feat-id')
+  requirements = 'reqs'
+  audit = 'audit'
+  generated_tests = [('path', 'content', 'suggestion')]
+
+  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
+  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=requirements)
+  mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
+  mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
+  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
+  mock_exec = mocker.patch('wptgen.engine.run_test_execution', return_value=None)
+
+  await engine._run_async_workflow('feat-id')
+
+  mock_eval.assert_not_called()
+  mock_exec.assert_not_called()
+  mock_ui.info.assert_called_with(
+    'Agentic generation enabled: Skipping Phase 5 (Evaluation) and Phase 6 (Execution) as they will be handled natively downstream.'
+  )
+
+
 def test_engine_load_resume_state_invalid_json(
   mocker: MockerFixture, tmp_path: Path, mock_config: Config
 ) -> None:

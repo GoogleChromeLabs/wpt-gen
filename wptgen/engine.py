@@ -265,23 +265,28 @@ class WPTGenEngine:
     elif context.generated_tests:
       self.ui.success('Skipping Phase 4: Tests already generated.')
 
-    # Phase 5: Evaluation
-    should_run_eval = should_run(WorkflowPhase.EVALUATION, False)
-    if should_run_eval and context.generated_tests and not self.config.skip_evaluation:
-      await run_test_evaluation(
-        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+    if self.config.agentic_generation:
+      self.ui.info(
+        'Agentic generation enabled: Skipping Phase 5 (Evaluation) and Phase 6 (Execution) as they will be handled natively downstream.'
       )
-    elif context.generated_tests and (self.config.skip_evaluation or not should_run_eval):
-      self.ui.info('Skipping Phase 5: Evaluation.')
+    else:
+      # Phase 5: Evaluation
+      should_run_eval = should_run(WorkflowPhase.EVALUATION, False)
+      if should_run_eval and context.generated_tests and not self.config.skip_evaluation:
+        await run_test_evaluation(
+          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        )
+      elif context.generated_tests and (self.config.skip_evaluation or not should_run_eval):
+        self.ui.info('Skipping Phase 5: Evaluation.')
 
-    # Phase 6: Test Execution
-    should_run_exec = should_run(WorkflowPhase.EXECUTION, False)
-    if should_run_exec and context.generated_tests and not self.config.skip_execution:
-      await run_test_execution(
-        context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
-      )
-    elif context.generated_tests and (self.config.skip_execution or not should_run_exec):
-      self.ui.info('Skipping Phase 6: Test Execution.')
+      # Phase 6: Test Execution
+      should_run_exec = should_run(WorkflowPhase.EXECUTION, False)
+      if should_run_exec and context.generated_tests and not self.config.skip_execution:
+        await run_test_execution(
+          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
+        )
+      elif context.generated_tests and (self.config.skip_execution or not should_run_exec):
+        self.ui.info('Skipping Phase 6: Test Execution.')
 
     # Final cleanup of resume file on success
     resume_file = self._get_resume_file_path(web_feature_id)
