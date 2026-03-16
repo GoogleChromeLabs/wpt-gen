@@ -70,7 +70,7 @@ async def run_test_generation(
   for i, suggestion in enumerate(suggestions):
     title = extract_xml_tag(suggestion, 'title') or f'Suggestion #{i + 1}'
     description = extract_xml_tag(suggestion, 'description') or 'No description provided.'
-    test_type = extract_xml_tag(suggestion, 'test_type') or 'Unknown'
+    test_type = extract_xml_tag(suggestion, 'test_type')
 
     ui.report_test_suggestion(i + 1, title, description, test_type)
     if config.yes_tests or ui.confirm('Generate this test?'):

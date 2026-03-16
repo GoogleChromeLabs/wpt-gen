@@ -175,7 +175,25 @@ async def run_coverage_audit(
 async def provide_coverage_report(context: WorkflowContext, config: Config, ui: UIProvider) -> None:
   """Prints the coverage audit report and optionally saves it to a file."""
   assert context.audit_response is not None
-  ui.report_coverage_audit(context.audit_response)
+
+  audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
+  test_suggestions_block = extract_xml_tag(context.audit_response, 'test_suggestions')
+
+  if audit_worksheet and test_suggestions_block:
+    ui.report_coverage_audit()
+    ui.report_audit_worksheet(audit_worksheet)
+
+    if '<status>SATISFIED</status>' in test_suggestions_block:
+      ui.success('All requirements are SATISFIED. No new tests suggested.')
+    else:
+      suggestions = parse_suggestions(test_suggestions_block)
+      for idx, suggestion in enumerate(suggestions, 1):
+        title = extract_xml_tag(suggestion, 'title') or 'Untitled'
+        description = extract_xml_tag(suggestion, 'description') or 'No description provided'
+        test_type = extract_xml_tag(suggestion, 'test_type')
+        ui.report_test_suggestion(idx, title, description, test_type)
+  else:
+    ui.report_coverage_audit(context.audit_response)
 
   if ui.confirm('\nSave report to a file?'):
     # Create a sanitized filename from the feature ID
