@@ -100,12 +100,10 @@ async def run_test_generation(
   output_dir = Path(config.output_dir or '.')
 
   for suggestion_xml in approved_suggestions_xml:
-    # Inject specification URLs if available
-    if spec_urls:
-      spec_url_tags = '\n'.join([f'  <spec_url>{url}</spec_url>' for url in spec_urls])
-      suggestion_xml = suggestion_xml.replace(
-        '</test_suggestion>', f'{spec_url_tags}\n</test_suggestion>'
-      )
+    # Inject specification URLs and feature ID, and sanitize if using brief suggestions
+    suggestion_xml = _format_test_suggestion(
+      suggestion_xml, context.feature_id, spec_urls, sanitize=config.brief_suggestions
+    )
 
     # Extract and normalize test type
     raw_test_type = extract_xml_tag(suggestion_xml, 'test_type') or 'JavaScript Test'
@@ -179,6 +177,28 @@ async def run_test_generation(
   return final_results
 
 
+def _format_test_suggestion(
+  suggestion_xml: str, feature_id: str, spec_urls: list[str], sanitize: bool = False
+) -> str:
+  if sanitize:
+    description = extract_xml_tag(suggestion_xml, 'description') or 'No description provided.'
+    lines = ['<test_suggestion>']
+    lines.append(f'  <description>{description}</description>')
+    for url in spec_urls:
+      lines.append(f'  <spec_url>{url}</spec_url>')
+    lines.append(f'  <web_feature_id>{feature_id}</web_feature_id>')
+    lines.append('</test_suggestion>')
+    return '\n'.join(lines)
+  else:
+    # Just inject spec_urls and web_feature_id into the existing XML
+    lines = []
+    for url in spec_urls:
+      lines.append(f'  <spec_url>{url}</spec_url>')
+    lines.append(f'  <web_feature_id>{feature_id}</web_feature_id>')
+    additions = '\n'.join(lines)
+    return suggestion_xml.replace('</test_suggestion>', f'{additions}\n</test_suggestion>')
+
+
 async def _generate_agentic_loop(
   approved_suggestions_xml: list[str],
   context: WorkflowContext,
@@ -192,11 +212,12 @@ async def _generate_agentic_loop(
   model = config.get_model_for_phase(WorkflowPhase.GENERATION) or config.default_model
   agentic_template = jinja_env.get_template('agentic_test_generation.jinja')
 
+  spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
+
   for i, suggestion_xml in enumerate(approved_suggestions_xml):
-    # Inject <web_feature_id> before the closing tag so the agent knows the directory target
-    modified_xml = suggestion_xml.replace(
-      '</test_suggestion>',
-      f'  <web_feature_id>{context.feature_id}</web_feature_id>\n</test_suggestion>',
+    # Sanitize and strictly enforce the <test_suggestion> block structure
+    modified_xml = _format_test_suggestion(
+      suggestion_xml, context.feature_id, spec_urls, sanitize=True
     )
 
     prompt = agentic_template.render(test_suggestion_xml_block=modified_xml)

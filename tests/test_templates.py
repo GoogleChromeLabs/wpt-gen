@@ -7,13 +7,13 @@ def test_coverage_audit_system_template_brief() -> None:
 
   # Test with brief_suggestions=True
   rendered_brief = template.render(brief_suggestions=True, spec_urls=['https://example.com/spec'])
-  assert '<title>' in rendered_brief
+  assert '<title>' not in rendered_brief
   assert '<description>' in rendered_brief
   assert '<test_type>' not in rendered_brief
   assert '<pre_conditions>' not in rendered_brief
   assert '<steps>' not in rendered_brief
   assert '<expected_result>' not in rendered_brief
-  assert '<spec_url>https://example.com/spec</spec_url>' in rendered_brief
+  assert '<spec_url>https://example.com/spec</spec_url>' not in rendered_brief
 
   # Test with brief_suggestions=False
   rendered_full = template.render(brief_suggestions=False)
@@ -31,13 +31,13 @@ def test_chromestatus_coverage_audit_system_template_brief() -> None:
 
   # Test with brief_suggestions=True
   rendered_brief = template.render(brief_suggestions=True, spec_urls=['https://example.com/spec'])
-  assert '<title>' in rendered_brief
+  assert '<title>' not in rendered_brief
   assert '<description>' in rendered_brief
   assert '<test_type>' not in rendered_brief
   assert '<pre_conditions>' not in rendered_brief
   assert '<steps>' not in rendered_brief
   assert '<expected_result>' not in rendered_brief
-  assert '<spec_url>https://example.com/spec</spec_url>' in rendered_brief
+  assert '<spec_url>https://example.com/spec</spec_url>' not in rendered_brief
 
   # Test with brief_suggestions=False
   rendered_full = template.render(brief_suggestions=False)
