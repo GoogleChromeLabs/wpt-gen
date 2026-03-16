@@ -79,9 +79,9 @@ class WPTGenEngine:
     """Entry point for the synchronous CLI to launch the async workflow."""
     return asyncio.run(self._run_async_workflow(web_feature_id))
 
-  def run_chromestatus_workflow(self, feature_id: str) -> None:
+  def run_chromestatus_workflow(self, feature_id: str) -> WorkflowContext:
     """Entry point for the synchronous CLI to launch the ChromeStatus async workflow."""
-    asyncio.run(self._run_async_chromestatus_workflow(feature_id))
+    return asyncio.run(self._run_async_chromestatus_workflow(feature_id))
 
   def _get_resume_file_path(self, web_feature_id: str) -> Path:
     """Returns the path to the resume file for a given web feature ID."""
@@ -230,8 +230,9 @@ class WPTGenEngine:
       self._save_resume_state(context)
 
     await self._run_phases_from_extraction(context)
+    return context
 
-  async def _run_async_chromestatus_workflow(self, feature_id: str) -> None:
+  async def _run_async_chromestatus_workflow(self, feature_id: str) -> WorkflowContext:
     """Orchestrates the end-to-end WPT generation workflow starting from ChromeStatus."""
     context_id = f'chromestatus_{feature_id}'
     context = None
@@ -248,8 +249,11 @@ class WPTGenEngine:
       self._save_resume_state(context)
 
     await self._run_chromestatus_phases_from_extraction(context)
+    return context
 
-  async def _run_chromestatus_phases_from_extraction(self, context: WorkflowContext) -> None:
+  async def _run_chromestatus_phases_from_extraction(
+    self, context: WorkflowContext
+  ) -> WorkflowContext:
     """Runs the remaining phases of the chromestatus workflow starting from Requirements Extraction."""
     web_feature_id = context.feature_id
     should_run = self.should_run
@@ -334,7 +338,9 @@ class WPTGenEngine:
     if resume_file.exists():
       resume_file.unlink()
 
-  async def _run_phases_from_extraction(self, context: WorkflowContext) -> None:
+    return context
+
+  async def _run_phases_from_extraction(self, context: WorkflowContext) -> WorkflowContext:
     """Runs the remaining phases of the workflow starting from Requirements Extraction."""
     web_feature_id = context.feature_id
     should_run = self.should_run
