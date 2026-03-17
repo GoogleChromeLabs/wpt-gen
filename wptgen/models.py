@@ -70,6 +70,23 @@ class WebFeatureMetadata:
 
 
 @dataclass
+class ChromeStatusMetadata:
+  is_chromestatus: bool = True
+  name: str
+  description: str
+  specs: list[str]
+  explainer: list[str]
+  wpt_tests: list[str]
+
+  def to_dict(self) -> dict[str, Any]:
+    return asdict(self)
+
+  @classmethod
+  def from_dict(cls, data: dict[str, Any]) -> 'ChromeStatusMetadata':
+    return cls(**data)
+
+
+@dataclass
 class WPTContext:
   """Holds the results of a local WPT content and dependency fetch operation."""
 
@@ -96,8 +113,9 @@ class WorkflowContext:
   """Maintains the state of the WPT generation workflow."""
 
   feature_id: str
-  metadata: WebFeatureMetadata | None = None
+  metadata: WebFeatureMetadata | ChromeStatusMetadata | None = None
   spec_contents: dict[str, str] | None = None
+  explainer_contents: dict[str, str] | None = None
   wpt_context: WPTContext | None = None
   requirements_xml: str | None = None
   audit_response: str | None = None
@@ -111,6 +129,7 @@ class WorkflowContext:
       'feature_id': self.feature_id,
       'metadata': self.metadata.to_dict() if self.metadata else None,
       'spec_contents': self.spec_contents,
+      'explainer_contents': self.explainer_contents,
       'wpt_context': self.wpt_context.to_dict() if self.wpt_context else None,
       'requirements_xml': self.requirements_xml,
       'audit_response': self.audit_response,
@@ -125,7 +144,14 @@ class WorkflowContext:
 
   @classmethod
   def from_dict(cls, data: dict[str, Any]) -> 'WorkflowContext':
-    metadata = WebFeatureMetadata.from_dict(data['metadata']) if data.get('metadata') else None
+    metadata_data = data.get('metadata')
+    metadata: WebFeatureMetadata | ChromeStatusMetadata | None = None
+    if metadata_data:
+      if 'is_chromestatus' in metadata_data:
+        metadata = ChromeStatusMetadata.from_dict(metadata_data)
+      else:
+        metadata = WebFeatureMetadata.from_dict(metadata_data)
+
     wpt_context = WPTContext.from_dict(data['wpt_context']) if data.get('wpt_context') else None
     generated_tests = None
     if data.get('generated_tests'):

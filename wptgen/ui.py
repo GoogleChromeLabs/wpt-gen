@@ -32,7 +32,7 @@ from rich.table import Table
 from wptgen.utils import parse_multi_file_response
 
 if TYPE_CHECKING:
-  from wptgen.models import WebFeatureMetadata
+  from wptgen.models import ChromeStatusMetadata, WebFeatureMetadata
 
 
 class ProgressIndicator(Protocol):
@@ -65,7 +65,7 @@ class UIProvider(Protocol):
   def on_phase_complete(self, phase_name: str) -> None: ...
 
   # Domain-specific reporting
-  def report_metadata(self, metadata: WebFeatureMetadata) -> None: ...
+  def report_metadata(self, metadata: WebFeatureMetadata | ChromeStatusMetadata) -> None: ...
   def report_context_summary(
     self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
   ) -> None: ...
@@ -173,7 +173,7 @@ class RichUIProvider:
   def on_phase_complete(self, phase_name: str) -> None:
     self.success(f'{phase_name} complete.')
 
-  def report_metadata(self, metadata: WebFeatureMetadata) -> None:
+  def report_metadata(self, metadata: WebFeatureMetadata | ChromeStatusMetadata) -> None:
     metadata_table = Table(show_header=False, box=None, padding=(0, 2))
     metadata_table.add_row('[bold]Web Feature Name:[/bold]', f'[cyan]{metadata.name}[/cyan]')
     metadata_table.add_row('[bold]Description:[/bold]', metadata.description)

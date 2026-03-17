@@ -24,10 +24,11 @@ import markdownify
 import yaml
 from bs4 import BeautifulSoup
 
-from wptgen.models import WebFeatureMetadata, WPTContext
+from wptgen.models import ChromeStatusMetadata, WebFeatureMetadata, WPTContext
 
 __all__ = [
   'WebFeatureMetadata',
+  'ChromeStatusMetadata',
   'WPTContext',
   'fetch_chromestatus_feature',
   'extract_chromestatus_metadata',
@@ -152,12 +153,12 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata
   )
 
 
-def extract_chromestatus_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata:
+def extract_chromestatus_metadata(feature_data: dict[str, Any]) -> ChromeStatusMetadata:
   """
   Extracts the high-level metadata (name and description) from ChromeStatus feature data.
 
   Returns:
-    WebFeatureMetadata object containing important feature metadata.
+    ChromeStatusMetadata object containing important feature metadata.
   """
   name = str(feature_data.get('name', 'Unknown Feature'))
   summary = str(feature_data.get('summary', ''))
@@ -166,34 +167,15 @@ def extract_chromestatus_metadata(feature_data: dict[str, Any]) -> WebFeatureMet
   if not isinstance(explainers, list):
     explainers = []
 
-  explainer_str = ''
-  if explainers:
-    explainer_str = '\n\nExplainers:\n' + '\n'.join(explainers)
+  # Extract the spec_link
+  spec_url = feature_data.get('spec_link') or ''
 
-  description = f'{summary}{explainer_str}'.strip()
-
-  specs = []
-  # Check spec_link first
-  spec_link = feature_data.get('spec_link')
-  if spec_link:
-    specs.append(spec_link)
-
-  # Check standards.spec
-  standards = feature_data.get('standards', {})
-  if isinstance(standards, dict):
-    std_spec = standards.get('spec')
-    if std_spec and std_spec not in specs:
-      specs.append(std_spec)
-
-  # Include explainers as "specs" so they get fetched for context
-  for ex in explainers:
-    if ex and ex not in specs:
-      specs.append(ex)
-
-  return WebFeatureMetadata(
+  return ChromeStatusMetadata(
     name=name,
-    description=description,
-    specs=specs,
+    description=summary,
+    specs=[spec_url] if spec_url else [],
+    explainer=explainers,
+    wpt_tests=wpt_tests,
   )
 
 

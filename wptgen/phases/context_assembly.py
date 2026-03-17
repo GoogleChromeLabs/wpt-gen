@@ -20,7 +20,6 @@ from wptgen.context import (
   WebFeatureMetadata,
   extract_chromestatus_metadata,
   extract_feature_metadata,
-  extract_wpt_paths_from_descr,
   fetch_and_extract_text,
   fetch_chromestatus_feature,
   fetch_feature_yaml,
@@ -125,30 +124,21 @@ async def run_chromestatus_context_assembly(
   metadata = extract_chromestatus_metadata(feature_data)
 
   # Override with CLI options if provided
+  # TODO: consider chromestatus only using one spec url
   if config.spec_urls:
-    metadata.specs = config.spec_urls
+    metadata.spec_url = config.spec_urls[0]
   if config.feature_description:
     metadata.description = config.feature_description
 
-  if not metadata.specs:
+  if not metadata.spec_url:
     ui.error('No specification URL found in ChromeStatus data.')
     return None
 
   # Detailed resource discovery logging
-  spec_link = feature_data.get('spec_link')
-  standards_spec = (
-    feature_data.get('standards', {}).get('spec')
-    if isinstance(feature_data.get('standards'), dict)
-    else None
-  )
-  found_specs = {s for s in [spec_link, standards_spec] if s}
+  found_specs = {metadata.spec_url} if metadata.spec_url else set()
 
-  explainers = feature_data.get('explainer_links', [])
-  if not isinstance(explainers, list):
-    explainers = []
-
-  wpt_descr = feature_data.get('wpt_descr', '')
-  raw_test_paths = extract_wpt_paths_from_descr(wpt_descr)
+  explainers = metadata.explainer
+  raw_test_paths = metadata.wpt_tests
 
   ui.print(
     f'Found [cyan]{len(found_specs)}[/cyan] spec links, '
@@ -169,24 +159,21 @@ async def run_chromestatus_context_assembly(
     ui.error('Failed to extract spec content.')
     return None
 
-  # Use wpt_descr to find existing tests
-  wpt_descr = feature_data.get('wpt_descr', '')
+  # Use wpt_tests to find existing tests
   test_paths = []
-  if wpt_descr:
+  if raw_test_paths:
     ui.print("Extracting existing test paths from 'wpt_descr'...")
-    raw_paths = extract_wpt_paths_from_descr(wpt_descr)
-    if raw_paths:
-      ui.print(f"Found {len(raw_paths)} test references in 'wpt_descr'.")
-      for rp in raw_paths:
-        local_path = Path(config.wpt_path) / rp.lstrip('/')
-        if local_path.exists():
-          if local_path.is_file():
-            test_paths.append(str(local_path))
-          elif local_path.is_dir():
-            # If it's a directory, include all files inside
-            test_paths.extend([str(f) for f in local_path.rglob('*') if f.is_file()])
-    else:
-      ui.print("No test references found in 'wpt_descr'.")
+    ui.print(f"Found {len(raw_test_paths)} test references in 'wpt_descr'.")
+    for rp in raw_test_paths:
+      local_path = Path(config.wpt_path) / rp.lstrip('/')
+      if local_path.exists():
+        if local_path.is_file():
+          test_paths.append(str(local_path))
+        elif local_path.is_dir():
+          # If it's a directory, include all files inside
+          test_paths.extend([str(f) for f in local_path.rglob('*') if f.is_file()])
+  else:
+    ui.print("No test references found in 'wpt_descr'.")
 
   if test_paths:
     ui.print(f'Gathering context for {len(test_paths)} local WPT test files...')
@@ -209,4 +196,5 @@ async def run_chromestatus_context_assembly(
     spec_contents=spec_contents,
     mdn_contents=None,  # MDN docs are not used in ChromeStatus workflow
     wpt_context=wpt_context,
+    explainer_contents=explainers
   )

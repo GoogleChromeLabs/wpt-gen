@@ -74,6 +74,7 @@ def test_extract_chromestatus_metadata_basic() -> None:
   assert metadata.name == 'Feature Name'
   assert metadata.description == 'Feature Summary'
   assert metadata.specs == ['https://example.com/spec']
+  assert metadata.explainer == []
 
 
 def test_extract_chromestatus_metadata_with_explainers() -> None:
@@ -89,9 +90,9 @@ def test_extract_chromestatus_metadata_with_explainers() -> None:
   assert metadata.name == 'Feature Name'
   assert 'Explainers:' in metadata.description
   assert 'https://example.com/explainer' in metadata.description
-  # specs should include both std spec and explainer
-  assert 'https://example.com/std_spec' in metadata.specs
-  assert 'https://example.com/explainer' in metadata.specs
+  # specs should be mapped to spec_url and explainer
+  assert metadata.specs == ['https://example.com/std_spec']
+  assert metadata.explainer == ['https://example.com/explainer']
 
 
 def test_extract_wpt_paths_from_descr_urls() -> None:
