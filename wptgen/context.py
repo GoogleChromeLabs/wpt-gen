@@ -170,6 +170,10 @@ def extract_chromestatus_metadata(feature_data: dict[str, Any]) -> ChromeStatusM
   # Extract the spec_link
   spec_url = feature_data.get('spec_link') or ''
 
+  # Extract WPT paths
+  wpt_descr = feature_data.get('wpt_descr', '')
+  wpt_tests = extract_wpt_paths_from_descr(wpt_descr)
+
   return ChromeStatusMetadata(
     name=name,
     description=summary,

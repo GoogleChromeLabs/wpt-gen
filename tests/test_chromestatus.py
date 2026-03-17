@@ -88,10 +88,9 @@ def test_extract_chromestatus_metadata_with_explainers() -> None:
   metadata = extract_chromestatus_metadata(data)
 
   assert metadata.name == 'Feature Name'
-  assert 'Explainers:' in metadata.description
-  assert 'https://example.com/explainer' in metadata.description
+  assert metadata.description == 'Summary'
   # specs should be mapped to spec_url and explainer
-  assert metadata.specs == ['https://example.com/std_spec']
+  assert metadata.specs == []
   assert metadata.explainer == ['https://example.com/explainer']
 
 

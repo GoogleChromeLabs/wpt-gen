@@ -126,16 +126,16 @@ async def run_chromestatus_context_assembly(
   # Override with CLI options if provided
   # TODO: consider chromestatus only using one spec url
   if config.spec_urls:
-    metadata.spec_url = config.spec_urls[0]
+    metadata.specs = [config.spec_urls[0]]
   if config.feature_description:
     metadata.description = config.feature_description
 
-  if not metadata.spec_url:
+  if not metadata.specs or not metadata.specs[0]:
     ui.error('No specification URL found in ChromeStatus data.')
     return None
 
   # Detailed resource discovery logging
-  found_specs = {metadata.spec_url} if metadata.spec_url else set()
+  found_specs = {metadata.specs[0]} if metadata.specs else set()
 
   explainers = metadata.explainer
   raw_test_paths = metadata.wpt_tests
@@ -148,12 +148,26 @@ async def run_chromestatus_context_assembly(
 
   ui.report_metadata(metadata)
 
-  ui.print('\nFetching spec content...')
+  ui.print('\nFetching spec and explainer content...')
+
+  spec_url = metadata.specs[0] if metadata.specs else None
+  all_urls = [spec_url] if spec_url else []
+  all_urls.extend(explainers)
+  all_urls = [url for url in all_urls if url]  # Ensure no empty strings
+
   with ui.status('Fetching and extracting text...'):
     results = await asyncio.gather(
-      *[asyncio.to_thread(fetch_and_extract_text, url) for url in metadata.specs]
+      *[asyncio.to_thread(fetch_and_extract_text, url) for url in all_urls]
     )
-    spec_contents = {url: res for url, res in zip(metadata.specs, results, strict=True) if res}
+
+  spec_contents = {}
+  explainer_contents = {}
+  for url, res in zip(all_urls, results, strict=True):
+    if res:
+      if url == spec_url:
+        spec_contents[url] = res
+      elif url in explainers:
+        explainer_contents[url] = res
 
   if not spec_contents:
     ui.error('Failed to extract spec content.')
@@ -196,5 +210,5 @@ async def run_chromestatus_context_assembly(
     spec_contents=spec_contents,
     mdn_contents=None,  # MDN docs are not used in ChromeStatus workflow
     wpt_context=wpt_context,
-    explainer_contents=explainers
+    explainer_contents=explainer_contents,
   )

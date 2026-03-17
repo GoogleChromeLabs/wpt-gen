@@ -71,12 +71,12 @@ class WebFeatureMetadata:
 
 @dataclass
 class ChromeStatusMetadata:
-  is_chromestatus: bool = True
   name: str
   description: str
   specs: list[str]
   explainer: list[str]
   wpt_tests: list[str]
+  is_chromestatus: bool = True
 
   def to_dict(self) -> dict[str, Any]:
     return asdict(self)
@@ -167,6 +167,7 @@ class WorkflowContext:
       feature_id=data['feature_id'],
       metadata=metadata,
       spec_contents=spec_contents,
+      explainer_contents=data.get('explainer_contents'),
       wpt_context=wpt_context,
       requirements_xml=data.get('requirements_xml'),
       audit_response=data.get('audit_response'),
