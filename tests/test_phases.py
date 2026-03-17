@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -500,6 +501,12 @@ async def test_run_test_generation_agentic(
   assert 'Use the wpt-generator skill to generate the following test' in args[3]
   assert '<web_feature_id>feat</web_feature_id>' in args[3]
   assert kwargs['cwd'] == '/mock/wpt'
+  if mock_config.agentic_yolo:
+    assert kwargs['stdout'] == asyncio.subprocess.PIPE
+    assert kwargs['stderr'] == asyncio.subprocess.PIPE
+  else:
+    assert kwargs['stdout'] is None
+    assert kwargs['stderr'] is None
 
   mock_ui.print.assert_any_call('[cyan]│[/cyan] stdout line')
   mock_ui.print.assert_any_call('[cyan]│[/cyan] [white]stderr error[/white]')
@@ -709,3 +716,9 @@ async def test_run_test_generation_agentic_interactive(
   assert 'Use the wpt-generator skill to generate the following test' in args[3]
   assert '<web_feature_id>feat</web_feature_id>' in args[3]
   assert kwargs['cwd'] == '/mock/wpt'
+  if mock_config.agentic_yolo:
+    assert kwargs['stdout'] == asyncio.subprocess.PIPE
+    assert kwargs['stderr'] == asyncio.subprocess.PIPE
+  else:
+    assert kwargs['stdout'] is None
+    assert kwargs['stderr'] is None

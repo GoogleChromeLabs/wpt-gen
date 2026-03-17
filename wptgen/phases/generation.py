@@ -237,26 +237,30 @@ async def _generate_agentic_loop(
     process = await asyncio.create_subprocess_exec(
       *cmd,
       cwd=config.wpt_path,
-      stdout=asyncio.subprocess.PIPE,
-      stderr=asyncio.subprocess.PIPE,
+      stdout=asyncio.subprocess.PIPE if config.agentic_yolo else None,
+      stderr=asyncio.subprocess.PIPE if config.agentic_yolo else None,
     )
 
-    async def _stream_output(stream: asyncio.StreamReader | None, is_stderr: bool = False) -> None:
-      if not stream:
-        return
-      while True:
-        line = await stream.readline()
-        if not line:
-          break
-        text = line.decode('utf-8').rstrip()
-        if is_stderr:
-          ui.print(f'[cyan]│[/cyan] [white]{text}[/white]')
-        else:
-          ui.print(f'[cyan]│[/cyan] {text}')
+    if config.agentic_yolo:
 
-    await asyncio.gather(
-      _stream_output(process.stdout), _stream_output(process.stderr, is_stderr=True)
-    )
+      async def _stream_output(
+        stream: asyncio.StreamReader | None, is_stderr: bool = False
+      ) -> None:
+        if not stream:
+          return
+        while True:
+          line = await stream.readline()
+          if not line:
+            break
+          text = line.decode('utf-8').rstrip()
+          if is_stderr:
+            ui.print(f'[cyan]│[/cyan] [white]{text}[/white]')
+          else:
+            ui.print(f'[cyan]│[/cyan] {text}')
+
+      await asyncio.gather(
+        _stream_output(process.stdout), _stream_output(process.stderr, is_stderr=True)
+      )
 
     await process.wait()
     ui.print(Rule(style='cyan'))
