@@ -511,6 +511,12 @@ async def test_run_test_generation_agentic(
   mock_ui.print.assert_any_call('[cyan]│[/cyan] stdout line')
   mock_ui.print.assert_any_call('[cyan]│[/cyan] [white]stderr error[/white]')
   mock_ui.success.assert_any_call('Agentic generation for suggestion #1 completed successfully.')
+  from unittest.mock import ANY
+
+  jinja_env.get_template.return_value.render.assert_called_with(
+    test_suggestion_xml_block=ANY,
+    is_interactive=False,
+  )
 
 
 @pytest.mark.asyncio
@@ -722,3 +728,10 @@ async def test_run_test_generation_agentic_interactive(
   else:
     assert kwargs['stdout'] is None
     assert kwargs['stderr'] is None
+
+  from unittest.mock import ANY
+
+  jinja_env.get_template.return_value.render.assert_called_with(
+    test_suggestion_xml_block=ANY,
+    is_interactive=True,
+  )

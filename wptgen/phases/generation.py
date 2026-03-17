@@ -220,7 +220,10 @@ async def _generate_agentic_loop(
       suggestion_xml, context.feature_id, spec_urls, sanitize=True
     )
 
-    prompt = agentic_template.render(test_suggestion_xml_block=modified_xml)
+    prompt = agentic_template.render(
+      test_suggestion_xml_block=modified_xml,
+      is_interactive=not config.agentic_yolo,
+    )
 
     if config.agentic_yolo:
       # Use bash -ic to force an interactive shell so it loads aliases/nvm.
