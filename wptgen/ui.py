@@ -179,6 +179,10 @@ class RichUIProvider:
     metadata_table.add_row('[bold]Description:[/bold]', metadata.description)
     metadata_table.add_row('[bold]Spec URL:[/bold]', f'[blue]{metadata.specs[0]}[/blue]')
 
+    if hasattr(metadata, 'explainer') and metadata.explainer:
+      explainer_links = '\n'.join([f'[blue]{link}[/blue]' for link in metadata.explainer])
+      metadata_table.add_row('[bold]Explainers:[/bold]', explainer_links)
+
     self.console.print(
       Panel(
         metadata_table,
