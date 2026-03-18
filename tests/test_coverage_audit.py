@@ -199,3 +199,48 @@ async def test_provide_coverage_report_save_success(
   await provide_coverage_report(context, mock_config, mock_ui)
 
   mock_ui.success.assert_called_with(f'Saved: {(tmp_path / "test_coverage_audit.md").absolute()}')
+
+
+@pytest.mark.asyncio
+async def test_run_coverage_audit_agentic_generation_brief_suggestions(
+  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock
+) -> None:
+  wpt_context = WPTContext()
+  context = WorkflowContext(
+    feature_id='test',
+    requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+    wpt_context=wpt_context,
+  )
+
+  mock_config.agentic_generation = True
+  mock_config.brief_suggestions = False
+
+  mock_llm = MagicMock()
+  mock_llm.prompt_exceeds_input_token_limit.return_value = False
+
+  jinja_env = MagicMock(spec=Environment)
+
+  audit_template_mock = MagicMock()
+  audit_template_mock.render.return_value = 'Audit Prompt'
+
+  system_template_mock = MagicMock()
+  system_template_mock.render.return_value = 'System Prompt'
+
+  def mock_get_template(name: str) -> MagicMock:
+    if name == 'coverage_audit.jinja':
+      return audit_template_mock
+    elif name == 'coverage_audit_system.jinja':
+      return system_template_mock
+    return MagicMock()
+
+  jinja_env.get_template.side_effect = mock_get_template
+
+  mocker.patch('wptgen.phases.coverage_audit.confirm_prompts')
+  mocker.patch(
+    'wptgen.phases.coverage_audit.generate_safe',
+    return_value='<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
+  )
+
+  await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+  system_template_mock.render.assert_called_once_with(brief_suggestions=True, spec_urls=[])
