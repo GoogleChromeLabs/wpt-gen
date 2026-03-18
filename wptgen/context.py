@@ -24,9 +24,9 @@ import markdownify
 import yaml
 from bs4 import BeautifulSoup
 
-from wptgen.models import WebFeatureMetadata, WPTContext
+from wptgen.models import FeatureMetadata, WPTContext
 
-__all__ = ['WebFeatureMetadata', 'WPTContext']
+__all__ = ['FeatureMetadata', 'WPTContext']
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,49 @@ def fetch_feature_yaml(web_feature_id: str, draft: bool = False) -> dict[str, An
     raise e
 
 
+def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
+  """
+  Fetches the metadata for a given feature ID from the ChromeStatus Features API.
+
+  Returns a FeatureMetadata object, or None if the feature ID is not found.
+  """
+  url = f'https://chromestatus.com/api/v0/features/{feature_id}'
+
+  try:
+    req = urllib.request.Request(url, headers={'User-Agent': 'WPT-Gen/1.0'})
+    with urllib.request.urlopen(req) as response:
+      content = response.read().decode('utf-8')
+      data = json.loads(content)
+
+      # Map ChromeStatus fields to FeatureMetadata
+      # ChromeStatus API returns a single object for this endpoint.
+      feature = data[0] if isinstance(data, list) else data
+
+      name = feature.get('name', 'Unknown Feature')
+      description = feature.get('summary', '')
+      explainer_links = feature.get('explainer_links', [])
+
+      # ChromeStatus usually has spec_link
+      specs = []
+      spec_link = feature.get('spec_link')
+      if spec_link:
+        specs.append(spec_link)
+
+      return FeatureMetadata(
+        name=name,
+        description=description,
+        specs=specs,
+        is_chromestatus=True,
+        explainer_links=explainer_links,
+      )
+
+  except Exception as e:
+    if isinstance(e, urllib.error.HTTPError) and e.code == 404:
+      return None
+    logger.warning(f'Could not fetch or parse ChromeStatus metadata for {feature_id}: {e}')
+    return None
+
+
 def fetch_mdn_urls(web_feature_id: str) -> list[str]:
   """
   Fetches the MDN mapping for a given web feature ID from the
@@ -104,7 +147,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
     return []
 
 
-def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata:
+def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
   """
   Extracts the high-level metadata (name and description) from the feature data.
 
@@ -118,7 +161,7 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> WebFeatureMetadata
   elif isinstance(spec_info, str):
     specs.append(spec_info)
 
-  return WebFeatureMetadata(
+  return FeatureMetadata(
     name=str(feature_data.get('name', 'Unknown Feature')),
     description=str(feature_data.get('description', '')),
     specs=specs,

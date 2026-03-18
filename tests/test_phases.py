@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from wptgen.config import Config
-from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
+from wptgen.models import FeatureMetadata, WorkflowContext, WPTContext
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import (
   combine_audit_responses,
@@ -83,7 +83,7 @@ async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicM
     patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
     patch(
       'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+      return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     ),
     patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
     patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
@@ -107,7 +107,7 @@ async def test_run_context_assembly_with_mdn(mock_config: Config, mock_ui: Magic
     patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
     patch(
       'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+      return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     ),
     patch('wptgen.phases.context_assembly.fetch_and_extract_text') as mock_fetch,
     patch(
@@ -164,7 +164,7 @@ async def test_run_context_assembly_no_specs(mock_config: Config, mock_ui: Magic
     patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
     patch(
       'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=WebFeatureMetadata('Feat', 'Desc', []),
+      return_value=FeatureMetadata('Feat', 'Desc', []),
     ),
   ):
     context = await run_context_assembly('feat-id', mock_config, mock_ui)
@@ -179,7 +179,7 @@ async def test_run_requirements_extraction_cached(
   """Test requirements extraction when a valid cache exists."""
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec'},
   )
   cache_dir = tmp_path
@@ -205,7 +205,7 @@ async def test_run_requirements_extraction_categorized(
   """Test categorized requirements extraction with mocked LLM responses."""
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
@@ -244,7 +244,7 @@ async def test_run_requirements_extraction_categorized_partial_empty(
   """Test categorized requirements extraction with some empty responses."""
   context = WorkflowContext(
     feature_id='feat-partial',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
@@ -280,7 +280,7 @@ async def test_run_requirements_extraction_categorized_with_rationale(
   """Test categorized requirements extraction with a rationale for an empty category."""
   context = WorkflowContext(
     feature_id='feat-rationale',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec'},
   )
   jinja_env = MagicMock()
@@ -337,7 +337,7 @@ async def test_run_test_generation_satisfied(
   context = WorkflowContext(
     feature_id='feat',
     audit_response='<status>SATISFIED</status>',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
   )
   jinja_env = MagicMock()
 
@@ -356,7 +356,7 @@ async def test_run_test_generation_no_suggestions(
   context = WorkflowContext(
     feature_id='feat',
     audit_response='no suggestions here',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
   )
   jinja_env = MagicMock()
 
@@ -377,7 +377,7 @@ async def test_run_test_generation_reftest_link_fix(
   context = WorkflowContext(
     feature_id='reftest-feat',
     audit_response='<status>TESTS_NEEDED</status><test_suggestion><test_type>Reftest</test_type><name>my-test</name></test_suggestion>',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
   )
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
@@ -413,7 +413,7 @@ async def test_run_test_generation_none_selected(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()
@@ -436,7 +436,7 @@ async def test_run_test_generation_failure(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()
@@ -465,7 +465,7 @@ async def test_run_test_generation_agentic(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()
@@ -530,7 +530,7 @@ async def test_run_test_generation_displays_worksheet(
   audit_response = f'<audit_worksheet>R1: Req 1 -> [COVERED by test.html]\nR2: Req 2 -> [UNCOVERED]</audit_worksheet>\n{suggestion_xml}'
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=audit_response,
   )
   jinja_env = MagicMock()
@@ -558,7 +558,7 @@ async def test_run_test_generation_yes_tests(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()
@@ -684,7 +684,7 @@ async def test_run_test_generation_agentic_interactive(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     audit_response=suggestion_xml,
   )
   jinja_env = MagicMock()

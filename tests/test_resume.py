@@ -21,7 +21,7 @@ from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.engine import WPTGenEngine
-from wptgen.models import WebFeatureMetadata, WorkflowContext, WPTContext
+from wptgen.models import FeatureMetadata, WorkflowContext, WPTContext
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def engine(mock_config: Config) -> WPTGenEngine:
 
 def test_workflow_context_serialization() -> None:
   """Verifies that WorkflowContext serializes and deserializes correctly."""
-  metadata = WebFeatureMetadata(name='Test', description='Desc', specs=['http://spec.com'])
+  metadata = FeatureMetadata(name='Test', description='Desc', specs=['http://spec.com'])
   wpt_context = WPTContext(
     test_contents={'test.html': 'content'},
     dependency_contents={'dep.js': 'js'},
@@ -67,6 +67,7 @@ def test_workflow_context_serialization() -> None:
     feature_id='test-feat',
     metadata=metadata,
     spec_contents={'http://spec': 'Spec contents'},
+    explainer_contents={'http://explainer': 'Explainer contents'},
     wpt_context=wpt_context,
     requirements_xml='<reqs/>',
     audit_response='<audit/>',
@@ -86,6 +87,7 @@ def test_workflow_context_serialization() -> None:
   assert new_context.feature_id == context.feature_id
   assert new_context.metadata == context.metadata
   assert new_context.spec_contents == context.spec_contents
+  assert new_context.explainer_contents == context.explainer_contents
   assert new_context.wpt_context is not None
   assert context.wpt_context is not None
   assert new_context.wpt_context.test_contents == context.wpt_context.test_contents
@@ -118,7 +120,7 @@ async def test_run_async_workflow_resume_skips_phases(
   # Setup context with some phases completed
   context = WorkflowContext(
     feature_id='test-feat',
-    metadata=WebFeatureMetadata(name='Test', description='Desc', specs=[]),
+    metadata=FeatureMetadata(name='Test', description='Desc', specs=[]),
     wpt_context=WPTContext(),
     requirements_xml='<reqs/>',
   )

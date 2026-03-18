@@ -73,6 +73,7 @@ class Config:
   feature_description: str | None = None
   detailed_requirements: bool = False
   draft: bool = False
+  chromestatus: bool = False
   single_prompt_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
@@ -194,6 +195,7 @@ def load_config(
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
   draft_override: bool = False,
+  chromestatus_override: bool = False,
   single_prompt_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
@@ -283,6 +285,7 @@ def load_config(
   state_dir = str(Path(state_dir_raw).expanduser().resolve()) if state_dir_raw else None
 
   draft = draft_override or yaml_data.get('draft', False)
+  chromestatus = chromestatus_override or yaml_data.get('chromestatus', False)
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
   )
@@ -353,6 +356,7 @@ def load_config(
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
     draft=draft,
+    chromestatus=chromestatus,
     single_prompt_requirements=single_prompt_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
