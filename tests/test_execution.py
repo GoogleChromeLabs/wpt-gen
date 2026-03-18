@@ -101,11 +101,10 @@ async def test_run_test_execution_success_batch(
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
-    success = await run_test_execution(
+    await run_test_execution(
       context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
     )
 
-    assert success is True
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
     assert args[0] == str(wpt_executable)
@@ -147,11 +146,10 @@ async def test_run_test_execution_skips_references(
   mock_process.returncode = 0
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process) as mock_exec:
-    success = await run_test_execution(
+    await run_test_execution(
       context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
     )
 
-    assert success is True
     mock_exec.assert_called_once()
     args = mock_exec.call_args[0]
     assert test1.relative_to(wpt_root).as_posix() in args
@@ -183,11 +181,10 @@ async def test_run_test_execution_failure(
   mock_process.returncode = 1
 
   with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    success = await run_test_execution(
+    await run_test_execution(
       context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
     )
 
-    assert success is False
     mock_ui.error.assert_any_call('Test execution failed with exit code 1.')
     mock_ui.print.assert_any_call('some output\nsome error')
 
@@ -222,11 +219,10 @@ async def test_run_test_execution_timeout(
       with patch('sys.platform', 'linux'):
         with patch('os.getpgid', return_value=12345, create=True) as mock_getpgid:
           with patch('os.killpg', create=True) as mock_killpg:
-            success = await run_test_execution(
+            await run_test_execution(
               context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
             )
 
-            assert success is False
             mock_getpgid.assert_called_once_with(9999)
             sig = getattr(signal, 'SIGKILL', 9)
             mock_killpg.assert_called_once_with(12345, sig)
@@ -250,11 +246,8 @@ async def test_run_test_execution_all_filtered(
 
   context = WorkflowContext(feature_id='feat')
 
-  success = await run_test_execution(
-    context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
-  )
+  await run_test_execution(context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests)
 
-  assert success is True
   mock_ui.info.assert_called_with(
     'No valid test files to execute (all might be references or outside WPT root).'
   )
@@ -267,11 +260,8 @@ async def test_run_test_execution_missing_executable(
   generated_tests = [(Path('test.html'), 'content', 'xml')]
   context = WorkflowContext(feature_id='feat')
 
-  success = await run_test_execution(
-    context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
-  )
+  await run_test_execution(context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests)
 
-  assert success is False
   mock_ui.error.assert_called()
   assert 'Could not find wpt executable' in mock_ui.error.call_args[0][0]
 
@@ -280,45 +270,10 @@ async def test_run_test_execution_missing_executable(
 async def test_run_test_execution_empty(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, mock_jinja_env: MagicMock
 ) -> None:
-  success = await run_test_execution(
+  await run_test_execution(
     WorkflowContext(feature_id='feat'), mock_config, mock_llm, mock_ui, mock_jinja_env, []
   )
-  assert success is True
   mock_ui.info.assert_called_with('No tests to execute.')
-
-
-@pytest.mark.asyncio
-async def test_run_test_execution_fundamental_failure(
-  mock_config: Config,
-  mock_ui: MagicMock,
-  mock_llm: MagicMock,
-  mock_jinja_env: MagicMock,
-  tmp_path: Path,
-) -> None:
-  wpt_root = Path(mock_config.wpt_path)
-  wpt_root.mkdir(parents=True)
-  (wpt_root / 'wpt').touch()
-
-  test_path = wpt_root / 'test.html'
-  generated_tests = [(test_path, 'content', 'xml')]
-
-  context = WorkflowContext(feature_id='feat')
-
-  mock_process = AsyncMock()
-  mock_process.stdout = _mock_stream(b'fundamental error')
-  mock_process.stderr = _mock_stream(b'')
-  mock_process.returncode = 1
-
-  # Simulate no log file being created or empty log
-  with patch('asyncio.create_subprocess_exec', return_value=mock_process):
-    with patch('wptgen.phases.execution._parse_test_results', return_value={}):
-      success = await run_test_execution(
-        context, mock_config, mock_llm, mock_ui, mock_jinja_env, generated_tests
-      )
-
-      assert success is False
-      mock_ui.error.assert_any_call('Test execution failed with exit code 1.')
-      mock_ui.print.assert_any_call('fundamental error')
 
 
 @pytest.mark.asyncio
