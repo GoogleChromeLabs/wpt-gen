@@ -735,3 +735,69 @@ async def test_run_test_generation_agentic_interactive(
     test_suggestion_xml_block=ANY,
     is_interactive=True,
   )
+
+
+@pytest.mark.asyncio
+async def test_run_test_generation_adk(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+) -> None:
+  """Test that ADK generation branches correctly and calls _generate_adk_loop."""
+  from wptgen.models import WebFeatureMetadata, WorkflowContext
+  from wptgen.phases.generation import run_test_generation
+
+  mock_config.generator = 'adk'
+  suggestion_xml = (
+    '<test_suggestion><title>T1</title><description>D1</description></test_suggestion>'
+  )
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'D', ['url']),
+    audit_response=f'<audit_worksheet>W</audit_worksheet>{suggestion_xml}',
+  )
+  mock_ui.confirm.return_value = True
+
+  with patch('wptgen.phases.generation._generate_adk_loop') as mock_adk:
+    mock_adk.return_value = []
+
+    from jinja2 import BaseLoader, Environment
+
+    jinja_env = Environment(loader=BaseLoader())
+
+    results = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+
+    assert mock_adk.called
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> None:
+  """Test that _generate_adk_loop properly maps the suggestions and triggers tasks."""
+  from wptgen.models import WebFeatureMetadata, WorkflowContext
+  from wptgen.phases.generation import _generate_adk_loop
+
+  mock_config.generator = 'adk'
+  mock_config.output_dir = 'test_dir'
+  mock_config.brief_suggestions = False
+
+  suggestion_xml = '<test_suggestion><title>T1</title><test_type>JavaScript Test</test_type><description>D1</description></test_suggestion>'
+  context = WorkflowContext(
+    feature_id='feat',
+    metadata=WebFeatureMetadata('Feat', 'D', ['url']),
+  )
+
+  from unittest.mock import AsyncMock
+
+  with patch(
+    'wptgen.agents.adk_test_generator.generate_test_with_adk', new_callable=AsyncMock
+  ) as mock_adk:
+    mock_adk.return_value = [(Path('test_dir/feat.html'), 'content', suggestion_xml)]
+
+    from jinja2 import BaseLoader, Environment
+
+    jinja_env = Environment(loader=BaseLoader())
+
+    results = await _generate_adk_loop([suggestion_xml], context, mock_config, mock_ui, jinja_env)
+
+    assert mock_adk.called
+    assert len(results) == 1
+    assert results[0][1] == 'content'
