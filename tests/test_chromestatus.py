@@ -15,6 +15,7 @@
 import json
 import urllib.error
 from email.message import Message
+
 from pytest_mock import MockerFixture
 
 from wptgen.context import DataSource, fetch_chromestatus_metadata
