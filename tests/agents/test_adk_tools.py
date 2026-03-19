@@ -43,6 +43,7 @@ def test_setup_adk_environment_google(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_setup_adk_environment_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setattr(os, 'environ', {})
   config = _create_mock_config('anthropic', 'fake-key', 'claude-opus-4-6', '/tmp')
   model = setup_adk_environment(config)
   assert os.environ['ANTHROPIC_API_KEY'] == 'fake-key'
@@ -50,6 +51,7 @@ def test_setup_adk_environment_anthropic(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_setup_adk_environment_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setattr(os, 'environ', {})
   config = _create_mock_config('openai', 'fake-key', 'gpt-5.2-high', '/tmp')
   model = setup_adk_environment(config)
   assert os.environ['OPENAI_API_KEY'] == 'fake-key'

@@ -34,11 +34,9 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   resolved_target = target_path.resolve()
   resolved_root = wpt_root.resolve()
 
-  # Try to calculate relative path. If it raises ValueError or starts with '..', it's outside.
+  # Try to calculate relative path. If it raises ValueError, it's outside.
   try:
-    rel_path = resolved_target.relative_to(resolved_root)
-    if str(rel_path).startswith('..'):
-      raise ValueError(f"Path '{target_path}' is outside the designated WPT repository root.")
+    resolved_target.relative_to(resolved_root)
   except ValueError as e:
     raise ValueError(f"Path '{target_path}' is outside the designated WPT repository root.") from e
 
@@ -73,7 +71,7 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
         return {'status': 'error', 'error': f'File not found: {file_path}'}
       content = target.read_text(encoding='utf-8')
       return {'status': 'success', 'content': content}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def write_file(file_path: str, content: str) -> dict[str, Any]:
@@ -91,7 +89,7 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
       target.parent.mkdir(parents=True, exist_ok=True)
       target.write_text(content, encoding='utf-8')
       return {'status': 'success'}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def search_files(directory: str, pattern: str) -> dict[str, Any]:
@@ -109,9 +107,16 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
       if not target_dir.is_dir():
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
+      MAX_RESULTS = 100
       matches = [str(p.relative_to(wpt_path)) for p in target_dir.rglob(pattern) if p.is_file()]
+      if len(matches) > MAX_RESULTS:
+        return {
+          'status': 'success',
+          'files': matches[:MAX_RESULTS],
+          'warning': f'Results truncated. Showing first {MAX_RESULTS} of {len(matches)} matches. Please refine your search pattern.',
+        }
       return {'status': 'success', 'files': matches}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def list_directory(directory: str) -> dict[str, Any]:
@@ -128,9 +133,16 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
       if not target_dir.is_dir():
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
+      MAX_RESULTS = 100
       entries = [str(p.relative_to(wpt_path)) for p in target_dir.iterdir()]
+      if len(entries) > MAX_RESULTS:
+        return {
+          'status': 'success',
+          'entries': entries[:MAX_RESULTS],
+          'warning': f'Results truncated. Showing first {MAX_RESULTS} of {len(entries)} matches. Please refine your search pattern.',
+        }
       return {'status': 'success', 'entries': entries}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def delete_file(file_path: str) -> dict[str, Any]:
@@ -148,7 +160,7 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
         return {'status': 'error', 'error': f'File not found: {file_path}'}
       target.unlink()
       return {'status': 'success'}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   return [
