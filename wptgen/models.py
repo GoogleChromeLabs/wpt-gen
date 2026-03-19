@@ -55,17 +55,24 @@ REQUIREMENT_CATEGORIES = [
 ]
 
 
+class DataSource(str, Enum):
+  WEB_FEATURES = 'web-features'
+  CHROMESTATUS = 'chromestatus'
+
+
 @dataclass
-class WebFeatureMetadata:
+class FeatureMetadata:
   name: str
   description: str
   specs: list[str]
+  source: DataSource = DataSource.WEB_FEATURES
+  explainer_links: list[str] = field(default_factory=list)
 
   def to_dict(self) -> dict[str, Any]:
     return asdict(self)
 
   @classmethod
-  def from_dict(cls, data: dict[str, Any]) -> 'WebFeatureMetadata':
+  def from_dict(cls, data: dict[str, Any]) -> 'FeatureMetadata':
     return cls(**data)
 
 
@@ -96,8 +103,9 @@ class WorkflowContext:
   """Maintains the state of the WPT generation workflow."""
 
   feature_id: str
-  metadata: WebFeatureMetadata | None = None
+  metadata: FeatureMetadata | None = None
   spec_contents: dict[str, str] | None = None
+  explainer_contents: dict[str, str] | None = None
   wpt_context: WPTContext | None = None
   requirements_xml: str | None = None
   audit_response: str | None = None
@@ -111,6 +119,7 @@ class WorkflowContext:
       'feature_id': self.feature_id,
       'metadata': self.metadata.to_dict() if self.metadata else None,
       'spec_contents': self.spec_contents,
+      'explainer_contents': self.explainer_contents,
       'wpt_context': self.wpt_context.to_dict() if self.wpt_context else None,
       'requirements_xml': self.requirements_xml,
       'audit_response': self.audit_response,
@@ -125,7 +134,7 @@ class WorkflowContext:
 
   @classmethod
   def from_dict(cls, data: dict[str, Any]) -> 'WorkflowContext':
-    metadata = WebFeatureMetadata.from_dict(data['metadata']) if data.get('metadata') else None
+    metadata = FeatureMetadata.from_dict(data['metadata']) if data.get('metadata') else None
     wpt_context = WPTContext.from_dict(data['wpt_context']) if data.get('wpt_context') else None
     generated_tests = None
     if data.get('generated_tests'):
@@ -141,6 +150,7 @@ class WorkflowContext:
       feature_id=data['feature_id'],
       metadata=metadata,
       spec_contents=spec_contents,
+      explainer_contents=data.get('explainer_contents'),
       wpt_context=wpt_context,
       requirements_xml=data.get('requirements_xml'),
       audit_response=data.get('audit_response'),

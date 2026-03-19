@@ -21,7 +21,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from wptgen.context import (
-  WebFeatureMetadata,
+  FeatureMetadata,
   _resolve_patterns,
   extract_dependencies,
   extract_feature_metadata,
@@ -127,7 +127,7 @@ def test_extract_feature_metadata_single_spec() -> None:
   data = {'name': 'popover', 'description': 'A popup feature', 'spec': 'https://example.com/spec'}
   result = extract_feature_metadata(data)
 
-  assert isinstance(result, WebFeatureMetadata)
+  assert isinstance(result, FeatureMetadata)
   assert result.name == 'popover'
   assert result.description == 'A popup feature'
   assert result.specs == ['https://example.com/spec']

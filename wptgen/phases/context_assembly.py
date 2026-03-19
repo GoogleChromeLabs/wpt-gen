@@ -16,9 +16,10 @@ import asyncio
 
 from wptgen.config import Config
 from wptgen.context import (
-  WebFeatureMetadata,
+  FeatureMetadata,
   extract_feature_metadata,
   fetch_and_extract_text,
+  fetch_chromestatus_metadata,
   fetch_feature_yaml,
   fetch_mdn_urls,
   find_feature_tests,
@@ -33,28 +34,35 @@ async def run_context_assembly(
 ) -> WorkflowContext | None:
   ui.on_phase_start(1, 'Context Assembly')
 
-  feature_data = fetch_feature_yaml(web_feature_id, draft=config.draft)
-  if not feature_data:
-    if config.spec_urls and config.feature_description:
-      ui.warning(f'Feature {web_feature_id} not found in the web-features repository.')
-      metadata = WebFeatureMetadata(
-        name=web_feature_id,
-        description=config.feature_description,
-        specs=config.spec_urls,
-      )
-    else:
-      ui.error(f'Feature {web_feature_id} not found.')
-      ui.print(
-        'To generate tests for an unregistered feature, please provide both a spec URL using --spec-urls '
-        'and a description using --description.'
-      )
+  if config.chromestatus:
+    metadata = await asyncio.to_thread(fetch_chromestatus_metadata, web_feature_id)
+    if not metadata:
+      ui.error(f'Feature {web_feature_id} not found on ChromeStatus.')
       return None
   else:
-    metadata = extract_feature_metadata(feature_data)
-    if config.spec_urls:
-      metadata.specs = config.spec_urls
-    if config.feature_description:
-      metadata.description = config.feature_description
+    feature_data = fetch_feature_yaml(web_feature_id, draft=config.draft)
+    if not feature_data:
+      if config.spec_urls and config.feature_description:
+        ui.warning(f'Feature {web_feature_id} not found in the web-features repository.')
+        metadata = FeatureMetadata(
+          name=web_feature_id,
+          description=config.feature_description,
+          specs=config.spec_urls,
+        )
+      else:
+        ui.error(f'Feature {web_feature_id} not found.')
+        ui.print(
+          'To generate tests for an unregistered feature, please provide both a spec URL using --spec-urls '
+          'and a description using --description.'
+        )
+        return None
+    else:
+      metadata = extract_feature_metadata(feature_data)
+
+  if config.spec_urls:
+    metadata.specs = config.spec_urls
+  if config.feature_description:
+    metadata.description = config.feature_description
 
   if not metadata.specs:
     ui.error('No specification URL found.')
@@ -72,6 +80,17 @@ async def run_context_assembly(
   if not spec_contents:
     ui.error('Failed to extract spec content.')
     return None
+
+  explainer_contents: dict[str, str] | None = None
+  if metadata.explainer_links:
+    ui.print('Fetching explainer content...')
+    with ui.status('Fetching and extracting text from explainers...'):
+      results = await asyncio.gather(
+        *[asyncio.to_thread(fetch_and_extract_text, url) for url in metadata.explainer_links]
+      )
+      explainer_contents = {
+        url: res for url, res in zip(metadata.explainer_links, results, strict=True) if res
+      }
 
   ui.print('Scanning local WPT repository for existing tests and dependencies...')
   test_paths = find_feature_tests(config.wpt_path, web_feature_id)
@@ -103,6 +122,7 @@ async def run_context_assembly(
     feature_id=web_feature_id,
     metadata=metadata,
     spec_contents=spec_contents,
+    explainer_contents=explainer_contents,
     mdn_contents=mdn_contents,
     wpt_context=wpt_context,
   )

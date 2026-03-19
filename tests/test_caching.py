@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from wptgen.config import Config
-from wptgen.models import WebFeatureMetadata, WorkflowContext
+from wptgen.models import FeatureMetadata, WorkflowContext
 from wptgen.phases.requirements_extraction import run_requirements_extraction_iterative
 
 
@@ -69,7 +69,7 @@ async def test_requirements_cache_miss(
   mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
   """Verify that requirements extraction generates and saves cache on a miss."""
-  metadata = WebFeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
+  metadata = FeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
   context = WorkflowContext(
     feature_id='test-feat',
     metadata=metadata,
@@ -143,7 +143,7 @@ async def test_requirements_cache_hit_reject(
   cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
   cache_file.write_text('<requirements_list>Old Cached Requirements</requirements_list>')
 
-  metadata = WebFeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
+  metadata = FeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
   context = WorkflowContext(
     feature_id=web_feature_id,
     metadata=metadata,

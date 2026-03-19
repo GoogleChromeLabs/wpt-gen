@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from wptgen.config import Config
-from wptgen.models import WebFeatureMetadata, WorkflowContext
+from wptgen.models import FeatureMetadata, WorkflowContext
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
   run_requirements_extraction_categorized,
@@ -16,7 +16,7 @@ from wptgen.phases.requirements_extraction import (
 def base_context() -> WorkflowContext:
   return WorkflowContext(
     feature_id='test',
-    metadata=WebFeatureMetadata('Test', 'Desc', ['http://spec']),
+    metadata=FeatureMetadata('Test', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec'},
   )
 

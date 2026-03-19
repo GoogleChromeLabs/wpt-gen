@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wptgen.models import WebFeatureMetadata
+from wptgen.models import FeatureMetadata
 from wptgen.ui import RichUIProvider
 
 
@@ -86,7 +86,7 @@ def test_on_phase_start(ui: RichUIProvider, mock_console: MagicMock) -> None:
 
 def test_report_metadata(ui: RichUIProvider, mock_console: MagicMock) -> None:
   """Test report_metadata semantic method."""
-  metadata = WebFeatureMetadata('Feat', 'Desc', ['http://spec'])
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
   ui.report_metadata(metadata)
   mock_console.print.assert_called_once()
   args, _ = mock_console.print.call_args
