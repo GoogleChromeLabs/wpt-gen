@@ -81,6 +81,9 @@ async def run_test_generation(
     ui.warning('No tests selected. Exiting.')
     return []
 
+  if config.generator == 'adk':
+    return await _generate_adk_loop(approved_suggestions_xml, context, config, ui, jinja_env)
+
   if config.agentic_generation:
     return await _generate_agentic_loop(approved_suggestions_xml, context, config, ui, jinja_env)
 
