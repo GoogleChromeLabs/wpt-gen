@@ -146,7 +146,9 @@ async def test_run_context_assembly_unregistered_with_params(
     assert context.metadata is not None
     assert context.metadata.name == 'unregistered'
     assert mock_ui.warning.call_count == 2
-    mock_ui.warning.assert_any_call('Feature unregistered not found in the web-features repository.')
+    mock_ui.warning.assert_any_call(
+      'Feature unregistered not found in the web-features repository.'
+    )
     mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
 
 
@@ -187,7 +189,7 @@ async def test_run_context_assembly_chromestatus_with_wpt_descr(
       'wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata
     ) as mock_fetch_meta,
     patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]) as mock_find,
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
     patch(
       'wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/test.html']
     ) as mock_extract,

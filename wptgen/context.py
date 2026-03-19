@@ -263,7 +263,7 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
       # If URL parsing fails for any reason, skip and continue
       continue
 
-  return sorted(list(extracted_paths))
+  return sorted(extracted_paths)
 
 
 def normalize_wpt_path(path: str) -> str:
@@ -328,7 +328,7 @@ def validate_wpt_paths(paths: list[str], wpt_root: str) -> tuple[list[str], list
       f'Too many tests found ({len(valid_paths)}). Max allowed is {MAXIMUM_TEST_SUITE_SIZE}.'
     )
 
-  return sorted(list(valid_paths)), invalid_paths
+  return sorted(valid_paths), invalid_paths
 
 
 def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:

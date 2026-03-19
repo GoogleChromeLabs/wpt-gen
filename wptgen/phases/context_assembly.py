@@ -107,7 +107,7 @@ async def run_context_assembly(
         for invalid in invalid_paths:
           ui.warning(f'Referenced WPT test file could not be found or read: {invalid}')
         # Merge unique valid paths
-        test_paths = sorted(list(set(test_paths) | set(valid_paths)))
+        test_paths = sorted(set(test_paths) | set(valid_paths))
 
   if not test_paths:
     ui.warning('No existing Web Platform Tests were successfully loaded.')
