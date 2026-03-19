@@ -24,9 +24,9 @@ import markdownify
 import yaml
 from bs4 import BeautifulSoup
 
-from wptgen.models import FeatureMetadata, WPTContext
+from wptgen.models import DataSource, FeatureMetadata, WPTContext
 
-__all__ = ['FeatureMetadata', 'WPTContext']
+__all__ = ['DataSource', 'FeatureMetadata', 'WPTContext']
 
 logger = logging.getLogger(__name__)
 
@@ -113,13 +113,16 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         name=name,
         description=description,
         specs=specs,
-        is_chromestatus=True,
+        source=DataSource.CHROMESTATUS,
         explainer_links=explainer_links,
       )
 
-  except Exception as e:
-    if isinstance(e, urllib.error.HTTPError) and e.code == 404:
+  except urllib.error.HTTPError as e:
+    if e.code == 404:
       return None
+    logger.warning(f'ChromeStatus API error for {feature_id}: {e}')
+    return None
+  except (urllib.error.URLError, json.JSONDecodeError, KeyError, IndexError) as e:
     logger.warning(f'Could not fetch or parse ChromeStatus metadata for {feature_id}: {e}')
     return None
 

@@ -35,7 +35,7 @@ async def run_context_assembly(
   ui.on_phase_start(1, 'Context Assembly')
 
   if config.chromestatus:
-    metadata = fetch_chromestatus_metadata(web_feature_id)
+    metadata = await asyncio.to_thread(fetch_chromestatus_metadata, web_feature_id)
     if not metadata:
       ui.error(f'Feature {web_feature_id} not found on ChromeStatus.')
       return None

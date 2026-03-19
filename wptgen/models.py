@@ -55,12 +55,17 @@ REQUIREMENT_CATEGORIES = [
 ]
 
 
+class DataSource(str, Enum):
+  WEB_FEATURES = 'web-features'
+  CHROMESTATUS = 'chromestatus'
+
+
 @dataclass
 class FeatureMetadata:
   name: str
   description: str
   specs: list[str]
-  is_chromestatus: bool = False
+  source: DataSource = DataSource.WEB_FEATURES
   explainer_links: list[str] = field(default_factory=list)
 
   def to_dict(self) -> dict[str, Any]:
