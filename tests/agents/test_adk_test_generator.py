@@ -75,12 +75,28 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock) -> None
     audit_response='fake audit',
   )
 
+  mock_jinja_env = MagicMock()
+  mock_system_template = MagicMock()
+  mock_prompt_template = MagicMock()
+  mock_system_template.render.return_value = 'Mock System Instruction'
+  mock_prompt_template.render.return_value = 'Mock Prompt'
+
+  def mock_get_template(name: str) -> MagicMock:
+    if name == 'adk_test_generator_system.jinja':
+      return mock_system_template
+    return mock_prompt_template
+
+  mock_jinja_env.get_template.side_effect = mock_get_template
+
+  mock_ui = MagicMock()
   results = await generate_test_with_adk(
     suggestion_xml='<test_suggestion></test_suggestion>',
     root_name='my-feature-1',
     test_type_enum=TestType.JAVASCRIPT,
     context=context,
     config=config,
+    jinja_env=mock_jinja_env,
+    ui=mock_ui,
     wpt_style_guide='Mock guide',
     test_type_guide='Mock JS guide',
   )

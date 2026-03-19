@@ -20,35 +20,13 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.function_tool import FunctionTool
 from google.genai import types
+from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
 from wptgen.agents.tools import create_file_tools
 from wptgen.config import Config
 from wptgen.models import TestType, WorkflowContext
-
-AGENT_INSTRUCTION_TEMPLATE = """You are an expert-level Web Platform Test (WPT) generation agent.
-You are equipped with tools to explore the local WPT repository and write tests directly to the file system.
-Your ultimate goal is to generate test files that fulfill a given test blueprint (<test_suggestion>) and save them to the correct directory.
-
-# DIRECTIVES
-1. Explore: Use the provided `list_directory`, `search_files`, and `read_file` tools to understand the local WPT structure and find related tests if necessary.
-2. Generate: Use the `write_file` tool to save the generated test files (and reference files, if applicable) to the designated output directory. Ensure your filenames use the correct WPT suffixes (e.g., .https.html, .any.js, .window.js).
-3. Finish: Once you have successfully written ALL the necessary files to disk, you MUST call the `report_generation_complete` tool with the list of the file paths you created, and then stop.
-
-# BLUEPRINT MAPPING PROTOCOL
-You will receive a `<test_suggestion>` XML blueprint in the user prompt. You must map its fields to the WPT file as follows:
-* `<title>`: Use this exact string for the HTML `<title>` tag AND as the test name string in your `test()` or `promise_test()` function.
-* `<description>`: Insert this as a block comment at the top of your `<script>` to explain the test's intent.
-* `<pre_conditions>`: Translate this into the necessary HTML elements within the `<body>`, or initialize them in a `setup()` block.
-* `<steps>`: Translate these sequential steps directly into the JavaScript execution logic inside the test function.
-* `<expected_result>`: Map this strictly to the correct assertion (e.g., `assert_equals`, `assert_throws_js`, `promise_rejects_dom`).
-
-# WPT GENERAL STYLE GUIDE
-{wpt_style_guide}
-
-# {test_type} STYLE GUIDE & RULES
-{test_type_guide}
-"""
+from wptgen.ui import UIProvider
 
 
 async def generate_test_with_adk(
@@ -57,6 +35,8 @@ async def generate_test_with_adk(
   test_type_enum: TestType,
   context: WorkflowContext,
   config: Config,
+  jinja_env: Environment,
+  ui: UIProvider,
   wpt_style_guide: str,
   test_type_guide: str,
 ) -> list[tuple[Path, str, str]]:
@@ -68,6 +48,8 @@ async def generate_test_with_adk(
       test_type_enum: The type of test to generate.
       context: The workflow context (contains metadata).
       config: The configuration object.
+      jinja_env: The Jinja2 environment for loading templates.
+      ui: The UI provider for logging output.
       wpt_style_guide: The general WPT style guide content.
       test_type_guide: The specific style guide for this test type.
 
@@ -95,7 +77,8 @@ async def generate_test_with_adk(
   tools = create_file_tools(wpt_root)
   tools.append(FunctionTool(func=report_generation_complete))
 
-  instruction = AGENT_INSTRUCTION_TEMPLATE.format(
+  system_template = jinja_env.get_template('adk_test_generator_system.jinja')
+  instruction = system_template.render(
     wpt_style_guide=wpt_style_guide,
     test_type=test_type_enum.value,
     test_type_guide=test_type_guide,
@@ -123,18 +106,15 @@ async def generate_test_with_adk(
   else:
     output_dir = wpt_root
 
-  prompt = f"""Generate the WPT tests for the following blueprint.
-The output directory for these files MUST be: {output_dir}
-The root filename you MUST use for these files is: {root_name}
-
-{suggestion_xml}
-
-Feature Name: {feature_name}
-Feature Description: {feature_description}
-
-Related Specifications:
-{context.spec_contents}
-"""
+  prompt_template = jinja_env.get_template('adk_test_generator.jinja')
+  prompt = prompt_template.render(
+    output_dir=output_dir,
+    root_name=root_name,
+    suggestion_xml=suggestion_xml,
+    feature_name=feature_name,
+    feature_description=feature_description,
+    spec_contents=context.spec_contents,
+  )
   content = types.Content(role='user', parts=[types.Part(text=prompt)])
 
   events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
@@ -157,7 +137,7 @@ Related Specifications:
       if target_path.is_file():
         file_content = target_path.read_text(encoding='utf-8')
         results.append((target_path, file_content, suggestion_xml))
-    except Exception:
-      pass
+    except Exception as e:
+      ui.error(f"Failed to read generated file '{target_path}': {e}")
 
   return results
