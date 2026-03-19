@@ -357,3 +357,70 @@ async def _generate_and_save(
     results.append((output_path, clean_content, suggestion_xml))
 
   return results
+
+
+async def _generate_adk_loop(
+  approved_suggestions_xml: list[str],
+  context: WorkflowContext,
+  config: Config,
+  ui: UIProvider,
+  jinja_env: Environment,
+) -> list[tuple[Path, str, str]]:
+  from wptgen.agents.adk_test_generator import generate_test_with_adk
+
+  ui.report_generation_start(len(approved_suggestions_xml))
+
+  resources_path = Path(__file__).parent.parent / 'templates' / 'resources'
+  wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
+
+  spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
+  output_dir = Path(config.output_dir or '.')
+  used_names: set[str] = set()
+
+  tasks = []
+
+  for suggestion_xml in approved_suggestions_xml:
+    modified_xml = _format_test_suggestion(
+      suggestion_xml, context.feature_id, spec_urls, sanitize=config.brief_suggestions
+    )
+
+    raw_test_type = extract_xml_tag(modified_xml, 'test_type') or 'JavaScript Test'
+    test_type_enum = TestType.JAVASCRIPT
+    for member in TestType:
+      if member.value.lower() == raw_test_type.lower():
+        test_type_enum = member
+        break
+
+    root_name = get_next_available_root(context.feature_id, output_dir, used_names)
+    used_names.add(root_name)
+    guide_filename = STYLE_GUIDE_MAP.get(test_type_enum, 'javascript_html_style_guide.md')
+    test_type_guide = (resources_path / guide_filename).read_text(encoding='utf-8')
+
+    tasks.append(
+      generate_test_with_adk(
+        modified_xml,
+        root_name,
+        test_type_enum,
+        context,
+        config,
+        jinja_env,
+        ui,
+        wpt_style_guide,
+        test_type_guide,
+      )
+    )
+
+  results = []
+
+  # Unlike standard generation, ADK streams its events to the UI directly.
+  # So we await them sequentially here so the streaming output doesn't garble together.
+  ui.print('\n[bold cyan]Starting ADK Test Generation...[/bold cyan]')
+
+  for i, task in enumerate(tasks):
+    ui.print(f'\n[bold yellow]--- Generating Test {i + 1} of {len(tasks)} ---[/bold yellow]')
+    result = await task
+    results.append(result)
+
+  final_results = [r for sublist in results for r in sublist]
+
+  return final_results

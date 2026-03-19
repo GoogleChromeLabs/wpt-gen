@@ -237,6 +237,13 @@ def generate(
       help='Skip the test execution phase after generating tests.',
     ),
   ] = False,
+  generator: Annotated[
+    str,
+    typer.Option(
+      '--generator',
+      help='The test generation workflow to use. Choices: default, adk, gemini-cli.',
+    ),
+  ] = 'default',
   agentic_generation: Annotated[
     bool,
     typer.Option(
@@ -356,6 +363,7 @@ def generate(
       use_reasoning_override=use_reasoning,
       skip_evaluation_override=skip_evaluation,
       skip_execution_override=skip_execution,
+      generator=generator,
       agentic_generation_override=agentic_generation,
       agentic_yolo_override=agentic_yolo,
       tentative_override=tentative,

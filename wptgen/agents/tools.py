@@ -302,6 +302,93 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     except Exception as e:
       return {'status': 'error', 'error': str(e)}
 
+  def run_wpt_lint(file_path: str) -> dict[str, Any]:
+    """Runs the WPT linter on a specific file and returns any syntax or style errors.
+
+    Args:
+        file_path: The path to the file to lint.
+
+    Returns:
+        A dictionary containing the 'status' and the 'lint_output' if any errors exist.
+    """
+    try:
+      target = _validate_safe_path(Path(file_path), wpt_path)
+      if not target.is_file():
+        return {'status': 'error', 'error': f'File not found: {file_path}'}
+
+      rel_path = str(target.relative_to(wpt_path))
+
+      # We use subprocess.run directly as these tools are executed synchronously by ADK currently
+      result = subprocess.run(
+        ['./wpt', 'lint', rel_path],
+        cwd=str(wpt_path),
+        capture_output=True,
+        text=True,
+      )
+
+      if result.returncode == 0:
+        return {'status': 'success', 'message': 'No lint errors found.'}
+      else:
+        # Provide the raw output which contains the linter error details
+        return {
+          'status': 'failed',
+          'lint_output': result.stdout.strip() + '\n' + result.stderr.strip(),
+        }
+    except Exception as e:
+      return {'status': 'error', 'error': str(e)}
+
+  def run_wpt_test(file_path: str) -> dict[str, Any]:
+    """Executes a specific test file using the local WPT test runner infrastructure.
+
+    This command can take a while to complete (e.g. 10-20 seconds).
+
+    Args:
+        file_path: The path to the test file to run.
+
+    Returns:
+        A dictionary containing the 'status' and any 'failing_tests' messages,
+        or 'success' if all assertions pass.
+    """
+    try:
+      target = _validate_safe_path(Path(file_path), wpt_path)
+      if not target.is_file():
+        return {'status': 'error', 'error': f'File not found: {file_path}'}
+
+      rel_path = str(target.relative_to(wpt_path))
+
+      with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
+        log_path = f.name
+
+      try:
+        # Use headless chrome for testing
+        cmd = ['./wpt', 'run', '--channel', 'canary', '--log-raw', log_path, 'chrome', rel_path]
+
+        result = subprocess.run(
+          cmd,
+          cwd=str(wpt_path),
+          capture_output=True,
+          text=True,
+        )
+
+        if result.returncode == 0:
+          return {'status': 'success', 'message': 'All assertions passed.'}
+
+        failing_tests = _parse_test_results(log_path)
+
+        if not failing_tests:
+          return {
+            'status': 'error',
+            'error': f'Test runner crashed or failed. Output: {result.stderr.strip()}',
+          }
+
+        return {'status': 'failed', 'failing_tests': failing_tests}
+      finally:
+        if os.path.exists(log_path):
+          os.remove(log_path)
+
+    except Exception as e:
+      return {'status': 'error', 'error': str(e)}
+
   return [
     FunctionTool(func=read_file),
     FunctionTool(func=write_file),

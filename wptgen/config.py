@@ -79,6 +79,7 @@ class Config:
   use_reasoning: bool = False
   skip_evaluation: bool = False
   skip_execution: bool = False
+  generator: str = 'default'
   agentic_generation: bool = False
   agentic_yolo: bool = False
   tentative: bool = False
@@ -201,6 +202,7 @@ def load_config(
   use_reasoning_override: bool = False,
   skip_evaluation_override: bool = False,
   skip_execution_override: bool = False,
+  generator: str = 'default',
   agentic_generation_override: bool = False,
   agentic_yolo_override: bool = False,
   tentative_override: bool = False,
@@ -309,6 +311,7 @@ def load_config(
   skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
   skip_execution = skip_execution_override or yaml_data.get('skip_execution', False)
   agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
+  generator = yaml_data.get('generator', generator)
   agentic_yolo = agentic_yolo_override or yaml_data.get('agentic_yolo', False)
   if agentic_yolo:
     agentic_generation = True
@@ -362,6 +365,7 @@ def load_config(
     use_reasoning=use_reasoning_override,
     skip_evaluation=skip_evaluation,
     skip_execution=skip_execution,
+    generator=generator,
     agentic_generation=agentic_generation,
     agentic_yolo=agentic_yolo,
     tentative=tentative,

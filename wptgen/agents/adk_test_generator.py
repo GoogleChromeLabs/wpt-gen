@@ -23,6 +23,7 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
+from wptgen.agents.streaming import stream_adk_event_to_ui
 from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import Config
 from wptgen.models import TestType, WorkflowContext
@@ -121,8 +122,8 @@ async def generate_test_with_adk(
 
   # We just consume the stream to let the agent run.
   # (Task 4 will add the UI streaming integration here)
-  async for _ in events:
-    pass
+  async for event in events:
+    stream_adk_event_to_ui(event, ui)
 
   results = []
   # If the agent correctly called the completion tool, we read those files back
