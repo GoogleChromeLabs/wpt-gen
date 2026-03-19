@@ -44,7 +44,7 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   return resolved_target
 
 
-def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
+def create_file_tools(wpt_path: Path) -> list[Any]:
   """Creates a suite of strictly validated file system tools for the ADK agent.
 
   All file operations performed by these tools are guaranteed to be restricted
