@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 from pathlib import Path
 from typing import Any
 
@@ -108,12 +109,13 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
       MAX_RESULTS = 100
-      matches = [str(p.relative_to(wpt_path)) for p in target_dir.rglob(pattern) if p.is_file()]
+      iterator = (str(p.relative_to(wpt_path)) for p in target_dir.rglob(pattern) if p.is_file())
+      matches = list(itertools.islice(iterator, MAX_RESULTS + 1))
       if len(matches) > MAX_RESULTS:
         return {
           'status': 'success',
           'files': matches[:MAX_RESULTS],
-          'warning': f'Results truncated. Showing first {MAX_RESULTS} of {len(matches)} matches. Please refine your search pattern.',
+          'warning': f'Results truncated to the first {MAX_RESULTS} matches. Please refine your search pattern.',
         }
       return {'status': 'success', 'files': matches}
     except (OSError, ValueError) as e:
@@ -134,12 +136,13 @@ def create_file_tools(wpt_path: Path) -> list[FunctionTool]:
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
       MAX_RESULTS = 100
-      entries = [str(p.relative_to(wpt_path)) for p in target_dir.iterdir()]
+      iterator = (str(p.relative_to(wpt_path)) for p in target_dir.iterdir())
+      entries = list(itertools.islice(iterator, MAX_RESULTS + 1))
       if len(entries) > MAX_RESULTS:
         return {
           'status': 'success',
           'entries': entries[:MAX_RESULTS],
-          'warning': f'Results truncated. Showing first {MAX_RESULTS} of {len(entries)} matches. Please refine your search pattern.',
+          'warning': f'Results truncated to the first {MAX_RESULTS} matches. Please use search_files if you are looking for specific content.',
         }
       return {'status': 'success', 'entries': entries}
     except (OSError, ValueError) as e:

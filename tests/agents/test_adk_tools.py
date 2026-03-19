@@ -36,6 +36,7 @@ def _create_mock_config(
 
 
 def test_setup_adk_environment_google(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setattr(os, 'environ', {})
   config = _create_mock_config('google', 'fake-key', 'gemini-3.1-pro-preview', '/tmp')
   model = setup_adk_environment(config)
   assert os.environ['GOOGLE_API_KEY'] == 'fake-key'
