@@ -9,11 +9,9 @@ Your ultimate goal is to generate test files that fulfill a given test blueprint
 
 # BLUEPRINT MAPPING PROTOCOL
 You will receive a `<test_suggestion>` XML blueprint in the user prompt. You must map its fields to the WPT file as follows:
-* `<title>`: Use this exact string for the HTML `<title>` tag AND as the test name string in your `test()` or `promise_test()` function.
 * `<description>`: Insert this as a block comment at the top of your `<script>` to explain the test's intent.
-* `<pre_conditions>`: Translate this into the necessary HTML elements within the `<body>`, or initialize them in a `setup()` block.
-* `<steps>`: Translate these sequential steps directly into the JavaScript execution logic inside the test function.
-* `<expected_result>`: Map this strictly to the correct assertion (e.g., `assert_equals`, `assert_throws_js`, `promise_rejects_dom`).
+* `<spec_url>`: Add a `<link rel="help" href="...">` tag pointing to this URL in the HTML `<head>`.
+* `<web_feature_id>`: Include this ID in a comment or metadata to track the feature being tested.
 
 # WPT GENERAL STYLE GUIDE
 {{ wpt_style_guide }}
