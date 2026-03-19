@@ -1,0 +1,147 @@
+This guide provides a detailed overview of the best practices that apply in Web Platform Tests (WPT).
+
+Following these guidelines ensures that your tests are robust, cross-platform, and maintainable.
+
+---
+
+## 1. File Organization and Naming
+
+WPT uses file names and directory structures to determine how tests are run.
+
+### 1.1 Universal Filename Flags
+Flags are added to the filename to enable specific server features. These apply to all three test types:
+*   `.https`: Loads the test over HTTPS (e.g., `my-test.https.html`).
+*   `.h2`: Loads the test over HTTP/2.
+*   `.sub`: Enables [server-side substitution](https://web-platform-tests.org/writing-tests/server-pipes.html#sub), allowing placeholders like `{{host}}`.
+*   `.tentative`: Indicates the test is for a feature not yet fully standardized.
+*   `-manual`: Indicates the test requires a human operator and cannot be automated. (See [manual_test_style_guide.md](manual_test_style_guide.md)).
+
+### 1.2 How to Choose WPT Test File Suffixes
+
+Follow these steps to determine the correct filename suffix for a test. The goal is to assemble a filename suffix in the following format:
+`[.features].{extension}`
+
+#### Step 1: Choose the Base Extension
+Determine the primary file format based on the content of your test:
+- **`.html`**: Use for standard web-based tests (HTML/XHTML/SVG/XML). **Important:** If your test is located inside the `css/` directory, you **must** use `.html`. The WPT linter strictly enforces a `MISSING-LINK` rule for CSS tests that requires an explicit `<link rel="help" href="...">` HTML tag, which cannot be satisfied by JavaScript comments in a `.js` file.
+- **`.js`**: Use for pure JavaScript tests, especially if you want to use the automated boilerplate generation (see Step 4). Do not use this format for tests inside the `css/` directory.
+
+#### Step 2: Choose Test Feature Flags (Optional)
+If your test requires specific server features or environment settings, append these flags (preceded and followed by a `.`). These come **after** any test type flag.
+
+##### Environment Requirements
+- **`.https`**: The test must be loaded over HTTPS.
+- **`.h2`**: The test must be loaded over HTTP/2.
+- **`.www`**: The test must run on the `www` subdomain.
+
+##### Server Features
+- **`.sub`**: The test uses server-side substitution (e.g., `{{host}}`).
+- **`.headers`**: Not a flag for the test itself, but a suffix for a companion file (e.g., `.html.headers`) to set custom HTTP headers.
+
+#### Step 3: Handle JavaScript Boilerplate (For `.js` files)
+If you chose `.js` in Step 1, you MUST include one of these scope flags to tell WPT how to generate the HTML wrapper. These are technically feature flags and should be placed before the `.js` extension.
+
+- **`.window.js`**: Generates a test that runs in a standard Window global.
+- **`.worker.js`**: Generates a test that runs in a Dedicated Worker.
+- **`.any.js`**: Generates multiple tests covering different scopes (Window, Worker, etc.).
+- **`.extension.js`**: Generates a WebExtension test.
+
+#### Step 4: Assemble and Verify Order
+Assemble the parts in this specific order:
+1.  **Features** (delimited by `.`): `.https.sub`
+2.  **Extension**: `.html`
+
+**Result**: `.https.sub.html`
+
+##### Quick Check Table:
+| If the test contains... | Use Suffix... |
+| :--- | :--- |
+| Needs HTTPS | `.https.html` |
+| JS test running in multiple scopes | `.any.js` |
+| Server-side `{{variable}}` substitution | `.sub.html` |
+| HTTP/2 required | `.h2.html` |
+
+---
+
+## 2. Core Metadata
+
+Every test file should contain metadata to describe its purpose and requirements.
+
+### 2.1 Character Encoding
+All tests must be encoded in **UTF-8**.
+*   **Requirement**: Include `<meta charset="utf-8">` as the first tag in the `<head>` of HTML files.
+
+### 2.2 Documentation Links
+Link to the relevant specification. This is required for CSS tests and highly recommended for all others.
+*   **HTML Tests:** Use `<link rel="help" href="...">`.
+    ```html
+    <link rel="help" href="https://www.w3.org/TR/css-flexbox-1/#flex-direction-property">
+    ```
+*   **JavaScript-Only Tests (`.js`):** Use a standard single-line comment containing the URL.
+    ```javascript
+    // https://www.w3.org/TR/css-flexbox-1/#flex-direction-property
+    ```
+
+### 2.3 Author Tags
+While many existing WPT files include `<link rel="author" title="..." href="...">` tags, **you MUST omit author tags** when generating tests autonomously. Do not attribute the test to "Gemini", "AI", or yourself.
+
+### 2.4 Test Assertions
+Use a `<meta name="assert">` tag to provide a concise description of what the test is verifying.
+```html
+<meta name="assert" content="Checks that flex-direction: row-reverse correctly mirrors the main axis.">
+```
+
+### 2.5 Timeouts
+Execution of tests is subject to a global timeout (default 10s). Long-running tests may opt into a longer timeout (60s) by providing a `<meta>` element:
+```html
+<meta name="timeout" content="long">
+```
+
+---
+
+## 3. General Principles
+
+### 3.1 Be Short and Focused
+Tests should be as minimal as possible to reduce parsing overhead and focus exactly on the tested behavior.
+*   **Minimize DOM Depth:** Avoid deeply nested or redundant HTML scaffolding. Use CSS pseudo-elements (`::before`/`::after`) attached to existing structural elements instead of creating new, empty, dedicated DOM nodes (`<div>` or `<span>`) purely to host them. This applies broadly to visual effects, stacking context triggers, or testing pseudo-element behaviors themselves.
+*   **Omit Optional Tags:** Do not include `<html>`, `<head>`, or `<body>` tags unless the test logic strictly relies on them or you need to attach attributes to them.
+*   Ensure the test only verifies the specific feature intended, omitting unrelated properties or styles.
+
+### 3.2 Be Conservative
+Avoid depending on edge-case behavior of unrelated features.
+*   Ensure there are **no parse errors**.
+*   Only use features that are broadly supported across major browser engines (Safari, Chrome, Firefox) unless they are the subject of the test.
+
+### 3.3 Be Cross-Platform
+Assume the following defaults:
+*   Viewport dimensions of at least 800px by 600px.
+*   Canvas background is `white`, and initial `color` is `black`.
+*   No specific system fonts are installed. Use the **Ahem font** for tests requiring precise text metrics.
+
+### 3.4 Be Self-Contained
+Tests **must not** depend on external network resources. Use local support files or WPT's cross-origin host features if multiple domains are needed.
+
+### 3.5 Be Self-Describing
+It should be obvious to a human reviewer whether the test passed or failed.
+
+### 3.6 Avoid Timers (DO NOT use `setTimeout`)
+The use of timers in tests is discouraged and `setTimeout` is strictly prohibited. This is due to an observed source of instability on test running in CI.
+*   **Do** prefer event-driven approaches: wait for an event (e.g., `load`, `DOMContentLoaded`, or custom events) to indicate readiness.
+*   **Do** use two `requestAnimationFrame` calls to ensure rendering steps have completed.
+*   **Do NOT** use standard `setTimeout` functions. If a timeout is strictly necessary (e.g., testing that an event is *not* fired), use harness-specific functions (like `step_timeout` for `testharness.js`) and consider documenting the reason.
+
+### 3.7 Test Independence and Cleanup
+Tests must be independent and not interfere with each other.
+*   **Do** clean up any state that will persist beyond the test itself (e.g., global variables, appended DOM elements) once the test has a result.
+*   For `testharness.js` tests, register cleanup callbacks using the `add_cleanup()` method to ensure state is reset when the test finishes.
+
+---
+
+## 4. Style and Linting
+
+Consistent style is enforced across the entire WPT repository.
+
+### 4.1 Formatting Rules
+*   **Indentation**: Use spaces, not tabs.
+*   **Whitespace**: No trailing whitespace.
+*   **Line Endings**: Use UNIX-style (LF) line endings.
