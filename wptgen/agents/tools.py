@@ -67,11 +67,18 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       A list of ADK `FunctionTool` objects.
   """
 
-  def read_file(file_path: str) -> dict[str, Any]:
+  def read_file(
+    file_path: str, start_line: int | None = None, end_line: int | None = None
+  ) -> dict[str, Any]:
     """Reads the content of a file within the WPT repository.
+
+    Use 'start_line' and 'end_line' for targeted, surgical reads of specific sections
+    to maintain context efficiency.
 
     Args:
         file_path: The relative or absolute path to the file to read.
+        start_line: Optional 1-based line number to start reading from.
+        end_line: Optional 1-based line number to end reading at (inclusive).
 
     Returns:
         A dictionary containing the 'status' and the file 'content', or an 'error'.
@@ -81,6 +88,18 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       if not target.is_file():
         return {'status': 'error', 'error': f'File not found: {file_path}'}
       content = target.read_text(encoding='utf-8')
+
+      if start_line is not None or end_line is not None:
+        lines = content.splitlines(keepends=True)
+        start = max(0, start_line - 1) if start_line is not None else 0
+        end = min(len(lines), end_line) if end_line is not None else len(lines)
+        if start >= len(lines):
+          return {
+            'status': 'error',
+            'error': f'start_line ({start_line}) is beyond EOF ({len(lines)} lines).',
+          }
+        return {'status': 'success', 'content': ''.join(lines[start:end])}
+
       return {'status': 'success', 'content': content}
     except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
@@ -320,6 +339,68 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
+  def search_file_contents(directory: str, pattern: str) -> dict[str, Any]:
+    """Searches for a string or regex pattern within the contents of files in a directory.
+
+    Args:
+        directory: The directory to search within.
+        pattern: The grep-compatible regular expression to search for.
+
+    Returns:
+        A dictionary containing the 'status' and the 'search_output'.
+    """
+    try:
+      target_dir = _validate_safe_path(Path(directory), wpt_path)
+      if not target_dir.is_dir():
+        return {'status': 'error', 'error': f'Directory not found: {directory}'}
+
+      cmd = ['grep', '-rnI', pattern, str(target_dir)]
+      result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(wpt_path))
+
+      if result.returncode == 0:
+        lines = result.stdout.strip().splitlines()
+        MAX_MATCHES = 100
+        output = '\n'.join(lines[:MAX_MATCHES])
+        if len(lines) > MAX_MATCHES:
+          output += f'\n... (warning: {len(lines) - MAX_MATCHES} more matches truncated)'
+        return {'status': 'success', 'search_output': output}
+      elif result.returncode == 1:
+        return {'status': 'success', 'search_output': 'No matches found.'}
+      else:
+        return {'status': 'error', 'error': result.stderr.strip() or 'grep failed.'}
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
+      return {'status': 'error', 'error': str(e)}
+
+  def replace_in_file(file_path: str, old_string: str, new_string: str) -> dict[str, Any]:
+    """Replaces exactly one unique occurrence of a string in a file with a new string.
+
+    Args:
+        file_path: The path to the file to modify.
+        old_string: The exact string to be replaced.
+        new_string: The exact string to replace it with.
+
+    Returns:
+        A dictionary containing the 'status'.
+    """
+    try:
+      target = _validate_safe_path(Path(file_path), wpt_path)
+      if not target.is_file():
+        return {'status': 'error', 'error': f'File not found: {file_path}'}
+      content = target.read_text(encoding='utf-8')
+      occurrences = content.count(old_string)
+      if occurrences == 0:
+        return {'status': 'error', 'error': 'old_string not found in file.'}
+      if occurrences > 1:
+        return {
+          'status': 'error',
+          'error': 'old_string found multiple times. Please provide more surrounding context to make it unique.',
+        }
+      new_content = content.replace(old_string, new_string)
+      target.write_text(new_content, encoding='utf-8')
+      return {'status': 'success'}
+    except (OSError, ValueError) as e:
+      return {'status': 'error', 'error': str(e)}
+
   return [
     FunctionTool(func=read_file),
     FunctionTool(func=write_file),
@@ -330,4 +411,6 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     FunctionTool(func=run_wpt_test),
     FunctionTool(func=search_feature_tests),
     FunctionTool(func=fetch_spec_content),
+    FunctionTool(func=search_file_contents),
+    FunctionTool(func=replace_in_file),
   ]

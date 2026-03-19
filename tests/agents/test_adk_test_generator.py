@@ -21,7 +21,8 @@ import pytest
 
 from wptgen.agents.adk_test_generator import generate_test_with_adk
 from wptgen.config import Config
-from wptgen.models import TestType, WorkflowContext
+from wptgen.models import TestType as WPTTestType
+from wptgen.models import WorkflowContext
 
 
 @pytest.mark.asyncio
@@ -92,7 +93,7 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock) -> None
   results = await generate_test_with_adk(
     suggestion_xml='<test_suggestion></test_suggestion>',
     root_name='my-feature-1',
-    test_type_enum=TestType.JAVASCRIPT,
+    test_type_enum=WPTTestType.JAVASCRIPT,
     context=context,
     config=config,
     jinja_env=mock_jinja_env,
