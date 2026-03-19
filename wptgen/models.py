@@ -67,6 +67,7 @@ class FeatureMetadata:
   specs: list[str]
   source: DataSource = DataSource.WEB_FEATURES
   explainer_links: list[str] = field(default_factory=list)
+  wpt_descr: str | None = None
 
   def to_dict(self) -> dict[str, Any]:
     return asdict(self)
@@ -113,6 +114,7 @@ class WorkflowContext:
   approved_suggestions_xml: list[str] = field(default_factory=list)
   mdn_contents: list[str] | None = None
   generated_tests: list[tuple[Path, str, str]] | None = None
+  wpt_urls: list[str] | None = None
 
   def to_dict(self) -> dict[str, Any]:
     data = {
@@ -129,6 +131,7 @@ class WorkflowContext:
       'generated_tests': (
         [(str(p), c, s) for p, c, s in self.generated_tests] if self.generated_tests else None
       ),
+      'wpt_urls': self.wpt_urls,
     }
     return data
 
@@ -158,4 +161,5 @@ class WorkflowContext:
       approved_suggestions_xml=data.get('approved_suggestions_xml', []),
       mdn_contents=data.get('mdn_contents'),
       generated_tests=generated_tests,
+      wpt_urls=data.get('wpt_urls'),
     )

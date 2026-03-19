@@ -18,12 +18,14 @@ from wptgen.config import Config
 from wptgen.context import (
   FeatureMetadata,
   extract_feature_metadata,
+  extract_wpt_paths,
   fetch_and_extract_text,
   fetch_chromestatus_metadata,
   fetch_feature_yaml,
   fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
+  validate_wpt_paths,
 )
 from wptgen.models import WorkflowContext
 from wptgen.ui import UIProvider
@@ -94,6 +96,22 @@ async def run_context_assembly(
 
   ui.print('Scanning local WPT repository for existing tests and dependencies...')
   test_paths = find_feature_tests(config.wpt_path, web_feature_id)
+  extracted_wpt_urls: list[str] | None = None
+
+  # If ChromeStatus is enabled, also extract and validate tests from wpt_descr
+  if config.chromestatus and metadata.wpt_descr:
+    with ui.status('Extracting tests from ChromeStatus...'):
+      extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
+      if extracted_wpt_urls:
+        valid_paths, invalid_paths = validate_wpt_paths(extracted_wpt_urls, config.wpt_path)
+        for invalid in invalid_paths:
+          ui.warning(f'Referenced WPT test file could not be found or read: {invalid}')
+        # Merge unique valid paths
+        test_paths = sorted(list(set(test_paths) | set(valid_paths)))
+
+  if not test_paths:
+    ui.warning('No existing Web Platform Tests were successfully loaded.')
+
   wpt_context = gather_local_test_context(test_paths, config.wpt_path)
 
   ui.print('Fetching MDN documentation...')
@@ -125,4 +143,5 @@ async def run_context_assembly(
     explainer_contents=explainer_contents,
     mdn_contents=mdn_contents,
     wpt_context=wpt_context,
+    wpt_urls=extracted_wpt_urls,
   )
