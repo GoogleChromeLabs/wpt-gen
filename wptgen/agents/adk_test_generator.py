@@ -23,7 +23,7 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _validate_safe_path, create_file_tools
+from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import Config
 from wptgen.models import TestType, WorkflowContext
 from wptgen.ui import UIProvider
@@ -74,7 +74,7 @@ async def generate_test_with_adk(
     generated_paths.extend(file_paths)
     return {'status': 'success', 'message': 'Generation recorded.'}
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   tools.append(FunctionTool(func=report_generation_complete))
 
   system_template = jinja_env.get_template('adk_test_generator_system.jinja')
