@@ -12,9 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from google.adk.events import Event
 
-from wptgen.ui import UIProvider
+if TYPE_CHECKING:
+  from wptgen.ui import UIProvider
+
+
+class ADKStreamManager:
+  """Manages the streaming of ADK events into the UI."""
+
+  def __init__(self, ui: UIProvider):
+    self.ui = ui
+
+  def __enter__(self) -> ADKStreamManager:
+    return self
+
+  def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    pass
+
+  def process_event(self, event: Event) -> None:
+    """Takes an ADK Event object and streams its contents/actions to the UI.
+
+    Args:
+        event: The incoming ADK Event yielded by the Runner.
+    """
+    if not event.content or not event.content.parts:
+      return
+
+    for part in event.content.parts:
+      is_thought = getattr(part, 'thought', False)
+
+      if part.text:
+        if is_thought:
+          # Stream the agent's internal thought process directly to stdout in dim italic text
+          self.ui.stream_text(part.text)
+        else:
+          # Regular text, print normally
+          self.ui.stream_text(part.text)
+
+      if part.function_call:
+        tool_name = part.function_call.name
+        self.ui.print(f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]{tool_name}[/bold]')
 
 
 def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:

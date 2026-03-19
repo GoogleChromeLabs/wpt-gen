@@ -1,11 +1,6 @@
-Generate the WPT tests for the following blueprint.
+Use the wpt-generator skill to generate the following test. Rigorously follow all instructions in the skill.
+{%- if output_dir %}
 The output directory for these files MUST be: {{ output_dir }}
-The root filename you MUST use for these files is: {{ root_name }}
+{%- endif %}
 
 {{ suggestion_xml }}
-
-Feature Name: {{ feature_name }}
-Feature Description: {{ feature_description }}
-
-Related Specifications:
-{{ spec_contents }}

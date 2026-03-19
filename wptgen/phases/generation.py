@@ -421,7 +421,9 @@ async def _generate_adk_loop(
 
   for i, task in enumerate(tasks):
     ui.print(f'\n[bold yellow]--- Generating Test {i + 1} of {len(tasks)} ---[/bold yellow]')
+    ui.print(Rule('[bold cyan]🤖 WPT-Gen Agent[/bold cyan]', style='cyan', align='left'))
     result = await task
+    ui.print(Rule(style='cyan'))
     results.append(result)
 
   final_results = [r for sublist in results for r in sublist]
