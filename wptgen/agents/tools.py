@@ -24,6 +24,9 @@ from google.adk.tools.function_tool import FunctionTool
 from wptgen.context import find_feature_tests
 from wptgen.phases.execution import _parse_test_results
 
+WPT_LINT_TIMEOUT_SECONDS = 15
+WPT_RUN_TIMEOUT_SECONDS = 60
+
 
 def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   """Validates that a target path resolves to within the WPT root directory.
@@ -190,12 +193,19 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       rel_path = str(target.relative_to(wpt_path))
 
       # We use subprocess.run directly as these tools are executed synchronously by ADK currently
-      result = subprocess.run(
-        ['./wpt', 'lint', rel_path],
-        cwd=str(wpt_path),
-        capture_output=True,
-        text=True,
-      )
+      try:
+        result = subprocess.run(
+          ['./wpt', 'lint', rel_path],
+          cwd=str(wpt_path),
+          capture_output=True,
+          text=True,
+          timeout=WPT_LINT_TIMEOUT_SECONDS,
+        )
+      except subprocess.TimeoutExpired as e:
+        return {
+          'status': 'error',
+          'error': f'Command timed out after {e.timeout} seconds.',
+        }
 
       if result.returncode == 0:
         return {'status': 'success', 'message': 'No lint errors found.'}
@@ -205,7 +215,7 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
           'status': 'failed',
           'lint_output': result.stdout.strip() + '\n' + result.stderr.strip(),
         }
-    except Exception as e:
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def run_wpt_test(file_path: str) -> dict[str, Any]:
@@ -234,12 +244,19 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
         # Use headless chrome for testing
         cmd = ['./wpt', 'run', '--channel', 'canary', '--log-raw', log_path, 'chrome', rel_path]
 
-        result = subprocess.run(
-          cmd,
-          cwd=str(wpt_path),
-          capture_output=True,
-          text=True,
-        )
+        try:
+          result = subprocess.run(
+            cmd,
+            cwd=str(wpt_path),
+            capture_output=True,
+            text=True,
+            timeout=WPT_RUN_TIMEOUT_SECONDS,
+          )
+        except subprocess.TimeoutExpired as e:
+          return {
+            'status': 'error',
+            'error': f'Command timed out after {e.timeout} seconds.',
+          }
 
         if result.returncode == 0:
           return {'status': 'success', 'message': 'All assertions passed.'}
@@ -257,7 +274,7 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
         if os.path.exists(log_path):
           os.remove(log_path)
 
-    except Exception as e:
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def search_feature_tests(web_feature_id: str) -> dict[str, Any]:
