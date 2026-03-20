@@ -23,8 +23,6 @@ from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext, WorkflowPhase
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
-from wptgen.phases.evaluation import run_test_evaluation
-from wptgen.phases.execution import run_test_execution
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
   run_requirements_extraction,
@@ -42,8 +40,6 @@ __all__ = [
   'run_coverage_audit',
   'provide_coverage_report',
   'run_test_generation',
-  'run_test_evaluation',
-  'run_test_execution',
 ]
 
 
@@ -138,7 +134,6 @@ class WPTGenEngine:
       except Exception:
         pass
     else:
-      # Glob for HTML files as a fallback execution hydrate source
       html_files = list(tests_dir.glob('*.html'))
       if html_files and not context.generated_tests:
         self.ui.info(f'Hydrating {len(html_files)} tests from {tests_dir}')
@@ -195,8 +190,6 @@ class WPTGenEngine:
       WorkflowPhase.REQUIREMENTS_EXTRACTION,
       WorkflowPhase.COVERAGE_AUDIT,
       WorkflowPhase.GENERATION,
-      WorkflowPhase.EVALUATION,
-      WorkflowPhase.EXECUTION,
     ]
 
     def should_run(phase: WorkflowPhase | None, has_data: bool) -> bool:
@@ -264,29 +257,6 @@ class WPTGenEngine:
       self._save_phase_artifacts(context, WorkflowPhase.GENERATION)
     elif context.generated_tests:
       self.ui.success('Skipping Phase 4: Tests already generated.')
-
-    if self.config.agentic_generation:
-      self.ui.info(
-        'Agentic generation enabled: Skipping Phase 5 (Evaluation) and Phase 6 (Execution) as they will be handled natively downstream.'
-      )
-    else:
-      # Phase 5: Evaluation
-      should_run_eval = should_run(WorkflowPhase.EVALUATION, False)
-      if should_run_eval and context.generated_tests and not self.config.skip_evaluation:
-        await run_test_evaluation(
-          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
-        )
-      elif context.generated_tests and (self.config.skip_evaluation or not should_run_eval):
-        self.ui.info('Skipping Phase 5: Evaluation.')
-
-      # Phase 6: Test Execution
-      should_run_exec = should_run(WorkflowPhase.EXECUTION, False)
-      if should_run_exec and context.generated_tests and not self.config.skip_execution:
-        await run_test_execution(
-          context, self.config, self.llm, self.ui, self.jinja_env, context.generated_tests
-        )
-      elif context.generated_tests and (self.config.skip_execution or not should_run_exec):
-        self.ui.info('Skipping Phase 6: Test Execution.')
 
     # Final cleanup of resume file on success
     resume_file = self._get_resume_file_path(web_feature_id)

@@ -37,7 +37,6 @@ def mock_config(tmp_path: Path) -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
-      'evaluation': 'lightweight',
     },
     yes_tokens=True,
     wpt_path=str(tmp_path / 'wpt'),

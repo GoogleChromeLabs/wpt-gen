@@ -246,29 +246,6 @@ def generate(
     bool,
     typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
   ] = False,
-  skip_evaluation: Annotated[
-    bool,
-    typer.Option(
-      '--skip-evaluation',
-      '--no-eval',
-      help='Skip the evaluation phase after generating tests.',
-    ),
-  ] = False,
-  skip_execution: Annotated[
-    bool,
-    typer.Option(
-      '--skip-execution',
-      '--no-exec',
-      help='Skip the test execution phase after generating tests.',
-    ),
-  ] = False,
-  generator: Annotated[
-    str,
-    typer.Option(
-      '--generator',
-      help='The test generation workflow to use. Choices: default, adk, gemini-cli.',
-    ),
-  ] = 'default',
   agentic_generation: Annotated[
     bool,
     typer.Option(
@@ -309,13 +286,6 @@ def generate(
     typer.Option(
       '--temperature',
       help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
-    ),
-  ] = None,
-  wpt_binary: Annotated[
-    str | None,
-    typer.Option(
-      '--binary',
-      help='Path to a custom browser binary executable for the execution phase.',
     ),
   ] = None,
 ) -> None:
@@ -386,9 +356,6 @@ def generate(
       single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
-      skip_evaluation_override=skip_evaluation,
-      skip_execution_override=skip_execution,
-      generator=generator,
       agentic_generation_override=agentic_generation,
       agentic_yolo_override=agentic_yolo,
       tentative_override=tentative,
@@ -396,7 +363,6 @@ def generate(
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       include_thoughts_override=include_thoughts,
-      wpt_binary_override=wpt_binary,
     )
 
     config_info = Text.assemble(
@@ -941,8 +907,6 @@ def audit(
       single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
-      skip_evaluation_override=True,
-      skip_execution_override=True,
       tentative_override=False,
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,

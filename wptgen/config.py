@@ -78,19 +78,12 @@ class Config:
   use_lightweight: bool = False
   use_reasoning: bool = False
   include_thoughts: bool = False
-  skip_evaluation: bool = False
-  skip_execution: bool = False
-  generator: str = 'default'
   agentic_generation: bool = False
   agentic_yolo: bool = False
   tentative: bool = False
   save_traces: bool = False
   resume_from: WorkflowPhase | None = None
   state_dir: str | None = None
-  max_correction_retries: int = 2
-  wpt_browser: str = 'chrome'
-  wpt_channel: str = 'canary'
-  wpt_binary: str | None = None
   max_parallel_requests: int = 10
   temperature: float | None = None
   loaded_from: str | None = None
@@ -201,9 +194,6 @@ def load_config(
   single_prompt_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
-  skip_evaluation_override: bool = False,
-  skip_execution_override: bool = False,
-  generator: str = 'default',
   agentic_generation_override: bool = False,
   agentic_yolo_override: bool = False,
   include_thoughts_override: bool = False,
@@ -212,7 +202,6 @@ def load_config(
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
-  wpt_binary_override: str | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -310,10 +299,7 @@ def load_config(
     timeout = MIN_LLM_TIMEOUT
 
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
-  skip_evaluation = skip_evaluation_override or yaml_data.get('skip_evaluation', False)
-  skip_execution = skip_execution_override or yaml_data.get('skip_execution', False)
   agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
-  generator = yaml_data.get('generator', generator)
   agentic_yolo = agentic_yolo_override or yaml_data.get('agentic_yolo', False)
   include_thoughts = include_thoughts_override or yaml_data.get('include_thoughts', False)
   if agentic_yolo:
@@ -335,7 +321,6 @@ def load_config(
     WorkflowPhase.REQUIREMENTS_EXTRACTION.value: 'reasoning',
     WorkflowPhase.COVERAGE_AUDIT.value: 'reasoning',
     WorkflowPhase.GENERATION.value: 'lightweight',
-    WorkflowPhase.EVALUATION.value: 'lightweight',
   }
   phase_model_mapping = _deep_merge(default_phase_mapping, yaml_data.get('phase_model_mapping', {}))
 
@@ -367,18 +352,12 @@ def load_config(
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     include_thoughts=include_thoughts,
-    skip_evaluation=skip_evaluation,
-    skip_execution=skip_execution,
-    generator=generator,
     agentic_generation=agentic_generation,
     agentic_yolo=agentic_yolo,
     tentative=tentative,
     save_traces=save_traces,
     resume_from=resume_from,
     state_dir=state_dir,
-    wpt_browser=yaml_data.get('wpt_browser', 'chrome'),
-    wpt_channel=yaml_data.get('wpt_channel', 'canary'),
-    wpt_binary=wpt_binary_override or yaml_data.get('wpt_binary'),
     max_parallel_requests=max_parallel_requests,
     temperature=temperature_override
     if temperature_override is not None

@@ -10,13 +10,11 @@ This document provides context to Gemini Code Assist to help it generate more ac
 
 The architecture comprises a Python application using `typer` for the CLI interface, `google-genai`, `openai`, and `anthropic` for LLM interaction, `beautifulsoup4` and `markdownify` for structurally-aware context scraping, and `jinja2` for prompt templating.
 
-The agentic workflow is divided into six distinct phases:
+The agentic workflow is divided into four distinct phases:
 1. **Context Assembly**: Scrapes W3C specifications and scans the local WPT directory for existing coverage.
 2. **Requirements Extraction**: Extracts testable normative requirements from the spec using LLMs.
 3. **Coverage Audit**: Performs a gap analysis to identify missing tests, producing worksheets and blueprints.
 4. **Test Generation**: Generates high-quality WPT test files (HTML/JS) based on the audit blueprints.
-5. **Evaluation (Self-Correction)**: Review and refinement of generated tests to ensure they adhere to WPT standards.
-6. **Test Execution**: Validates tests by running them through the local `./wpt run` infrastructure.
 
 ## 2. Local Development Workflow
 

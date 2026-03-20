@@ -40,7 +40,6 @@ def test_load_config_default_gemini_happy_path(monkeypatch: pytest.MonkeyPatch) 
     'requirements_extraction': 'reasoning',
     'coverage_audit': 'reasoning',
     'generation': 'lightweight',
-    'evaluation': 'lightweight',
   }
 
 
@@ -255,19 +254,6 @@ def test_load_config_timeout_minimum(
   assert config.timeout == 60
 
 
-def test_load_config_skip_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Test that skip_evaluation flag is correctly loaded."""
-  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
-
-  # Case 1: Default (False)
-  config = load_config(config_path='non_existent_dummy.yaml')
-  assert config.skip_evaluation is False
-
-  # Case 2: Override to True
-  config = load_config(config_path='non_existent_dummy.yaml', skip_evaluation_override=True)
-  assert config.skip_evaluation is True
-
-
 def test_load_config_max_parallel_requests(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test that max_parallel_requests is correctly loaded."""
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
@@ -344,7 +330,6 @@ def test_load_config_deep_merges_phase_mapping(
   # Default sibling properties should be preserved
   assert config.phase_model_mapping['requirements_extraction'] == 'reasoning'
   assert config.phase_model_mapping['coverage_audit'] == 'reasoning'
-  assert config.phase_model_mapping['evaluation'] == 'lightweight'
 
 
 def test_load_config_deep_merges_categories(

@@ -23,8 +23,6 @@ class WorkflowPhase(str, Enum):
   REQUIREMENTS_EXTRACTION = 'requirements_extraction'
   COVERAGE_AUDIT = 'coverage_audit'
   GENERATION = 'generation'
-  EVALUATION = 'evaluation'
-  EXECUTION = 'execution'
 
 
 class TestType(Enum):

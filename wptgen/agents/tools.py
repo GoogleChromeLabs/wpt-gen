@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import itertools
+import json
 import os
 import subprocess
 import tempfile
@@ -22,7 +23,47 @@ from typing import Any
 from google.adk.tools.function_tool import FunctionTool
 
 from wptgen.context import fetch_and_extract_text, find_feature_tests
-from wptgen.phases.execution import _parse_test_results
+
+
+def _parse_test_results(log_path: str) -> dict[str, str]:
+  """Parses the JSON log output to extract failing test IDs and error messages."""
+  failing_tests: dict[str, str] = {}
+  if not os.path.exists(log_path):
+    return failing_tests
+
+  test_messages: dict[str, list[str]] = {}
+  with open(log_path, encoding='utf-8') as f:
+    for line in f:
+      try:
+        event = json.loads(line)
+        test_id = event.get('test')
+        if not test_id:
+          continue
+
+        if test_id not in test_messages:
+          test_messages[test_id] = []
+
+        action = event.get('action')
+        status = event.get('status')
+
+        if action == 'test_status':
+          if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH', 'PRECONDITION_FAILED'):
+            subtest_name = event.get('subtest', 'unknown')
+            msg = event.get('message', 'No message')
+            test_messages[test_id].append(f"Subtest '{subtest_name}': {status} - {msg}")
+        elif action == 'test_end':
+          if status in ('FAIL', 'ERROR', 'TIMEOUT', 'CRASH'):
+            msg = event.get('message') or event.get('expected') or f'Overall test {status}'
+            test_messages[test_id].insert(0, f'Test: {status} - {msg}')
+      except json.JSONDecodeError:
+        pass
+
+  for test_id, messages in test_messages.items():
+    if messages:
+      failing_tests[test_id] = '\n'.join(messages)
+
+  return failing_tests
+
 
 WPT_LINT_TIMEOUT_SECONDS = 15
 WPT_RUN_TIMEOUT_SECONDS = 60
