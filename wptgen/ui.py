@@ -54,6 +54,7 @@ class UIProvider(Protocol):
 
   # Generic semantic messaging
   def print(self, message: Any = '', style: str | None = None) -> None: ...
+  def stream_text(self, text: str) -> None: ...
   def info(self, message: str) -> None: ...
   def success(self, message: str) -> None: ...
   def warning(self, message: str) -> None: ...
@@ -135,6 +136,9 @@ class RichUIProvider:
 
   def print(self, message: Any = '', style: str | None = None) -> None:
     self.console.print(message, style=style)
+
+  def stream_text(self, text: str) -> None:
+    self.console.out(text, end='')
 
   def info(self, message: str) -> None:
     self.console.print(f'[blue]ℹ[/blue] {message}')

@@ -742,7 +742,7 @@ async def test_run_test_generation_adk(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:
   """Test that ADK generation branches correctly and calls _generate_adk_loop."""
-  from wptgen.models import WebFeatureMetadata, WorkflowContext
+  from wptgen.models import WorkflowContext
   from wptgen.phases.generation import run_test_generation
 
   mock_config.generator = 'adk'
@@ -751,7 +751,7 @@ async def test_run_test_generation_adk(
   )
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'D', ['url']),
+    metadata=FeatureMetadata('Feat', 'D', ['url']),
     audit_response=f'<audit_worksheet>W</audit_worksheet>{suggestion_xml}',
   )
   mock_ui.confirm.return_value = True
@@ -772,7 +772,7 @@ async def test_run_test_generation_adk(
 @pytest.mark.asyncio
 async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> None:
   """Test that _generate_adk_loop properly maps the suggestions and triggers tasks."""
-  from wptgen.models import WebFeatureMetadata, WorkflowContext
+  from wptgen.models import WorkflowContext
   from wptgen.phases.generation import _generate_adk_loop
 
   mock_config.generator = 'adk'
@@ -782,7 +782,7 @@ async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> Non
   suggestion_xml = '<test_suggestion><title>T1</title><test_type>JavaScript Test</test_type><description>D1</description></test_suggestion>'
   context = WorkflowContext(
     feature_id='feat',
-    metadata=WebFeatureMetadata('Feat', 'D', ['url']),
+    metadata=FeatureMetadata('Feat', 'D', ['url']),
   )
 
   from unittest.mock import AsyncMock

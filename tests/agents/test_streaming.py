@@ -1,13 +1,12 @@
 from unittest.mock import MagicMock
 
-import pytest
 from google.adk.events import Event
 from google.genai import types
 
 from wptgen.agents.streaming import stream_adk_event_to_ui
 
 
-def test_stream_adk_event_to_ui_text(capsys: pytest.CaptureFixture[str]) -> None:
+def test_stream_adk_event_to_ui_text() -> None:
   """Test streaming text to stdout."""
   ui_mock = MagicMock()
   # Create an event with text content
@@ -16,8 +15,7 @@ def test_stream_adk_event_to_ui_text(capsys: pytest.CaptureFixture[str]) -> None
 
   stream_adk_event_to_ui(event, ui_mock)
 
-  captured = capsys.readouterr()
-  assert captured.out == 'Thinking...'
+  ui_mock.stream_text.assert_called_once_with('Thinking...')
   ui_mock.print.assert_not_called()
 
 
@@ -42,4 +40,5 @@ def test_stream_adk_event_to_ui_empty_event() -> None:
 
   stream_adk_event_to_ui(event, ui_mock)
 
+  ui_mock.stream_text.assert_not_called()
   ui_mock.print.assert_not_called()

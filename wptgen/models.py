@@ -28,6 +28,7 @@ class WorkflowPhase(str, Enum):
 
 
 class TestType(Enum):
+  __test__ = False
   JAVASCRIPT = 'JavaScript Test'
   REFTEST = 'Reftest'
   CRASHTEST = 'Crashtest'

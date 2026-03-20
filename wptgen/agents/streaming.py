@@ -29,7 +29,7 @@ def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
       if part.text:
         # Print directly to standard output for streaming text
         # We use dim text for streaming agent thoughts/generation logs
-        print(part.text, end='', flush=True)
+        ui.stream_text(part.text)
       if part.function_call:
         # Log the tool execution gracefully
         tool_name = part.function_call.name
