@@ -14,11 +14,12 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _validate_safe_path, create_file_tools
+from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import Config
 
 
@@ -108,7 +109,7 @@ def test_file_tools_read_file(tmp_path: Path) -> None:
   test_file = wpt_root / 'test.txt'
   test_file.write_text('hello world')
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
   # We call the underlying function
@@ -122,7 +123,7 @@ def test_file_tools_write_file(tmp_path: Path) -> None:
   wpt_root.mkdir()
   test_file = wpt_root / 'new_dir' / 'test.txt'
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   write_file_tool = next(t for t in tools if t.name == 'write_file')
 
   result = write_file_tool.func(str(test_file), 'new content')
@@ -137,7 +138,7 @@ def test_file_tools_search_files(tmp_path: Path) -> None:
   (wpt_root / 'b.html').touch()
   (wpt_root / 'c.js').touch()
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   search_files_tool = next(t for t in tools if t.name == 'search_files')
 
   result = search_files_tool.func(str(wpt_root), '*.js')
@@ -155,7 +156,7 @@ def test_file_tools_list_directory(tmp_path: Path) -> None:
   (wpt_root / 'dir1').mkdir()
   (wpt_root / 'file1.txt').touch()
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   list_directory_tool = next(t for t in tools if t.name == 'list_directory')
 
   result = list_directory_tool.func(str(wpt_root))
@@ -172,7 +173,7 @@ def test_file_tools_delete_file(tmp_path: Path) -> None:
   test_file = wpt_root / 'to_delete.txt'
   test_file.touch()
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   delete_file_tool = next(t for t in tools if t.name == 'delete_file')
 
   result = delete_file_tool.func(str(test_file))
@@ -187,9 +188,59 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
   outside_file = tmp_path / 'secret.txt'
   outside_file.write_text('secret')
 
-  tools = create_file_tools(wpt_root)
+  tools = create_agent_tools(wpt_root)
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
   result = read_file_tool.func(str(outside_file))
   assert result['status'] == 'error'
   assert 'outside the designated WPT repository root' in result['error']
+
+
+def test_agent_tools_run_wpt_lint(tmp_path: Path, mocker: Any) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file = wpt_root / 'test.html'
+  test_file.touch()
+
+  mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
+  mock_run.return_value.returncode = 1
+  mock_run.return_value.stdout = 'lint error'
+  mock_run.return_value.stderr = ''
+
+  tools = create_agent_tools(wpt_root)
+  tool = next(t for t in tools if t.name == 'run_wpt_lint')
+
+  result = tool.func(str(test_file))
+  assert result['status'] == 'failed'
+  assert 'lint error' in result['lint_output']
+
+
+def test_agent_tools_run_wpt_test(tmp_path: Path, mocker: Any) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file = wpt_root / 'test.html'
+  test_file.touch()
+
+  mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
+  mock_run.return_value.returncode = 0
+
+  tools = create_agent_tools(wpt_root)
+  tool = next(t for t in tools if t.name == 'run_wpt_test')
+
+  result = tool.func(str(test_file))
+  assert result['status'] == 'success'
+
+
+def test_agent_tools_search_feature_tests(tmp_path: Path, mocker: Any) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  mocker.patch('wptgen.agents.tools.find_feature_tests', return_value=[str(wpt_root / 'a.html')])
+
+  tools = create_agent_tools(wpt_root)
+  tool = next(t for t in tools if t.name == 'search_feature_tests')
+
+  result = tool.func('popover')
+  assert result['status'] == 'success'
+  assert len(result['test_files']) == 1
+  assert result['test_files'][0] == 'a.html'
