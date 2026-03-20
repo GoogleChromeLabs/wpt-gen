@@ -110,7 +110,7 @@ async def run_context_assembly(
           # Merge unique valid paths
           test_paths = sorted(set(test_paths) | set(valid_paths))
         except ValueError as e:
-          ui.warning(f"Skipping ChromeStatus tests: {e}")
+          ui.warning(f'Skipping ChromeStatus tests: {e}')
 
   if not test_paths:
     ui.warning('No existing Web Platform Tests were successfully loaded.')
