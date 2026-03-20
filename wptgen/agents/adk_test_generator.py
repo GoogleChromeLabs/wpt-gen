@@ -94,8 +94,10 @@ async def generate_test_with_adk(
     if var_name.isidentifier():
       adk_state[var_name] = match.group(0)
 
+  # Ensure the agent name is a valid Python identifier to avoid validation errors.
+  safe_root_name = root_name.replace('-', '_').replace('.', '_')
   agent_kwargs: dict[str, Any] = {
-    'name': 'wpt_generator',
+    'name': f'wpt_generator_{safe_root_name}',
     'model': model_string,
     'instruction': instruction,
     'tools': list(tools),
@@ -137,25 +139,32 @@ async def generate_test_with_adk(
   )
   content = types.Content(role='user', parts=[types.Part(text=prompt)])
 
-  events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
+  try:
+    events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
 
-  # We just consume the stream to let the agent run.
-  with ADKStreamManager(ui) as stream_manager:
-    async for event in events:
-      stream_manager.process_event(event)
+    # We just consume the stream to let the agent run.
+    with ADKStreamManager(ui) as stream_manager:
+      async for event in events:
+        stream_manager.process_event(event)
 
-  results = []
-  # If the agent correctly called the completion tool, we read those files back
-  for path_str in generated_paths:
-    try:
-      target_path = Path(path_str)
-      # Ensure it is absolutely relative to wpt_root
-      target_path = _validate_safe_path(target_path, wpt_root)
+    results = []
+    # If the agent correctly called the completion tool, we read those files back
+    for path_str in generated_paths:
+      try:
+        target_path = Path(path_str)
+        # Ensure it is absolutely relative to wpt_root
+        target_path = _validate_safe_path(target_path, wpt_root)
 
-      if target_path.is_file():
-        file_content = target_path.read_text(encoding='utf-8')
-        results.append((target_path, file_content, suggestion_xml))
-    except (ValueError, OSError) as e:
-      ui.error(f"Failed to read securely generated file '{path_str}': {e}")
+        if target_path.is_file():
+          file_content = target_path.read_text(encoding='utf-8')
+          results.append((target_path, file_content, suggestion_xml))
+      except (ValueError, OSError) as e:
+        ui.error(f"Failed to read securely generated file '{path_str}': {e}")
 
-  return results
+    return results
+
+  finally:
+    await runner.close()  # type: ignore[no-untyped-call]
+    await session_service.delete_session(
+      app_name='wpt-gen', user_id='cli_user', session_id=session.id
+    )

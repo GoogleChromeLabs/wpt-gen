@@ -39,6 +39,7 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock) -> None
   # Mock the ADK Runner to simulate the agent calling the completion tool
   mock_runner_cls = mocker.patch('wptgen.agents.adk_test_generator.Runner')
   mock_runner_instance = mock_runner_cls.return_value
+  mock_runner_instance.close = mocker.AsyncMock()
 
   async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
     # In actual ADK, the tools are attached to the agent which is passed to Runner
