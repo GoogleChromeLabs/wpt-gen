@@ -115,6 +115,7 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
   mock_engine_class.assert_called_once()
@@ -165,6 +166,7 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -211,6 +213,7 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -257,6 +260,7 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -303,6 +307,7 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -349,6 +354,7 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -394,6 +400,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -434,6 +441,7 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -511,6 +519,7 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -557,6 +566,7 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -603,6 +613,7 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -649,6 +660,7 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -695,6 +707,7 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -741,6 +754,7 @@ def test_generate_single_prompt_requirements(mocker: MockerFixture, mock_config:
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -787,6 +801,7 @@ def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Conf
     save_traces_override=False,
     max_parallel_requests_override=5,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -1105,6 +1120,7 @@ def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -1234,6 +1250,7 @@ def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> 
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -1274,6 +1291,7 @@ def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> 
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -1319,6 +1337,7 @@ def test_generate_agentic_generation(mocker: MockerFixture, mock_config: Config)
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 
@@ -1364,6 +1383,7 @@ def test_generate_agentic_yolo(mocker: MockerFixture, mock_config: Config) -> No
     save_traces_override=False,
     max_parallel_requests_override=None,
     temperature_override=None,
+    include_thoughts_override=False,
     wpt_binary_override=None,
   )
 

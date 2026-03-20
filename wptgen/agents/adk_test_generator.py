@@ -158,7 +158,7 @@ async def generate_test_with_adk(
     events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
 
     # We just consume the stream to let the agent run.
-    with ADKStreamManager(ui) as stream_manager:
+    with ADKStreamManager(ui, include_thoughts=config.include_thoughts) as stream_manager:
       async for event in events:
         stream_manager.process_event(event)
 

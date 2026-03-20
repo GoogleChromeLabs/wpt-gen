@@ -77,6 +77,7 @@ class Config:
   single_prompt_requirements: bool = False
   use_lightweight: bool = False
   use_reasoning: bool = False
+  include_thoughts: bool = False
   skip_evaluation: bool = False
   skip_execution: bool = False
   generator: str = 'default'
@@ -205,6 +206,7 @@ def load_config(
   generator: str = 'default',
   agentic_generation_override: bool = False,
   agentic_yolo_override: bool = False,
+  include_thoughts_override: bool = False,
   tentative_override: bool = False,
   save_traces_override: bool = False,
   require_api_key: bool = True,
@@ -313,6 +315,7 @@ def load_config(
   agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
   generator = yaml_data.get('generator', generator)
   agentic_yolo = agentic_yolo_override or yaml_data.get('agentic_yolo', False)
+  include_thoughts = include_thoughts_override or yaml_data.get('include_thoughts', False)
   if agentic_yolo:
     agentic_generation = True
   tentative = tentative_override or yaml_data.get('tentative', False)
@@ -363,6 +366,7 @@ def load_config(
     single_prompt_requirements=single_prompt_requirements,
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
+    include_thoughts=include_thoughts,
     skip_evaluation=skip_evaluation,
     skip_execution=skip_execution,
     generator=generator,

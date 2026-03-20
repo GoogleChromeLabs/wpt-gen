@@ -25,8 +25,9 @@ if TYPE_CHECKING:
 class ADKStreamManager:
   """Manages the streaming of ADK events into the UI."""
 
-  def __init__(self, ui: UIProvider):
+  def __init__(self, ui: UIProvider, include_thoughts: bool = False):
     self.ui = ui
+    self.include_thoughts = include_thoughts
 
   def __enter__(self) -> ADKStreamManager:
     return self
@@ -48,8 +49,9 @@ class ADKStreamManager:
 
       if part.text:
         if is_thought:
-          # Stream the agent's internal thought process directly to stdout in dim italic text
-          self.ui.stream_text(part.text)
+          if self.include_thoughts:
+            # Stream the agent's internal thought process directly to stdout in dim italic text
+            self.ui.stream_text(part.text)
         else:
           # Regular text, print normally
           self.ui.stream_text(part.text)

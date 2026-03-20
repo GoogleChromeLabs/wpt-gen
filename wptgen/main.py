@@ -217,6 +217,13 @@ def generate(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  include_thoughts: Annotated[
+    bool,
+    typer.Option(
+      '--include-thoughts',
+      help='Stream the underlying ADK model thoughts to stdout.',
+    ),
+  ] = False,
   draft: Annotated[
     bool,
     typer.Option(
@@ -388,6 +395,7 @@ def generate(
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
+      include_thoughts_override=include_thoughts,
       wpt_binary_override=wpt_binary,
     )
 
@@ -815,6 +823,13 @@ def audit(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  include_thoughts: Annotated[
+    bool,
+    typer.Option(
+      '--include-thoughts',
+      help='Stream the underlying ADK model thoughts to stdout.',
+    ),
+  ] = False,
   draft: Annotated[
     bool,
     typer.Option(
@@ -932,6 +947,7 @@ def audit(
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
+      include_thoughts_override=include_thoughts,
     )
 
     config_info = Text.assemble(
