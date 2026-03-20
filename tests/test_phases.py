@@ -145,7 +145,11 @@ async def test_run_context_assembly_unregistered_with_params(
     assert context is not None
     assert context.metadata is not None
     assert context.metadata.name == 'unregistered'
-    mock_ui.warning.assert_called_once()
+    assert mock_ui.warning.call_count == 2
+    mock_ui.warning.assert_any_call(
+      'Feature unregistered not found in the web-features repository.'
+    )
+    mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
 
 
 @pytest.mark.asyncio
@@ -170,6 +174,77 @@ async def test_run_context_assembly_no_specs(mock_config: Config, mock_ui: Magic
     context = await run_context_assembly('feat-id', mock_config, mock_ui)
     assert context is None
     mock_ui.error.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_chromestatus_with_wpt_descr(
+  mock_config: Config, mock_ui: MagicMock
+) -> None:
+  """Test context assembly for a ChromeStatus feature with wpt_descr."""
+  mock_config.chromestatus = True
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], wpt_descr='css/test.html')
+
+  with (
+    patch(
+      'wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata
+    ) as mock_fetch_meta,
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
+    patch(
+      'wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/test.html']
+    ) as mock_extract,
+    patch(
+      'wptgen.phases.context_assembly.validate_wpt_paths',
+      return_value=(['/abs/css/test.html'], ['invalid/path']),
+    ) as mock_validate,
+    patch(
+      'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+    ) as mock_gather,
+  ):
+    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+    assert context is not None
+    assert context.wpt_urls == ['css/test.html']
+    mock_fetch_meta.assert_called_once()
+    mock_extract.assert_called_once_with('css/test.html')
+    mock_validate.assert_called_once_with(['css/test.html'], mock_config.wpt_path)
+    mock_ui.warning.assert_called_with(
+      'Referenced WPT test file could not be found or read: invalid/path'
+    )
+    # Check that gather_local_test_context was called with the validated path
+    mock_gather.assert_called_once_with(['/abs/css/test.html'], mock_config.wpt_path)
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_chromestatus_too_many_tests(
+  mock_config: Config, mock_ui: MagicMock
+) -> None:
+  """Test that context assembly warns but proceeds if too many tests are found."""
+  mock_config.chromestatus = True
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], wpt_descr='css/')
+
+  with (
+    patch('wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata),
+    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
+    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
+    patch('wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/']),
+    patch(
+      'wptgen.phases.context_assembly.validate_wpt_paths',
+      side_effect=ValueError('Too many tests found (60). Max allowed is 50.'),
+    ),
+    patch(
+      'wptgen.phases.context_assembly.gather_local_test_context',
+      return_value=WPTContext(test_contents={}),
+    ),
+  ):
+    await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  # Should have warned about skipping ChromeStatus tests
+  mock_ui.warning.assert_any_call(
+    'Skipping ChromeStatus tests: Too many tests found (60). Max allowed is 50.'
+  )
+  # Should also have warned that no tests were loaded (since find_feature_tests returned [])
+  mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import markdownify
 import yaml
@@ -45,6 +46,10 @@ IGNORED_DEPENDENCIES = {
   '/resources/testdriver.js',
   '/resources/testdriver-vendor.js',
 }
+
+MAXIMUM_TEST_SUITE_SIZE = 50
+MAXIMUM_FETCHED_DEPENDENCIES = 100
+
 MDN_MAPPINGS_URL = 'https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json'
 
 
@@ -102,6 +107,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
       name = feature.get('name', 'Unknown Feature')
       description = feature.get('summary', '')
       explainer_links = feature.get('explainer_links', [])
+      wpt_descr = feature.get('wpt_descr', '')
 
       # ChromeStatus usually has spec_link
       specs = []
@@ -115,6 +121,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         specs=specs,
         source=DataSource.CHROMESTATUS,
         explainer_links=explainer_links,
+        wpt_descr=wpt_descr,
       )
 
   except urllib.error.HTTPError as e:
@@ -223,6 +230,134 @@ def fetch_and_extract_text(url: str) -> str | None:
     return None
 
   return content
+
+
+def extract_wpt_paths(wpt_descr: str) -> list[str]:
+  """
+  Extracts Web Platform Test paths from a ChromeStatus 'wpt_descr' string.
+  Exclusively handles URLs from wpt.fyi.
+  """
+  if not wpt_descr:
+    return []
+
+  # Regular expression to match any URL-like structure starting with http/https
+  url_pattern = r'https?://[^\s\n,]+'
+  urls = re.findall(url_pattern, wpt_descr)
+
+  extracted_paths: set[str] = set()
+
+  # Process each found URL
+  for url in urls:
+    # Strip common punctuation that might be appended to URLs in descriptions
+    clean_url = url.rstrip('.,;)]')
+    try:
+      parsed = urlparse(clean_url)
+      if parsed.netloc == 'wpt.fyi':
+        # Logic mirroring ChromeStatus: extract path after '/results/'
+        path_prefix = '/results/'
+        if parsed.path.startswith(path_prefix):
+          path = parsed.path[len(path_prefix) :].strip('/')
+          if path:
+            extracted_paths.add(path)
+    except Exception:
+      # If URL parsing fails for any reason, skip and continue
+      continue
+
+  return sorted(extracted_paths)
+
+
+def normalize_wpt_path(path: str) -> str:
+  """Normalizes .any. variants to their source .any.js file."""
+  if '.any.' in path:
+    # Matches '.../test.any.worker.html' -> '.../test.any.js'
+    idx = path.find('.any.') + 5  # index after ".any."
+    return path[:idx] + 'js'
+  return path
+
+
+def is_wpt_test_file(path: Path) -> bool:
+  """
+  Checks if the file name matches the conditions for the file to be a WPT test file.
+  Filters out non-test files like .yml, .md, .py, .ini, .headers, and hidden files.
+  """
+  filename = path.name
+  suffix = path.suffix.lower()
+
+  # Skip directories (this helper is for file-level checks)
+  if path.is_dir():
+    return False
+
+  # Filter based on extension
+  if suffix in ('.yml', '.yaml', '.md', '.py', '.ini', '.headers', '.txt'):
+    return False
+
+  # Filter out special WPT files
+  if filename in ('MANIFEST', 'META.yml', 'WEB_FEATURES.yml'):
+    return False
+
+  # Filter out hidden files
+  if filename.startswith('.'):
+    return False
+
+  return True
+
+
+def validate_wpt_paths(paths: list[str], wpt_root: str) -> tuple[list[str], list[str]]:
+  """
+  Validates that the given WPT paths exist in the local WPT repository.
+  Returns a tuple of (valid_paths, invalid_paths).
+  If a path is a directory, it expands to all tests within that directory (top-level only).
+  Handles fallback from .html to .js if the file does not exist.
+  Enforces MAXIMUM_TEST_SUITE_SIZE.
+  """
+  root = Path(wpt_root).resolve()
+  valid_paths: set[str] = set()
+  invalid_paths: list[str] = []
+
+  for p in paths:
+    # Normalize and Resolve
+    normalized_p = normalize_wpt_path(p.lstrip('/'))
+    abs_p = (root / normalized_p).resolve()
+
+    try:
+      # Ensure the path is within the WPT root
+      abs_p.relative_to(root)
+    except ValueError:
+      invalid_paths.append(p)
+      continue
+
+    # 1. Handle HTML-to-JS fallback for files
+    if not abs_p.exists() and abs_p.suffix == '.html':
+      js_p = abs_p.with_suffix('.js')
+      if js_p.exists():
+        abs_p = js_p
+
+    if abs_p.exists():
+      if abs_p.is_file():
+        if is_wpt_test_file(abs_p):
+          valid_paths.add(str(abs_p))
+        else:
+          # If it is a known non-test file, ignore it
+          pass
+      elif abs_p.is_dir():
+        # Directory Scanning (Top-level only, matching ChromeStatus)
+        for test_file in abs_p.iterdir():
+          if is_wpt_test_file(test_file):
+            # Apply normalization to files found in directory
+            normalized_file = normalize_wpt_path(str(test_file))
+            valid_paths.add(normalized_file)
+      else:
+        invalid_paths.append(p)
+    else:
+      invalid_paths.append(p)
+
+  # CRITICAL: Safety limit check
+  if len(valid_paths) > MAXIMUM_TEST_SUITE_SIZE:
+    raise ValueError(
+      f'Too many tests found ({len(valid_paths)}). Max allowed is {MAXIMUM_TEST_SUITE_SIZE}.'
+    )
+
+  return sorted(valid_paths), invalid_paths
 
 
 def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
@@ -341,6 +476,7 @@ def resolve_dependency_path(current_file_path: Path, dep_ref: str, wpt_root: Pat
 def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContext:
   """
   Recursively gathers the content of test files and all their dependencies from the local disk.
+  Enforces MAXIMUM_FETCHED_DEPENDENCIES.
   """
   root = Path(wpt_root).resolve()
   test_contents: dict[str, str] = {}
@@ -357,7 +493,7 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
     queue.append((abs_p, True))
     visited.add(abs_p)
 
-  MAX_DEPS = 100
+  initial_test_count = len(visited)
   idx = 0
   while idx < len(queue):
     curr_p_str, is_test = queue[idx]
@@ -371,20 +507,21 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
       else:
         dependency_contents[curr_p_str] = content
 
-      deps = extract_dependencies(content)
-      for dep_ref in deps:
-        resolved = resolve_dependency_path(curr_p, dep_ref, root)
-        if resolved:
-          resolved_str = str(resolved)
+      if len(dependency_contents) < MAXIMUM_FETCHED_DEPENDENCIES:
+        deps = extract_dependencies(content)
+        for dep_ref in deps:
+          resolved = resolve_dependency_path(curr_p, dep_ref, root)
+          if resolved:
+            resolved_str = str(resolved)
 
-          if curr_p_str not in dependency_graph:
-            dependency_graph[curr_p_str] = set()
-          dependency_graph[curr_p_str].add(resolved_str)
+            if curr_p_str not in dependency_graph:
+              dependency_graph[curr_p_str] = set()
+            dependency_graph[curr_p_str].add(resolved_str)
 
-          if resolved_str not in visited:
-            if len(visited) < (len(test_paths) + MAX_DEPS):
-              visited.add(resolved_str)
-              queue.append((resolved_str, False))
+            if resolved_str not in visited:
+              if len(visited) < (initial_test_count + MAXIMUM_FETCHED_DEPENDENCIES):
+                visited.add(resolved_str)
+                queue.append((resolved_str, False))
     except Exception as e:
       logger.warning(f'Error reading dependency {curr_p_str}: {e}')
 

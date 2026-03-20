@@ -27,6 +27,7 @@ def test_fetch_chromestatus_metadata_success(mocker: MockerFixture) -> None:
     'summary': 'This is a test feature.',
     'explainer_links': ['https://explainer.com/1', 'https://explainer.com/2'],
     'spec_link': 'https://spec.com/test',
+    'wpt_descr': 'Existing tests: https://wpt.fyi/results/css/css-grid',
   }
 
   mock_response = mocker.MagicMock()
@@ -42,6 +43,7 @@ def test_fetch_chromestatus_metadata_success(mocker: MockerFixture) -> None:
   assert metadata.specs == ['https://spec.com/test']
   assert metadata.source == DataSource.CHROMESTATUS
   assert metadata.explainer_links == ['https://explainer.com/1', 'https://explainer.com/2']
+  assert metadata.wpt_descr == 'Existing tests: https://wpt.fyi/results/css/css-grid'
 
 
 def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:

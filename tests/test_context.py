@@ -25,13 +25,187 @@ from wptgen.context import (
   _resolve_patterns,
   extract_dependencies,
   extract_feature_metadata,
+  extract_wpt_paths,
   fetch_and_extract_text,
   fetch_feature_yaml,
   fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
+  is_wpt_test_file,
+  normalize_wpt_path,
   resolve_dependency_path,
+  validate_wpt_paths,
 )
+
+
+def test_is_wpt_test_file() -> None:
+  """Test the WPT test file filter."""
+  assert is_wpt_test_file(Path('test.html')) is True
+  assert is_wpt_test_file(Path('test.js')) is True
+  assert is_wpt_test_file(Path('test.any.js')) is True
+  assert is_wpt_test_file(Path('test.md')) is False
+  assert is_wpt_test_file(Path('test.py')) is False
+  assert is_wpt_test_file(Path('test.yml')) is False
+  assert is_wpt_test_file(Path('test.ini')) is False
+  assert is_wpt_test_file(Path('test.headers')) is False
+  assert is_wpt_test_file(Path('test.txt')) is False
+  assert is_wpt_test_file(Path('.gitignore')) is False
+  assert is_wpt_test_file(Path('MANIFEST')) is False
+  assert is_wpt_test_file(Path('WEB_FEATURES.yml')) is False
+
+
+def test_extract_wpt_paths_empty() -> None:
+  """Test extraction with empty description."""
+  assert extract_wpt_paths('') == []
+  assert extract_wpt_paths(None) == []  # type: ignore
+
+
+def test_extract_wpt_paths_urls() -> None:
+  """Test extraction from wpt.fyi URLs."""
+  wpt_descr = """
+  Here are some tests:
+  - https://wpt.fyi/results/css/css-grid/grid-model?label=master
+  - https://github.com/web-platform-tests/wpt/tree/master/dom/events
+  - See https://wpt.fyi/results/css/css-flexbox.
+  """
+  paths = extract_wpt_paths(wpt_descr)
+  assert 'css/css-grid/grid-model' in paths
+  assert 'css/css-flexbox' in paths
+  assert 'dom/events' not in paths
+
+
+def test_extract_wpt_paths_none() -> None:
+  """Test extraction of raw file paths from text should be empty now."""
+  wpt_descr = """
+  Look at css/css-grid/alignment/grid-item-alignment-001.html and dom/nodes/Element-getAttribute.html.
+  Also html/canvas (a directory).
+  """
+  paths = extract_wpt_paths(wpt_descr)
+  assert paths == []
+
+
+def test_normalize_wpt_path() -> None:
+  """Test WPT path normalization for .any. variants."""
+  assert normalize_wpt_path('test.any.js') == 'test.any.js'
+  assert normalize_wpt_path('test.any.worker.html') == 'test.any.js'
+  assert normalize_wpt_path('test.any.window.html') == 'test.any.js'
+  assert normalize_wpt_path('path/to/test.any.worker.html') == 'path/to/test.any.js'
+  assert normalize_wpt_path('standard.html') == 'standard.html'
+
+
+def test_validate_wpt_paths_normalization(tmp_path: Path) -> None:
+  """Test that multiple .any. variants collapse into one .any.js."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  # Create the source .any.js file
+  any_js = wpt_root / 'test.any.js'
+  any_js.touch()
+
+  # Input variants
+  paths = ['test.any.worker.html', 'test.any.window.html', 'test.any.js']
+  valid, _ = validate_wpt_paths(paths, str(wpt_root))
+
+  # Should only have one entry
+  assert len(valid) == 1
+  assert str(any_js.resolve()) in valid
+
+
+def test_validate_wpt_paths_limits(tmp_path: Path) -> None:
+  """Test that validate_wpt_paths enforces the MAX_TESTS limit."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  # Create 51 tests
+  paths = []
+  for i in range(51):
+    p = wpt_root / f'test{i}.html'
+    p.touch()
+    paths.append(str(p.relative_to(wpt_root)))
+
+  with pytest.raises(ValueError, match='Too many tests found'):
+    validate_wpt_paths(paths, str(wpt_root))
+
+
+def test_validate_wpt_paths(tmp_path: Path) -> None:
+  """Test validation and expansion of WPT paths (top-level only)."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  # Create a file
+  css_dir = wpt_root / 'css'
+  css_dir.mkdir()
+  test_file = css_dir / 'test.html'
+  test_file.touch()
+
+  # Create a directory with multiple tests, including one in a subdirectory
+  test_dir = wpt_root / 'dom' / 'events'
+  test_dir.mkdir(parents=True)
+  (test_dir / 'test1.html').touch()
+  (test_dir / 'test2.js').touch()
+  (test_dir / 'not-a-test.txt').touch()
+  (test_dir / 'subdir').mkdir()
+  (test_dir / 'subdir' / 'hidden.html').touch()  # Should be ignored (not top-level)
+
+  paths = ['css/test.html', 'dom/events', 'nonexistent/path']
+  valid, invalid = validate_wpt_paths(paths, str(wpt_root))
+
+  # 3 files: css/test.html, dom/events/test1.html, dom/events/test2.js
+  # not-a-test.txt should now be filtered out by is_wpt_test_file
+  assert len(valid) == 3
+  assert str(test_file.resolve()) in valid
+  assert str((test_dir / 'test1.html').resolve()) in valid
+  assert str((test_dir / 'test2.js').resolve()) in valid
+  assert str((test_dir / 'not-a-test.txt').resolve()) not in valid
+  assert str((test_dir / 'subdir' / 'hidden.html').resolve()) not in valid
+  assert 'nonexistent/path' in invalid
+
+
+def test_validate_wpt_paths_fallback(tmp_path: Path) -> None:
+  """Test fallback from .html to .js in validation."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  # Create a .js file but reference it as .html
+  js_file = wpt_root / 'test.js'
+  js_file.touch()
+
+  paths = ['test.html']
+  valid, _ = validate_wpt_paths(paths, str(wpt_root))
+
+  assert len(valid) == 1
+  assert str(js_file.resolve()) in valid
+
+
+def test_validate_wpt_paths_normalization_dir(tmp_path: Path) -> None:
+  """Test that directory scanning also applies normalization."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  # Create a directory with multiple variants of the same .any.js test
+  test_dir = wpt_root / 'dom'
+  test_dir.mkdir()
+  (test_dir / 'test.any.js').touch()
+
+  # Input directory
+  paths = ['dom']
+  valid, _ = validate_wpt_paths(paths, str(wpt_root))
+
+  # Should normalize correctly even when found in directory
+  assert len(valid) == 1
+  assert valid[0].endswith('test.any.js')
+
+
+def test_validate_wpt_paths_outside_root(tmp_path: Path) -> None:
+  """Test that paths outside the WPT root are rejected."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  paths = ['../outside.html', '/etc/passwd']
+  valid, invalid = validate_wpt_paths(paths, str(wpt_root))
+
+  assert valid == []
+  assert len(invalid) == 2
 
 
 def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
