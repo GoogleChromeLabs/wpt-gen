@@ -21,7 +21,7 @@ from typing import Any
 
 from google.adk.tools.function_tool import FunctionTool
 
-from wptgen.context import find_feature_tests
+from wptgen.context import fetch_and_extract_text, find_feature_tests
 from wptgen.phases.execution import _parse_test_results
 
 WPT_LINT_TIMEOUT_SECONDS = 15
@@ -299,7 +299,25 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
         'test_files': [],
         'message': f'No existing tests found for feature {web_feature_id}',
       }
-    except Exception as e:
+    except (OSError, ValueError) as e:
+      return {'status': 'error', 'error': str(e)}
+
+  def fetch_spec_content(url: str) -> dict[str, Any]:
+    """Fetches and extracts the text content from a specification URL.
+
+    Args:
+        url: The URL of the specification to fetch.
+
+    Returns:
+        A dictionary containing the 'status' and the 'content' of the specification,
+        or an 'error' message if the fetch fails.
+    """
+    try:
+      content = fetch_and_extract_text(url)
+      if content:
+        return {'status': 'success', 'content': content}
+      return {'status': 'error', 'error': 'Failed to extract content or page was empty.'}
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   return [
@@ -311,4 +329,5 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     FunctionTool(func=run_wpt_lint),
     FunctionTool(func=run_wpt_test),
     FunctionTool(func=search_feature_tests),
+    FunctionTool(func=fetch_spec_content),
   ]
