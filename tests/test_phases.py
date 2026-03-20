@@ -274,6 +274,69 @@ async def test_run_requirements_extraction_cached(
 
 
 @pytest.mark.asyncio
+async def test_run_requirements_extraction_with_explainer(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test requirements extraction when explainer contents are present."""
+  context = WorkflowContext(
+    feature_id='feat-explainer',
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents={'http://spec': 'Spec Content'},
+    explainer_contents=['Explainer Content 1', 'Explainer Content 2'],
+  )
+  jinja_env = MagicMock()
+  template_mock = MagicMock()
+  jinja_env.get_template.return_value = template_mock
+
+  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>'):
+    await run_requirements_extraction(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  # Verify explainer_contents was passed to render
+  template_mock.render.assert_any_call(
+    feature_name='Feat',
+    feature_description='Desc',
+    specs={'http://spec': 'Spec Content'},
+    mdn_contents=None,
+    explainer_contents=['Explainer Content 1', 'Explainer Content 2']
+  )
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_categorized_with_explainer(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test categorized requirements extraction when explainer contents are present."""
+  context = WorkflowContext(
+    feature_id='feat-explainer-cat',
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+    spec_contents={'http://spec': 'Spec Content'},
+    explainer_contents=['Explainer Content 1'],
+  )
+  jinja_env = MagicMock()
+  template_mock = MagicMock()
+  jinja_env.get_template.return_value = template_mock
+
+  with patch(
+    'wptgen.phases.requirements_extraction.generate_safe',
+    return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+  ):
+    await run_requirements_extraction_categorized(
+      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+    )
+
+  # Verify explainer_contents was passed to render
+  template_mock.render.assert_any_call(
+    feature_name='Feat',
+    feature_description='Desc',
+    specs={'http://spec': 'Spec Content'},
+    mdn_contents=None,
+    explainer_contents=['Explainer Content 1'],
+  )
+
+
+@pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
@@ -863,7 +926,9 @@ async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> Non
   from unittest.mock import AsyncMock
 
   with patch(
-    'wptgen.agents.adk_test_generator.generate_test_with_adk', new_callable=AsyncMock
+    'wptgen.agents.adk_test_generator.generate_test_with_adk',
+    new_callable=AsyncMock,
+    create=True,
   ) as mock_adk:
     mock_adk.return_value = [(Path('test_dir/feat.html'), 'content', suggestion_xml)]
 

@@ -21,6 +21,14 @@ Extract the normative test requirements for the following feature and specificat
 {% endfor -%}
 {%- endif %}
 
+{% if explainer_contents -%}
+{% for content in explainer_contents -%}
+<explainer>
+{{content}}
+</explainer>
+{% endfor -%}
+{%- endif %}
+
 <existing_requirements>
 {{existing_requirements_xml}}
 </existing_requirements>

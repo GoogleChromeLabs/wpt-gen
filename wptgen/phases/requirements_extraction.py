@@ -64,6 +64,7 @@ async def run_requirements_extraction(
       feature_description=context.metadata.description,
       specs=context.spec_contents,
       mdn_contents=context.mdn_contents,
+      explainer_contents=context.explainer_contents,
     )
     extraction_system_prompt = jinja_env.get_template(
       'requirements_extraction_system.jinja'
@@ -151,6 +152,7 @@ async def run_requirements_extraction_categorized(
         feature_description=metadata.description,
         specs=context.spec_contents,
         mdn_contents=context.mdn_contents,
+        explainer_contents=context.explainer_contents,
       )
       extraction_system_prompt = jinja_env.get_template(
         'requirements_extraction_categorized_system.jinja'
@@ -303,6 +305,7 @@ async def run_requirements_extraction_iterative(
         feature_description=context.metadata.description,
         specs=context.spec_contents,
         mdn_contents=context.mdn_contents,
+        explainer_contents=context.explainer_contents,
         existing_requirements_xml=existing_requirements_xml,
       )
       extraction_system_prompt = jinja_env.get_template(

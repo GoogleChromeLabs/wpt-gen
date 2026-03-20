@@ -20,3 +20,11 @@ Extract the core normative test requirements for the following feature and speci
 </mdn_document>
 {% endfor -%}
 {%- endif %}
+
+{% if explainer_contents -%}
+{% for content in explainer_contents -%}
+<explainer>
+{{content}}
+</explainer>
+{% endfor -%}
+{%- endif %}
