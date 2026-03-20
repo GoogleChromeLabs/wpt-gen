@@ -52,10 +52,30 @@ class DimYellowWarningFormatter(logging.Formatter):
     return msg
 
 
+class SuppressDuplicateWarningFilter(logging.Filter):
+  """Filters out duplicate warnings, specifically for API key noise."""
+
+  def __init__(self) -> None:
+    super().__init__()
+    self.seen_warning = False
+
+  def filter(self, record: logging.LogRecord) -> bool:
+    if (
+      record.levelno == logging.WARNING
+      and 'Both GOOGLE_API_KEY and GEMINI_API_KEY are set' in record.getMessage()
+    ):
+      if self.seen_warning:
+        return False
+      self.seen_warning = True
+    return True
+
+
 # Apply the custom warning formatter globally
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(DimYellowWarningFormatter('%(levelname)s:%(name)s:%(message)s'))
 logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
+
+logging.getLogger('google_genai._api_client').addFilter(SuppressDuplicateWarningFilter())
 
 # Initialize Typer app and Rich console
 app = typer.Typer(

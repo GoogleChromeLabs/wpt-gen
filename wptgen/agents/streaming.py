@@ -35,6 +35,46 @@ class ADKStreamManager:
   def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
     pass
 
+  def _format_tool_args(self, args: Any) -> str:
+    """Formats tool call arguments for display, truncating large values."""
+    if not args:
+      return ''
+
+    try:
+      # Extract dictionary representation
+      args_dict = None
+      if hasattr(args, 'model_dump'):
+        args_dict = args.model_dump()
+      elif hasattr(args, 'items'):
+        args_dict = args
+      elif hasattr(args, '__dict__'):
+        args_dict = vars(args)
+
+      if not args_dict:
+        # Fallback for simple values or un-parseable objects
+        val_str = str(args)
+        if len(val_str) > 100:
+          val_str = val_str[:97] + '...'
+        val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+        return f' [dim white]({val_str})[/dim white]'
+
+      formatted_parts = []
+      for k, v in args_dict.items():
+        val_str = str(v)
+        if len(val_str) > 100:
+          val_str = val_str[:97] + '...'
+        # Escape rich markup characters
+        val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+        formatted_parts.append(f'{k}="{val_str}"')
+
+      if formatted_parts:
+        return ' [dim white](' + ', '.join(formatted_parts) + ')[/dim white]'
+
+    except Exception:
+      pass
+
+    return ''
+
   def process_event(self, event: Event) -> None:
     """Takes an ADK Event object and streams its contents/actions to the UI.
 
@@ -58,7 +98,51 @@ class ADKStreamManager:
 
       if part.function_call:
         tool_name = part.function_call.name
-        self.ui.print(f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]{tool_name}[/bold]')
+        args_str = self._format_tool_args(getattr(part.function_call, 'args', None))
+        self.ui.print(
+          f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]{tool_name}[/bold]{args_str}'
+        )
+
+
+def _format_tool_args(args: Any) -> str:
+  """Formats tool call arguments for display, truncating large values."""
+  if not args:
+    return ''
+
+  try:
+    # Extract dictionary representation
+    args_dict = None
+    if hasattr(args, 'model_dump'):
+      args_dict = args.model_dump()
+    elif hasattr(args, 'items'):
+      args_dict = args
+    elif hasattr(args, '__dict__'):
+      args_dict = vars(args)
+
+    if not args_dict:
+      # Fallback for simple values or un-parseable objects
+      val_str = str(args)
+      if len(val_str) > 100:
+        val_str = val_str[:97] + '...'
+      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+      return f' [dim white]({val_str})[/dim white]'
+
+    formatted_parts = []
+    for k, v in args_dict.items():
+      val_str = str(v)
+      if len(val_str) > 100:
+        val_str = val_str[:97] + '...'
+      # Escape rich markup characters
+      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+      formatted_parts.append(f'{k}="{val_str}"')
+
+    if formatted_parts:
+      return ' [dim white](' + ', '.join(formatted_parts) + ')[/dim white]'
+
+  except Exception:
+    pass
+
+  return ''
 
 
 def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
@@ -77,6 +161,7 @@ def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
       if part.function_call:
         # Log the tool execution gracefully
         tool_name = part.function_call.name
+        args_str = _format_tool_args(getattr(part.function_call, 'args', None))
 
         # Render nicely instead of raw JSON
-        ui.print(f'\n[cyan]⚙️ ADK Agent calling tool:[/cyan] [bold]{tool_name}[/bold]')
+        ui.print(f'\n[cyan]⚙️ ADK Agent calling tool:[/cyan] [bold]{tool_name}[/bold]{args_str}')

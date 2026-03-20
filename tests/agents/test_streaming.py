@@ -48,16 +48,35 @@ def test_adk_stream_manager_thought() -> None:
 
 
 def test_adk_stream_manager_function_call() -> None:
-  """Test streaming function calls stops the box and prints."""
+  """Test streaming function calls stops the box and prints with formatted arguments."""
   ui_mock = MagicMock()
-  part = types.Part(function_call=types.FunctionCall(name='run_wpt_test'))
+  args = {'test_path': '/html/semantics/scripting-1/the-script-element/script-type-module.html'}
+  part = types.Part(function_call=types.FunctionCall(name='run_wpt_test', args=args))
   event = Event(author='agent', content=types.Content(parts=[part]))
 
   with ADKStreamManager(ui_mock) as manager:
     manager.process_event(event)
 
   ui_mock.print.assert_called_once_with(
-    '\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]run_wpt_test[/bold]'
+    '\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]run_wpt_test[/bold] [dim white](test_path="/html/semantics/scripting-1/the-script-element/script-type-module.html")[/dim white]'
+  )
+
+
+def test_adk_stream_manager_function_call_args_truncation() -> None:
+  """Test that extremely large arguments are gracefully truncated."""
+  ui_mock = MagicMock()
+  long_content = 'A' * 200
+  args = {'content': long_content}
+  part = types.Part(function_call=types.FunctionCall(name='write_file', args=args))
+  event = Event(author='agent', content=types.Content(parts=[part]))
+
+  with ADKStreamManager(ui_mock) as manager:
+    manager.process_event(event)
+
+  expected_trunc = ('A' * 97) + '...'
+
+  ui_mock.print.assert_called_once_with(
+    f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]write_file[/bold] [dim white](content="{expected_trunc}")[/dim white]'
   )
 
 
