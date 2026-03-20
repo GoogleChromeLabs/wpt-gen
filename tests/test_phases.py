@@ -219,7 +219,7 @@ async def test_run_context_assembly_chromestatus_with_wpt_descr(
 async def test_run_context_assembly_chromestatus_too_many_tests(
   mock_config: Config, mock_ui: MagicMock
 ) -> None:
-  """Test that context assembly fails if too many tests are found."""
+  """Test that context assembly warns but proceeds if too many tests are found."""
   mock_config.chromestatus = True
   metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], wpt_descr='css/')
 
@@ -232,9 +232,17 @@ async def test_run_context_assembly_chromestatus_too_many_tests(
       'wptgen.phases.context_assembly.validate_wpt_paths',
       side_effect=ValueError('Too many tests found (60). Max allowed is 50.'),
     ),
+    patch(
+      'wptgen.phases.context_assembly.gather_local_test_context',
+      return_value=WPTContext(test_contents={}),
+    ),
   ):
-    with pytest.raises(ValueError, match='Too many tests found'):
-      await run_context_assembly('feat-id', mock_config, mock_ui)
+    await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  # Should have warned about skipping ChromeStatus tests
+  mock_ui.warning.assert_any_call('Skipping ChromeStatus tests: Too many tests found (60). Max allowed is 50.')
+  # Should also have warned that no tests were loaded (since find_feature_tests returned [])
+  mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
 
 
 @pytest.mark.asyncio

@@ -103,11 +103,14 @@ async def run_context_assembly(
     with ui.status('Extracting tests from ChromeStatus...'):
       extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
       if extracted_wpt_urls:
-        valid_paths, invalid_paths = validate_wpt_paths(extracted_wpt_urls, config.wpt_path)
-        for invalid in invalid_paths:
-          ui.warning(f'Referenced WPT test file could not be found or read: {invalid}')
-        # Merge unique valid paths
-        test_paths = sorted(set(test_paths) | set(valid_paths))
+        try:
+          valid_paths, invalid_paths = validate_wpt_paths(extracted_wpt_urls, config.wpt_path)
+          for invalid in invalid_paths:
+            ui.warning(f'Referenced WPT test file could not be found or read: {invalid}')
+          # Merge unique valid paths
+          test_paths = sorted(set(test_paths) | set(valid_paths))
+        except ValueError as e:
+          ui.warning(f"Skipping ChromeStatus tests: {e}")
 
   if not test_paths:
     ui.warning('No existing Web Platform Tests were successfully loaded.')
