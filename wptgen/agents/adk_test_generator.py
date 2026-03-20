@@ -19,7 +19,9 @@ from typing import Any
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.skills import load_skill_from_dir
 from google.adk.tools.function_tool import FunctionTool
+from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
@@ -76,8 +78,21 @@ async def generate_test_with_adk(
     generated_paths.extend(file_paths)
     return {'status': 'success', 'message': 'Generation recorded.'}
 
-  tools = create_agent_tools(wpt_root)
+  tools: list[Any] = list(create_agent_tools(wpt_root))
   tools.append(FunctionTool(func=report_generation_complete))
+
+  skill_dir = Path(__file__).parent.parent.parent / '.agents' / 'skills' / 'wpt-generator'
+  if skill_dir.is_dir():
+    try:
+      wpt_generator_skill = load_skill_from_dir(skill_dir)
+      skill_toolset = SkillToolset(skills=[wpt_generator_skill])
+      tools.append(skill_toolset)
+    except Exception as e:
+      ui.error(f'Failed to load wpt-generator skill: {e}')
+  else:
+    ui.warning(
+      'wpt-generator skill directory not found. Agent will generate tests without skill guidance.'
+    )
 
   system_template = jinja_env.get_template('adk_test_generator_system.jinja')
   instruction = system_template.render(
