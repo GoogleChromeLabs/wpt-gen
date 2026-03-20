@@ -428,4 +428,6 @@ async def _generate_adk_loop(
 
   final_results = [r for sublist in results for r in sublist]
 
+  ui.report_generation_summary(final_results)
+
   return final_results
