@@ -26,6 +26,7 @@ from wptgen.phases.execution import _parse_test_results
 
 WPT_LINT_TIMEOUT_SECONDS = 15
 WPT_RUN_TIMEOUT_SECONDS = 60
+WPT_GREP_TIMEOUT_SECONDS = 15
 
 
 def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
@@ -354,8 +355,17 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       if not target_dir.is_dir():
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
-      cmd = ['grep', '-rnI', pattern, str(target_dir)]
-      result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(wpt_path))
+      cmd = ['grep', '-rnI', '--', pattern, str(target_dir)]
+      try:
+        result = subprocess.run(
+          cmd,
+          capture_output=True,
+          text=True,
+          cwd=str(wpt_path),
+          timeout=WPT_GREP_TIMEOUT_SECONDS,
+        )
+      except subprocess.TimeoutExpired as e:
+        return {'status': 'error', 'error': f'Command timed out after {e.timeout} seconds.'}
 
       if result.returncode == 0:
         lines = result.stdout.strip().splitlines()
