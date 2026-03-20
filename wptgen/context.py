@@ -275,6 +275,33 @@ def normalize_wpt_path(path: str) -> str:
   return path
 
 
+def is_wpt_test_file(path: Path) -> bool:
+  """
+  Checks if the file name matches the conditions for the file to be a WPT test file.
+  Filters out non-test files like .yml, .md, .py, .ini, .headers, and hidden files.
+  """
+  filename = path.name
+  suffix = path.suffix.lower()
+
+  # Skip directories (this helper is for file-level checks)
+  if path.is_dir():
+    return False
+
+  # Filter based on extension
+  if suffix in ('.yml', '.yaml', '.md', '.py', '.ini', '.headers', '.txt'):
+    return False
+
+  # Filter out special WPT files
+  if filename in ('MANIFEST', 'META.yml', 'WEB_FEATURES.yml'):
+    return False
+
+  # Filter out hidden files
+  if filename.startswith('.'):
+    return False
+
+  return True
+
+
 def validate_wpt_paths(paths: list[str], wpt_root: str) -> tuple[list[str], list[str]]:
   """
   Validates that the given WPT paths exist in the local WPT repository.
@@ -307,16 +334,18 @@ def validate_wpt_paths(paths: list[str], wpt_root: str) -> tuple[list[str], list
 
     if abs_p.exists():
       if abs_p.is_file():
-        valid_paths.add(str(abs_p))
+        if is_wpt_test_file(abs_p):
+          valid_paths.add(str(abs_p))
+        else:
+          # If it is a known non-test file, ignore it
+          pass
       elif abs_p.is_dir():
         # Directory Scanning (Top-level only, matching ChromeStatus)
         for test_file in abs_p.iterdir():
-          if test_file.is_file():
-            # Filter out only the known non-test extensions
-            if test_file.suffix.lower() not in ('.yml', '.yaml'):
-              # Apply normalization to files found in directory
-              normalized_file = normalize_wpt_path(str(test_file))
-              valid_paths.add(normalized_file)
+          if is_wpt_test_file(test_file):
+            # Apply normalization to files found in directory
+            normalized_file = normalize_wpt_path(str(test_file))
+            valid_paths.add(normalized_file)
       else:
         invalid_paths.append(p)
     else:

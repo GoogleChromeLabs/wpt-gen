@@ -31,10 +31,27 @@ from wptgen.context import (
   fetch_mdn_urls,
   find_feature_tests,
   gather_local_test_context,
+  is_wpt_test_file,
   normalize_wpt_path,
   resolve_dependency_path,
   validate_wpt_paths,
 )
+
+
+def test_is_wpt_test_file() -> None:
+  """Test the WPT test file filter."""
+  assert is_wpt_test_file(Path('test.html')) is True
+  assert is_wpt_test_file(Path('test.js')) is True
+  assert is_wpt_test_file(Path('test.any.js')) is True
+  assert is_wpt_test_file(Path('test.md')) is False
+  assert is_wpt_test_file(Path('test.py')) is False
+  assert is_wpt_test_file(Path('test.yml')) is False
+  assert is_wpt_test_file(Path('test.ini')) is False
+  assert is_wpt_test_file(Path('test.headers')) is False
+  assert is_wpt_test_file(Path('test.txt')) is False
+  assert is_wpt_test_file(Path('.gitignore')) is False
+  assert is_wpt_test_file(Path('MANIFEST')) is False
+  assert is_wpt_test_file(Path('WEB_FEATURES.yml')) is False
 
 
 def test_extract_wpt_paths_empty() -> None:
@@ -133,12 +150,13 @@ def test_validate_wpt_paths(tmp_path: Path) -> None:
   paths = ['css/test.html', 'dom/events', 'nonexistent/path']
   valid, invalid = validate_wpt_paths(paths, str(wpt_root))
 
-  # 4 files: css/test.html, dom/events/test1.html, dom/events/test2.js, dom/events/not-a-test.txt
-  assert len(valid) == 4
+  # 3 files: css/test.html, dom/events/test1.html, dom/events/test2.js
+  # not-a-test.txt should now be filtered out by is_wpt_test_file
+  assert len(valid) == 3
   assert str(test_file.resolve()) in valid
   assert str((test_dir / 'test1.html').resolve()) in valid
   assert str((test_dir / 'test2.js').resolve()) in valid
-  assert str((test_dir / 'not-a-test.txt').resolve()) in valid
+  assert str((test_dir / 'not-a-test.txt').resolve()) not in valid
   assert str((test_dir / 'subdir' / 'hidden.html').resolve()) not in valid
   assert 'nonexistent/path' in invalid
 
