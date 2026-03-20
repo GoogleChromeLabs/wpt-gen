@@ -15,14 +15,41 @@
 import itertools
 import json
 import os
+import re
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 from google.adk.tools.function_tool import FunctionTool
 
 from wptgen.context import fetch_and_extract_text, find_feature_tests
+
+BINARY_EXTENSIONS = {
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.ico',
+  '.pdf',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.bz2',
+  '.7z',
+  '.pyc',
+  '.pyo',
+  '.wasm',
+  '.so',
+  '.dll',
+  '.exe',
+  '.bin',
+  '.db',
+  '.sqlite',
+  '.sqlite3',
+}
 
 
 def _parse_test_results(log_path: str) -> dict[str, str]:
@@ -398,30 +425,69 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       if not target_dir.is_dir():
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
-      cmd = ['grep', '-rnI', '--', pattern, str(target_dir)]
       try:
-        result = subprocess.run(
-          cmd,
-          capture_output=True,
-          text=True,
-          cwd=str(wpt_path),
-          timeout=WPT_GREP_TIMEOUT_SECONDS,
-        )
-      except subprocess.TimeoutExpired as e:
-        return {'status': 'error', 'error': f'Command timed out after {e.timeout} seconds.'}
+        regex = re.compile(pattern)
+      except re.error as e:
+        return {'status': 'error', 'error': f'Invalid regular expression: {e}'}
 
-      if result.returncode == 0:
-        lines = result.stdout.strip().splitlines()
-        MAX_MATCHES = 100
-        output = '\n'.join(lines[:MAX_MATCHES])
-        if len(lines) > MAX_MATCHES:
-          output += f'\n... (warning: {len(lines) - MAX_MATCHES} more matches truncated)'
-        return {'status': 'success', 'search_output': output}
-      elif result.returncode == 1:
+      start_time = time.time()
+      matches: list[str] = []
+      MAX_MATCHES = 100
+      has_more_matches = False
+
+      for root, dirs, files in os.walk(target_dir):
+        if '.git' in dirs:
+          dirs.remove('.git')
+
+        if time.time() - start_time > WPT_GREP_TIMEOUT_SECONDS:
+          return {
+            'status': 'error',
+            'error': f'Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.',
+          }
+        for file in files:
+          if time.time() - start_time > WPT_GREP_TIMEOUT_SECONDS:
+            return {
+              'status': 'error',
+              'error': f'Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.',
+            }
+
+          file_path = Path(root) / file
+          if file_path.suffix.lower() in BINARY_EXTENSIONS:
+            continue
+
+          try:
+            with file_path.open('r', encoding='utf-8') as f:
+              for line_num, line in enumerate(f, start=1):
+                if line_num % 10000 == 0 and time.time() - start_time > WPT_GREP_TIMEOUT_SECONDS:
+                  return {
+                    'status': 'error',
+                    'error': f'Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.',
+                  }
+
+                if regex.search(line):
+                  if len(matches) < MAX_MATCHES:
+                    # To match grep's format: /absolute/path:line_num:matched_text
+                    matches.append(f'{file_path}:{line_num}:{line.rstrip(chr(10))}')
+                  else:
+                    has_more_matches = True
+                    break
+          except (UnicodeDecodeError, OSError):
+            matches = [m for m in matches if not m.startswith(f'{file_path}:')]
+            continue
+
+          if has_more_matches:
+            break
+        if has_more_matches:
+          break
+
+      if not matches:
         return {'status': 'success', 'search_output': 'No matches found.'}
-      else:
-        return {'status': 'error', 'error': result.stderr.strip() or 'grep failed.'}
-    except (OSError, ValueError, subprocess.SubprocessError) as e:
+
+      output = '\n'.join(matches)
+      if has_more_matches:
+        output += f'\n... (warning: more than {MAX_MATCHES} matches found; results truncated)'
+      return {'status': 'success', 'search_output': output}
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def replace_in_file(file_path: str, old_string: str, new_string: str) -> dict[str, Any]:

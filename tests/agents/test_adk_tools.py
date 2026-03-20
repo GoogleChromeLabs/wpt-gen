@@ -244,3 +244,28 @@ def test_agent_tools_search_feature_tests(tmp_path: Path, mocker: Any) -> None:
   assert result['status'] == 'success'
   assert len(result['test_files']) == 1
   assert result['test_files'][0] == 'a.html'
+
+
+def test_file_tools_search_file_contents(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file1 = wpt_root / 'test1.js'
+  test_file1.write_text('line 1\nhello world\nline 3', encoding='utf-8')
+  test_file2 = wpt_root / 'test2.js'
+  test_file2.write_text('hello there\nno match here', encoding='utf-8')
+
+  tools = create_agent_tools(wpt_root)
+  search_contents_tool = next(t for t in tools if t.name == 'search_file_contents')
+
+  result = search_contents_tool.func(str(wpt_root), 'hello')
+  assert result['status'] == 'success'
+  assert 'test1.js:2:hello world' in result['search_output']
+  assert 'test2.js:1:hello there' in result['search_output']
+
+  result_no_match = search_contents_tool.func(str(wpt_root), 'notfound')
+  assert result_no_match['status'] == 'success'
+  assert result_no_match['search_output'] == 'No matches found.'
+
+  result_invalid = search_contents_tool.func(str(wpt_root), '[invalid')
+  assert result_invalid['status'] == 'error'
+  assert 'Invalid regular expression' in result_invalid['error']
