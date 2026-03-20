@@ -299,7 +299,7 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
         'test_files': [],
         'message': f'No existing tests found for feature {web_feature_id}',
       }
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   def fetch_spec_content(url: str) -> dict[str, Any]:
@@ -317,7 +317,7 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
       if content:
         return {'status': 'success', 'content': content}
       return {'status': 'error', 'error': 'Failed to extract content or page was empty.'}
-    except Exception as e:
+    except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
   return [
