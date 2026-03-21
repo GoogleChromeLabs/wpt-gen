@@ -202,7 +202,7 @@ async def test_provide_coverage_report_save_success(
 
 
 @pytest.mark.asyncio
-async def test_run_coverage_audit_agentic_generation_brief_suggestions(
+async def test_run_coverage_audit_always_brief_suggestions(
   mocker: MagicMock, mock_config: Config, mock_ui: MagicMock
 ) -> None:
   wpt_context = WPTContext()
@@ -212,8 +212,7 @@ async def test_run_coverage_audit_agentic_generation_brief_suggestions(
     wpt_context=wpt_context,
   )
 
-  mock_config.agentic_generation = True
-  mock_config.brief_suggestions = False
+  mock_config.brief_suggestions = True
 
   mock_llm = MagicMock()
   mock_llm.prompt_exceeds_input_token_limit.return_value = False

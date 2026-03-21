@@ -266,20 +266,6 @@ def generate(
     bool,
     typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
   ] = False,
-  agentic_generation: Annotated[
-    bool,
-    typer.Option(
-      '--agentic-generation',
-      help='Enable agentic generation pipeline orchestration.',
-    ),
-  ] = False,
-  agentic_yolo: Annotated[
-    bool,
-    typer.Option(
-      '--agentic-yolo',
-      help='Enable agentic generation in YOLO mode.',
-    ),
-  ] = False,
   tentative: Annotated[
     bool,
     typer.Option(
@@ -376,8 +362,6 @@ def generate(
       single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
       use_reasoning_override=use_reasoning,
-      agentic_generation_override=agentic_generation,
-      agentic_yolo_override=agentic_yolo,
       tentative_override=tentative,
       save_traces_override=save_traces,
       max_parallel_requests_override=max_parallel_requests,

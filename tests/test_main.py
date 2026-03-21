@@ -105,8 +105,6 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -152,8 +150,6 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -195,8 +191,6 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -238,8 +232,6 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -281,8 +273,6 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -324,8 +314,6 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -398,8 +386,6 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -441,8 +427,6 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -484,8 +468,6 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -527,8 +509,6 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     single_prompt_requirements_override=False,
     use_lightweight_override=True,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -570,8 +550,6 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=True,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -613,8 +591,6 @@ def test_generate_single_prompt_requirements(mocker: MockerFixture, mock_config:
     single_prompt_requirements_override=True,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -656,8 +632,6 @@ def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Conf
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=5,
@@ -969,8 +943,6 @@ def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
     single_prompt_requirements_override=False,
     use_lightweight_override=False,
     use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=False,
     tentative_override=False,
     save_traces_override=False,
     max_parallel_requests_override=None,
@@ -1061,90 +1033,6 @@ def test_config_set_command_types(mocker: MockerFixture) -> None:
     assert data['timeout'] == 120
     assert data['show_responses'] is True
     assert data['temperature'] == 0.5
-
-
-def test_generate_agentic_generation(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --agentic-generation flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --agentic-generation
-  result = runner.invoke(app, ['generate', 'grid', '--agentic-generation'])
-  assert result.exit_code == 0
-  mock_load_config.assert_called_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    agentic_generation_override=True,
-    agentic_yolo_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-  )
-
-
-def test_generate_agentic_yolo(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --agentic-yolo flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --agentic-yolo
-  result = runner.invoke(app, ['generate', 'grid', '--agentic-yolo'])
-  assert result.exit_code == 0
-  mock_load_config.assert_called_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    agentic_generation_override=False,
-    agentic_yolo_override=True,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-  )
 
 
 def test_generate_brief_suggestions(mocker: MockerFixture, mock_config: Config) -> None:

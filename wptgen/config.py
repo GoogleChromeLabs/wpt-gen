@@ -78,8 +78,6 @@ class Config:
   use_lightweight: bool = False
   use_reasoning: bool = False
   include_thoughts: bool = False
-  agentic_generation: bool = False
-  agentic_yolo: bool = False
   tentative: bool = False
   save_traces: bool = False
   resume_from: WorkflowPhase | None = None
@@ -194,8 +192,6 @@ def load_config(
   single_prompt_requirements_override: bool = False,
   use_lightweight_override: bool = False,
   use_reasoning_override: bool = False,
-  agentic_generation_override: bool = False,
-  agentic_yolo_override: bool = False,
   include_thoughts_override: bool = False,
   tentative_override: bool = False,
   save_traces_override: bool = False,
@@ -299,11 +295,7 @@ def load_config(
     timeout = MIN_LLM_TIMEOUT
 
   cache_path = yaml_data.get('cache_path') or _get_default_cache_path()
-  agentic_generation = agentic_generation_override or yaml_data.get('agentic_generation', False)
-  agentic_yolo = agentic_yolo_override or yaml_data.get('agentic_yolo', False)
   include_thoughts = include_thoughts_override or yaml_data.get('include_thoughts', False)
-  if agentic_yolo:
-    agentic_generation = True
   tentative = tentative_override or yaml_data.get('tentative', False)
   save_traces = save_traces_override or yaml_data.get('save_traces', False)
 
@@ -352,8 +344,6 @@ def load_config(
     use_lightweight=use_lightweight_override,
     use_reasoning=use_reasoning_override,
     include_thoughts=include_thoughts,
-    agentic_generation=agentic_generation,
-    agentic_yolo=agentic_yolo,
     tentative=tentative,
     save_traces=save_traces,
     resume_from=resume_from,

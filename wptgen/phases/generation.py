@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 from pathlib import Path
 
 from jinja2 import Environment
@@ -20,7 +19,7 @@ from rich.rule import Rule
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext, WorkflowPhase
+from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.ui import UIProvider
 from wptgen.utils import (
   extract_xml_tag,
@@ -75,9 +74,6 @@ async def run_test_generation(
     ui.warning('No tests selected. Exiting.')
     return []
 
-  if config.agentic_generation:
-    return await _generate_agentic_loop(approved_suggestions_xml, context, config, ui, jinja_env)
-
   return await _generate_adk_loop(approved_suggestions_xml, context, config, ui, jinja_env)
 
 
@@ -101,86 +97,6 @@ def _format_test_suggestion(
     lines.append(f'  <web_feature_id>{feature_id}</web_feature_id>')
     additions = '\n'.join(lines)
     return suggestion_xml.replace('</test_suggestion>', f'{additions}\n</test_suggestion>')
-
-
-async def _generate_agentic_loop(
-  approved_suggestions_xml: list[str],
-  context: WorkflowContext,
-  config: Config,
-  ui: UIProvider,
-  jinja_env: Environment,
-) -> list[tuple[Path, str, str]]:
-  """Runs the gemini CLI as a subprocess to handle test generation natively."""
-  ui.report_generation_start(len(approved_suggestions_xml))
-
-  model = config.get_model_for_phase(WorkflowPhase.GENERATION) or config.default_model
-  agentic_template = jinja_env.get_template('agentic_test_generation.jinja')
-
-  spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []
-
-  for i, suggestion_xml in enumerate(approved_suggestions_xml):
-    # Sanitize and strictly enforce the <test_suggestion> block structure
-    modified_xml = _format_test_suggestion(
-      suggestion_xml, context.feature_id, spec_urls, sanitize=True
-    )
-
-    prompt = agentic_template.render(
-      test_suggestion_xml_block=modified_xml,
-      is_interactive=not config.agentic_yolo,
-    )
-
-    if config.agentic_yolo:
-      # Use bash -ic to force an interactive shell so it loads aliases/nvm.
-      # -p ensures the CLI exits automatically after completion.
-      cmd = ['bash', '-ic', f'gemini --yolo --model {model} -p "$0"', prompt]
-    else:
-      cmd = ['bash', '-ic', f'gemini --model {model} "$0"', prompt]
-
-    ui.print(
-      f'\n[bold blue]Starting Agentic Generation #{i + 1} for: {context.feature_id}[/bold blue]'
-    )
-    ui.print(Rule('[bold cyan]🤖 Gemini CLI[/bold cyan]', style='cyan', align='left'))
-
-    process = await asyncio.create_subprocess_exec(
-      *cmd,
-      cwd=config.wpt_path,
-      stdout=asyncio.subprocess.PIPE if config.agentic_yolo else None,
-      stderr=asyncio.subprocess.PIPE if config.agentic_yolo else None,
-    )
-
-    if config.agentic_yolo:
-
-      async def _stream_output(
-        stream: asyncio.StreamReader | None, is_stderr: bool = False
-      ) -> None:
-        if not stream:
-          return
-        while True:
-          line = await stream.readline()
-          if not line:
-            break
-          text = line.decode('utf-8').rstrip()
-          if is_stderr:
-            ui.print(f'[cyan]│[/cyan] [white]{text}[/white]')
-          else:
-            ui.print(f'[cyan]│[/cyan] {text}')
-
-      await asyncio.gather(
-        _stream_output(process.stdout), _stream_output(process.stderr, is_stderr=True)
-      )
-
-    await process.wait()
-    ui.print(Rule(style='cyan'))
-
-    if process.returncode != 0:
-      ui.error(
-        f'Agentic generation for suggestion #{i + 1} failed with exit code {process.returncode}'
-      )
-    else:
-      ui.success(f'Agentic generation for suggestion #{i + 1} completed successfully.')
-
-  # Agentic generation handles saving natively, so we return an empty memory state.
-  return []
 
 
 async def _generate_adk_loop(
