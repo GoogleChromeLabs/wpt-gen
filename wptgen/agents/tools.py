@@ -124,7 +124,7 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   return resolved_target
 
 
-def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
+def create_agent_tools(wpt_path: Path, browser: str, channel: str) -> list[FunctionTool]:
   """Creates a suite of strictly validated tools for the ADK agent.
 
   All file operations performed by these tools are guaranteed to be restricted
@@ -367,8 +367,8 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
         log_path = f.name
 
       try:
-        # Use headless chrome for testing
-        cmd = ['./wpt', 'run', '--channel', 'canary', '--log-raw', log_path, 'chrome', rel_path]
+        # Use headless browser for testing
+        cmd = ['./wpt', 'run', '--channel', channel, '--log-raw', log_path, browser, rel_path]
 
         try:
           result = subprocess.run(

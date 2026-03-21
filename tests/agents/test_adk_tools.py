@@ -109,7 +109,7 @@ def test_file_tools_read_file(tmp_path: Path) -> None:
   test_file = wpt_root / 'test.txt'
   test_file.write_text('hello world')
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
   # We call the underlying function
@@ -123,7 +123,7 @@ def test_file_tools_write_file(tmp_path: Path) -> None:
   wpt_root.mkdir()
   test_file = wpt_root / 'new_dir' / 'test.txt'
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   write_file_tool = next(t for t in tools if t.name == 'write_file')
 
   result = write_file_tool.func(str(test_file), 'new content')
@@ -138,7 +138,7 @@ def test_file_tools_search_files(tmp_path: Path) -> None:
   (wpt_root / 'b.html').touch()
   (wpt_root / 'c.js').touch()
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   search_files_tool = next(t for t in tools if t.name == 'search_files')
 
   result = search_files_tool.func(str(wpt_root), '*.js')
@@ -156,7 +156,7 @@ def test_file_tools_list_directory(tmp_path: Path) -> None:
   (wpt_root / 'dir1').mkdir()
   (wpt_root / 'file1.txt').touch()
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   list_directory_tool = next(t for t in tools if t.name == 'list_directory')
 
   result = list_directory_tool.func(str(wpt_root))
@@ -173,7 +173,7 @@ def test_file_tools_delete_file(tmp_path: Path) -> None:
   test_file = wpt_root / 'to_delete.txt'
   test_file.touch()
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   delete_file_tool = next(t for t in tools if t.name == 'delete_file')
 
   result = delete_file_tool.func(str(test_file))
@@ -188,7 +188,7 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
   outside_file = tmp_path / 'secret.txt'
   outside_file.write_text('secret')
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
   result = read_file_tool.func(str(outside_file))
@@ -207,7 +207,7 @@ def test_agent_tools_run_wpt_lint(tmp_path: Path, mocker: Any) -> None:
   mock_run.return_value.stdout = 'lint error'
   mock_run.return_value.stderr = ''
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   tool = next(t for t in tools if t.name == 'run_wpt_lint')
 
   result = tool.func(str(test_file))
@@ -224,7 +224,7 @@ def test_agent_tools_run_wpt_test(tmp_path: Path, mocker: Any) -> None:
   mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
   mock_run.return_value.returncode = 0
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   tool = next(t for t in tools if t.name == 'run_wpt_test')
 
   result = tool.func(str(test_file))
@@ -237,7 +237,7 @@ def test_agent_tools_search_feature_tests(tmp_path: Path, mocker: Any) -> None:
 
   mocker.patch('wptgen.agents.tools.find_feature_tests', return_value=[str(wpt_root / 'a.html')])
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   tool = next(t for t in tools if t.name == 'search_feature_tests')
 
   result = tool.func('popover')
@@ -254,7 +254,7 @@ def test_file_tools_search_file_contents(tmp_path: Path) -> None:
   test_file2 = wpt_root / 'test2.js'
   test_file2.write_text('hello there\nno match here', encoding='utf-8')
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   search_contents_tool = next(t for t in tools if t.name == 'search_file_contents')
 
   result = search_contents_tool.func(str(wpt_root), 'hello')
@@ -276,7 +276,7 @@ def test_file_tools_create_directory(tmp_path: Path) -> None:
   wpt_root.mkdir()
   test_dir = wpt_root / 'new_test_dir'
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   create_dir_tool = next(t for t in tools if t.name == 'create_directory')
 
   result = create_dir_tool.func(str(test_dir))
@@ -291,7 +291,7 @@ def test_file_tools_delete_directory(tmp_path: Path) -> None:
   test_dir.mkdir()
   (test_dir / 'file.txt').touch()
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, 'chrome', 'canary')
   delete_dir_tool = next(t for t in tools if t.name == 'delete_directory')
 
   result = delete_dir_tool.func(str(test_dir))

@@ -69,6 +69,8 @@ class Config:
   max_retries: int = 3
   timeout: int = DEFAULT_LLM_TIMEOUT
   cache_path: str | None = None
+  run_on_browser: str = 'chrome'
+  run_on_channel: str = 'canary'
   spec_urls: list[str] | None = None
   feature_description: str | None = None
   detailed_requirements: bool = False
@@ -197,6 +199,8 @@ def load_config(
   save_traces_override: bool = False,
   require_api_key: bool = True,
   max_parallel_requests_override: int | None = None,
+  run_on_browser_override: str | None = None,
+  run_on_channel_override: str | None = None,
   temperature_override: float | None = None,
 ) -> Config:
   """
@@ -335,6 +339,12 @@ def load_config(
     max_retries=max_retries,
     timeout=timeout,
     cache_path=cache_path,
+    run_on_browser=run_on_browser_override
+    if run_on_browser_override
+    else yaml_data.get('run_on_browser', 'chrome'),
+    run_on_channel=run_on_channel_override
+    if run_on_channel_override
+    else yaml_data.get('run_on_channel', 'canary'),
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,

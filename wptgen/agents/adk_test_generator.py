@@ -78,7 +78,9 @@ async def generate_test_with_adk(
     generated_paths.extend(file_paths)
     return {'status': 'success', 'message': 'Generation recorded.'}
 
-  tools: list[Any] = list(create_agent_tools(wpt_root))
+  tools: list[Any] = list(
+    create_agent_tools(wpt_root, config.run_on_browser, config.run_on_channel)
+  )
   tools.append(FunctionTool(func=report_generation_complete))
 
   skill_dir = Path(__file__).parent.parent.parent / '.agents' / 'skills' / 'wpt-generator'
