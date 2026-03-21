@@ -294,6 +294,20 @@ def test_load_config_yes_tests(monkeypatch: pytest.MonkeyPatch) -> None:
   assert config.yes_tests is True
 
 
+def test_load_config_browser_channel(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.run_on_browser == 'chrome'
+  assert config.run_on_channel == 'canary'
+  config = load_config(
+    config_path='non_existent_dummy.yaml',
+    run_on_browser_override='firefox',
+    run_on_channel_override='nightly',
+  )
+  assert config.run_on_browser == 'firefox'
+  assert config.run_on_channel == 'nightly'
+
+
 def test_load_config_loaded_from(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
   """Test that loaded_from is correctly set when a config file exists."""
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')

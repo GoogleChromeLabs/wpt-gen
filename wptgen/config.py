@@ -93,6 +93,8 @@ class Config:
   max_parallel_requests: int = 10
   temperature: float | None = None
   loaded_from: str | None = None
+  run_on_browser: str = 'chrome'
+  run_on_channel: str = 'canary'
 
   def get_model_for_phase(self, phase: WorkflowPhase | str) -> str | None:
     """Resolves the model name for a given workflow phase."""
@@ -211,6 +213,8 @@ def load_config(
   max_parallel_requests_override: int | None = None,
   temperature_override: float | None = None,
   wpt_binary_override: str | None = None,
+  run_on_browser_override: str | None = None,
+  run_on_channel_override: str | None = None,
 ) -> Config:
   """
   Loads configuration from YAML and environment variables.
@@ -318,6 +322,9 @@ def load_config(
   tentative = tentative_override or yaml_data.get('tentative', False)
   save_traces = save_traces_override or yaml_data.get('save_traces', False)
 
+  run_on_browser = run_on_browser_override or yaml_data.get('run_on_browser', 'chrome')
+  run_on_channel = run_on_channel_override or yaml_data.get('run_on_channel', 'canary')
+
   # Load model categories and phase mapping
   default_model = provider_settings.get('default_model', default_model_name)
   categories = _deep_merge(default_categories, provider_settings.get('categories', {}))
@@ -380,4 +387,6 @@ def load_config(
     if temperature_override is not None
     else yaml_data.get('temperature'),
     loaded_from=loaded_from,
+    run_on_browser=run_on_browser,
+    run_on_channel=run_on_channel,
   )

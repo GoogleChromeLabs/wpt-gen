@@ -75,7 +75,7 @@ async def generate_test_with_adk(
     generated_paths.extend(file_paths)
     return {'status': 'success', 'message': 'Generation recorded.'}
 
-  tools = create_agent_tools(wpt_root)
+  tools = create_agent_tools(wpt_root, browser=config.run_on_browser, channel=config.run_on_channel)
   tools.append(FunctionTool(func=report_generation_complete))
 
   system_template = jinja_env.get_template('adk_test_generator_system.jinja')

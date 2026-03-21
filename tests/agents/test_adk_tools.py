@@ -231,6 +231,29 @@ def test_agent_tools_run_wpt_test(tmp_path: Path, mocker: Any) -> None:
   assert result['status'] == 'success'
 
 
+def test_agent_tools_run_wpt_test_custom_browser_channel(tmp_path: Path, mocker: Any) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file = wpt_root / 'test.html'
+  test_file.touch()
+
+  mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
+  mock_run.return_value.returncode = 0
+
+  tools = create_agent_tools(wpt_root, browser='firefox', channel='nightly')
+  tool = next(t for t in tools if t.name == 'run_wpt_test')
+
+  result = tool.func(str(test_file))
+  assert result['status'] == 'success'
+
+  cmd_args = mock_run.call_args[0][0]
+  assert '--channel' in cmd_args
+  channel_idx = cmd_args.index('--channel')
+  assert cmd_args[channel_idx + 1] == 'nightly'
+  assert 'firefox' in cmd_args
+  assert 'chrome' not in cmd_args
+
+
 def test_agent_tools_search_feature_tests(tmp_path: Path, mocker: Any) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()

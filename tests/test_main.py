@@ -116,6 +116,8 @@ def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
   mock_engine_class.assert_called_once()
   # Verify config was passed correctly
@@ -166,6 +168,8 @@ def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> 
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -212,6 +216,8 @@ def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -258,6 +264,8 @@ def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -304,6 +312,8 @@ def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> Non
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -350,6 +360,8 @@ def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Conf
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -395,6 +407,8 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
   # Run with --no-eval alias
@@ -435,6 +449,8 @@ def test_generate_skip_evaluation(mocker: MockerFixture, mock_config: Config) ->
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -512,6 +528,8 @@ def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -558,6 +576,8 @@ def test_generate_description(mocker: MockerFixture, mock_config: Config) -> Non
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -604,6 +624,8 @@ def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -650,6 +672,8 @@ def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) ->
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -696,6 +720,8 @@ def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> N
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -742,6 +768,8 @@ def test_generate_single_prompt_requirements(mocker: MockerFixture, mock_config:
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -788,6 +816,8 @@ def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Conf
     max_parallel_requests_override=5,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -1106,6 +1136,8 @@ def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -1235,6 +1267,8 @@ def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> 
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
   # Run with --no-exec alias
@@ -1275,6 +1309,8 @@ def test_generate_skip_execution(mocker: MockerFixture, mock_config: Config) -> 
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -1320,6 +1356,8 @@ def test_generate_agentic_generation(mocker: MockerFixture, mock_config: Config)
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 
@@ -1365,6 +1403,8 @@ def test_generate_agentic_yolo(mocker: MockerFixture, mock_config: Config) -> No
     max_parallel_requests_override=None,
     temperature_override=None,
     wpt_binary_override=None,
+    run_on_browser_override=None,
+    run_on_channel_override=None,
   )
 
 

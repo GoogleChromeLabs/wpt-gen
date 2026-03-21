@@ -293,6 +293,20 @@ def generate(
       help='Path to a custom browser binary executable for the execution phase.',
     ),
   ] = None,
+  run_on_browser: Annotated[
+    str | None,
+    typer.Option(
+      '--run-on-browser',
+      help='Browser to use when running WPT tests (e.g., chrome, firefox).',
+    ),
+  ] = None,
+  run_on_channel: Annotated[
+    str | None,
+    typer.Option(
+      '--run-on-channel',
+      help='Browser release channel to use when running WPT tests (e.g., canary, nightly).',
+    ),
+  ] = None,
 ) -> None:
   """
   Generate Web Platform Tests for a specific web feature.
@@ -371,6 +385,8 @@ def generate(
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       wpt_binary_override=wpt_binary,
+      run_on_browser_override=run_on_browser,
+      run_on_channel_override=run_on_channel,
     )
 
     config_info = Text.assemble(
@@ -838,6 +854,20 @@ def audit(
     typer.Option(
       '--temperature',
       help='Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',
+    ),
+  ] = None,
+  run_on_browser: Annotated[
+    str | None,
+    typer.Option(
+      '--run-on-browser',
+      help='Browser to use when running WPT tests (e.g., chrome, firefox).',
+    ),
+  ] = None,
+  run_on_channel: Annotated[
+    str | None,
+    typer.Option(
+      '--run-on-channel',
+      help='Browser release channel to use when running WPT tests (e.g., canary, nightly).',
     ),
   ] = None,
 ) -> None:
