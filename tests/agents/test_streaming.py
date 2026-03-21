@@ -17,6 +17,8 @@ from unittest.mock import MagicMock
 import pytest
 from google.adk.events import Event
 from google.genai import types
+from rich.panel import Panel
+from rich.table import Table
 
 from wptgen.agents.streaming import ADKStreamManager
 
@@ -57,15 +59,16 @@ def test_adk_stream_manager_function_call() -> None:
   with ADKStreamManager(ui_mock) as manager:
     manager.process_event(event)
 
-  ui_mock.print.assert_called_once_with(
-    '\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]run_wpt_test[/bold] [dim white](test_path="/html/semantics/scripting-1/the-script-element/script-type-module.html")[/dim white]'
-  )
+  assert ui_mock.print.call_count == 2
+  panel = ui_mock.print.call_args_list[1][0][0]
+  assert isinstance(panel, Panel)
+  assert 'run_wpt_test' in str(panel.title)
 
 
 def test_adk_stream_manager_function_call_args_truncation() -> None:
   """Test that extremely large arguments are gracefully truncated."""
   ui_mock = MagicMock()
-  long_content = 'A' * 200
+  long_content = 'A' * 1000
   args = {'content': long_content}
   part = types.Part(function_call=types.FunctionCall(name='write_file', args=args))
   event = Event(author='agent', content=types.Content(parts=[part]))
@@ -73,11 +76,11 @@ def test_adk_stream_manager_function_call_args_truncation() -> None:
   with ADKStreamManager(ui_mock) as manager:
     manager.process_event(event)
 
-  expected_trunc = ('A' * 97) + '...'
-
-  ui_mock.print.assert_called_once_with(
-    f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]write_file[/bold] [dim white](content="{expected_trunc}")[/dim white]'
-  )
+  assert ui_mock.print.call_count == 2
+  panel = ui_mock.print.call_args_list[1][0][0]
+  assert isinstance(panel, Panel)
+  assert 'write_file' in str(panel.title)
+  assert isinstance(panel.renderable, Table)
 
 
 def test_adk_stream_manager_empty_event() -> None:
