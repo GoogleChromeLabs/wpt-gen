@@ -99,6 +99,8 @@ def test_anthropic_generate_content_no_content(
   with pytest.raises(ValueError, match='Anthropic API returned no content.'):
     client.generate_content(prompt='Test prompt')
 
+  assert mock_instance.messages.create.call_count == 3
+
 
 def test_anthropic_count_tokens(mocker: MockerFixture, anthropic_config: Config) -> None:
   """Test that AnthropicClient correctly maps token counting."""

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -20,7 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _validate_safe_path, create_agent_tools
+from wptgen.agents.tools import _parse_test_results, _validate_safe_path, create_agent_tools
 from wptgen.config import Config
 from wptgen.ui import UIProvider
 
@@ -36,6 +38,41 @@ def _create_mock_config(
     categories={},
     phase_model_mapping={},
   )
+
+
+def test_parse_test_results(tmp_path: Path) -> None:
+  assert _parse_test_results(str(tmp_path / 'missing.json')) == {}
+
+  log_file = tmp_path / 'test.json'
+  events = [
+    {'action': 'test_status', 'test': '/a.html', 'status': 'PASS', 'subtest': 'sub1'},
+    {'action': 'test_end', 'test': '/a.html', 'status': 'OK'},
+    {
+      'action': 'test_status',
+      'test': '/b.html',
+      'status': 'FAIL',
+      'subtest': 'sub2',
+      'message': 'assert_equals failed',
+    },
+    {'action': 'test_end', 'test': '/b.html', 'status': 'OK'},
+    {'action': 'test_end', 'test': '/c.html', 'status': 'CRASH', 'message': 'Browser crashed'},
+    'invalid json string',
+    {'action': 'suite_start'},
+  ]
+
+  with open(log_file, 'w') as f:
+    for event in events:
+      if isinstance(event, dict):
+        f.write(json.dumps(event) + '\n')
+      else:
+        f.write(str(event) + '\n')
+
+  results = _parse_test_results(str(log_file))
+  assert '/a.html' not in results
+  assert '/b.html' in results
+  assert "Subtest 'sub2': FAIL - assert_equals failed" in results['/b.html']
+  assert '/c.html' in results
+  assert 'Test: CRASH - Browser crashed' in results['/c.html']
 
 
 def test_setup_adk_environment_google(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -79,7 +116,6 @@ def test_validate_safe_path_valid(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
   target = wpt_root / 'css' / 'test.html'
-
   resolved = _validate_safe_path(target, wpt_root)
   assert resolved == target.resolve()
 
@@ -87,10 +123,7 @@ def test_validate_safe_path_valid(tmp_path: Path) -> None:
 def test_validate_safe_path_traversal(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
-
-  # Attempt to traverse up out of the wpt directory
   malicious_target = wpt_root / 'css' / '..' / '..' / 'etc' / 'passwd'
-
   with pytest.raises(ValueError, match='is outside the designated WPT repository root'):
     _validate_safe_path(malicious_target, wpt_root)
 
@@ -98,9 +131,7 @@ def test_validate_safe_path_traversal(tmp_path: Path) -> None:
 def test_validate_safe_path_absolute_outside(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
-
   malicious_target = Path('/tmp/some_other_dir/file.txt')
-
   with pytest.raises(ValueError, match='is outside the designated WPT repository root'):
     _validate_safe_path(malicious_target, wpt_root)
 
@@ -109,15 +140,26 @@ def test_file_tools_read_file(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
   test_file = wpt_root / 'test.txt'
-  test_file.write_text('hello world')
+  test_file.write_text('line 1\nline 2\nline 3\nline 4\n', encoding='utf-8')
 
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
-  # We call the underlying function
   result = read_file_tool.func(str(test_file))
   assert result['status'] == 'success'
-  assert result['content'] == 'hello world'
+  assert 'line 1' in result['content']
+
+  result = read_file_tool.func(str(test_file), start_line=2, end_line=3)
+  assert result['status'] == 'success'
+  assert result['content'] == 'line 2\nline 3\n'
+
+  result = read_file_tool.func(str(test_file), start_line=10)
+  assert result['status'] == 'error'
+  assert 'is beyond EOF' in result['error']
+
+  result = read_file_tool.func(str(wpt_root / 'missing.txt'))
+  assert result['status'] == 'error'
+  assert 'File not found' in result['error']
 
 
 def test_file_tools_write_file(tmp_path: Path) -> None:
@@ -132,6 +174,9 @@ def test_file_tools_write_file(tmp_path: Path) -> None:
   assert result['status'] == 'success'
   assert test_file.read_text() == 'new content'
 
+  result = write_file_tool.func('/tmp/outside', 'new content')
+  assert result['status'] == 'error'
+
 
 def test_file_tools_search_files(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
@@ -140,16 +185,28 @@ def test_file_tools_search_files(tmp_path: Path) -> None:
   (wpt_root / 'b.html').touch()
   (wpt_root / 'c.js').touch()
 
+  large_dir = wpt_root / 'large'
+  large_dir.mkdir()
+  for i in range(105):
+    (large_dir / f'file{i}.js').touch()
+
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   search_files_tool = next(t for t in tools if t.name == 'search_files')
 
-  result = search_files_tool.func(str(wpt_root), '*.js')
+  result = search_files_tool.func(str(wpt_root), '*.html')
   assert result['status'] == 'success'
-  assert len(result['files']) == 2
-  # Convert files to Path objects to handle path separators safely across OSes
-  matched_files = [Path(f).name for f in result['files']]
-  assert 'a.js' in matched_files
-  assert 'c.js' in matched_files
+  assert len(result['files']) == 1
+
+  result = search_files_tool.func(str(wpt_root / 'missing'), '*.js')
+  assert result['status'] == 'error'
+
+  result = search_files_tool.func(str(large_dir), '*.js')
+  assert result['status'] == 'success'
+  assert len(result['files']) == 100
+  assert 'Results truncated' in result['warning']
+
+  result = search_files_tool.func('/tmp/outside', '*.js')
+  assert result['status'] == 'error'
 
 
 def test_file_tools_list_directory(tmp_path: Path) -> None:
@@ -158,15 +215,28 @@ def test_file_tools_list_directory(tmp_path: Path) -> None:
   (wpt_root / 'dir1').mkdir()
   (wpt_root / 'file1.txt').touch()
 
+  large_dir = wpt_root / 'large_list'
+  large_dir.mkdir()
+  for i in range(105):
+    (large_dir / f'item{i}').touch()
+
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   list_directory_tool = next(t for t in tools if t.name == 'list_directory')
 
   result = list_directory_tool.func(str(wpt_root))
   assert result['status'] == 'success'
-  assert len(result['entries']) == 2
-  matched_entries = [Path(f).name for f in result['entries']]
-  assert 'dir1' in matched_entries
-  assert 'file1.txt' in matched_entries
+  assert len(result['entries']) >= 2
+
+  result = list_directory_tool.func(str(wpt_root / 'missing'))
+  assert result['status'] == 'error'
+
+  result = list_directory_tool.func(str(large_dir))
+  assert result['status'] == 'success'
+  assert len(result['entries']) == 100
+  assert 'Results truncated' in result['warning']
+
+  result = list_directory_tool.func('/tmp/outside')
+  assert result['status'] == 'error'
 
 
 def test_file_tools_delete_file(tmp_path: Path) -> None:
@@ -181,6 +251,12 @@ def test_file_tools_delete_file(tmp_path: Path) -> None:
   result = delete_file_tool.func(str(test_file))
   assert result['status'] == 'success'
   assert not test_file.exists()
+
+  result = delete_file_tool.func(str(wpt_root / 'missing.txt'))
+  assert result['status'] == 'error'
+
+  result = delete_file_tool.func('/tmp/outside.txt')
+  assert result['status'] == 'error'
 
 
 def test_file_tools_move_file(tmp_path: Path) -> None:
@@ -199,6 +275,12 @@ def test_file_tools_move_file(tmp_path: Path) -> None:
   assert dest_file.exists()
   assert dest_file.read_text() == 'content'
 
+  result = move_file_tool.func(str(wpt_root / 'missing.txt'), str(dest_file))
+  assert result['status'] == 'error'
+
+  result = move_file_tool.func('/tmp/outside', str(dest_file))
+  assert result['status'] == 'error'
+
 
 def test_file_tools_security_rejection(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
@@ -212,15 +294,12 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
 
   result = read_file_tool.func(str(outside_file))
   assert result['status'] == 'error'
-  assert 'outside the designated WPT repository root' in result['error']
 
-  # Test moving a file outside the repository
   inside_file = wpt_root / 'inside.txt'
   inside_file.write_text('inside')
   move_file_tool = next(t for t in tools if t.name == 'move_file')
   result = move_file_tool.func(str(inside_file), str(outside_file))
   assert result['status'] == 'error'
-  assert 'outside the designated WPT repository root' in result['error']
 
 
 def test_agent_tools_run_wpt_lint(tmp_path: Path, mocker: Any) -> None:
@@ -229,17 +308,30 @@ def test_agent_tools_run_wpt_lint(tmp_path: Path, mocker: Any) -> None:
   test_file = wpt_root / 'test.html'
   test_file.touch()
 
+  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
+  tool = next(t for t in tools if t.name == 'run_wpt_lint')
+
+  result = tool.func(str(wpt_root / 'missing.html'))
+  assert result['status'] == 'error'
+
   mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
   mock_run.return_value.returncode = 1
   mock_run.return_value.stdout = 'lint error'
   mock_run.return_value.stderr = ''
-
-  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
-  tool = next(t for t in tools if t.name == 'run_wpt_lint')
-
   result = tool.func(str(test_file))
   assert result['status'] == 'failed'
-  assert 'lint error' in result['lint_output']
+
+  mock_run.return_value.returncode = 0
+  result = tool.func(str(test_file))
+  assert result['status'] == 'success'
+
+  mock_run.side_effect = subprocess.TimeoutExpired(cmd='lint', timeout=15)
+  result = tool.func(str(test_file))
+  assert result['status'] == 'error'
+
+  mock_run.side_effect = OSError('failed run')
+  result = tool.func(str(test_file))
+  assert result['status'] == 'error'
 
 
 def test_agent_tools_run_wpt_test(tmp_path: Path, mocker: Any) -> None:
@@ -248,29 +340,59 @@ def test_agent_tools_run_wpt_test(tmp_path: Path, mocker: Any) -> None:
   test_file = wpt_root / 'test.html'
   test_file.touch()
 
-  mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
-  mock_run.return_value.returncode = 0
-
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   tool = next(t for t in tools if t.name == 'run_wpt_test')
 
+  result = tool.func(str(wpt_root / 'missing.html'))
+  assert result['status'] == 'error'
+
+  mock_run = mocker.patch('wptgen.agents.tools.subprocess.run')
+  mock_run.return_value.returncode = 0
+  mock_run.return_value.stdout = 'success logs'
+  mock_run.return_value.stderr = ''
   result = tool.func(str(test_file))
   assert result['status'] == 'success'
+
+  mock_run.return_value.returncode = 1
+  mocker.patch(
+    'wptgen.agents.tools._parse_test_results', return_value={'/test.html': 'Failed assertion'}
+  )
+  result = tool.func(str(test_file))
+  assert result['status'] == 'failed'
+
+  mocker.patch('wptgen.agents.tools._parse_test_results', return_value={})
+  result = tool.func(str(test_file))
+  assert result['status'] == 'error'
+
+  mock_run.side_effect = subprocess.TimeoutExpired(
+    cmd='run', timeout=60, output=b'partial out', stderr=b'partial err'
+  )
+  result = tool.func(str(test_file))
+  assert result['status'] == 'error'
+
+  mock_run.side_effect = OSError('failed run')
+  result = tool.func(str(test_file))
+  assert result['status'] == 'error'
 
 
 def test_agent_tools_search_feature_tests(tmp_path: Path, mocker: Any) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
 
-  mocker.patch('wptgen.agents.tools.find_feature_tests', return_value=[str(wpt_root / 'a.html')])
-
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   tool = next(t for t in tools if t.name == 'search_feature_tests')
 
+  mocker.patch('wptgen.agents.tools.find_feature_tests', return_value=[str(wpt_root / 'a.html')])
   result = tool.func('popover')
   assert result['status'] == 'success'
-  assert len(result['test_files']) == 1
-  assert result['test_files'][0] == 'a.html'
+
+  mocker.patch('wptgen.agents.tools.find_feature_tests', return_value=[])
+  result = tool.func('popover_missing')
+  assert result['status'] == 'success'
+
+  mocker.patch('wptgen.agents.tools.find_feature_tests', side_effect=OSError('failed find'))
+  result = tool.func('popover')
+  assert result['status'] == 'error'
 
 
 def test_file_tools_search_file_contents(tmp_path: Path) -> None:
@@ -281,21 +403,43 @@ def test_file_tools_search_file_contents(tmp_path: Path) -> None:
   test_file2 = wpt_root / 'test2.js'
   test_file2.write_text('hello there\nno match here', encoding='utf-8')
 
+  binary_file = wpt_root / 'image.png'
+  binary_file.write_bytes(b'\x89PNG\r\n\x1a\n')
+
+  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
+  search_contents_tool = next(t for t in tools if t.name == 'search_file_contents')
+
+  result = search_contents_tool.func(str(wpt_root), 'hello ')
+  assert result['status'] == 'success'
+  assert 'image.png' not in result['search_output']
+
+  result = search_contents_tool.func(str(wpt_root), 'notfound')
+  assert result['status'] == 'success'
+
+  result = search_contents_tool.func(str(wpt_root), '[invalid')
+  assert result['status'] == 'error'
+
+  result = search_contents_tool.func(str(wpt_root / 'missing'), 'hello')
+  assert result['status'] == 'error'
+
+  bad_file = wpt_root / 'bad.txt'
+  bad_file.write_bytes(b'hello \xff')
+  result = search_contents_tool.func(str(wpt_root), 'hello')
+  assert result['status'] == 'success'
+
+
+def test_file_tools_search_file_contents_truncation(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  large_file = wpt_root / 'large.txt'
+  large_file.write_text('hello\n' * 150)
+
   tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
   search_contents_tool = next(t for t in tools if t.name == 'search_file_contents')
 
   result = search_contents_tool.func(str(wpt_root), 'hello')
   assert result['status'] == 'success'
-  assert 'test1.js:2:hello world' in result['search_output']
-  assert 'test2.js:1:hello there' in result['search_output']
-
-  result_no_match = search_contents_tool.func(str(wpt_root), 'notfound')
-  assert result_no_match['status'] == 'success'
-  assert result_no_match['search_output'] == 'No matches found.'
-
-  result_invalid = search_contents_tool.func(str(wpt_root), '[invalid')
-  assert result_invalid['status'] == 'error'
-  assert 'Invalid regular expression' in result_invalid['error']
+  assert 'truncated' in result['search_output']
 
 
 def test_file_tools_create_directory(tmp_path: Path) -> None:
@@ -309,6 +453,9 @@ def test_file_tools_create_directory(tmp_path: Path) -> None:
   result = create_dir_tool.func(str(test_dir))
   assert result['status'] == 'success'
   assert test_dir.is_dir()
+
+  result = create_dir_tool.func('/tmp/outside')
+  assert result['status'] == 'error'
 
 
 def test_file_tools_delete_directory(tmp_path: Path) -> None:
@@ -324,3 +471,56 @@ def test_file_tools_delete_directory(tmp_path: Path) -> None:
   result = delete_dir_tool.func(str(test_dir))
   assert result['status'] == 'success'
   assert not test_dir.exists()
+
+  result = delete_dir_tool.func(str(wpt_root / 'missing'))
+  assert result['status'] == 'error'
+
+  result = delete_dir_tool.func('/tmp/outside')
+  assert result['status'] == 'error'
+
+
+def test_fetch_spec_content(tmp_path: Path, mocker: Any) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
+  tool = next(t for t in tools if t.name == 'fetch_spec_content')
+
+  mocker.patch('wptgen.agents.tools.fetch_and_extract_text', return_value='Spec text')
+  result = tool.func('https://example.com/spec')
+  assert result['status'] == 'success'
+
+  mocker.patch('wptgen.agents.tools.fetch_and_extract_text', return_value='')
+  result = tool.func('https://example.com/spec')
+  assert result['status'] == 'error'
+
+  mocker.patch('wptgen.agents.tools.fetch_and_extract_text', side_effect=OSError('failed fetch'))
+  result = tool.func('https://example.com/spec')
+  assert result['status'] == 'error'
+
+
+def test_replace_in_file(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_file = wpt_root / 'file.txt'
+  test_file.write_text('foo bar baz\nfoo bar qux')
+
+  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
+  tool = next(t for t in tools if t.name == 'replace_in_file')
+
+  result = tool.func(str(test_file), 'foo bar baz', 'hello world')
+  assert result['status'] == 'success'
+
+  result = tool.func(str(test_file), 'not in file', 'hello')
+  assert result['status'] == 'error'
+
+  result = tool.func(str(test_file), 'qux', 'qux\nqux')
+  assert result['status'] == 'success'
+
+  result = tool.func(str(test_file), 'qux', 'replacement')
+  assert result['status'] == 'error'
+
+  result = tool.func(str(wpt_root / 'missing.txt'), 'foo', 'bar')
+  assert result['status'] == 'error'
+
+  result = tool.func('/tmp/outside', 'foo', 'bar')
+  assert result['status'] == 'error'

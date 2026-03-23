@@ -147,6 +147,8 @@ def test_gemini_generate_content_no_text(mocker: MockerFixture, gemini_config: C
   with pytest.raises(ValueError, match='Gemini API returned no text.'):
     client.generate_content(prompt='Test prompt')
 
+  assert mock_instance.models.generate_content.call_count == 3
+
 
 def test_gemini_count_tokens_no_count(mocker: MockerFixture, gemini_config: Config) -> None:
   """Test that GeminiClient raises ValueError when API returns no token count."""
@@ -161,6 +163,8 @@ def test_gemini_count_tokens_no_count(mocker: MockerFixture, gemini_config: Conf
   client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
   with pytest.raises(ValueError, match='Gemini API returned no token count.'):
     client.count_tokens('Hello world')
+
+  assert mock_instance.models.count_tokens.call_count == 3
 
 
 def test_openai_generate_content_no_content(mocker: MockerFixture, openai_config: Config) -> None:
@@ -180,6 +184,8 @@ def test_openai_generate_content_no_content(mocker: MockerFixture, openai_config
   client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
   with pytest.raises(ValueError, match='OpenAI API returned no content.'):
     client.generate_content(prompt='Test prompt')
+
+  assert mock_instance.chat.completions.create.call_count == 3
 
 
 def test_gemini_count_tokens(mocker: MockerFixture, gemini_config: Config) -> None:

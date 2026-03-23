@@ -13,19 +13,26 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 from jinja2 import Environment
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.models import WorkflowContext, WPTContext
-from wptgen.phases.coverage_audit import run_coverage_audit
+from wptgen.phases.coverage_audit import (
+  combine_audit_responses,
+  partition_requirements_xml,
+  provide_coverage_report,
+  run_coverage_audit,
+)
 
 
 @pytest.fixture
-def mock_ui() -> MagicMock:
-  ui = MagicMock()
+def mock_ui(mocker: MockerFixture) -> Any:
+  ui = mocker.MagicMock()
   ui.status.return_value.__enter__.return_value = None
   return ui
 
@@ -42,34 +49,41 @@ def mock_config(tmp_path: Path) -> Config:
   )
 
 
+@pytest.fixture
+def mock_llm(mocker: MockerFixture) -> Any:
+  llm = mocker.MagicMock()
+  llm.prompt_exceeds_input_token_limit.return_value = False
+  return llm
+
+
+@pytest.fixture
+def mock_jinja_env(mocker: MockerFixture) -> Any:
+  env = mocker.MagicMock(spec=Environment)
+  mock_template = mocker.MagicMock()
+  mock_template.render.return_value = 'Rendered Prompt'
+  env.get_template.return_value = mock_template
+  return env
+
+
 @pytest.mark.asyncio
 async def test_run_coverage_audit_token_limit_exceeded(
-  mock_config: Config, mock_ui: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, mock_jinja_env: MagicMock
 ) -> None:
-  wpt_context = WPTContext()
   context = WorkflowContext(
     feature_id='test',
-    requirements_xml='<requirements><requirement id="R1">Test requirement</requirement></requirements>',
-    wpt_context=wpt_context,
+    requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+    wpt_context=WPTContext(),
   )
 
-  mock_llm = MagicMock()
   mock_llm.prompt_exceeds_input_token_limit.return_value = True
 
-  jinja_env = MagicMock(spec=Environment)
-  mock_template = MagicMock()
-  mock_template.render.return_value = 'Rendered Prompt'
-  jinja_env.get_template.return_value = mock_template
-
-  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
+  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, mock_jinja_env)
 
   assert result is None
   mock_ui.error.assert_called_once_with('This test suite to too large to audit.')
 
 
 def test_combine_audit_responses_all_satisfied() -> None:
-  from wptgen.phases.coverage_audit import combine_audit_responses
-
   responses = [
     '<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
     '<status>SATISFIED</status>\n<audit_worksheet>W2</audit_worksheet>',
@@ -81,8 +95,6 @@ def test_combine_audit_responses_all_satisfied() -> None:
 
 
 def test_combine_audit_responses_with_suggestions() -> None:
-  from wptgen.phases.coverage_audit import combine_audit_responses
-
   responses = [
     '<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
     '<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>',
@@ -95,22 +107,17 @@ def test_combine_audit_responses_with_suggestions() -> None:
 
 @pytest.mark.asyncio
 async def test_run_coverage_audit_single_partition(
-  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock
+  mocker: MockerFixture,
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
 ) -> None:
-  wpt_context = WPTContext()
   context = WorkflowContext(
     feature_id='test',
-    requirements_xml='<requirements><requirement id="R1">Test requirement</requirement></requirements>',
-    wpt_context=wpt_context,
+    requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+    wpt_context=WPTContext(),
   )
-
-  mock_llm = MagicMock()
-  mock_llm.prompt_exceeds_input_token_limit.return_value = False
-
-  jinja_env = MagicMock(spec=Environment)
-  mock_template = MagicMock()
-  mock_template.render.return_value = 'Rendered Prompt'
-  jinja_env.get_template.return_value = mock_template
 
   mocker.patch('wptgen.phases.coverage_audit.confirm_prompts')
   mocker.patch(
@@ -118,7 +125,7 @@ async def test_run_coverage_audit_single_partition(
     return_value='<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
   )
 
-  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
+  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, mock_jinja_env)
 
   assert result is not None
   assert '<status>SATISFIED</status>' in result
@@ -126,23 +133,18 @@ async def test_run_coverage_audit_single_partition(
 
 @pytest.mark.asyncio
 async def test_run_coverage_audit_multiple_partitions(
-  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock
+  mocker: MockerFixture,
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
 ) -> None:
-  wpt_context = WPTContext()
   reqs = ''.join([f'<requirement id="R{i}">T</requirement>' for i in range(50)])
   context = WorkflowContext(
     feature_id='test',
     requirements_xml=f'<requirements>{reqs}</requirements>',
-    wpt_context=wpt_context,
+    wpt_context=WPTContext(),
   )
-
-  mock_llm = MagicMock()
-  mock_llm.prompt_exceeds_input_token_limit.return_value = False
-
-  jinja_env = MagicMock(spec=Environment)
-  mock_template = MagicMock()
-  mock_template.render.return_value = 'Rendered Prompt'
-  jinja_env.get_template.return_value = mock_template
 
   mocker.patch('wptgen.phases.coverage_audit.confirm_prompts')
   mocker.patch(
@@ -150,7 +152,7 @@ async def test_run_coverage_audit_multiple_partitions(
     return_value='<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
   )
 
-  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
+  result = await run_coverage_audit(context, mock_config, mock_llm, mock_ui, mock_jinja_env)
 
   assert result is not None
   assert 'W1\nW1' in result
@@ -158,10 +160,8 @@ async def test_run_coverage_audit_multiple_partitions(
 
 @pytest.mark.asyncio
 async def test_provide_coverage_report_save_error(
-  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mocker: MockerFixture, mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-  from wptgen.phases.coverage_audit import provide_coverage_report
-
   mock_config.output_dir = str(tmp_path)
   context = WorkflowContext(feature_id='test', audit_response='Mock audit response')
   mock_ui.confirm.return_value = True
@@ -173,25 +173,10 @@ async def test_provide_coverage_report_save_error(
   mock_ui.error.assert_called_with('Error saving file: Mock write error')
 
 
-def test_partition_requirements_xml_empty() -> None:
-  from wptgen.phases.coverage_audit import partition_requirements_xml
-
-  assert partition_requirements_xml('') == []
-
-
-def test_partition_requirements_xml_no_matches() -> None:
-  from wptgen.phases.coverage_audit import partition_requirements_xml
-
-  assert partition_requirements_xml('<foo></foo>') == ['<foo></foo>']
-  assert partition_requirements_xml('   ') == []
-
-
 @pytest.mark.asyncio
 async def test_provide_coverage_report_save_success(
-  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-  from wptgen.phases.coverage_audit import provide_coverage_report
-
   mock_config.output_dir = str(tmp_path)
   context = WorkflowContext(feature_id='test', audit_response='Mock audit response')
   mock_ui.confirm.return_value = True
@@ -201,38 +186,45 @@ async def test_provide_coverage_report_save_success(
   mock_ui.success.assert_called_with(f'Saved: {(tmp_path / "test_coverage_audit.md").absolute()}')
 
 
+def test_partition_requirements_xml_empty() -> None:
+  assert partition_requirements_xml('') == []
+
+
+def test_partition_requirements_xml_no_matches() -> None:
+  assert partition_requirements_xml('<foo></foo>') == ['<foo></foo>']
+  assert partition_requirements_xml('   ') == []
+
+
 @pytest.mark.asyncio
 async def test_run_coverage_audit_always_brief_suggestions(
-  mocker: MagicMock, mock_config: Config, mock_ui: MagicMock
+  mocker: MockerFixture,
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  mock_jinja_env: MagicMock,
 ) -> None:
-  wpt_context = WPTContext()
   context = WorkflowContext(
     feature_id='test',
     requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
-    wpt_context=wpt_context,
+    wpt_context=WPTContext(),
   )
 
   mock_config.brief_suggestions = True
 
-  mock_llm = MagicMock()
-  mock_llm.prompt_exceeds_input_token_limit.return_value = False
-
-  jinja_env = MagicMock(spec=Environment)
-
-  audit_template_mock = MagicMock()
+  audit_template_mock = mocker.MagicMock()
   audit_template_mock.render.return_value = 'Audit Prompt'
 
-  system_template_mock = MagicMock()
+  system_template_mock = mocker.MagicMock()
   system_template_mock.render.return_value = 'System Prompt'
 
-  def mock_get_template(name: str) -> MagicMock:
+  def mock_get_template(name: str) -> Any:
     if name == 'coverage_audit.jinja':
       return audit_template_mock
     elif name == 'coverage_audit_system.jinja':
       return system_template_mock
-    return MagicMock()
+    return mocker.MagicMock()
 
-  jinja_env.get_template.side_effect = mock_get_template
+  mock_jinja_env.get_template.side_effect = mock_get_template
 
   mocker.patch('wptgen.phases.coverage_audit.confirm_prompts')
   mocker.patch(
@@ -240,6 +232,6 @@ async def test_run_coverage_audit_always_brief_suggestions(
     return_value='<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>',
   )
 
-  await run_coverage_audit(context, mock_config, mock_llm, mock_ui, jinja_env)
+  await run_coverage_audit(context, mock_config, mock_llm, mock_ui, mock_jinja_env)
 
   system_template_mock.render.assert_called_once_with(brief_suggestions=True, spec_urls=[])

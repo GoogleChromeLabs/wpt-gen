@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import re
+import shutil
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -47,14 +49,27 @@ def mock_config(tmp_path: Path) -> Config:
   )
 
 
-def test_clear_cache_success(mocker: MockerFixture, mock_config: Config) -> None:
+@pytest.fixture
+def mock_load_config(mocker: MockerFixture, mock_config: Config) -> MagicMock:
+  """Mocks load_config to return the mock_config."""
+  return mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+
+@pytest.fixture
+def mock_ui(mocker: MockerFixture) -> MagicMock:
+  """Mocks the UI interactions."""
+  return mocker.patch('wptgen.main.ui')
+
+
+def test_clear_cache_success(
+  mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
   """Test successful cache clearing when user confirms."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mock_ui = mocker.patch('wptgen.main.ui')
   mock_ui.confirm.return_value = True
 
   assert mock_config.cache_path is not None
   cache_dir = Path(mock_config.cache_path)
+
   # Populate cache
   (cache_dir / 'file1.txt').write_text('content1')
   (cache_dir / 'subdir').mkdir()
@@ -69,10 +84,10 @@ def test_clear_cache_success(mocker: MockerFixture, mock_config: Config) -> None
   assert cache_dir.exists()  # The directory itself should remain, but empty
 
 
-def test_clear_cache_aborted(mocker: MockerFixture, mock_config: Config) -> None:
+def test_clear_cache_aborted(
+  mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
   """Test cache clearing when user aborts."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mock_ui = mocker.patch('wptgen.main.ui')
   mock_ui.confirm.return_value = False
 
   assert mock_config.cache_path is not None
@@ -87,25 +102,19 @@ def test_clear_cache_aborted(mocker: MockerFixture, mock_config: Config) -> None
   assert cache_file.exists()
 
 
-def test_clear_cache_already_empty(mocker: MockerFixture, mock_config: Config) -> None:
+def test_clear_cache_already_empty(mock_load_config: MagicMock) -> None:
   """Test cache clearing when the directory is already empty."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-
   result = runner.invoke(app, ['clear-cache'])
 
   assert result.exit_code == 0
   assert 'is already empty' in normalize_ws(result.stdout)
 
 
-def test_clear_cache_dir_not_exists(mocker: MockerFixture, mock_config: Config) -> None:
+def test_clear_cache_dir_not_exists(mock_config: Config, mock_load_config: MagicMock) -> None:
   """Test cache clearing when the directory does not exist."""
   assert mock_config.cache_path is not None
   cache_dir = Path(mock_config.cache_path)
-  import shutil
-
   shutil.rmtree(cache_dir)
-
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['clear-cache'])
 
@@ -113,10 +122,9 @@ def test_clear_cache_dir_not_exists(mocker: MockerFixture, mock_config: Config) 
   assert 'does not exist' in normalize_ws(result.stdout)
 
 
-def test_clear_cache_no_path_configured(mocker: MockerFixture, mock_config: Config) -> None:
+def test_clear_cache_no_path_configured(mock_config: Config, mock_load_config: MagicMock) -> None:
   """Test cache clearing when no cache path is configured."""
   mock_config.cache_path = None
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['clear-cache'])
 

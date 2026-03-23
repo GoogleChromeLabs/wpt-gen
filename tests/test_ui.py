@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.models import FeatureMetadata
 from wptgen.ui import RichUIProvider
@@ -45,9 +46,9 @@ def test_status(ui: RichUIProvider, mock_console: MagicMock) -> None:
   mock_console.status.assert_called_once_with('loading...')
 
 
-@patch('wptgen.ui.Confirm.ask')
-def test_confirm(mock_ask: MagicMock, ui: RichUIProvider) -> None:
+def test_confirm(mocker: MockerFixture, ui: RichUIProvider) -> None:
   """Test that the confirm method correctly uses rich.prompt.Confirm.ask."""
+  mock_ask = mocker.patch('wptgen.ui.Confirm.ask')
   mock_ask.return_value = True
   result = ui.confirm('Are you sure?')
   assert result is True
@@ -100,11 +101,11 @@ def test_report_token_usage(ui: RichUIProvider, mock_console: MagicMock) -> None
   mock_console.print.assert_called_once()
 
 
-@patch('wptgen.ui.Syntax')
 def test_report_llm_response_js_suffix(
-  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+  mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
   """Test report_llm_response uses 'javascript' lexer when a .js file is generated."""
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
   response = "[FILE_1: test.any.js]\nconsole.log('test');\n[/FILE_1]"
   ui.report_llm_response(response, 'Task')
   mock_syntax.assert_called_once()
@@ -114,11 +115,11 @@ def test_report_llm_response_js_suffix(
   mock_console.print.assert_called_once()
 
 
-@patch('wptgen.ui.Syntax')
 def test_report_llm_response_html_suffix(
-  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+  mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
   """Test report_llm_response uses 'html' lexer when a .html file is generated."""
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
   response = '[FILE_1: test.html]\n<div></div>\n[/FILE_1]'
   ui.report_llm_response(response, 'Task')
   mock_syntax.assert_called_once()
@@ -126,33 +127,33 @@ def test_report_llm_response_html_suffix(
   mock_console.print.assert_called_once()
 
 
-@patch('wptgen.ui.Syntax')
 def test_report_llm_response_fallback_gen(
-  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+  mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
   """Test report_llm_response falls back to 'html' if task_name contains 'gen:' and no files are found."""
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
   response = 'Some standard markdown response'
   ui.report_llm_response(response, 'Gen: phase')
   mock_syntax.assert_called_once()
   assert mock_syntax.call_args[0][1] == 'html'
 
 
-@patch('wptgen.ui.Syntax')
 def test_report_llm_response_fallback_eval(
-  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+  mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
   """Test report_llm_response falls back to 'html' if task_name contains 'eval:' and no files are found."""
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
   response = 'Some standard markdown response'
   ui.report_llm_response(response, 'Eval: phase')
   mock_syntax.assert_called_once()
   assert mock_syntax.call_args[0][1] == 'html'
 
 
-@patch('wptgen.ui.Syntax')
 def test_report_llm_response_fallback_default(
-  mock_syntax: MagicMock, ui: RichUIProvider, mock_console: MagicMock
+  mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
   """Test report_llm_response falls back to 'xml' default if no files and not gen/eval task."""
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
   response = 'Some standard markdown response'
   ui.report_llm_response(response, 'Audit Phase')
   mock_syntax.assert_called_once()
@@ -186,9 +187,9 @@ def test_report_generation_summary(ui: RichUIProvider, mock_console: MagicMock) 
   assert mock_console.print.call_count == 3
 
 
-@patch('wptgen.ui.Progress')
-def test_progress_indicator(mock_progress_class: MagicMock, ui: RichUIProvider) -> None:
+def test_progress_indicator(mocker: MockerFixture, ui: RichUIProvider) -> None:
   """Test that progress_indicator correctly uses rich.progress.Progress."""
+  mock_progress_class = mocker.patch('wptgen.ui.Progress')
   mock_progress = mock_progress_class.return_value.__enter__.return_value
   mock_progress.add_task.return_value = 'task_1'
 
@@ -200,3 +201,94 @@ def test_progress_indicator(mock_progress_class: MagicMock, ui: RichUIProvider) 
   mock_progress.add_task.assert_called_once_with('Testing...', total=10)
   mock_progress.advance.assert_called_once_with('task_1', advance=2)
   mock_progress.update.assert_called_once_with('task_1', description='Updated (8 outstanding)')
+
+
+def test_stream_text(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.stream_text('test')
+  mock_console.out.assert_called_once_with('test', end='')
+
+
+def test_print_diff(ui: RichUIProvider, mock_console: MagicMock, mocker: MockerFixture) -> None:
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
+  ui.print_diff('old\n', 'new\n', 'file.txt')
+  mock_syntax.assert_called_once()
+  mock_console.print.assert_called_once()
+
+
+def test_print_diff_empty(
+  ui: RichUIProvider, mock_console: MagicMock, mocker: MockerFixture
+) -> None:
+  mock_syntax = mocker.patch('wptgen.ui.Syntax')
+  ui.print_diff('same\n', 'same\n', 'file.txt')
+  mock_syntax.assert_not_called()
+  mock_console.print.assert_not_called()
+
+
+def test_on_phase_complete(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.on_phase_complete('Phase 1')
+  mock_console.print.assert_called_once_with('[bold green]✔[/bold green] Phase 1 complete.')
+
+
+def test_report_context_summary(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_context_summary(1, 2, 3, 4)
+  mock_console.print.assert_called_once()
+
+
+def test_report_token_usage_warnings(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_token_usage('Phase', 'Model', [(100, True, 'Task')], 100)
+  assert mock_console.print.call_count == 2
+
+
+def test_report_token_usage_auto_confirm(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_token_usage('Phase', 'Model', [(100, False, 'Task')], 100, auto_confirmed=True)
+  assert mock_console.print.call_count == 2
+
+
+def test_report_audit_worksheet_covered(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_audit_worksheet('R1: Req -> [COVERED by file.html]')
+  assert mock_console.print.call_count == 2
+
+
+def test_report_generation_start(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_generation_start(5)
+  mock_console.print.assert_called_once_with('\nGenerating [bold]5[/bold] tests in parallel...')
+
+
+def test_report_test_generated_success(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_test_generated('test', True, Path('/tmp/test.html'))
+  mock_console.print.assert_called_once()
+
+
+def test_report_test_generated_success_fallback(
+  ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+  ui.report_test_generated('test', True, Path('/tmp/test.html'), fallback=True)
+  mock_console.print.assert_called_once()
+
+
+def test_report_test_generated_fail(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_test_generated('test', False)
+  mock_console.print.assert_called_once_with('[bold red]✘[/bold red] Failed to generate: test')
+
+
+def test_report_generation_summary_empty(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_generation_summary([])
+  mock_console.print.assert_called_once_with(
+    '[bold red]✘[/bold red] No tests were successfully generated.'
+  )
+
+
+def test_progress_indicator_no_outstanding(mocker: MockerFixture, ui: RichUIProvider) -> None:
+  mock_progress_class = mocker.patch('wptgen.ui.Progress')
+  mock_progress = mock_progress_class.return_value.__enter__.return_value
+  mock_progress.add_task.return_value = 'task_1'
+
+  with ui.progress_indicator('Testing...', total=10) as indicator:
+    indicator.update(description='Updated')
+
+  mock_progress.update.assert_called_once_with('task_1', description='Updated')
+
+
+def test_report_token_usage_multiple(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  ui.report_token_usage('Phase', 'Model', [(100, False, 'Task'), (200, False, 'Task2')], 300)
+  assert mock_console.print.call_count == 2
