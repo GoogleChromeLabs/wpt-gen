@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.streaming import stream_adk_event_to_ui
+from wptgen.agents.streaming import ADKStreamManager
 from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import Config
 from wptgen.models import TestType, WorkflowContext
@@ -85,16 +86,34 @@ async def generate_test_with_adk(
     test_type_guide=test_type_guide,
   )
 
-  agent = Agent(
-    name='wpt_generator',
-    model=model_string,
-    instruction=instruction,
-    tools=list(tools),
-  )
+  # Prevent ADK's internal template parser from crashing when it encounters
+  # WPT syntax like `{{host}}` or `{{variable}}` by mapping them to themselves.
+  adk_state: dict[str, Any] = {}
+  for match in re.finditer(r'\{+([^{}]+)\}+', instruction):
+    var_name = match.group(1).strip()
+    if var_name.isidentifier():
+      adk_state[var_name] = match.group(0)
+
+  agent_kwargs: dict[str, Any] = {
+    'name': 'wpt_generator',
+    'model': model_string,
+    'instruction': instruction,
+    'tools': list(tools),
+  }
+
+  # Enable native thought blocks for compatible Gemini models
+  if config.provider.lower() == 'gemini':
+    model_lower = model_string.lower()
+    if 'pro' in model_lower or 'thinking' in model_lower:
+      agent_kwargs['generate_content_config'] = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(include_thoughts=True)
+      )
+
+  agent = Agent(**agent_kwargs)
 
   session_service = InMemorySessionService()  # type: ignore
   session = await session_service.create_session(
-    app_name='wpt-gen', user_id='cli_user', session_id=f'gen_{root_name}'
+    app_name='wpt-gen', user_id='cli_user', session_id=f'gen_{root_name}', state=adk_state
   )
   runner = Runner(agent=agent, app_name='wpt-gen', session_service=session_service)
 
@@ -121,9 +140,9 @@ async def generate_test_with_adk(
   events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
 
   # We just consume the stream to let the agent run.
-  # (Task 4 will add the UI streaming integration here)
-  async for event in events:
-    stream_adk_event_to_ui(event, ui)
+  with ADKStreamManager(ui) as stream_manager:
+    async for event in events:
+      stream_manager.process_event(event)
 
   results = []
   # If the agent correctly called the completion tool, we read those files back

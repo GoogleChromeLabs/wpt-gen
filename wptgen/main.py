@@ -13,7 +13,9 @@
 # limitations under the License.
 
 
+import logging
 import shutil
+import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as app_version
 from pathlib import Path
@@ -38,6 +40,22 @@ from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
 from wptgen.models import WorkflowPhase
 from wptgen.ui import RichUIProvider
+
+
+class DimYellowWarningFormatter(logging.Formatter):
+  """Custom formatter to render Python warnings as dim yellow."""
+
+  def format(self, record: logging.LogRecord) -> str:
+    msg = super().format(record)
+    if record.levelno == logging.WARNING:
+      return f'\033[2;33m{msg}\033[0m'
+    return msg
+
+
+# Apply the custom warning formatter globally
+handler = logging.StreamHandler(sys.stderr)
+handler.setFormatter(DimYellowWarningFormatter('%(levelname)s:%(name)s:%(message)s'))
+logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
 
 # Initialize Typer app and Rich console
 app = typer.Typer(
