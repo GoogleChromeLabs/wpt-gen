@@ -70,12 +70,12 @@ Write the appropriate WPT test to strictly satisfy the `<description>` using the
 Before completing the task, you MUST validate that the code you generated is syntactically correct, properly formatted, and functions as intended.
 
 1. **Linting:** Use the `run_wpt_lint` tool on the file you created/modified.
-   - If the linter reports errors (e.g., `TRAILING WHITESPACE`, `INDENT TABS`), you MUST use the `write_file` tool to fix the errors and re-run the linter until it passes cleanly.
+   - If the linter reports errors (e.g., `TRAILING WHITESPACE`, `INDENT TABS`), you MUST use the `replace_in_file` tool to fix the errors and re-run the linter until it passes cleanly. This saves context tokens compared to rewriting the entire file.
 
 2. **Execution:** Use the `run_wpt_test` tool on the file you created/modified.
    - **CRITICAL RULE - Manual Tests:** If the test you created or modified is a manual test (e.g., ends in `-manual.html` or requires human intervention), you **MUST SKIP** this execution step entirely. Rely strictly on the linter for manual tests.
    - **Analyze the Output:** Read the test runner's output carefully.
-   - **Self-Correct:** If the runner reports a `Harness Error`, `SyntaxError`, a timeout, or a failure that indicates a flaw in your test logic (e.g., calling an undefined helper function or making an incorrect assertion), you MUST use the `write_file` tool to fix the bug, and re-run the test.
+   - **Self-Correct:** If the runner reports a `Harness Error`, `SyntaxError`, a timeout, or a failure that indicates a flaw in your test logic (e.g., calling an undefined helper function or making an incorrect assertion), you MUST use the `replace_in_file` or `write_file` tools to fix the bug, and re-run the test. Use `replace_in_file` whenever possible.
    - Repeat this execute-and-fix loop until the test executes successfully without syntax or harness errors. **Maximum 3 attempts.** If the test still fails after 3 correction attempts, stop debugging and proceed to finalize. *(Note: If the test fails because the browser genuinely does not support the feature, that is acceptable—your goal is to ensure the **test code** itself is valid.)*
 
 ### 7. Map the Test in WEB_FEATURES.yml
