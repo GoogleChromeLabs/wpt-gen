@@ -117,20 +117,23 @@ async def run_context_assembly(
 
   wpt_context = gather_local_test_context(test_paths, config.wpt_path)
 
-  ui.print('Fetching MDN documentation...')
   mdn_contents: list[str] | None = None
-  mdn_urls = fetch_mdn_urls(web_feature_id)
-  if mdn_urls:
-    with ui.status(f'Fetching {len(mdn_urls)} MDN pages...'):
-      # Fetch all MDN pages asynchronously using to_thread for the synchronous fetch_and_extract_text
-      results = await asyncio.gather(
-        *[asyncio.to_thread(fetch_and_extract_text, url) for url in mdn_urls]
-      )
-      mdn_contents = [
-        f'# Documentation from {url}\n\n{res}'
-        for url, res in zip(mdn_urls, results, strict=True)
-        if res
-      ]
+  if config.include_mdn_docs:
+    ui.print('Fetching MDN documentation...')
+    mdn_urls = fetch_mdn_urls(web_feature_id)
+    if mdn_urls:
+      with ui.status(f'Fetching {len(mdn_urls)} MDN pages...'):
+        # Fetch all MDN pages asynchronously using to_thread for the synchronous fetch_and_extract_text
+        results = await asyncio.gather(
+          *[asyncio.to_thread(fetch_and_extract_text, url) for url in mdn_urls]
+        )
+        mdn_contents = [
+          f'# Documentation from {url}\n\n{res}'
+          for url, res in zip(mdn_urls, results, strict=True)
+          if res
+        ]
+  else:
+    ui.print('Skipping MDN documentation fetch (not requested).')
 
   ui.report_context_summary(
     sum(len(content) for content in spec_contents.values()),

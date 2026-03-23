@@ -74,6 +74,7 @@ class Config:
   spec_urls: list[str] | None = None
   feature_description: str | None = None
   detailed_requirements: bool = False
+  include_mdn_docs: bool = False
   draft: bool = False
   chromestatus: bool = False
   single_prompt_requirements: bool = False
@@ -189,6 +190,7 @@ def load_config(
   spec_urls_override: list[str] | None = None,
   feature_description_override: str | None = None,
   detailed_requirements_override: bool = False,
+  include_mdn_docs_override: bool = False,
   draft_override: bool = False,
   chromestatus_override: bool = False,
   single_prompt_requirements_override: bool = False,
@@ -282,6 +284,7 @@ def load_config(
   detailed_requirements = detailed_requirements_override or yaml_data.get(
     'detailed_requirements', False
   )
+  include_mdn_docs = include_mdn_docs_override or yaml_data.get('include_mdn_docs', False)
   single_prompt_requirements = single_prompt_requirements_override or yaml_data.get(
     'single_prompt_requirements', False
   )
@@ -348,6 +351,7 @@ def load_config(
     spec_urls=spec_urls_override,
     feature_description=feature_description_override,
     detailed_requirements=detailed_requirements,
+    include_mdn_docs=include_mdn_docs,
     draft=draft,
     chromestatus=chromestatus,
     single_prompt_requirements=single_prompt_requirements,

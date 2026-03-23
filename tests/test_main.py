@@ -87,6 +87,7 @@ def default_load_config_kwargs() -> dict[str, bool | str | int | None | list[str
     'spec_urls_override': None,
     'feature_description_override': None,
     'detailed_requirements_override': False,
+    'include_mdn_docs_override': False,
     'draft_override': False,
     'single_prompt_requirements_override': False,
     'use_lightweight_override': False,

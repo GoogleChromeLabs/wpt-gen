@@ -107,6 +107,7 @@ async def test_run_context_assembly_with_mdn(
   mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
   """Test context assembly with MDN documentation fetching."""
+  mock_config.include_mdn_docs = True
   mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
   mocker.patch(
     'wptgen.phases.context_assembly.extract_feature_metadata',
@@ -129,6 +130,34 @@ async def test_run_context_assembly_with_mdn(
   assert isinstance(context.mdn_contents, list)
   assert len(context.mdn_contents) == 2
   mock_ui.report_context_summary.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_without_mdn(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+  """Test context assembly skips MDN fetching when include_mdn_docs is False."""
+  mock_config.include_mdn_docs = False
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
+  mocker.patch(
+    'wptgen.phases.context_assembly.extract_feature_metadata',
+    return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  mock_fetch = mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text')
+  mock_fetch_mdn = mocker.patch('wptgen.phases.context_assembly.fetch_mdn_urls')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
+
+  mock_fetch.return_value = 'Spec Content'
+
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  assert context is not None
+  assert context.mdn_contents is None
+  mock_fetch_mdn.assert_not_called()
+  mock_ui.print.assert_any_call('Skipping MDN documentation fetch (not requested).')
 
 
 @pytest.mark.asyncio

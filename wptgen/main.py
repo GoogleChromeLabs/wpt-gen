@@ -365,6 +365,13 @@ def generate(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  include_mdn_docs: Annotated[
+    bool,
+    typer.Option(
+      '--include-mdn-docs',
+      help='Include MDN documentation in requirements extraction.',
+    ),
+  ] = False,
   include_thoughts: Annotated[
     bool,
     typer.Option(
@@ -482,6 +489,7 @@ def generate(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      include_mdn_docs_override=include_mdn_docs,
       draft_override=draft,
       single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
@@ -855,6 +863,13 @@ def audit(
       help='Use a more detailed, iterative requirements extraction process.',
     ),
   ] = False,
+  include_mdn_docs: Annotated[
+    bool,
+    typer.Option(
+      '--include-mdn-docs',
+      help='Include MDN documentation in requirements extraction.',
+    ),
+  ] = False,
   include_thoughts: Annotated[
     bool,
     typer.Option(
@@ -965,6 +980,7 @@ def audit(
       spec_urls_override=spec_urls_list,
       feature_description_override=description,
       detailed_requirements_override=detailed_requirements,
+      include_mdn_docs_override=include_mdn_docs,
       draft_override=draft,
       single_prompt_requirements_override=single_prompt_requirements,
       use_lightweight_override=use_lightweight,
