@@ -45,13 +45,12 @@ def test_get_recent_test_files_success(
 
     mock_subprocess_run.assert_called_once()
     args, kwargs = mock_subprocess_run.call_args
-    assert args[0][:6] == [
+    assert args[0][:5] == [
       'git',
       'log',
       '--name-only',
       '--pretty=format:',
       '--diff-filter=d',
-      '--',
     ]
 
 
@@ -114,7 +113,7 @@ def test_get_recent_test_files_allowed_files(
   mock_subprocess_run: MagicMock, mock_path_methods: MagicMock
 ) -> None:
   mock_result = MagicMock()
-  mock_result.stdout = 'dir/test1.html\ndir/test2.html\ndir/test3.html\n'
+  mock_result.stdout = 'test1.html\ntest2.html\ntest3.html\n'
   mock_subprocess_run.return_value = mock_result
 
   allowed = {str(Path('dir/test2.html').resolve())}

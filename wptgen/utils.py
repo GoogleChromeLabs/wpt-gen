@@ -327,9 +327,8 @@ def get_recent_test_files(
         '--name-only',
         '--pretty=format:',
         '--diff-filter=d',
-        '--',
-        str(target_path),
       ],
+      cwd=str(target_path),
       capture_output=True,
       text=True,
       check=True,
@@ -352,7 +351,8 @@ def get_recent_test_files(
     if not line.endswith(file_extension):
       continue
 
-    filepath = Path(line)
+    # git log returns paths relative to the repo root
+    filepath = target_path / line
     if not filepath.exists() or not filepath.is_file():
       continue
 

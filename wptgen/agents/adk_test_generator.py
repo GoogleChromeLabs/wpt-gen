@@ -130,7 +130,7 @@ async def generate_test_with_adk(
 
   agent = Agent(**agent_kwargs)
 
-  session_service = InMemorySessionService()  # type: ignore
+  session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
   session = await session_service.create_session(
     app_name='wpt-gen', user_id='cli_user', session_id=f'gen_{root_name}', state=adk_state
   )
@@ -165,6 +165,9 @@ async def generate_test_with_adk(
         stream_manager.process_event(event)
 
     results = []
+    if not generated_paths:
+      ui.warning('Agent finished but did not report any generated paths.')
+
     # If the agent correctly called the completion tool, we read those files back
     for path_str in generated_paths:
       try:

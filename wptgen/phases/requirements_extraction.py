@@ -25,6 +25,34 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 
 
+def _load_cached_requirements(
+  web_feature_id: str,
+  cache_file: Path,
+  config: Config,
+  ui: UIProvider,
+) -> str | None:
+  if not cache_file.exists():
+    return None
+
+  ui.info(f'Found cached requirements for {web_feature_id}.')
+  use_cache = False
+  if config.yes_cache:
+    use_cache = True
+    ui.success('Automatically using cached requirements (--yes-cache).')
+  elif config.no_cache:
+    use_cache = False
+    ui.info('Automatically ignoring cached requirements (--no-cache).')
+  else:
+    use_cache = ui.confirm('Use cached requirements?')
+
+  if use_cache:
+    requirements_xml = cache_file.read_text(encoding='utf-8')
+    if not config.yes_cache:
+      ui.success('Using cached requirements.')
+    return requirements_xml
+  return None
+
+
 async def run_requirements_extraction(
   context: WorkflowContext,
   config: Config,
@@ -39,24 +67,8 @@ async def run_requirements_extraction(
 
   web_feature_id = context.feature_id
   cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
-  requirements_xml = None
 
-  if cache_file.exists():
-    ui.info(f'Found cached requirements for {web_feature_id}.')
-    use_cache = False
-    if config.yes_cache:
-      use_cache = True
-      ui.success('Automatically using cached requirements (--yes-cache).')
-    elif config.no_cache:
-      use_cache = False
-      ui.info('Automatically ignoring cached requirements (--no-cache).')
-    else:
-      use_cache = ui.confirm('Use cached requirements?')
-
-    if use_cache:
-      requirements_xml = cache_file.read_text(encoding='utf-8')
-      if not config.yes_cache:
-        ui.success('Using cached requirements.')
+  requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
     extraction_prompt = jinja_env.get_template('requirements_extraction.jinja').render(
@@ -117,24 +129,8 @@ async def run_requirements_extraction_categorized(
 
   web_feature_id = context.feature_id
   cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
-  requirements_xml = None
 
-  if cache_file.exists():
-    ui.info(f'Found cached requirements for {web_feature_id}.')
-    use_cache = False
-    if config.yes_cache:
-      use_cache = True
-      ui.success('Automatically using cached requirements (--yes-cache).')
-    elif config.no_cache:
-      use_cache = False
-      ui.info('Automatically ignoring cached requirements (--no-cache).')
-    else:
-      use_cache = ui.confirm('Use cached requirements?')
-
-    if use_cache:
-      requirements_xml = cache_file.read_text(encoding='utf-8')
-      if not config.yes_cache:
-        ui.success('Using cached requirements.')
+  requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
     metadata = context.metadata
@@ -272,24 +268,8 @@ async def run_requirements_extraction_iterative(
 
   web_feature_id = context.feature_id
   cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
-  requirements_xml = None
 
-  if cache_file.exists():
-    ui.info(f'Found cached requirements for {web_feature_id}.')
-    use_cache = False
-    if config.yes_cache:
-      use_cache = True
-      ui.success('Automatically using cached requirements (--yes-cache).')
-    elif config.no_cache:
-      use_cache = False
-      ui.info('Automatically ignoring cached requirements (--no-cache).')
-    else:
-      use_cache = ui.confirm('Use cached requirements?')
-
-    if use_cache:
-      requirements_xml = cache_file.read_text(encoding='utf-8')
-      if not config.yes_cache:
-        ui.success('Using cached requirements.')
+  requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
     all_requirements: list[str] = []

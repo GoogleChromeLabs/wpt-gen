@@ -215,7 +215,9 @@ def create_agent_tools(
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
       MAX_RESULTS = 100
-      iterator = (str(p.relative_to(wpt_path)) for p in target_dir.rglob(pattern) if p.is_file())
+      iterator = (
+        p.relative_to(wpt_path).as_posix() for p in target_dir.rglob(pattern) if p.is_file()
+      )
       matches = list(itertools.islice(iterator, MAX_RESULTS + 1))
       if len(matches) > MAX_RESULTS:
         return {
@@ -242,7 +244,7 @@ def create_agent_tools(
         return {'status': 'error', 'error': f'Directory not found: {directory}'}
 
       MAX_RESULTS = 100
-      iterator = (str(p.relative_to(wpt_path)) for p in target_dir.iterdir())
+      iterator = (p.relative_to(wpt_path).as_posix() for p in target_dir.iterdir())
       entries = list(itertools.islice(iterator, MAX_RESULTS + 1))
       if len(entries) > MAX_RESULTS:
         return {
@@ -347,7 +349,7 @@ def create_agent_tools(
       if not target.is_file():
         return {'status': 'error', 'error': f'File not found: {file_path}'}
 
-      rel_path = str(target.relative_to(wpt_path))
+      rel_path = target.relative_to(wpt_path).as_posix()
 
       # We use subprocess.run directly as these tools are executed synchronously by ADK currently
       try:
@@ -392,7 +394,7 @@ def create_agent_tools(
       if not target.is_file():
         return {'status': 'error', 'error': f'File not found: {file_path}'}
 
-      rel_path = str(target.relative_to(wpt_path))
+      rel_path = target.relative_to(wpt_path).as_posix()
 
       with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
         log_path = f.name
@@ -479,7 +481,9 @@ def create_agent_tools(
       matches = find_feature_tests(str(wpt_path), web_feature_id)
       if matches:
         # Clean up paths to be relative for the agent's consumption
-        rel_matches = [str(Path(p).resolve().relative_to(wpt_path.resolve())) for p in matches]
+        rel_matches = [
+          Path(p).resolve().relative_to(wpt_path.resolve()).as_posix() for p in matches
+        ]
         return {'status': 'success', 'test_files': rel_matches}
       return {
         'status': 'success',
@@ -563,13 +567,15 @@ def create_agent_tools(
 
                 if regex.search(line):
                   if len(matches) < MAX_MATCHES:
-                    # To match grep's format: /absolute/path:line_num:matched_text
-                    matches.append(f'{file_path}:{line_num}:{line.rstrip(chr(10))}')
+                    # Return path relative to wpt_root
+                    rel_path_str = file_path.relative_to(wpt_path).as_posix()
+                    matches.append(f'{rel_path_str}:{line_num}:{line.rstrip(chr(10))}')
                   else:
                     has_more_matches = True
                     break
           except (UnicodeDecodeError, OSError):
-            matches = [m for m in matches if not m.startswith(f'{file_path}:')]
+            rel_path_str = file_path.relative_to(wpt_path).as_posix()
+            matches = [m for m in matches if not m.startswith(f'{rel_path_str}:')]
             continue
 
           if has_more_matches:
