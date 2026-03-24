@@ -19,8 +19,10 @@ from jinja2 import Environment, FileSystemLoader
 _TEMPLATE_DIR = Path(__file__).parent.parent / 'wptgen' / 'templates'
 
 
-def test_coverage_audit_system_template_brief() -> None:
-  env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)))
+def test_coverage_audit_system_template_brief_rendering() -> None:
+  """Verifies that the coverage audit system templates correctly render brief vs. full suggestions."""
+  template_path = _TEMPLATE_DIR
+  env = Environment(loader=FileSystemLoader(str(template_path)))
   template = env.get_template('coverage_audit_system.jinja')
 
   # Test with brief_suggestions=True

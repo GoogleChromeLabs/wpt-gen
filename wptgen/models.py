@@ -32,13 +32,6 @@ class TestType(Enum):
   CRASHTEST = 'Crashtest'
 
 
-# Map test types to their corresponding style guide resource files
-STYLE_GUIDE_MAP = {
-  TestType.JAVASCRIPT: 'javascript_html_style_guide.md',
-  TestType.REFTEST: 'reftest_style_guide.md',
-  TestType.CRASHTEST: 'crashtest_style_guide.md',
-}
-
 REQUIREMENT_CATEGORIES = [
   ('Existence', "Rules defining the feature's surface area (interfaces, methods, properties)."),
   (
