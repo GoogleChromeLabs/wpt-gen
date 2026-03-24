@@ -84,6 +84,28 @@ def test_clear_cache_success(
   assert cache_dir.exists()  # The directory itself should remain, but empty
 
 
+def test_clear_cache_force(
+  mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
+  """Test successful cache clearing when using the --force flag (bypasses confirmation)."""
+  assert mock_config.cache_path is not None
+  cache_dir = Path(mock_config.cache_path)
+
+  # Populate cache
+  (cache_dir / 'file1.txt').write_text('content1')
+  (cache_dir / 'subdir').mkdir()
+  (cache_dir / 'subdir' / 'file2.txt').write_text('content2')
+
+  result = runner.invoke(app, ['clear-cache', '--force'])
+
+  assert result.exit_code == 0
+  mock_ui.confirm.assert_not_called()
+  assert 'Cache cleared successfully' in normalize_ws(result.stdout)
+  assert not (cache_dir / 'file1.txt').exists()
+  assert not (cache_dir / 'subdir').exists()
+  assert cache_dir.exists()
+
+
 def test_clear_cache_aborted(
   mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
