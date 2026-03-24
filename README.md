@@ -20,8 +20,8 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
-*   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved blueprints.
-*   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai`), OpenAI, and Anthropic models.
+*   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved blueprints using an autonomous agent powered by `google-adk`.
+*   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai` and thinking models), OpenAI, and Anthropic models.
 
 ## How it Works
 
@@ -55,7 +55,7 @@ For an in-depth explanation of the internal logic, inputs, outputs, and LLM inte
 1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
 3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
-4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using Jinja2 templates and specific style guide instructions.
+4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using an autonomous agent powered by `google-adk`, which leverages specialized file-system tools and style guide instructions.
 
 ## Prerequisites
 
@@ -203,6 +203,10 @@ make check
 # Prepare for PR (runs lint-fix, typecheck, and test)
 make presubmit
 ```
+
+### Release Process
+
+WPT-Gen utilizes a CI/CD pipeline via GitHub Actions. Creating and publishing a new **GitHub Release** (e.g., `v1.0.0`) automatically triggers the `publish.yml` workflow, which securely builds and uploads the package to PyPI. For more details, see the [Contributing Guide](docs/contributing.md).
 
 ## AI Assistant Integration
 
