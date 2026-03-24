@@ -246,7 +246,7 @@ def retry(
 
       # Satisfy the type checker. This code is mathematically unreachable at runtime
       # because the loop will always either return or raise on its final iteration.
-      raise AssertionError('Unreachable code reached in retry decorator')  # pragma: no cover
+      raise AssertionError('Unreachable code reached in retry decorator')
 
     return wrapper
 

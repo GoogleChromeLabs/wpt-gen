@@ -396,3 +396,68 @@ async def test_run_async_workflow_brief_suggestions(
 
   mock_provide.assert_called_once_with(context, engine.config, engine.ui)
   mock_gen.assert_not_called()
+
+
+def test_engine_hydrate_context_exceptions(
+  mocker: MockerFixture, tmp_path: Path, mock_config: Config
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  mock_config.state_dir = str(tmp_path / 'state')
+  state_dir = Path(mock_config.state_dir)
+  state_dir.mkdir(parents=True, exist_ok=True)
+
+  # Write valid JSON but wrong types to trigger exceptions after load
+  (state_dir / 'resume_mock_feature.json').write_text('null')
+  (state_dir / 'requirements.json').write_text('null')
+  (state_dir / 'blueprints.json').write_text('null')
+
+  # create generated_tests dir and tests json
+  tests_dir = state_dir / 'generated_tests'
+  tests_dir.mkdir()
+  (tests_dir / 'generated_tests.json').write_text('[{"invalid": "data"}]')
+
+  engine = WPTGenEngine(mock_config, ui_mock)
+  context = engine._hydrate_context('mock_feature')
+
+  # Verify that the warnings were logged for resume file
+  ui_mock.warning.assert_called_once()
+  assert 'Failed to load resume state' in ui_mock.warning.call_args[0][0]
+
+  # the other files silently pass exceptions, context should not have these fields populated
+  assert context.requirements_xml is None
+  assert context.audit_response is None
+  assert context.generated_tests is None
+
+
+def test_engine_hydrate_context_html_files(
+  mocker: MockerFixture, tmp_path: Path, mock_config: Config
+) -> None:
+  ui_mock = MagicMock()
+  mocker.patch('wptgen.engine.get_llm_client')
+  mock_config.state_dir = str(tmp_path / 'state')
+  state_dir = Path(mock_config.state_dir)
+  state_dir.mkdir(parents=True, exist_ok=True)
+
+  # create generated_tests dir
+  tests_dir = state_dir / 'generated_tests'
+  tests_dir.mkdir()
+
+  # Create html files
+  html_file_1 = tests_dir / 'test1.html'
+  html_file_1.write_text('<html>test1</html>')
+  html_file_2 = tests_dir / 'test2.html'
+  html_file_2.write_text('<html>test2</html>')
+
+  engine = WPTGenEngine(mock_config, ui_mock)
+  context = engine._hydrate_context('mock_feature')
+
+  # Verify html files were hydrated
+  ui_mock.info.assert_called_once()
+  assert 'Hydrating 2 tests from' in ui_mock.info.call_args[0][0]
+
+  assert context.generated_tests is not None
+  assert len(context.generated_tests) == 2
+  paths = [p for p, c, s in context.generated_tests]
+  assert html_file_1 in paths
+  assert html_file_2 in paths

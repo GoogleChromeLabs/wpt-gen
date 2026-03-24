@@ -110,7 +110,9 @@ python_version = "3.10"
 strict = true
 
 [tool.pytest.ini_options]
+addopts = "--cov=wptgen --cov-report=term-missing --cov-fail-under=80"
 filterwarnings = [
     "ignore::UserWarning:google.adk.features._feature_decorator",
     "ignore:\\[EXPERIMENTAL\\] feature FeatureName\\.SKILL_TOOLSET is enabled:UserWarning",
+    "ignore::FutureWarning:google.api_core.*",
 ]
