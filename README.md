@@ -40,14 +40,12 @@ flowchart TD
         F --> G[Test Blueprints]
     end
 
-    subgraph Generation[Test Generation & Execution]
+    subgraph Generation[Test Generation]
         G --> H{{Test Generation}}
-        H --> I{{Evaluation}}
-        I --> J{{Test Execution & Self-Correction}}
     end
 
     classDef llm fill:#4B0082,stroke:#333,stroke-width:2px;
-    class E,F,H,I,J llm;
+    class E,F,H llm;
 ```
 
 ### Workflow Phases
@@ -58,8 +56,6 @@ For an in-depth explanation of the internal logic, inputs, outputs, and LLM inte
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
 3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
 4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using Jinja2 templates and specific style guide instructions.
-5.  **Phase 5: Evaluation:** A secondary LLM pass reviews the generated code against WPT standards and the original requirements, providing fixes or optimizations before final output.
-6.  **Phase 6: Test Execution & Self-Correction:** Integrates with the `./wpt run` CLI to execute the generated tests in a real browser environment. If tests fail, it automatically parses the logs, feeds the error output back into the LLM, and attempts to dynamically correct the test code in a loop.
 
 ## Prerequisites
 
@@ -171,10 +167,9 @@ wpt-gen generate font-family
 | `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--draft` | | Enable fetching metadata from the draft features directory. |
-| `--skip-execution` | `--no-exec` | Skip the test execution phase (useful if the browser implementation is not completed). |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
 
-**Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including execution control, retries, and manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).
+**Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).
 
 ### Other Commands
 

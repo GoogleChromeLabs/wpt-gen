@@ -186,12 +186,6 @@ def test_report_generation_summary(ui: RichUIProvider, mock_console: MagicMock) 
   assert mock_console.print.call_count == 3
 
 
-def test_report_evaluation_result(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  """Test report_evaluation_result semantic method."""
-  ui.report_evaluation_result('test.html', success=True)
-  mock_console.print.assert_called_once_with('[green]✔ test.html passed evaluation.[/green]')
-
-
 @patch('wptgen.ui.Progress')
 def test_progress_indicator(mock_progress_class: MagicMock, ui: RichUIProvider) -> None:
   """Test that progress_indicator correctly uses rich.progress.Progress."""

@@ -37,7 +37,6 @@ def anthropic_config() -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
-      'evaluation': 'lightweight',
     },
   )
 

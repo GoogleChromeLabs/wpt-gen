@@ -112,4 +112,5 @@ strict = true
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::UserWarning:google.adk.features._feature_decorator",
+    "ignore:\\[EXPERIMENTAL\\] feature FeatureName\\.SKILL_TOOLSET is enabled:UserWarning",
 ]

@@ -89,10 +89,6 @@ class UIProvider(Protocol):
     self, root_name: str, success: bool, path: Path | None = None, fallback: bool = False
   ) -> None: ...
   def report_generation_summary(self, generated_tests: list[tuple[Path, str, str]]) -> None: ...
-  def report_evaluation_start(self, count: int) -> None: ...
-  def report_evaluation_result(
-    self, display_names: str, success: bool, updated: bool = False, message: str | None = None
-  ) -> None: ...
 
 
 class RichUIProvider:
@@ -338,20 +334,3 @@ class RichUIProvider:
       self.success(f'{len(generated_tests)} tests generated successfully.')
     else:
       self.error('No tests were successfully generated.')
-
-  def report_evaluation_start(self, count: int) -> None:
-    self.console.print(f'Evaluating [bold]{count}[/bold] test suggestions...')
-
-  def report_evaluation_result(
-    self, display_names: str, success: bool, updated: bool = False, message: str | None = None
-  ) -> None:
-    if success:
-      if updated:
-        self.console.print(f'[cyan]ℹ {display_names} was corrected and updated.[/cyan]')
-      else:
-        self.console.print(f'[green]✔ {display_names} passed evaluation.[/green]')
-    else:
-      if message:
-        self.warning(f'{message}')
-      else:
-        self.warning(f'Evaluation of {display_names} failed or was skipped.')

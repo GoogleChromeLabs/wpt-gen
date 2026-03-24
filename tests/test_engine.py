@@ -38,7 +38,6 @@ def mock_config(tmp_path: Path) -> Config:
       'requirements_extraction': 'reasoning',
       'coverage_audit': 'reasoning',
       'generation': 'lightweight',
-      'evaluation': 'lightweight',
     },
     yes_tokens=False,
     wpt_path=str(tmp_path / 'wpt'),
@@ -91,7 +90,6 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   )
   mock_audit = mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
   mock_gen = mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
-  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
 
   await engine._run_async_workflow('feat-id')
 
@@ -100,7 +98,6 @@ async def test_run_async_workflow_full_path(engine: WPTGenEngine, mocker: Mocker
   mock_extraction_iterative.assert_not_called()
   mock_audit.assert_called_once()
   mock_gen.assert_called_once()
-  mock_eval.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -185,80 +182,6 @@ def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
   assert engine.jinja_env is not None
 
 
-@pytest.mark.asyncio
-async def test_run_async_workflow_skip_evaluation(
-  engine: WPTGenEngine, mock_ui: MagicMock, mocker: MockerFixture
-) -> None:
-  """Verifies that Phase 5: Evaluation is skipped when config.skip_evaluation is True."""
-  engine.config.skip_evaluation = True
-  context = WorkflowContext(feature_id='feat-id')
-  requirements = 'reqs'
-  audit = 'audit'
-  generated_tests = [('path', 'content', 'suggestion')]
-
-  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=requirements)
-  mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
-  mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
-  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
-
-  await engine._run_async_workflow('feat-id')
-
-  mock_eval.assert_not_called()
-  mock_ui.info.assert_called_with('Skipping Phase 5: Evaluation.')
-
-
-@pytest.mark.asyncio
-async def test_run_async_workflow_skip_execution(
-  engine: WPTGenEngine, mock_ui: MagicMock, mocker: MockerFixture
-) -> None:
-  """Verifies that Phase 6: Test Execution is skipped when config.skip_execution is True."""
-  engine.config.skip_execution = True
-  context = WorkflowContext(feature_id='feat-id')
-  requirements = 'reqs'
-  audit = 'audit'
-  generated_tests = [('path', 'content', 'suggestion')]
-
-  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=requirements)
-  mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
-  mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
-  mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
-  mock_exec = mocker.patch('wptgen.engine.run_test_execution', return_value=None)
-
-  await engine._run_async_workflow('feat-id')
-
-  mock_exec.assert_not_called()
-  mock_ui.info.assert_called_with('Skipping Phase 6: Test Execution.')
-
-
-@pytest.mark.asyncio
-async def test_run_async_workflow_agentic_generation(
-  engine: WPTGenEngine, mock_ui: MagicMock, mocker: MockerFixture
-) -> None:
-  """Verifies that Phase 5 and 6 are skipped when config.agentic_generation is True."""
-  engine.config.agentic_generation = True
-  context = WorkflowContext(feature_id='feat-id')
-  requirements = 'reqs'
-  audit = 'audit'
-  generated_tests = [('path', 'content', 'suggestion')]
-
-  mocker.patch('wptgen.engine.run_context_assembly', return_value=context)
-  mocker.patch('wptgen.engine.run_requirements_extraction_categorized', return_value=requirements)
-  mocker.patch('wptgen.engine.run_coverage_audit', return_value=audit)
-  mocker.patch('wptgen.engine.run_test_generation', return_value=generated_tests)
-  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation', return_value=None)
-  mock_exec = mocker.patch('wptgen.engine.run_test_execution', return_value=None)
-
-  await engine._run_async_workflow('feat-id')
-
-  mock_eval.assert_not_called()
-  mock_exec.assert_not_called()
-  mock_ui.info.assert_called_with(
-    'Agentic generation enabled: Skipping Phase 5 (Evaluation) and Phase 6 (Execution) as they will be handled natively downstream.'
-  )
-
-
 def test_engine_load_resume_state_invalid_json(
   mocker: MockerFixture, tmp_path: Path, mock_config: Config
 ) -> None:
@@ -297,8 +220,6 @@ async def test_engine_single_prompt_requirements(
     new_callable=AsyncMock,
     return_value=[(Path('mock_test.html'), 'c', 's')],
   )
-  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')
@@ -330,8 +251,6 @@ async def test_engine_skip_phase_4(mocker: MockerFixture, mock_config: Config) -
     'wptgen.engine.run_coverage_audit', new_callable=AsyncMock, return_value='mock_audit'
   )
   mocker.patch('wptgen.engine.run_test_generation', new_callable=AsyncMock, return_value=[])
-  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')
@@ -382,8 +301,6 @@ async def test_engine_resume_workflow_success(mocker: MockerFixture, mock_config
     new_callable=AsyncMock,
     return_value=[(Path('mock_test.html'), 'c', 's')],
   )
-  mocker.patch('wptgen.engine.run_test_evaluation', new_callable=AsyncMock, return_value=None)
-  mocker.patch('wptgen.engine.run_test_execution', new_callable=AsyncMock, return_value=None)
   mocker.patch('wptgen.engine.WPTGenEngine._save_resume_state')
 
   await engine._run_async_workflow('mock_feature')
@@ -450,8 +367,6 @@ async def test_engine_resume_from_generation(
   mock_gen = mocker.patch(
     'wptgen.engine.run_test_generation', return_value=[(Path('test.html'), 'content', '<xml>')]
   )
-  mock_eval = mocker.patch('wptgen.engine.run_test_evaluation')
-  mock_exec = mocker.patch('wptgen.engine.run_test_execution')
 
   await engine._run_async_workflow('mock_feature')
 
@@ -462,8 +377,6 @@ async def test_engine_resume_from_generation(
 
   # Assert requested phase and subsequent phases were run
   mock_gen.assert_called_once()
-  mock_eval.assert_called_once()
-  mock_exec.assert_called_once()
 
 
 @pytest.mark.asyncio

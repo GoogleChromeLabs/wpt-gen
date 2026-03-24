@@ -43,20 +43,3 @@ The `wpt-gen generate` command orchestrates a complex, multi-phase agentic workf
     *   **System Prompt:** `test_generation_system.jinja`
     *   **User Prompt:** `test_generation.jinja`
 
-## Phase 5: Evaluation (`evaluation.py`)
-
-*   **Responsibility:** Acts as a secondary self-correction step. It reviews the newly generated code against WPT standards and the original requirements, providing fixes or optimizations before final output.
-*   **Inputs:** `WorkflowContext`, `Config`, `LLMClient`, `UIProvider`, `jinja_env`, and the `generated_tests` list from Phase 4.
-*   **Outputs:** Updates the generated files in place on disk with improved, evaluated versions.
-*   **LLM Integration:** Feeds the generated code back into the LLM alongside an evaluation prompt to scrutinize the logic, API usage, and syntax, correcting any hallucinations or errors.
-    *   **System Prompt:** `evaluation_system.jinja`
-    *   **User Prompt:** `evaluation.jinja`
-
-## Phase 6: Test Execution & Self-Correction (`execution.py`)
-
-*   **Responsibility:** Validates the tests by integrating with the local `./wpt run` CLI to execute the generated code in a real browser environment. If tests fail, it enters an iterative self-correction loop.
-*   **Inputs:** `WorkflowContext`, `Config`, `LLMClient`, `UIProvider`, `jinja_env`, and the `generated_tests` list.
-*   **Outputs:** Terminal output of test results. If the LLM successfully corrects a failing test, the files on disk are updated.
-*   **LLM Integration:** Automatically parses the error logs from the `wpt run` subprocess, feeds the stack traces and error output back into the LLM, and requests dynamic code corrections to resolve the failures.
-    *   **System Prompt:** `correction_system.jinja`
-    *   **User Prompt:** `correction.jinja`

@@ -1,10 +1,9 @@
 # Explicit Workflow Phase Resumption and State Checkpointing
 
-WPT-Gen's test generation pipeline is composed of several major phases (Context Assembly, Requirements Extraction, Coverage Audit, Test Generation, Evaluation, and Test Execution). By default, running the `generate` command starts this workflow from the beginning. 
+WPT-Gen's test generation pipeline is composed of several major phases (Context Assembly, Requirements Extraction, Coverage Audit, and Test Generation). By default, running the `generate` command starts this workflow from the beginning. 
 
 However, there are many scenarios where you might want to skip earlier, time-consuming phases and start directly from a specific point. For example:
 - You want to retry generating tests without re-running the expensive requirements extraction and coverage audit LLM calls.
-- You have manually written or modified a directory of WPT `.html` tests and want to run them through the WPT-Gen Test Execution (self-correction) loop.
 - A workflow was interrupted, and you want to resume exactly where it left off.
 
 To support this, WPT-Gen automatically checkpoints its state after every major phase and provides CLI flags to explicitly resume the workflow.
@@ -30,8 +29,6 @@ This flag tells WPT-Gen to skip all phases prior to the specified phase and begi
 - `requirements_extraction` (Phase 2)
 - `coverage_audit` (Phase 3)
 - `generation` (Phase 4)
-- `evaluation` (Phase 5)
-- `execution` (Phase 6)
 
 ### `--state-dir` (or `--tests-dir`)
 
@@ -50,20 +47,7 @@ wpt-gen generate popover \
 
 WPT-Gen will load the requirements, skip Phase 1 and 2, and immediately begin Phase 3 (Coverage Audit).
 
-### Example 2: Running the Execution Loop on Existing Tests
-You can use the execution phase's self-correction loop on tests that you wrote manually or modified locally. 
-
-If you point `--state-dir` (using its alias `--tests-dir` for clarity) to a folder containing `.html` files, WPT-Gen will automatically "hydrate" its internal state with those files and begin the `./wpt run` execution loop:
-
-```bash
-wpt-gen generate popover \
-  --resume-from execution \
-  --tests-dir ./my-manual-tests/
-```
-
-WPT-Gen will skip all generation steps, load the `.html` files from `./my-manual-tests/`, and immediately start running them against the local browser, attempting to automatically fix any test failures it encounters.
-
-### Example 3: Implicit Resumption
+### Example 2: Implicit Resumption
 If a workflow fails unexpectedly (e.g., due to a network error or API timeout), you can simply use the `--resume` flag without specifying a phase. WPT-Gen will look at its default cache, figure out which phases completed successfully, and automatically resume from the next logical step.
 
 ```bash
