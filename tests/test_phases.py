@@ -282,16 +282,20 @@ async def test_run_requirements_extraction_with_explainer(
     feature_id='feat-explainer',
     metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec Content'},
-    explainer_contents=['Explainer Content 1', 'Explainer Content 2'],
+    explainer_contents={
+      'http://explainer1': 'Explainer Content 1',
+      'http://explainer2': 'Explainer Content 2',
+    },
   )
   jinja_env = MagicMock()
   template_mock = MagicMock()
   jinja_env.get_template.return_value = template_mock
 
-  with patch('wptgen.phases.requirements_extraction.generate_safe', return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>'):
-    await run_requirements_extraction(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
+  with patch(
+    'wptgen.phases.requirements_extraction.generate_safe',
+    return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+  ):
+    await run_requirements_extraction(context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path)
 
   # Verify explainer_contents was passed to render
   template_mock.render.assert_any_call(
@@ -299,7 +303,10 @@ async def test_run_requirements_extraction_with_explainer(
     feature_description='Desc',
     specs={'http://spec': 'Spec Content'},
     mdn_contents=None,
-    explainer_contents=['Explainer Content 1', 'Explainer Content 2']
+    explainer_contents={
+      'http://explainer1': 'Explainer Content 1',
+      'http://explainer2': 'Explainer Content 2',
+    },
   )
 
 
@@ -312,7 +319,7 @@ async def test_run_requirements_extraction_categorized_with_explainer(
     feature_id='feat-explainer-cat',
     metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec Content'},
-    explainer_contents=['Explainer Content 1'],
+    explainer_contents={'http://explainer1': 'Explainer Content 1'},
   )
   jinja_env = MagicMock()
   template_mock = MagicMock()
@@ -332,7 +339,7 @@ async def test_run_requirements_extraction_categorized_with_explainer(
     feature_description='Desc',
     specs={'http://spec': 'Spec Content'},
     mdn_contents=None,
-    explainer_contents=['Explainer Content 1'],
+    explainer_contents={'http://explainer1': 'Explainer Content 1'},
   )
 
 

@@ -22,8 +22,8 @@ Extract the core normative test requirements for the following feature and speci
 {%- endif %}
 
 {% if explainer_contents -%}
-{% for content in explainer_contents -%}
-<explainer>
+{% for url, content in explainer_contents.items() -%}
+<explainer url="{{url}}">
 {{content}}
 </explainer>
 {% endfor -%}
