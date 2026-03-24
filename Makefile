@@ -1,6 +1,6 @@
 # Makefile for wpt-gen
 
-.PHONY: help install lint lint-fix format typecheck test check presubmit clean build publish
+.PHONY: help install lint lint-fix format typecheck test check presubmit clean build publish license-check license-fix
 
 # Variables
 PYTHON := python3
@@ -9,30 +9,40 @@ RUFF := ruff
 MYPY := mypy
 PYTEST := pytest
 PACKAGE_NAME := wptgen
+ADDLICENSE := go run github.com/google/addlicense@latest
+ADDLICENSE_IGNORE := -ignore '.venv/**' -ignore 'venv/**' -ignore 'build/**' -ignore 'dist/**' -ignore '.mypy_cache/**' -ignore '.ruff_cache/**' -ignore '.pytest_cache/**' -ignore '.git/**' -ignore 'wpt_gen.egg-info/**' -ignore '.agents/**' -ignore '.coverage'
 
 help:
 	@echo "Available commands:"
-	@echo "  make install    - Install dependencies in editable mode"
-	@echo "  make lint       - Check code style and formatting"
-	@echo "  make lint-fix   - Fix code style and formatting issues"
-	@echo "  make format     - Alias for lint-fix"
-	@echo "  make typecheck  - Run static type analysis"
-	@echo "  make test       - Run unit tests"
-	@echo "  make check      - Run all checks (format, typecheck, test)"
-	@echo "  make presubmit  - Run lint-fix, typecheck, and test"
-	@echo "  make build      - Build source and wheel distributions"
-	@echo "  make publish    - Upload the package to PyPI"
-	@echo "  make clear-cache- Clear ruff, mypy, and pytest caches"
-	@echo "  make clean      - Remove build artifacts and caches"
+	@echo "  make install       - Install dependencies in editable mode"
+	@echo "  make lint          - Check code style and formatting (includes license check)"
+	@echo "  make lint-fix      - Fix code style and formatting issues (includes license fix)"
+	@echo "  make format        - Alias for lint-fix"
+	@echo "  make typecheck     - Run static type analysis"
+	@echo "  make test          - Run unit tests"
+	@echo "  make check         - Run all checks (format, typecheck, test)"
+	@echo "  make presubmit     - Run lint-fix, typecheck, and test"
+	@echo "  make build         - Build source and wheel distributions"
+	@echo "  make publish       - Upload the package to PyPI"
+	@echo "  make clear-cache   - Clear ruff, mypy, and pytest caches"
+	@echo "  make clean         - Remove build artifacts and caches"
+	@echo "  make license-check - Check for missing license headers"
+	@echo "  make license-fix   - Add missing license headers"
 
 install:
 	$(PIP) install -e ".[dev]"
 
-lint:
+license-check:
+	$(ADDLICENSE) -check -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
+
+license-fix:
+	$(ADDLICENSE) -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
+
+lint: license-check
 	$(RUFF) check .
 	$(RUFF) format --check .
 
-lint-fix:
+lint-fix: license-fix
 	$(RUFF) format .
 	$(RUFF) check . --fix
 
