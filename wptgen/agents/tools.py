@@ -42,6 +42,8 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   Raises:
       ValueError: If the path attempts to break out of the WPT root.
   """
+  if not target_path.is_absolute():
+    target_path = wpt_root / target_path
   resolved_target = target_path.resolve()
   resolved_root = wpt_root.resolve()
 
