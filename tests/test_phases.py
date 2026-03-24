@@ -310,6 +310,85 @@ async def test_run_requirements_extraction_with_explainer(
 
 
 @pytest.mark.asyncio
+async def test_run_requirements_extraction_fetches_explainer(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test that requirements extraction fetches explainer content if missing from context."""
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
+  metadata.explainer_links = ['http://explainer1']
+  context = WorkflowContext(
+    feature_id='feat-fetch-explainer',
+    metadata=metadata,
+    spec_contents={'http://spec': 'Spec Content'},
+    explainer_contents=None,  # Missing from context
+  )
+  jinja_env = MagicMock()
+  template_mock = MagicMock()
+  jinja_env.get_template.return_value = template_mock
+
+  with patch(
+    'wptgen.phases.requirements_extraction.fetch_explainer_contents',
+    return_value={'http://explainer1': 'Fetched Explainer Content'},
+  ) as mock_fetch:
+    with patch(
+      'wptgen.phases.requirements_extraction.generate_safe',
+      return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+    ):
+      await run_requirements_extraction(
+        context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+      )
+
+    # Verify fetch_explainer_contents was called
+    mock_fetch.assert_called_once_with(['http://explainer1'])
+
+  # Verify explainer_contents was passed to render
+  template_mock.render.assert_any_call(
+    feature_name='Feat',
+    feature_description='Desc',
+    specs={'http://spec': 'Spec Content'},
+    mdn_contents=None,
+    explainer_contents={'http://explainer1': 'Fetched Explainer Content'},
+  )
+
+  # Verify it's stored in context
+  assert context.explainer_contents == {'http://explainer1': 'Fetched Explainer Content'}
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_explainer_fetch_warning(
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+  """Test that a warning is shown if an explainer fails to fetch."""
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
+  metadata.explainer_links = ['http://explainer-fail']
+  context = WorkflowContext(
+    feature_id='feat-fail-explainer',
+    metadata=metadata,
+    spec_contents={'http://spec': 'Spec Content'},
+    explainer_contents=None,
+  )
+  jinja_env = MagicMock()
+  jinja_env.get_template.return_value = MagicMock()
+
+  with patch(
+    'wptgen.phases.requirements_extraction.fetch_explainer_contents',
+    return_value={},  # Failed to fetch
+  ):
+    with patch(
+      'wptgen.phases.requirements_extraction.generate_safe',
+      return_value='<requirements_list></requirements_list>',
+    ):
+      await run_requirements_extraction(
+        context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+      )
+
+  # Verify warning was shown
+  mock_ui.warning.assert_called_with(
+    'Failed to fetch or extract content from explainer: http://explainer-fail'
+  )
+
+
+@pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_with_explainer(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
