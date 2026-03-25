@@ -241,10 +241,7 @@ class WPTGenEngine:
     if self.config.suggestions_only or self.config.brief_suggestions:
       await provide_coverage_report(context, self.config, self.ui)
       # Cleanup resume file if it exists, as this is a terminal state for suggestions-only
-      resume_file = self._get_resume_file_path(web_feature_id)
-      if resume_file.exists():
-        resume_file.unlink()
-
+      self._get_resume_file_path(web_feature_id).unlink(missing_ok=True)
       return context
 
     # Phase 4: User Selection & Generation
@@ -259,8 +256,6 @@ class WPTGenEngine:
       self.ui.success('Skipping Phase 4: Tests already generated.')
 
     # Final cleanup of resume file on success
-    resume_file = self._get_resume_file_path(web_feature_id)
-    if resume_file.exists():
-      resume_file.unlink()
+    self._get_resume_file_path(web_feature_id).unlink(missing_ok=True)
 
     return context

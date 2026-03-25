@@ -121,7 +121,7 @@ def test_validate_wpt_paths_limits(tmp_path: Path) -> None:
   for i in range(51):
     p = wpt_root / f'test{i}.html'
     p.touch()
-    paths.append(str(p.relative_to(wpt_root)))
+    paths.append(p.relative_to(wpt_root).as_posix())
 
   with pytest.raises(ValueError, match='Too many tests found'):
     validate_wpt_paths(paths, str(wpt_root))

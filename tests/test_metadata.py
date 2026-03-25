@@ -28,8 +28,8 @@ def test_update_web_features_yml_create_new(tmp_path: Path) -> None:
   with open(yml_file, encoding='utf-8') as f:
     data = yaml.safe_load(f)
 
-  assert 'my_feature' in data['features']
-  files = data['features']['my_feature']['files']
+  assert any(f.get('name') == 'my_feature' for f in data['features'])
+  files = next(f for f in data['features'] if f.get('name') == 'my_feature')['files']
   assert 'test1.html' in files
   assert 'sub/test2.html' in files
 
@@ -39,7 +39,7 @@ def test_update_web_features_yml_append_existing(tmp_path: Path) -> None:
   yml_file = output_dir / 'WEB_FEATURES.yml'
 
   # Pre-existing file
-  initial_data = {'features': {'my_feature': {'files': ['existing.html', '**/*.js']}}}
+  initial_data = {'features': [{'name': 'my_feature', 'files': ['existing.html', '**/*.js']}]}
   with open(yml_file, 'w', encoding='utf-8') as f:
     yaml.dump(initial_data, f)
 
@@ -54,7 +54,7 @@ def test_update_web_features_yml_append_existing(tmp_path: Path) -> None:
   with open(yml_file, encoding='utf-8') as f:
     data = yaml.safe_load(f)
 
-  files = data['features']['my_feature']['files']
+  files = next(f for f in data['features'] if f.get('name') == 'my_feature')['files']
   assert 'existing.html' in files
   assert 'new_test.html' in files
   assert '**/*.js' in files

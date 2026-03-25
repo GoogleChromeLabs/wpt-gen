@@ -13,13 +13,17 @@
 # limitations under the License.
 
 
+import dataclasses
 import logging
+import os
 import shutil
 import sys
+from collections.abc import Generator
+from contextlib import contextmanager
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as app_version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 import yaml
@@ -85,6 +89,130 @@ app = typer.Typer(
 )
 console = Console()
 ui = RichUIProvider(console)
+
+
+def _check_workflow_flags(
+  wf_yml_update: bool,
+  output_dir: Path | None,
+  use_lightweight: bool,
+  use_reasoning: bool,
+  yes_cache: bool,
+  no_cache: bool,
+  detailed_requirements: bool,
+  single_prompt_requirements: bool,
+) -> None:
+  if wf_yml_update and not output_dir:
+    ui.error('--output-dir is required when using --wf-yml-update.')
+    raise typer.Exit(code=1)
+
+  if use_lightweight and use_reasoning:
+    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+    raise typer.Exit(code=1)
+
+  if yes_cache and no_cache:
+    ui.error('Cannot use both --yes-cache and --no-cache.')
+    raise typer.Exit(code=1)
+
+  if detailed_requirements and single_prompt_requirements:
+    ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
+    raise typer.Exit(code=1)
+
+
+def _print_workflow_banner(web_feature_id: str) -> None:
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
+
+
+@contextmanager
+def _workflow_error_handler() -> Generator[None, None, None]:
+  try:
+    yield
+  except LLMTimeoutError as e:
+    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except ValueError as e:
+    # Catch configuration errors (like missing API keys) and exit gracefully
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except WorkflowError:
+    console.print()
+    console.print(
+      Panel(
+        '[bold red]✘ Workflow completed with errors.[/bold red]',
+        border_style='red',
+        expand=False,
+      )
+    )
+    raise typer.Exit(code=1) from None
+  except Exception as e:
+    # Catch unexpected runtime errors
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
+def _execute_workflow(
+  web_feature_id: str,
+  config: Any,
+  wf_yml_update: bool,
+  output_dir: Path | None,
+  is_audit: bool = False,
+) -> None:
+  config_info = Text.assemble(
+    ('Provider: ', 'bold'),
+    (f'{config.provider}\n', 'green'),
+    ('Model:    ', 'bold'),
+    (f'{config.default_model}', 'green'),
+  )
+  console.print(
+    Panel(
+      config_info,
+      title='[bold]Configuration[/bold]',
+      title_align='left',
+      expand=False,
+      border_style='bright_black',
+    )
+  )
+
+  # Instantiate the core engine
+  engine = WPTGenEngine(config=config, ui=ui)
+
+  # Execute the workflow
+  context = engine.run_workflow(web_feature_id)
+
+  if is_audit:
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
+  else:
+    if wf_yml_update and output_dir and context and context.generated_tests:
+      from wptgen.metadata import update_web_features_yml
+
+      generated_paths = [path for path, _, _ in context.generated_tests]
+      update_web_features_yml(output_dir, web_feature_id, generated_paths)
+      console.print(f'[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]')
+
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ Workflow completed successfully![/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
 
 
 @app.command()
@@ -312,37 +440,19 @@ def generate(
   """
   Generate Web Platform Tests for a specific web feature.
   """
-  banner = Panel(
-    Align.center(
-      Text.from_markup(
-        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
-        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
-      )
-    ),
-    border_style='bright_blue',
+  _print_workflow_banner(web_feature_id)
+  _check_workflow_flags(
+    wf_yml_update=wf_yml_update,
+    output_dir=output_dir,
+    use_lightweight=use_lightweight,
+    use_reasoning=use_reasoning,
+    yes_cache=yes_cache,
+    no_cache=no_cache,
+    detailed_requirements=detailed_requirements,
+    single_prompt_requirements=single_prompt_requirements,
   )
-  console.print(banner)
-  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
-  if wf_yml_update and not output_dir:
-    ui.error('--output-dir is required when using --wf-yml-update.')
-    raise typer.Exit(code=1)
-
-  if use_lightweight and use_reasoning:
-    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
-    raise typer.Exit(code=1)
-
-  if yes_cache and no_cache:
-    ui.error('Cannot use both --yes-cache and --no-cache.')
-    raise typer.Exit(code=1)
-
-  if detailed_requirements and single_prompt_requirements:
-    ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
-    raise typer.Exit(code=1)
-
-  try:
-    # 1. Load configuration (merging YAML, env vars, and CLI overrides)
-
+  with _workflow_error_handler():
     # Convert Path object back to string if it was provided, else pass None
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
     output_dir_str = str(output_dir) if output_dir else None
@@ -385,66 +495,13 @@ def generate(
       run_on_channel_override=run_on_channel,
     )
 
-    config_info = Text.assemble(
-      ('Provider: ', 'bold'),
-      (f'{config.provider}\n', 'green'),
-      ('Model:    ', 'bold'),
-      (f'{config.default_model}', 'green'),
+    _execute_workflow(
+      web_feature_id=web_feature_id,
+      config=config,
+      wf_yml_update=wf_yml_update,
+      output_dir=output_dir,
+      is_audit=False,
     )
-    console.print(
-      Panel(
-        config_info,
-        title='[bold]Configuration[/bold]',
-        title_align='left',
-        expand=False,
-        border_style='bright_black',
-      )
-    )
-
-    # 2. Instantiate the core engine
-    engine = WPTGenEngine(config=config, ui=ui)
-
-    # 3. Execute the workflow
-    # Note: In Phase 1, this will just print the skeleton output
-    context = engine.run_workflow(web_feature_id)
-
-    if wf_yml_update and output_dir and context and context.generated_tests:
-      from wptgen.metadata import update_web_features_yml
-
-      generated_paths = [path for path, _, _ in context.generated_tests]
-      update_web_features_yml(output_dir, web_feature_id, generated_paths)
-      console.print(f'[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]')
-
-    console.print()
-    console.print(
-      Panel(
-        '[bold green]✔ Workflow completed successfully![/bold green]',
-        border_style='green',
-        expand=False,
-      )
-    )
-
-  except LLMTimeoutError as e:
-    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
-  except ValueError as e:
-    # Catch configuration errors (like missing API keys) and exit gracefully
-    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
-  except WorkflowError:
-    console.print()
-    console.print(
-      Panel(
-        '[bold red]✘ Workflow completed with errors.[/bold red]',
-        border_style='red',
-        expand=False,
-      )
-    )
-    raise typer.Exit(code=1) from None
-  except Exception as e:
-    # Catch unexpected runtime errors
-    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
 
 
 @app.command(name='doctor')
@@ -456,8 +513,6 @@ def doctor_command(
   """
   Verify that all system prerequisites are met.
   """
-  import os
-
   success = True
   console.print('[bold]WPT-Gen System Check[/bold]\n')
 
@@ -516,10 +571,6 @@ app.add_typer(config_app, name='config')
 
 def _display_config(config_path: str) -> None:
   try:
-    import dataclasses
-
-    import yaml
-
     config = load_config(config_path=config_path, require_api_key=False)
     config_dict = dataclasses.asdict(config)
 
@@ -580,11 +631,6 @@ def config_set(
   """
   Update an individual configuration setting using dot-notation.
   """
-  from pathlib import Path
-  from typing import Any
-
-  import yaml
-
   path = Path(config_path)
   target_file = path
 
@@ -877,37 +923,19 @@ def audit(
   """
   Perform a gap analysis and generate coverage blueprints without generating WPT files.
   """
-  banner = Panel(
-    Align.center(
-      Text.from_markup(
-        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
-        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
-      )
-    ),
-    border_style='bright_blue',
+  _print_workflow_banner(web_feature_id)
+  _check_workflow_flags(
+    wf_yml_update=wf_yml_update,
+    output_dir=output_dir,
+    use_lightweight=use_lightweight,
+    use_reasoning=use_reasoning,
+    yes_cache=yes_cache,
+    no_cache=no_cache,
+    detailed_requirements=detailed_requirements,
+    single_prompt_requirements=single_prompt_requirements,
   )
-  console.print(banner)
-  console.print(f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
 
-  if wf_yml_update and not output_dir:
-    ui.error('--output-dir is required when using --wf-yml-update.')
-    raise typer.Exit(code=1)
-
-  if use_lightweight and use_reasoning:
-    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
-    raise typer.Exit(code=1)
-
-  if yes_cache and no_cache:
-    ui.error('Cannot use both --yes-cache and --no-cache.')
-    raise typer.Exit(code=1)
-
-  if detailed_requirements and single_prompt_requirements:
-    ui.error('Cannot use both --detailed-requirements and --single-prompt-requirements.')
-    raise typer.Exit(code=1)
-
-  try:
-    # 1. Load configuration (merging YAML, env vars, and CLI overrides)
-
+  with _workflow_error_handler():
     # Convert Path object back to string if it was provided, else pass None
     wpt_dir_str = str(wpt_dir) if wpt_dir else None
     output_dir_str = str(output_dir) if output_dir else None
@@ -950,59 +978,13 @@ def audit(
       run_on_channel_override=run_on_channel,
     )
 
-    config_info = Text.assemble(
-      ('Provider: ', 'bold'),
-      (f'{config.provider}\n', 'green'),
-      ('Model:    ', 'bold'),
-      (f'{config.default_model}', 'green'),
+    _execute_workflow(
+      web_feature_id=web_feature_id,
+      config=config,
+      wf_yml_update=wf_yml_update,
+      output_dir=output_dir,
+      is_audit=True,
     )
-    console.print(
-      Panel(
-        config_info,
-        title='[bold]Configuration[/bold]',
-        title_align='left',
-        expand=False,
-        border_style='bright_black',
-      )
-    )
-
-    # 2. Instantiate the core engine
-    engine = WPTGenEngine(config=config, ui=ui)
-
-    # 3. Execute the workflow
-    # Note: In Phase 1, this will just print the skeleton output
-    engine.run_workflow(web_feature_id)
-
-    console.print()
-    console.print(
-      Panel(
-        '[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]',
-        border_style='green',
-        expand=False,
-      )
-    )
-
-  except LLMTimeoutError as e:
-    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
-  except ValueError as e:
-    # Catch configuration errors (like missing API keys) and exit gracefully
-    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
-  except WorkflowError:
-    console.print()
-    console.print(
-      Panel(
-        '[bold red]✘ Workflow completed with errors.[/bold red]',
-        border_style='red',
-        expand=False,
-      )
-    )
-    raise typer.Exit(code=1) from None
-  except Exception as e:
-    # Catch unexpected runtime errors
-    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
-    raise typer.Exit(code=1) from e
 
 
 @app.command(name='clear-cache')

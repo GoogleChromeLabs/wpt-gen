@@ -405,7 +405,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     except yaml.YAMLError:
       continue
     except Exception as e:
-      print(f'Error processing {yaml_path}: {e}')
+      logger.warning(f'Error processing {yaml_path}: {e}')
 
   # Convert back to a sorted list of absolute string paths
   return sorted(relevant_files)

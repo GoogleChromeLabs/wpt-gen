@@ -243,12 +243,12 @@ def load_config(
     'reasoning': provider_defaults['reasoning'],
   }
 
-  if active_provider == 'gemini':
-    env_var_name = 'GEMINI_API_KEY'
-  elif active_provider == 'openai':
-    env_var_name = 'OPENAI_API_KEY'
-  elif active_provider == 'anthropic':
-    env_var_name = 'ANTHROPIC_API_KEY'
+  env_var_map = {
+    'gemini': 'GEMINI_API_KEY',
+    'openai': 'OPENAI_API_KEY',
+    'anthropic': 'ANTHROPIC_API_KEY',
+  }
+  env_var_name = env_var_map.get(active_provider, f'{active_provider.upper()}_API_KEY')
 
   # Enforce the environment variable constraint for the active provider
   api_key = os.environ.get(env_var_name)

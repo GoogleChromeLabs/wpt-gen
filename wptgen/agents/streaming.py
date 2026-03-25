@@ -142,26 +142,3 @@ class ADKStreamManager:
         )
         self.ui.print()
         self.ui.print(panel)
-
-
-def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
-  """Takes an ADK Event object and streams its contents/actions to the UIProvider.
-
-  Args:
-      event: The incoming ADK Event yielded by the Runner.
-      ui: The WPT-Gen UIProvider instance for formatting output.
-  """
-  if event.content and event.content.parts:
-    for part in event.content.parts:
-      if part.text:
-        # Print directly to standard output for streaming text
-        # We use dim text for streaming agent thoughts/generation logs
-        ui.stream_text(part.text)
-      if part.function_call:
-        # Log the tool execution gracefully
-        tool_name = part.function_call.name or 'unknown'
-        panel = format_tool_call(tool_name, getattr(part.function_call, 'args', None), 'ADK Agent')
-
-        # Render nicely instead of raw JSON
-        ui.print()
-        ui.print(panel)
