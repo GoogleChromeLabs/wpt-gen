@@ -83,17 +83,6 @@ async def run_context_assembly(
     ui.error('Failed to extract spec content.')
     return None
 
-  explainer_contents: dict[str, str] | None = None
-  if metadata.explainer_links:
-    ui.print('Fetching explainer content...')
-    with ui.status('Fetching and extracting text from explainers...'):
-      results = await asyncio.gather(
-        *[asyncio.to_thread(fetch_and_extract_text, url) for url in metadata.explainer_links]
-      )
-      explainer_contents = {
-        url: res for url, res in zip(metadata.explainer_links, results, strict=True) if res
-      }
-
   ui.print('Scanning local WPT repository for existing tests and dependencies...')
   test_paths = find_feature_tests(config.wpt_path, web_feature_id)
   extracted_wpt_urls: list[str] | None = None
@@ -143,7 +132,7 @@ async def run_context_assembly(
     feature_id=web_feature_id,
     metadata=metadata,
     spec_contents=spec_contents,
-    explainer_contents=explainer_contents,
+    explainer_contents=None,
     mdn_contents=mdn_contents,
     wpt_context=wpt_context,
     wpt_urls=extracted_wpt_urls,
