@@ -22,10 +22,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-import rich
 from google.adk.tools.function_tool import FunctionTool
 
 from wptgen.context import fetch_and_extract_text, find_feature_tests
+from wptgen.ui import UIProvider
 
 BINARY_EXTENSIONS = {
   '.png',
@@ -125,7 +125,9 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
   return resolved_target
 
 
-def create_agent_tools(wpt_path: Path, browser: str, channel: str) -> list[FunctionTool]:
+def create_agent_tools(
+  wpt_path: Path, ui: UIProvider, browser: str, channel: str
+) -> list[FunctionTool]:
   """Creates a suite of strictly validated tools for the ADK agent.
 
   All file operations performed by these tools are guaranteed to be restricted
@@ -134,6 +136,9 @@ def create_agent_tools(wpt_path: Path, browser: str, channel: str) -> list[Funct
 
   Args:
       wpt_path: The root directory of the WPT repository.
+      ui: The UIProvider instance for printing output to the terminal.
+      browser: The browser to use for testing.
+      channel: The browser channel.
 
   Returns:
       A list of ADK `FunctionTool` objects.
@@ -397,9 +402,9 @@ def create_agent_tools(wpt_path: Path, browser: str, channel: str) -> list[Funct
             e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else (e.stderr or '')
           )
           if partial_stdout:
-            rich.print(partial_stdout, end='')
+            ui.stream_text(partial_stdout)
           if partial_stderr:
-            rich.print(partial_stderr, end='')
+            ui.stream_text(partial_stderr)
           output_log = f'{partial_stdout}\n{partial_stderr}'.strip()
           return {
             'status': 'error',
@@ -408,9 +413,9 @@ def create_agent_tools(wpt_path: Path, browser: str, channel: str) -> list[Funct
           }
 
         if result.stdout:
-          rich.print(result.stdout, end='')
+          ui.stream_text(result.stdout)
         if result.stderr:
-          rich.print(result.stderr, end='')
+          ui.stream_text(result.stderr)
 
         output_log = f'{result.stdout}\n{result.stderr}'.strip()
 

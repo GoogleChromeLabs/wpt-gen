@@ -79,7 +79,7 @@ async def generate_test_with_adk(
     return {'status': 'success', 'message': 'Generation recorded.'}
 
   tools: list[Any] = list(
-    create_agent_tools(wpt_root, config.run_on_browser, config.run_on_channel)
+    create_agent_tools(wpt_root, ui, config.run_on_browser, config.run_on_channel)
   )
   tools.append(FunctionTool(func=report_generation_complete))
 
