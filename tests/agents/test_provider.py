@@ -13,19 +13,17 @@
 # limitations under the License.
 
 import os
-from collections.abc import Generator
-from unittest.mock import patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.agents.provider import setup_adk_environment
 from wptgen.config import Config
 
 
-@pytest.fixture
-def mock_env() -> Generator[None, None, None]:
-  with patch.dict(os.environ, {}, clear=True):
-    yield
+@pytest.fixture(autouse=True)
+def _mock_env(mocker: MockerFixture) -> None:
+  mocker.patch.dict(os.environ, {}, clear=True)
 
 
 def _create_config(provider: str, api_key: str, default_model: str) -> Config:
@@ -39,52 +37,39 @@ def _create_config(provider: str, api_key: str, default_model: str) -> Config:
   )
 
 
-def test_setup_adk_environment_gemini(mock_env: None) -> None:
-  config = _create_config('gemini', 'test-key-gemini', '')
+@pytest.mark.parametrize(
+  ('provider', 'expected_env_var', 'expected_model'),
+  [
+    ('gemini', 'GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
+    ('google', 'GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
+    ('anthropic', 'ANTHROPIC_API_KEY', 'claude-opus-4-6'),
+    ('openai', 'OPENAI_API_KEY', 'gpt-5.2-high'),
+  ],
+)
+def test_setup_adk_environment_providers(
+  provider: str, expected_env_var: str, expected_model: str
+) -> None:
+  config = _create_config(provider, f'test-key-{provider}', '')
   model = setup_adk_environment(config)
 
-  assert os.environ.get('GOOGLE_API_KEY') == 'test-key-gemini'
-  assert model == 'gemini-3.1-pro-preview'
+  assert os.environ.get(expected_env_var) == f'test-key-{provider}'
+  assert model == expected_model
 
 
-def test_setup_adk_environment_google(mock_env: None) -> None:
-  config = _create_config('google', 'test-key-google', '')
-  model = setup_adk_environment(config)
-
-  assert os.environ.get('GOOGLE_API_KEY') == 'test-key-google'
-  assert model == 'gemini-3.1-pro-preview'
-
-
-def test_setup_adk_environment_anthropic(mock_env: None) -> None:
-  config = _create_config('anthropic', 'test-key-anthropic', '')
-  model = setup_adk_environment(config)
-
-  assert os.environ.get('ANTHROPIC_API_KEY') == 'test-key-anthropic'
-  assert model == 'claude-opus-4-6'
-
-
-def test_setup_adk_environment_openai(mock_env: None) -> None:
-  config = _create_config('openai', 'test-key-openai', '')
-  model = setup_adk_environment(config)
-
-  assert os.environ.get('OPENAI_API_KEY') == 'test-key-openai'
-  assert model == 'gpt-5.2-high'
-
-
-def test_setup_adk_environment_custom_model(mock_env: None) -> None:
+def test_setup_adk_environment_custom_model() -> None:
   config = _create_config('gemini', 'test-key', 'custom-model-123')
   model = setup_adk_environment(config)
 
   assert model == 'custom-model-123'
 
 
-def test_setup_adk_environment_missing_api_key(mock_env: None) -> None:
+def test_setup_adk_environment_missing_api_key() -> None:
   config = _create_config('gemini', '', '')
   with pytest.raises(ValueError, match='An API key is required for the gemini provider.'):
     setup_adk_environment(config)
 
 
-def test_setup_adk_environment_unsupported_provider(mock_env: None) -> None:
+def test_setup_adk_environment_unsupported_provider() -> None:
   config = _create_config('unknown', 'test-key', '')
   with pytest.raises(ValueError, match='Unsupported ADK provider: unknown'):
     setup_adk_environment(config)

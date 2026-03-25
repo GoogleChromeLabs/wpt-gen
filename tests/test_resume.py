@@ -14,7 +14,6 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 from pytest_mock import MockerFixture
@@ -48,10 +47,10 @@ def mock_config(tmp_path: Path) -> Config:
 
 
 @pytest.fixture
-def engine(mock_config: Config) -> WPTGenEngine:
+def engine(mock_config: Config, mocker: MockerFixture) -> WPTGenEngine:
   """Provides a WPTGenEngine instance with a mocked LLM client."""
-  with patch('wptgen.engine.get_llm_client', return_value=MagicMock()):
-    return WPTGenEngine(mock_config, MagicMock())
+  mocker.patch('wptgen.engine.get_llm_client', return_value=mocker.MagicMock())
+  return WPTGenEngine(mock_config, mocker.MagicMock())
 
 
 def test_workflow_context_serialization() -> None:

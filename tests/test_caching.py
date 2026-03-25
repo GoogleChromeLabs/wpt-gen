@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.models import FeatureMetadata, WorkflowContext
@@ -65,7 +66,11 @@ def mock_ui() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_requirements_cache_miss(
-  mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_llm: MagicMock,
+  mock_ui: MagicMock,
+  tmp_path: Path,
+  mocker: MockerFixture,
 ) -> None:
   """Verify that requirements extraction generates and saves cache on a miss."""
   metadata = FeatureMetadata(name='Feat', description='Desc', specs=['http://spec'])
@@ -84,10 +89,10 @@ async def test_requirements_cache_miss(
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    result = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
-    )
+  mocker.patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None)
+  result = await run_requirements_extraction_iterative(
+    context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+  )
 
   assert result is not None
   assert '<requirement id="R1">' in result
@@ -133,7 +138,11 @@ async def test_requirements_cache_hit_accept(
 
 @pytest.mark.asyncio
 async def test_requirements_cache_hit_reject(
-  mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_llm: MagicMock,
+  mock_ui: MagicMock,
+  tmp_path: Path,
+  mocker: MockerFixture,
 ) -> None:
   """Verify that requirements extraction regenerates requirements when user rejects cache."""
   web_feature_id = 'rejected-cache-feat'
@@ -158,10 +167,10 @@ async def test_requirements_cache_hit_reject(
   jinja_env = MagicMock()
   jinja_env.get_template.return_value.render.return_value = 'Prompt'
 
-  with patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None):
-    result = await run_requirements_extraction_iterative(
-      context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
-    )
+  mocker.patch('wptgen.phases.requirements_extraction.confirm_prompts', return_value=None)
+  result = await run_requirements_extraction_iterative(
+    context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+  )
 
   assert result is not None
   assert '<requirement id="R1">' in result

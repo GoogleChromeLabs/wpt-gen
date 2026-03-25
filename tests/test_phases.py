@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.models import FeatureMetadata, WorkflowContext, WPTContext
@@ -75,168 +76,173 @@ def mock_llm() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_run_context_assembly_success(mock_config: Config, mock_ui: MagicMock) -> None:
+async def test_run_context_assembly_success(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
   """Test successful context assembly for a registered feature."""
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
-    patch(
-      'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
-    ),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
-  ):
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
+  mocker.patch(
+    'wptgen.phases.context_assembly.extract_feature_metadata',
+    return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
 
-    assert context is not None
-    assert context.feature_id == 'feat-id'
-    assert context.metadata is not None
-    assert context.metadata.name == 'Feat'
-    assert context.spec_contents == {'http://spec': 'Spec Content'}
-    mock_ui.on_phase_start.assert_called_once_with(1, 'Context Assembly')
-    mock_ui.report_metadata.assert_called_once()
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  assert context is not None
+  assert context.feature_id == 'feat-id'
+  assert context.metadata is not None
+  assert context.metadata.name == 'Feat'
+  assert context.spec_contents == {'http://spec': 'Spec Content'}
+  mock_ui.on_phase_start.assert_called_once_with(1, 'Context Assembly')
+  mock_ui.report_metadata.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_run_context_assembly_with_mdn(mock_config: Config, mock_ui: MagicMock) -> None:
+async def test_run_context_assembly_with_mdn(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
   """Test context assembly with MDN documentation fetching."""
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
-    patch(
-      'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
-    ),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text') as mock_fetch,
-    patch(
-      'wptgen.phases.context_assembly.fetch_mdn_urls', return_value=['http://mdn1', 'http://mdn2']
-    ),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
-  ):
-    mock_fetch.side_effect = ['Spec Content', 'MDN Content 1', 'MDN Content 2']
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
+  mocker.patch(
+    'wptgen.phases.context_assembly.extract_feature_metadata',
+    return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  mock_fetch = mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text')
+  mocker.patch(
+    'wptgen.phases.context_assembly.fetch_mdn_urls', return_value=['http://mdn1', 'http://mdn2']
+  )
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
 
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+  mock_fetch.side_effect = ['Spec Content', 'MDN Content 1', 'MDN Content 2']
 
-    assert context is not None
-    assert isinstance(context.mdn_contents, list)
-    assert len(context.mdn_contents) == 2
-    mock_ui.report_context_summary.assert_called_once()
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  assert context is not None
+  assert isinstance(context.mdn_contents, list)
+  assert len(context.mdn_contents) == 2
+  mock_ui.report_context_summary.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_run_context_assembly_unregistered_with_params(
-  mock_config: Config, mock_ui: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
   """Test context assembly for an unregistered feature with manual parameters."""
   mock_config.spec_urls = ['http://manual-spec']
   mock_config.feature_description = 'Manual Description'
 
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None),
-    patch('wptgen.phases.context_assembly.fetch_mdn_urls', return_value=[]),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch('wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()),
-  ):
-    context = await run_context_assembly('unregistered', mock_config, mock_ui)
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None)
+  mocker.patch('wptgen.phases.context_assembly.fetch_mdn_urls', return_value=[])
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
 
-    assert context is not None
-    assert context.metadata is not None
-    assert context.metadata.name == 'unregistered'
-    assert mock_ui.warning.call_count == 2
-    mock_ui.warning.assert_any_call(
-      'Feature unregistered not found in the web-features repository.'
-    )
-    mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
+  context = await run_context_assembly('unregistered', mock_config, mock_ui)
+
+  assert context is not None
+  assert context.metadata is not None
+  assert context.metadata.name == 'unregistered'
+  assert mock_ui.warning.call_count == 2
+  mock_ui.warning.assert_any_call('Feature unregistered not found in the web-features repository.')
+  mock_ui.warning.assert_any_call('No existing Web Platform Tests were successfully loaded.')
 
 
 @pytest.mark.asyncio
-async def test_run_context_assembly_not_found(mock_config: Config, mock_ui: MagicMock) -> None:
+async def test_run_context_assembly_not_found(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
   """Test context assembly when feature is not found and no manual params provided."""
-  with patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None):
-    context = await run_context_assembly('not-found', mock_config, mock_ui)
-    assert context is None
-    mock_ui.error.assert_called_once()
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value=None)
+  context = await run_context_assembly('not-found', mock_config, mock_ui)
+  assert context is None
+  mock_ui.error.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_run_context_assembly_no_specs(mock_config: Config, mock_ui: MagicMock) -> None:
+async def test_run_context_assembly_no_specs(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
   """Test context assembly failure when no spec URLs are found."""
-  with (
-    patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'}),
-    patch(
-      'wptgen.phases.context_assembly.extract_feature_metadata',
-      return_value=FeatureMetadata('Feat', 'Desc', []),
-    ),
-  ):
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
-    assert context is None
-    mock_ui.error.assert_called_once()
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
+  mocker.patch(
+    'wptgen.phases.context_assembly.extract_feature_metadata',
+    return_value=FeatureMetadata('Feat', 'Desc', []),
+  )
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+  assert context is None
+  mock_ui.error.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_run_context_assembly_chromestatus_with_wpt_descr(
-  mock_config: Config, mock_ui: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
   """Test context assembly for a ChromeStatus feature with wpt_descr."""
   mock_config.chromestatus = True
   metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], wpt_descr='css/test.html')
 
-  with (
-    patch(
-      'wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata
-    ) as mock_fetch_meta,
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch(
-      'wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/test.html']
-    ) as mock_extract,
-    patch(
-      'wptgen.phases.context_assembly.validate_wpt_paths',
-      return_value=(['/abs/css/test.html'], ['invalid/path']),
-    ) as mock_validate,
-    patch(
-      'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
-    ) as mock_gather,
-  ):
-    context = await run_context_assembly('feat-id', mock_config, mock_ui)
+  mock_fetch_meta = mocker.patch(
+    'wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata
+  )
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mock_extract = mocker.patch(
+    'wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/test.html']
+  )
+  mock_validate = mocker.patch(
+    'wptgen.phases.context_assembly.validate_wpt_paths',
+    return_value=(['/abs/css/test.html'], ['invalid/path']),
+  )
+  mock_gather = mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
 
-    assert context is not None
-    assert context.wpt_urls == ['css/test.html']
-    mock_fetch_meta.assert_called_once()
-    mock_extract.assert_called_once_with('css/test.html')
-    mock_validate.assert_called_once_with(['css/test.html'], mock_config.wpt_path)
-    mock_ui.warning.assert_called_with(
-      'Referenced WPT test file could not be found or read: invalid/path'
-    )
-    # Check that gather_local_test_context was called with the validated path
-    mock_gather.assert_called_once_with(['/abs/css/test.html'], mock_config.wpt_path)
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  assert context is not None
+  assert context.wpt_urls == ['css/test.html']
+  mock_fetch_meta.assert_called_once()
+  mock_extract.assert_called_once_with('css/test.html')
+  mock_validate.assert_called_once_with(['css/test.html'], mock_config.wpt_path)
+  mock_ui.warning.assert_called_with(
+    'Referenced WPT test file could not be found or read: invalid/path'
+  )
+  # Check that gather_local_test_context was called with the validated path
+  mock_gather.assert_called_once_with(['/abs/css/test.html'], mock_config.wpt_path)
 
 
 @pytest.mark.asyncio
 async def test_run_context_assembly_chromestatus_too_many_tests(
-  mock_config: Config, mock_ui: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
   """Test that context assembly warns but proceeds if too many tests are found."""
   mock_config.chromestatus = True
   metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], wpt_descr='css/')
 
-  with (
-    patch('wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata),
-    patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content'),
-    patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[]),
-    patch('wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/']),
-    patch(
-      'wptgen.phases.context_assembly.validate_wpt_paths',
-      side_effect=ValueError('Too many tests found (60). Max allowed is 50.'),
-    ),
-    patch(
-      'wptgen.phases.context_assembly.gather_local_test_context',
-      return_value=WPTContext(test_contents={}),
-    ),
-  ):
-    await run_context_assembly('feat-id', mock_config, mock_ui)
+  mocker.patch('wptgen.phases.context_assembly.fetch_chromestatus_metadata', return_value=metadata)
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch('wptgen.phases.context_assembly.extract_wpt_paths', return_value=['css/'])
+  mocker.patch(
+    'wptgen.phases.context_assembly.validate_wpt_paths',
+    side_effect=ValueError('Too many tests found (60). Max allowed is 50.'),
+  )
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context',
+    return_value=WPTContext(test_contents={}),
+  )
+
+  await run_context_assembly('feat-id', mock_config, mock_ui)
 
   # Should have warned about skipping ChromeStatus tests
   mock_ui.warning.assert_any_call(
@@ -423,7 +429,11 @@ async def test_run_requirements_extraction_categorized_with_explainer(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  tmp_path: Path,
+  mocker: MockerFixture,
 ) -> None:
   """Test categorized requirements extraction with mocked LLM responses."""
   context = WorkflowContext(
@@ -435,7 +445,7 @@ async def test_run_requirements_extraction_categorized(
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
 
   # Mock generate_safe to return a single requirement for each call
-  with patch(
+  mocker.patch(
     'wptgen.phases.requirements_extraction.generate_safe',
     side_effect=[
       '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
@@ -444,10 +454,10 @@ async def test_run_requirements_extraction_categorized(
       '<requirements_list><requirement id="R1"><category>Invalidation</category><description>D4</description></requirement></requirements_list>',
       '<requirements_list><requirement id="R1"><category>Integration</category><description>D5</description></requirement></requirements_list>',
     ],
-  ):
-    res = await run_requirements_extraction_categorized(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
+  )
+  res = await run_requirements_extraction_categorized(
+    context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+  )
 
   assert res is not None
   assert '<requirement id="R1">' in res
@@ -462,7 +472,11 @@ async def test_run_requirements_extraction_categorized(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_partial_empty(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  tmp_path: Path,
+  mocker: MockerFixture,
 ) -> None:
   """Test categorized requirements extraction with some empty responses."""
   context = WorkflowContext(
@@ -474,7 +488,7 @@ async def test_run_requirements_extraction_categorized_partial_empty(
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
 
   # Mock generate_safe to return a mixture of requirements and empty lists
-  with patch(
+  mocker.patch(
     'wptgen.phases.requirements_extraction.generate_safe',
     side_effect=[
       '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
@@ -483,10 +497,10 @@ async def test_run_requirements_extraction_categorized_partial_empty(
       '<requirements_list></requirements_list>',  # Empty
       '<requirements_list></requirements_list>',  # Empty
     ],
-  ):
-    res = await run_requirements_extraction_categorized(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
+  )
+  res = await run_requirements_extraction_categorized(
+    context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+  )
 
   assert res is not None
   assert '<requirement id="R1">' in res
@@ -498,7 +512,11 @@ async def test_run_requirements_extraction_categorized_partial_empty(
 
 @pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_with_rationale(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+  mock_config: Config,
+  mock_ui: MagicMock,
+  mock_llm: MagicMock,
+  tmp_path: Path,
+  mocker: MockerFixture,
 ) -> None:
   """Test categorized requirements extraction with a rationale for an empty category."""
   context = WorkflowContext(
@@ -510,7 +528,7 @@ async def test_run_requirements_extraction_categorized_with_rationale(
   jinja_env.get_template.return_value.render.return_value = 'Mock Template'
 
   # Mock generate_safe to return one category with a requirement and one with a rationale
-  with patch(
+  mocker.patch(
     'wptgen.phases.requirements_extraction.generate_safe',
     side_effect=[
       '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
@@ -519,10 +537,10 @@ async def test_run_requirements_extraction_categorized_with_rationale(
       '<requirements_list></requirements_list>',
       '<requirements_list></requirements_list>',
     ],
-  ):
-    res = await run_requirements_extraction_categorized(
-      context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-    )
+  )
+  res = await run_requirements_extraction_categorized(
+    context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+  )
 
   assert res is not None
   assert '<requirement id="R1">' in res
@@ -615,6 +633,7 @@ async def test_run_test_generation_none_selected(
 
 
 def test_partition_requirements_xml() -> None:
+  """Test partition logic."""
   # Empty or no tags
   assert partition_requirements_xml('') == []
   assert partition_requirements_xml('just text') == ['just text']
@@ -650,6 +669,7 @@ def test_partition_requirements_xml() -> None:
 
 
 def test_combine_audit_responses() -> None:
+  """Test combine audit logic."""
   resp1 = """<status>SATISFIED</status>
 <audit_worksheet>
 R1: COVERED
@@ -679,7 +699,7 @@ R3: COVERED
 
 @pytest.mark.asyncio
 async def test_run_test_generation_adk(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
+  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, mocker: MockerFixture
 ) -> None:
   """Test that ADK generation branches correctly and calls _generate_adk_loop."""
   from wptgen.models import WorkflowContext
@@ -695,21 +715,23 @@ async def test_run_test_generation_adk(
   )
   mock_ui.confirm.return_value = True
 
-  with patch('wptgen.phases.generation._generate_adk_loop') as mock_adk:
-    mock_adk.return_value = []
+  mock_adk = mocker.patch('wptgen.phases.generation._generate_adk_loop')
+  mock_adk.return_value = []
 
-    from jinja2 import BaseLoader, Environment
+  from jinja2 import BaseLoader, Environment
 
-    jinja_env = Environment(loader=BaseLoader())
+  jinja_env = Environment(loader=BaseLoader())
 
-    results = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
+  results = await run_test_generation(context, mock_config, mock_llm, mock_ui, jinja_env)
 
-    assert mock_adk.called
-    assert results == []
+  assert mock_adk.called
+  assert results == []
 
 
 @pytest.mark.asyncio
-async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> None:
+async def test_generate_adk_loop(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
   """Test that _generate_adk_loop properly maps the suggestions and triggers tasks."""
   from wptgen.models import WorkflowContext
   from wptgen.phases.generation import _generate_adk_loop
@@ -723,19 +745,19 @@ async def test_generate_adk_loop(mock_config: Config, mock_ui: MagicMock) -> Non
     metadata=FeatureMetadata('Feat', 'D', ['url']),
   )
 
-  with patch(
+  mock_adk = mocker.patch(
     'wptgen.agents.adk_test_generator.generate_test_with_adk',
     new_callable=AsyncMock,
     create=True,
-  ) as mock_adk:
-    mock_adk.return_value = [(Path('test_dir/feat.html'), 'content', suggestion_xml)]
+  )
+  mock_adk.return_value = [(Path('test_dir/feat.html'), 'content', suggestion_xml)]
 
-    from jinja2 import BaseLoader, Environment
+  from jinja2 import BaseLoader, Environment
 
-    jinja_env = Environment(loader=BaseLoader())
+  jinja_env = Environment(loader=BaseLoader())
 
-    results = await _generate_adk_loop([suggestion_xml], context, mock_config, mock_ui, jinja_env)
+  results = await _generate_adk_loop([suggestion_xml], context, mock_config, mock_ui, jinja_env)
 
-    assert mock_adk.called
-    assert len(results) == 1
-    assert results[0][1] == 'content'
+  assert mock_adk.called
+  assert len(results) == 1
+  assert results[0][1] == 'content'

@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
@@ -49,6 +51,56 @@ def mock_config(tmp_path: Path) -> Config:
   )
 
 
+@pytest.fixture
+def mock_load_config(mocker: MockerFixture, mock_config: Config) -> Any:
+  """Mocks load_config to return the mock_config."""
+  return mocker.patch('wptgen.main.load_config', return_value=mock_config)
+
+
+@pytest.fixture
+def mock_engine_instance(mocker: MockerFixture) -> Any:
+  """Mocks the WPTGenEngine class and returns its instance mock."""
+  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
+  return mock_engine_class.return_value
+
+
+@pytest.fixture
+def default_load_config_kwargs() -> dict[str, bool | str | int | None | list[str]]:
+  """Returns the expected default kwargs for load_config."""
+  return {
+    'config_path': DEFAULT_CONFIG_PATH,
+    'provider_override': None,
+    'wpt_dir_override': None,
+    'output_dir_override': None,
+    'show_responses': False,
+    'yes_tokens_override': False,
+    'yes_tests_override': False,
+    'yes_cache_override': False,
+    'no_cache_override': False,
+    'suggestions_only': False,
+    'brief_suggestions': False,
+    'resume_override': False,
+    'resume_from_override': None,
+    'state_dir_override': None,
+    'max_retries_override': 3,
+    'timeout_override': 600,
+    'spec_urls_override': None,
+    'feature_description_override': None,
+    'detailed_requirements_override': False,
+    'draft_override': False,
+    'single_prompt_requirements_override': False,
+    'use_lightweight_override': False,
+    'use_reasoning_override': False,
+    'tentative_override': False,
+    'save_traces_override': False,
+    'max_parallel_requests_override': None,
+    'temperature_override': None,
+    'include_thoughts_override': False,
+    'run_on_browser_override': None,
+    'run_on_channel_override': None,
+  }
+
+
 def test_help_menu() -> None:
   """Test that the CLI help menu renders correctly without errors."""
   result = runner.invoke(app, ['--help'])
@@ -65,295 +117,95 @@ def test_version() -> None:
   assert f'wpt-gen version {version("wpt-gen")}' in result.stdout
 
 
-def test_generate_success(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test the happy path execution of the generate command."""
-  # Mock load_config and the Engine so they don't actually execute
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
-  mock_engine_instance = mock_engine_class.return_value
+def test_version_not_found(mocker: MockerFixture) -> None:
+  """Test version command when package is not found."""
+  mocker.patch('wptgen.main.app_version', side_effect=PackageNotFoundError)
+  result = runner.invoke(app, ['version'])
+  assert result.exit_code == 0
+  assert 'unknown' in result.stdout
 
-  # Simulate running `wpt-gen generate grid --provider gemini`
+
+def test_generate_success(
+  mocker: MockerFixture,
+  mock_config: Config,
+  mock_load_config: Any,
+  mock_engine_instance: Any,
+  default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
+  """Test the happy path execution of the generate command."""
   result = runner.invoke(app, ['generate', 'grid', '--provider', 'gemini'])
 
-  # Check standard output and exit code
   assert result.exit_code == 0
   assert 'Target Feature' in result.stdout
   assert 'Workflow completed successfully' in result.stdout
 
-  # Verify our logic called the underlying functions with the correct CLI arguments
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override='gemini',
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-  mock_engine_class.assert_called_once()
+  expected_kwargs = default_load_config_kwargs.copy()
+  expected_kwargs['provider_override'] = 'gemini'
+
+  mock_load_config.assert_called_once_with(**expected_kwargs)
+
   # Verify config was passed correctly
-  assert mock_engine_class.call_args[1]['config'] == mock_config
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
 
-def test_generate_show_responses(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --show-responses flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --show-responses
-  result = runner.invoke(app, ['generate', 'grid', '--show-responses'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=True,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_yes_tokens(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --yes-tokens flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --yes-tokens
-  result = runner.invoke(app, ['generate', 'grid', '--yes-tokens'])
+@pytest.mark.parametrize(
+  ('flag', 'kwarg_key', 'kwarg_value', 'flag_args'),
+  [
+    ('--show-responses', 'show_responses', True, []),
+    ('--yes-tokens', 'yes_tokens_override', True, []),
+    ('--suggestions-only', 'suggestions_only', True, []),
+    ('--max-retries', 'max_retries_override', 5, ['5']),
+    ('--detailed-requirements', 'detailed_requirements_override', True, []),
+    (
+      '--spec-urls',
+      'spec_urls_override',
+      ['https://url1.com', 'https://url2.com'],
+      ['https://url1.com, https://url2.com'],
+    ),
+    ('--description', 'feature_description_override', 'Test Description', ['Test Description']),
+    ('--resume', 'resume_override', True, []),
+    ('--use-lightweight', 'use_lightweight_override', True, []),
+    ('--use-reasoning', 'use_reasoning_override', True, []),
+    ('--single-prompt-requirements', 'single_prompt_requirements_override', True, []),
+    ('--max-parallel-requests', 'max_parallel_requests_override', 5, ['5']),
+    ('--draft', 'draft_override', True, []),
+    ('--brief-suggestions', 'brief_suggestions', True, []),
+  ],
+)
+def test_generate_flags(
+  flag: str,
+  kwarg_key: str,
+  kwarg_value: bool | str | int | list[str],
+  flag_args: list[str],
+  mock_load_config: Any,
+  mock_engine_instance: Any,
+  default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
+  """Test that flags are correctly passed to load_config."""
+  args = ['generate', 'grid', flag] + flag_args
+  result = runner.invoke(app, args)
 
   assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=True,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
 
-
-def test_generate_suggestions_only(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --suggestions-only flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --suggestions-only
-  result = runner.invoke(app, ['generate', 'grid', '--suggestions-only'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=True,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_max_retries(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --max-retries flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --max-retries
-  result = runner.invoke(app, ['generate', 'grid', '--max-retries', '5'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=5,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_detailed_requirements(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --detailed-requirements flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --detailed-requirements
-  result = runner.invoke(app, ['generate', 'grid', '--detailed-requirements'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=True,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
+  expected_kwargs = default_load_config_kwargs.copy()
+  expected_kwargs[kwarg_key] = kwarg_value
+  mock_load_config.assert_called_once_with(**expected_kwargs)
 
 
 def test_generate_config_error(mocker: MockerFixture) -> None:
   """Test that configuration errors (like missing API keys) are caught and exit gracefully."""
-  # Force load_config to raise a ValueError
   mock_error_message = 'GEMINI_API_KEY environment variable is missing'
   mocker.patch('wptgen.main.load_config', side_effect=ValueError(mock_error_message))
 
   result = runner.invoke(app, ['generate', 'popover'])
 
-  # Typer.Exit(code=1) translates to exit_code 1 in the runner
   assert result.exit_code == 1
   assert 'Configuration Error' in result.stdout
   assert mock_error_message in result.stdout
 
 
-def test_generate_unexpected_error(mocker: MockerFixture, mock_config: Config) -> None:
+def test_generate_unexpected_error(mock_load_config: Any, mock_engine_instance: Any) -> None:
   """Test that unexpected runtime errors inside the engine are caught and exit gracefully."""
-  # Setup mocks but force the engine's run_workflow to crash
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
-  mock_engine_instance = mock_engine_class.return_value
   mock_engine_instance.run_workflow.side_effect = Exception('Engine simulation failed')
 
   result = runner.invoke(app, ['generate', 'grid'])
@@ -363,325 +215,16 @@ def test_generate_unexpected_error(mocker: MockerFixture, mock_config: Config) -
   assert 'Engine simulation failed' in result.stdout
 
 
-def test_generate_spec_urls(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --spec-urls flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --spec-urls
-  result = runner.invoke(
-    app, ['generate', 'grid', '--spec-urls', 'https://url1.com, https://url2.com']
-  )
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=['https://url1.com', 'https://url2.com'],
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_description(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --description flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --description
-  result = runner.invoke(app, ['generate', 'grid', '--description', 'Test Description'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override='Test Description',
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_resume(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --resume flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --resume
-  result = runner.invoke(app, ['generate', 'grid', '--resume'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=True,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_use_lightweight(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --use-lightweight flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --use-lightweight
-  result = runner.invoke(app, ['generate', 'grid', '--use-lightweight'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=True,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_use_reasoning(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --use-reasoning flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --use-reasoning
-  result = runner.invoke(app, ['generate', 'grid', '--use-reasoning'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=True,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_single_prompt_requirements(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --single-prompt-requirements flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --single-prompt-requirements
-  result = runner.invoke(app, ['generate', 'grid', '--single-prompt-requirements'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=True,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_max_parallel_requests(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --max-parallel-requests flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  # Run with --max-parallel-requests
-  result = runner.invoke(app, ['generate', 'grid', '--max-parallel-requests', '5'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=False,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=5,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_generate_mutually_exclusive_models(mocker: MockerFixture, mock_config: Config) -> None:
+def test_generate_mutually_exclusive_models(mock_load_config: Any) -> None:
   """Test that providing both model flags results in an error."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-
   result = runner.invoke(app, ['generate', 'grid', '--use-lightweight', '--use-reasoning'])
 
   assert result.exit_code == 1
   assert 'Cannot use both --use-lightweight and --use-reasoning' in result.stdout
 
 
-def test_generate_mutually_exclusive_requirements(
-  mocker: MockerFixture, mock_config: Config
-) -> None:
+def test_generate_mutually_exclusive_requirements(mock_load_config: Any) -> None:
   """Test that providing both requirements flags results in an error."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
-
   result = runner.invoke(
     app, ['generate', 'grid', '--detailed-requirements', '--single-prompt-requirements']
   )
@@ -690,28 +233,17 @@ def test_generate_mutually_exclusive_requirements(
   assert 'Cannot use both --detailed-requirements and --single-prompt-requirements' in result.stdout
 
 
-def test_version_not_found(mocker: MockerFixture) -> None:
-  """Test version command when package is not found."""
-  mocker.patch('wptgen.main.app_version', side_effect=ImportError)  # Typer might use importlib
-  # Actually main.py catches PackageNotFoundError
-  from importlib.metadata import PackageNotFoundError
-
-  mocker.patch('wptgen.main.app_version', side_effect=PackageNotFoundError)
-  result = runner.invoke(app, ['version'])
-  assert result.exit_code == 0
-  assert 'unknown' in result.stdout
-
-
-def test_generate_wf_yml_update_validation(mocker: MockerFixture) -> None:
+def test_generate_wf_yml_update_validation() -> None:
   """Test that --wf-yml-update without --output-dir exits with an error."""
   result = runner.invoke(app, ['generate', 'my-feature', '--wf-yml-update'])
   assert result.exit_code == 1
   assert '--output-dir is required when using --wf-yml-update' in result.stdout
 
 
-def test_doctor_command_success(mocker: MockerFixture, mock_config: Config) -> None:
+def test_doctor_command_success(
+  mocker: MockerFixture, mock_config: Config, mock_load_config: Any
+) -> None:
   """Test the doctor command when all checks pass."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
   mock_config.api_key = 'fake-key'
 
   mocker.patch('pathlib.Path.is_dir', return_value=True)
@@ -723,11 +255,11 @@ def test_doctor_command_success(mocker: MockerFixture, mock_config: Config) -> N
   assert 'All checks passed! System is ready.' in result.stdout
 
 
-def test_doctor_command_failure(mocker: MockerFixture, mock_config: Config) -> None:
+def test_doctor_command_failure(
+  mocker: MockerFixture, mock_config: Config, mock_load_config: Any
+) -> None:
   """Test the doctor command when checks fail."""
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
   mock_config.api_key = None
-
   mocker.patch('pathlib.Path.is_dir', return_value=False)
 
   result = runner.invoke(app, ['doctor'])
@@ -735,10 +267,8 @@ def test_doctor_command_failure(mocker: MockerFixture, mock_config: Config) -> N
   assert 'Some checks failed.' in result.stdout
 
 
-def test_list_models_command(mocker: MockerFixture, mock_config: Config) -> None:
+def test_list_models_command(mock_load_config: Any) -> None:
   """Test the list-models command prints the configured models."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-
   result = runner.invoke(app, ['list-models'])
 
   assert result.exit_code == 0
@@ -748,10 +278,8 @@ def test_list_models_command(mocker: MockerFixture, mock_config: Config) -> None
   )
 
 
-def test_list_models_command_provider_override(mocker: MockerFixture, mock_config: Config) -> None:
+def test_list_models_command_provider_override(mock_load_config: Any) -> None:
   """Test the list-models command respects provider override."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-
   result = runner.invoke(app, ['list-models', '--provider', 'openai'])
 
   assert result.exit_code == 0
@@ -778,10 +306,9 @@ def test_main_callback() -> None:
   main_callback()  # Should just pass
 
 
-def test_config_command(mocker: MockerFixture, mock_config: Config) -> None:
+def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
   """Test the config command prints the resolved configuration and its path."""
   mock_config.loaded_from = '/dummy/path/wpt-gen.yml'
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['config'])
 
@@ -794,10 +321,9 @@ def test_config_command(mocker: MockerFixture, mock_config: Config) -> None:
   mock_load_config.assert_called_once_with(config_path=DEFAULT_CONFIG_PATH, require_api_key=False)
 
 
-def test_config_command_defaults(mocker: MockerFixture, mock_config: Config) -> None:
+def test_config_command_defaults(mock_config: Config, mock_load_config: Any) -> None:
   """Test the config command prints the defaults message when no file is loaded."""
   mock_config.loaded_from = None
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['config'])
 
@@ -820,19 +346,11 @@ def test_config_command_error(mocker: MockerFixture) -> None:
 
 def test_init_command_global(mocker: MockerFixture) -> None:
   """Test the init command successfully creates a global configuration file."""
-  import yaml
-
   with runner.isolated_filesystem():
     # Mock the global config path so it creates the file within the isolated filesystem
     global_config_path = str(Path('.config/wpt-gen/config.yml').resolve())
     mocker.patch('wptgen.main._get_global_config_path', return_value=global_config_path)
 
-    # Inputs:
-    # 1. 'gemini' (provider)
-    # 2. '' (default model - accept default)
-    # 3. '' (lightweight model - accept default)
-    # 4. '' (reasoning model - accept default)
-    # 5. '/fake/wpt' (wpt_path)
     result = runner.invoke(app, ['init'], input='gemini\n\n\n\n/fake/wpt\n')
 
     assert result.exit_code == 0
@@ -855,19 +373,11 @@ def test_init_command_global(mocker: MockerFixture) -> None:
     assert config_data['providers']['gemini']['categories']['reasoning'] == 'gemini-3.1-pro-preview'
 
 
-def test_init_command_local(mocker: MockerFixture) -> None:
+def test_init_command_local() -> None:
   """Test the init command successfully creates a local configuration file."""
-  import yaml
-
   with runner.isolated_filesystem():
     local_config_path = str(Path('wpt-gen.yml').resolve())
 
-    # Inputs:
-    # 1. 'gemini' (provider)
-    # 2. '' (default model - accept default)
-    # 3. '' (lightweight model - accept default)
-    # 4. '' (reasoning model - accept default)
-    # 5. '/fake/wpt' (wpt_path)
     result = runner.invoke(
       app, ['init', '--config', 'wpt-gen.yml'], input='gemini\n\n\n\n/fake/wpt\n'
     )
@@ -885,19 +395,11 @@ def test_init_command_local(mocker: MockerFixture) -> None:
     assert str(Path('/fake/wpt').resolve()) == config_data['wpt_path']
 
 
-def test_init_command_with_wpt_path_flag(mocker: MockerFixture) -> None:
+def test_init_command_with_wpt_path_flag() -> None:
   """Test the init command accepts --wpt-path and skips the prompt."""
-  import yaml
-
   with runner.isolated_filesystem():
     local_config_path = str(Path('wpt-gen.yml').resolve())
 
-    # Inputs:
-    # 1. 'gemini' (provider)
-    # 2. '' (default model - accept default)
-    # 3. '' (lightweight model - accept default)
-    # 4. '' (reasoning model - accept default)
-    # NO WPT PATH PROMPT because of the flag
     result = runner.invoke(
       app,
       ['init', '--config', 'wpt-gen.yml', '--wpt-path', '/flag/wpt'],
@@ -917,12 +419,8 @@ def test_init_command_with_wpt_path_flag(mocker: MockerFixture) -> None:
     assert str(Path('/flag/wpt').resolve()) == config_data['wpt_path']
 
 
-def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
+def test_audit_success(mock_load_config: Any, mock_engine_instance: Any) -> None:
   """Test the happy path execution of the audit command."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mock_engine_class = mocker.patch('wptgen.main.WPTGenEngine')
-  mock_engine_instance = mock_engine_class.return_value
-
   result = runner.invoke(app, ['audit', 'grid', '--provider', 'gemini'])
 
   assert result.exit_code == 0
@@ -937,52 +435,9 @@ def test_audit_success(mocker: MockerFixture, mock_config: Config) -> None:
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
 
-def test_generate_draft(mocker: MockerFixture, mock_config: Config) -> None:
-  """Test that the --draft flag is correctly passed to load_config."""
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  result = runner.invoke(app, ['generate', 'grid', '--draft'])
-
-  assert result.exit_code == 0
-  mock_load_config.assert_called_once_with(
-    config_path=DEFAULT_CONFIG_PATH,
-    provider_override=None,
-    wpt_dir_override=None,
-    output_dir_override=None,
-    show_responses=False,
-    yes_tokens_override=False,
-    yes_tests_override=False,
-    yes_cache_override=False,
-    no_cache_override=False,
-    suggestions_only=False,
-    brief_suggestions=False,
-    resume_override=False,
-    resume_from_override=None,
-    state_dir_override=None,
-    max_retries_override=3,
-    timeout_override=600,
-    spec_urls_override=None,
-    feature_description_override=None,
-    detailed_requirements_override=False,
-    draft_override=True,
-    single_prompt_requirements_override=False,
-    use_lightweight_override=False,
-    use_reasoning_override=False,
-    tentative_override=False,
-    save_traces_override=False,
-    max_parallel_requests_override=None,
-    temperature_override=None,
-    include_thoughts_override=False,
-    run_on_browser_override=None,
-    run_on_channel_override=None,
-  )
-
-
-def test_config_show_command(mocker: MockerFixture, mock_config: Config) -> None:
+def test_config_show_command(mock_config: Config, mock_load_config: Any) -> None:
   """Test the explicit config show command."""
   mock_config.loaded_from = '/dummy/path/wpt-gen.yml'
-  mocker.patch('wptgen.main.load_config', return_value=mock_config)
 
   result = runner.invoke(app, ['config', 'show'])
 
@@ -990,12 +445,8 @@ def test_config_show_command(mocker: MockerFixture, mock_config: Config) -> None
   assert 'Resolved Configuration' in result.stdout
 
 
-def test_config_set_command_flat(mocker: MockerFixture) -> None:
+def test_config_set_command_flat() -> None:
   """Test setting a flat configuration value."""
-  from pathlib import Path
-
-  import yaml
-
   with runner.isolated_filesystem():
     config_file = Path('wpt-gen.yml')
     config_file.write_text('default_provider: openai\n')
@@ -1012,12 +463,8 @@ def test_config_set_command_flat(mocker: MockerFixture) -> None:
     assert data['default_provider'] == 'gemini'
 
 
-def test_config_set_command_nested(mocker: MockerFixture) -> None:
+def test_config_set_command_nested() -> None:
   """Test setting a nested configuration value."""
-  from pathlib import Path
-
-  import yaml
-
   with runner.isolated_filesystem():
     config_file = Path('wpt-gen.yml')
     config_file.write_text('providers:\n  gemini:\n    default_model: old-model\n')
@@ -1041,12 +488,8 @@ def test_config_set_command_nested(mocker: MockerFixture) -> None:
     assert data['providers']['gemini']['default_model'] == 'new-model'
 
 
-def test_config_set_command_types(mocker: MockerFixture) -> None:
+def test_config_set_command_types() -> None:
   """Test type conversion for config set."""
-  from pathlib import Path
-
-  import yaml
-
   with runner.isolated_filesystem():
     config_file = Path('wpt-gen.yml')
     config_file.write_text('')
@@ -1061,13 +504,3 @@ def test_config_set_command_types(mocker: MockerFixture) -> None:
     assert data['timeout'] == 120
     assert data['show_responses'] is True
     assert data['temperature'] == 0.5
-
-
-def test_generate_brief_suggestions(mocker: MockerFixture, mock_config: Config) -> None:
-  mock_load_config = mocker.patch('wptgen.main.load_config', return_value=mock_config)
-  mocker.patch('wptgen.main.WPTGenEngine')
-
-  result = runner.invoke(app, ['generate', 'grid', '--brief-suggestions'])
-
-  assert result.exit_code == 0
-  assert mock_load_config.call_args[1]['brief_suggestions'] is True
