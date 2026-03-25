@@ -160,6 +160,7 @@ async def _generate_adk_loop(
     ui.print(f'\n[bold yellow]--- Generating Test {i + 1} of {len(tasks)} ---[/bold yellow]')
     ui.print(Rule('[bold cyan]🤖 WPT-Gen Agent[/bold cyan]', style='cyan', align='left'))
     result = await task
+    ui.print()
     ui.print(Rule(style='cyan'))
     results.append(result)
 

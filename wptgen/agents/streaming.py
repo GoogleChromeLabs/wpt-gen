@@ -17,9 +17,88 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from google.adk.events import Event
+from rich.panel import Panel
+from rich.table import Table
 
 if TYPE_CHECKING:
   from wptgen.ui import UIProvider
+
+
+def format_tool_call(tool_name: str, args: Any, agent_name: str = 'WPT-Gen Agent') -> Panel:
+  """Formats a tool call and its arguments into a visually appealing Panel."""
+  args_dict = None
+
+  if args:
+    try:
+      if hasattr(args, 'model_dump'):
+        args_dict = args.model_dump()
+      elif hasattr(args, 'items'):
+        args_dict = args
+      elif hasattr(args, '__dict__'):
+        args_dict = vars(args)
+    except Exception:
+      pass
+
+  content_renderable: str | Table
+  if args_dict is not None and len(args_dict) == 0:
+    # Valid dict, but empty
+    content_renderable = '[dim italic]No arguments[/dim italic]'
+  elif not args_dict:
+    # If there are no extractable arguments, or None
+    val_str = str(args) if args else '[dim italic]No arguments[/dim italic]'
+    if args and not isinstance(args, str) and len(val_str) > 100:
+      val_str = val_str[:97] + '...'
+    if args:
+      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+    content_renderable = val_str
+  else:
+    table = Table(show_header=False, box=None, padding=(0, 1), collapse_padding=True)
+    table.add_column('Argument', style='cyan', justify='right', vertical='top')
+    table.add_column('Value', style='dim white', overflow='fold')
+
+    # Define an intuitive ordering for common tool arguments
+    priority_keys = [
+      'command',
+      'name',
+      'dir_path',
+      'file_path',
+      'path',
+      'filename',
+      'test_path',
+      'pattern',
+      'start_line',
+      'end_line',
+      'content',
+      'instruction',
+      'old_string',
+      'new_string',
+    ]
+
+    def get_sort_key(key: str) -> tuple[int, int, str]:
+      try:
+        idx = priority_keys.index(key)
+        return (0, idx, key)
+      except ValueError:
+        return (1, 0, key)
+
+    sorted_args = sorted(args_dict.items(), key=lambda item: get_sort_key(item[0]))
+
+    for k, v in sorted_args:
+      val_str = str(v)
+      if len(val_str) > 500:
+        val_str = val_str[:497] + '...'
+      # Escape rich markup characters
+      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
+      table.add_row(f'{k}:', val_str)
+    content_renderable = table
+
+  return Panel(
+    content_renderable,
+    title=f'[cyan]{agent_name} calling tool:[/cyan] [bold white]{tool_name}[/bold white]',
+    title_align='left',
+    border_style='cyan',
+    padding=(0, 1),
+  )
 
 
 class ADKStreamManager:
@@ -34,46 +113,6 @@ class ADKStreamManager:
 
   def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
     pass
-
-  def _format_tool_args(self, args: Any) -> str:
-    """Formats tool call arguments for display, truncating large values."""
-    if not args:
-      return ''
-
-    try:
-      # Extract dictionary representation
-      args_dict = None
-      if hasattr(args, 'model_dump'):
-        args_dict = args.model_dump()
-      elif hasattr(args, 'items'):
-        args_dict = args
-      elif hasattr(args, '__dict__'):
-        args_dict = vars(args)
-
-      if not args_dict:
-        # Fallback for simple values or un-parseable objects
-        val_str = str(args)
-        if len(val_str) > 100:
-          val_str = val_str[:97] + '...'
-        val_str = val_str.replace('[', '\\[').replace(']', '\\]')
-        return f' [dim white]({val_str})[/dim white]'
-
-      formatted_parts = []
-      for k, v in args_dict.items():
-        val_str = str(v)
-        if len(val_str) > 100:
-          val_str = val_str[:97] + '...'
-        # Escape rich markup characters
-        val_str = val_str.replace('[', '\\[').replace(']', '\\]')
-        formatted_parts.append(f'{k}="{val_str}"')
-
-      if formatted_parts:
-        return ' [dim white](' + ', '.join(formatted_parts) + ')[/dim white]'
-
-    except Exception:
-      pass
-
-    return ''
 
   def process_event(self, event: Event) -> None:
     """Takes an ADK Event object and streams its contents/actions to the UI.
@@ -97,52 +136,12 @@ class ADKStreamManager:
           self.ui.stream_text(part.text)
 
       if part.function_call:
-        tool_name = part.function_call.name
-        args_str = self._format_tool_args(getattr(part.function_call, 'args', None))
-        self.ui.print(
-          f'\n[cyan]⚙️ WPT-Gen Agent calling tool:[/cyan] [bold]{tool_name}[/bold]{args_str}'
+        tool_name = part.function_call.name or 'unknown'
+        panel = format_tool_call(
+          tool_name, getattr(part.function_call, 'args', None), 'WPT-Gen Agent'
         )
-
-
-def _format_tool_args(args: Any) -> str:
-  """Formats tool call arguments for display, truncating large values."""
-  if not args:
-    return ''
-
-  try:
-    # Extract dictionary representation
-    args_dict = None
-    if hasattr(args, 'model_dump'):
-      args_dict = args.model_dump()
-    elif hasattr(args, 'items'):
-      args_dict = args
-    elif hasattr(args, '__dict__'):
-      args_dict = vars(args)
-
-    if not args_dict:
-      # Fallback for simple values or un-parseable objects
-      val_str = str(args)
-      if len(val_str) > 100:
-        val_str = val_str[:97] + '...'
-      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
-      return f' [dim white]({val_str})[/dim white]'
-
-    formatted_parts = []
-    for k, v in args_dict.items():
-      val_str = str(v)
-      if len(val_str) > 100:
-        val_str = val_str[:97] + '...'
-      # Escape rich markup characters
-      val_str = val_str.replace('[', '\\[').replace(']', '\\]')
-      formatted_parts.append(f'{k}="{val_str}"')
-
-    if formatted_parts:
-      return ' [dim white](' + ', '.join(formatted_parts) + ')[/dim white]'
-
-  except Exception:
-    pass
-
-  return ''
+        self.ui.print()
+        self.ui.print(panel)
 
 
 def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
@@ -160,8 +159,9 @@ def stream_adk_event_to_ui(event: Event, ui: UIProvider) -> None:
         ui.stream_text(part.text)
       if part.function_call:
         # Log the tool execution gracefully
-        tool_name = part.function_call.name
-        args_str = _format_tool_args(getattr(part.function_call, 'args', None))
+        tool_name = part.function_call.name or 'unknown'
+        panel = format_tool_call(tool_name, getattr(part.function_call, 'args', None), 'ADK Agent')
 
         # Render nicely instead of raw JSON
-        ui.print(f'\n[cyan]⚙️ ADK Agent calling tool:[/cyan] [bold]{tool_name}[/bold]{args_str}')
+        ui.print()
+        ui.print(panel)
