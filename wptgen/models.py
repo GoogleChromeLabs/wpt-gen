@@ -59,6 +59,19 @@ class DataSource(str, Enum):
   CHROMESTATUS = 'chromestatus'
 
 
+class BrowserType(str, Enum):
+  CHROME = 'chrome'
+  FIREFOX = 'firefox'
+  SAFARI = 'safari'
+
+
+class BrowserChannel(str, Enum):
+  CANARY = 'canary'
+  NIGHTLY = 'nightly'
+  STABLE = 'stable'
+  DEV = 'dev'
+
+
 @dataclass
 class FeatureMetadata:
   name: str

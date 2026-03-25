@@ -38,7 +38,7 @@ from wptgen.config import (
 )
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
-from wptgen.models import WorkflowPhase
+from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
 from wptgen.ui import RichUIProvider
 
 
@@ -295,14 +295,14 @@ def generate(
     ),
   ] = None,
   run_on_browser: Annotated[
-    str | None,
+    BrowserType | None,
     typer.Option(
       '--run-on-browser',
       help='Browser to use for the local WPT test runner.',
     ),
   ] = None,
   run_on_channel: Annotated[
-    str | None,
+    BrowserChannel | None,
     typer.Option(
       '--run-on-channel',
       help='Release channel to use for the local WPT test runner.',
@@ -860,14 +860,14 @@ def audit(
     ),
   ] = None,
   run_on_browser: Annotated[
-    str | None,
+    BrowserType | None,
     typer.Option(
       '--run-on-browser',
       help='Browser to use for the local WPT test runner.',
     ),
   ] = None,
   run_on_channel: Annotated[
-    str | None,
+    BrowserChannel | None,
     typer.Option(
       '--run-on-channel',
       help='Release channel to use for the local WPT test runner.',
