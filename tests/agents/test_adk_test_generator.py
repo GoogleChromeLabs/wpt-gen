@@ -112,8 +112,6 @@ async def test_generate_test_with_adk(
     config=config,
     jinja_env=mock_jinja_env,
     ui=mock_ui,
-    wpt_style_guide='Mock guide',
-    test_type_guide='Mock JS guide',
   )
 
   assert len(results) == 1
@@ -177,8 +175,6 @@ async def test_generate_test_missing_output_dir_and_no_paths(
     config=config,
     jinja_env=mock_jinja_env,
     ui=mock_ui,
-    wpt_style_guide='Mock guide',
-    test_type_guide='Mock JS guide',
   )
 
   assert len(results) == 0
@@ -243,8 +239,6 @@ async def test_generate_test_invalid_path(
     config=config,
     jinja_env=mock_jinja_env,
     ui=mock_ui,
-    wpt_style_guide='Mock guide',
-    test_type_guide='Mock JS guide',
   )
 
   assert len(results) == 0

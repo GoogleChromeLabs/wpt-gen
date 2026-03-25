@@ -41,8 +41,6 @@ async def generate_test_with_adk(
   config: Config,
   jinja_env: Environment,
   ui: UIProvider,
-  wpt_style_guide: str,
-  test_type_guide: str,
 ) -> list[tuple[Path, str, str]]:
   """Runs the ADK Agent to generate tests for a single blueprint.
 
@@ -54,8 +52,6 @@ async def generate_test_with_adk(
       config: The configuration object.
       jinja_env: The Jinja2 environment for loading templates.
       ui: The UI provider for logging output.
-      wpt_style_guide: The general WPT style guide content.
-      test_type_guide: The specific style guide for this test type.
 
   Returns:
       A list of tuples containing (file_path, file_content, suggestion_xml).
@@ -98,9 +94,7 @@ async def generate_test_with_adk(
 
   system_template = jinja_env.get_template('adk_test_generator_system.jinja')
   instruction = system_template.render(
-    wpt_style_guide=wpt_style_guide,
     test_type=test_type_enum.value,
-    test_type_guide=test_type_guide,
   )
 
   # Prevent ADK's internal template parser from crashing when it encounters
