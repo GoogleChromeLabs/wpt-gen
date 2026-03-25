@@ -1,11 +1,11 @@
 ---
 name: wpt-gen-maintenance
-description: Instructions on managing dependencies, build tools, and integrating workflows via the Makefile in WPT-Gen.
+description: Instructions on managing dependencies, build tools, project architecture rules, and integrating workflows via the Makefile in WPT-Gen.
 ---
 
 # WPT-Gen Maintenance Skills
 
-This document outlines standard maintenance procedures and development workflow instructions for the `wpt-gen` repository.
+This document outlines standard maintenance procedures, core architectural constraints, and development workflow instructions for the `wpt-gen` repository.
 
 ## 1. Project Management
 
@@ -36,7 +36,16 @@ make presubmit
 
 This command runs `lint-fix`, `typecheck`, and `test`. If this pipeline fails, your code will fail Continuous Integration.
 
-## 3. License Compliance
+## 3. Core Architecture Rules
+
+When authoring or reviewing structural code for WPT-Gen, you MUST strictly adhere to these foundational constraints:
+
+- **Google Python Style Guide:** All code MUST adhere strictly to the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html), particularly concerning docstring formatting, naming conventions, and inline comments. Reviewers must reject patches that violate standard Python whitespace or Google documentation formatting.
+- **Strict Type Design (No Magic Strings):** Never use arbitrary "magic strings" (e.g., `'chrome'`, `'canary'`, `'gemini'`) for business logic routing or configurations. You must define explicit Python `Enum` classes. For grouping configurations, prefer the use of explicit `@dataclass` objects over sprawling dictionaries or tuples.
+- **Type Checking Escapes:** Bypassing strict types with `# type: ignore` comments is strictly banned without an accompanying inline comment providing technical justification for the upstream stub failure.
+- **Security & Pathing (Sandbox Escapes):** LLMs frequently hallucinate or generate unsafe relative file system paths. You must **always** anchor file access to a base boundary directory (e.g. `wpt_root` or `output_dir`). You must strictly validate paths before execution using `path.resolve().relative_to(wpt_root)` to prevent catastrophic `../` traversal sandbox escapes. Reviewers must actively search for `read_text` or `write_text` calls that lack preceding `.relative_to()` constraints.
+
+## 4. License Compliance
 
 Every file containing source code must include the standard Apache 2.0 copyright and license information header.
 
@@ -60,7 +69,7 @@ Every file containing source code must include the standard Apache 2.0 copyright
 
 Ensure this is present at the top of any newly created `.py`, `.js`, `.html`, or `.yml` files.
 
-## 4. Cleanup Operations
+## 5. Cleanup Operations
 
 To avoid stale cache issues (especially with `pytest` or `mypy`):
 

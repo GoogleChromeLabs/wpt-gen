@@ -1,11 +1,11 @@
 ---
 name: wpt-gen-llm
-description: Best practices for configuring LLM integrations, provider configuration, context scraping, and managing prompts in WPT-Gen.
+description: Best practices for configuring LLM integrations, concurrent networking, context scraping, and managing prompts in WPT-Gen.
 ---
 
 # WPT-Gen LLM Skills
 
-This document outlines the best practices for LLM integrations within the `wpt-gen` repository.
+This document outlines the best practices for LLM integrations, prompt pipeline safety, and context extraction within the `wpt-gen` repository.
 
 ## 1. Multi-Provider Support
 
@@ -26,16 +26,19 @@ The agentic workflow uses different model categories based on the complexity of 
     - **Test Generation**: Produces test code based on audit blueprints.
     - **Evaluation**: Performs self-correction and validation of generated code.
 
-## 3. Context Scraping
+## 3. Network Architecture (Context Extraction)
 
-Providing context is critical for minimizing hallucinations.
+Providing context is critical for minimizing hallucinations, but it involves extensive network I/O blockades.
 
-- **Trafilatura:** WPT-Gen uses `trafilatura` to extract text from W3C Specification URLs linked to web features.
+- **Concurrent I/O:** Always use `asyncio.gather` combined with `asyncio.to_thread` for concurrent network requests (e.g. fetching 5 MDN explainer URLs at once). Blocking sequential `for` loops across network dependencies creates catastrophic UI lag.
+- **Missing Failsafes:** Reviewers must actively flag blocking network requests that lack exponential retry logic/backoff for `HTTPError 429` (Too Many Requests). Do not depend on LLMs blindly surviving a dropped HTTP request.
+- **Trafilatura:** WPT-Gen uses `trafilatura` to extract dense text from W3C Specification URLs linked to web features.
 
-## 4. Prompt Management
+## 4. Prompt Management & Defensive Context
 
-Prompt structure determines the output quality.
+Prompt structure determines output quality, but unbounded inputs determine runtime OOM exceptions. 
 
+- **Defensive Paging (OOM/Token Limits):** Native memory limits and LLM token limits require defensive programming. If ingesting massive terminal runner logs into the context window, slice the array to only keep the *tail end* to remain token-efficient. If querying expansive file directory contents, return or exit early when numerical limits are hit rather than crashing. 
+- **Context Bloat:** Ensure large, optional prompt dependencies (like MDN explainers) are safely guarded behind Jinja `{% if %}` statements to avoid feeding the LLM empty strings when variables map to null.
 - **Clear Instructions:** Ensure system prompts clearly dictate the agent's persona (expert test engineer) and the expected format.
-- **Few-Shot Prompting:** When generating precise test structures (e.g., testharness.js output), provide examples of well-formed WPT tests within the prompt.
 - **XML Output:** When requesting structured data (like gap analysis or test blueprints), explicitly request XML format and provide the intended schema structure. This allows WPT-Gen to parse and programmatically act on the AI output.
