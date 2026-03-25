@@ -157,6 +157,21 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
     return []
 
 
+def fetch_explainer_contents(urls: list[str]) -> dict[str, str]:
+  """
+  Fetches and extracts text content from a list of explainer URLs.
+
+  Returns:
+    Dictionary mapping each URL to its extracted markdown content.
+  """
+  contents = {}
+  for url in urls:
+    res = fetch_and_extract_text(url)
+    if res:
+      contents[url] = res
+  return contents
+
+
 def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
   """
   Extracts the high-level metadata (name and description) from the feature data.
