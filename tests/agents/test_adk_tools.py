@@ -183,6 +183,23 @@ def test_file_tools_delete_file(tmp_path: Path) -> None:
   assert not test_file.exists()
 
 
+def test_file_tools_move_file(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  source_file = wpt_root / 'to_move.txt'
+  source_file.write_text('content')
+  dest_file = wpt_root / 'moved.txt'
+
+  tools = create_agent_tools(wpt_root, MagicMock(spec=UIProvider), 'chrome', 'canary')
+  move_file_tool = next(t for t in tools if t.name == 'move_file')
+
+  result = move_file_tool.func(str(source_file), str(dest_file))
+  assert result['status'] == 'success'
+  assert not source_file.exists()
+  assert dest_file.exists()
+  assert dest_file.read_text() == 'content'
+
+
 def test_file_tools_security_rejection(tmp_path: Path) -> None:
   wpt_root = tmp_path / 'wpt'
   wpt_root.mkdir()
@@ -194,6 +211,14 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
   read_file_tool = next(t for t in tools if t.name == 'read_file')
 
   result = read_file_tool.func(str(outside_file))
+  assert result['status'] == 'error'
+  assert 'outside the designated WPT repository root' in result['error']
+
+  # Test moving a file outside the repository
+  inside_file = wpt_root / 'inside.txt'
+  inside_file.write_text('inside')
+  move_file_tool = next(t for t in tools if t.name == 'move_file')
+  result = move_file_tool.func(str(inside_file), str(outside_file))
   assert result['status'] == 'error'
   assert 'outside the designated WPT repository root' in result['error']
 
