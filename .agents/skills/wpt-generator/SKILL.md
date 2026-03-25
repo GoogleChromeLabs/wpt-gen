@@ -44,6 +44,8 @@ Before creating a new file, rigorously check if the test logic belongs in existi
 4. **Create New Only When Necessary:** Only if no logical match is found (even after considering splitting and manual consolidation), plan to create a new file. **Consult `references/wpt_style_guide.md` to determine the correct filename extension and suffixes** (e.g., `.html`, `.window.js`, `.any.js`) based on your chosen test type. Name the file logically based on the `<web_feature_id>`.
 5. **File Existence Check:** Before using `write_file` to create a new test file, you MUST verify that the proposed filename does not already exist in the target directory (e.g., by using the `list_directory` tool).
 6. **Naming Conflicts:** If a file with the proposed name already exists, you MUST either append the new test logic to the existing file (if logically appropriate) or generate a new unique filename by incrementing a numerical suffix (e.g., changing `-001.html` to `-002.html`) to prevent overwriting existing work.
+7. **Existing Test Expansion:** If you detect that the core assertion of the WPT blueprint is already present in an existing test (i.e. a test perfectly matching the blueprint exists), you MUST ensure all specification edge cases, permutations, or multi-level DOM configurations are thoroughly exercised, and expand the existing test file as necessary instead of creating a redundant new test.
+   - **Handling `.tentative` files:** If an existing `.tentative` file matches your blueprint, append your new test cases directly to it. **Do NOT remove the `.tentative` suffix or rename the file** to "upgrade" it unless explicitly instructed to do so by the user.
 
 ### 5. Load References & Generate the Test
 **Before writing any code**, you MUST read the appropriate style guides to ensure correct formatting and syntax:
@@ -51,7 +53,7 @@ Before creating a new file, rigorously check if the test logic belongs in existi
 - If Testharness: See [testharness_style_guide.md](references/testharness_style_guide.md)
 - If Reftest: See [reftest_style_guide.md](references/reftest_style_guide.md)
 - If Crashtest: See [crashtest_style_guide.md](references/crashtest_style_guide.md)
-- If the test requires simulated user interaction (clicks, typing, gestures): See [automation_guide.md](references/automation_guide.md)
+- If the test requires simulated user interaction (clicks, typing, gestures) or tests hardware/device APIs (like Web MIDI, Web Bluetooth): See [automation_guide.md](references/automation_guide.md)
 - If the test is a wdspec test (testing the WebDriver protocol itself): See [wdspec_guide.md](references/wdspec_guide.md)
 - If the test strictly requires a human operator and cannot be automated: See [manual_test_style_guide.md](references/manual_test_style_guide.md)
 - If the test involves Web IDL interfaces (e.g., testing `[Exposed]` attributes, method existence, or interface exposure): See [idlharness_guide.md](references/idlharness_guide.md)
@@ -64,8 +66,10 @@ Write the appropriate WPT test to strictly satisfy the `<description>` using the
 - **CRITICAL RULE: Minimize Specification Boilerplate:** Only use the APIs strictly required to trigger the behavior described in the `<description>`. Do not include optional features or initialization boilerplate from the spec unless explicitly required by the core assertion.
 - **CRITICAL RULE: Domain Helpers > Golden Examples:** Check if a built-in helper exists in the local `resources/` directory to avoid repetitive boilerplate. Even if your "Golden Example" writes out boilerplate logic manually (e.g., manually polling, fetching, resolving a sequence of events, or establishing positive controls), you MUST aggressively replace that boilerplate if a higher-level abstraction exists in a local helper file. **When you identify a helper file, you MUST perform an exhaustive audit of its entire exported API (e.g., reading the whole `helper.js` file using `read_file`) to discover all available utilities (like `wait()`, `delay()`, or custom assertions). Do not restrict your usage only to the specific functions the Golden Example used.**
    - If testing CSS property parsing, descriptor parsing (e.g., `@font-face` descriptors), at-rules, inheritance, computed values, or shorthands: See [css_testcommon.md](references/domain_helpers/css_testcommon.md)
+   - If testing CSS Fonts, typography, or synthetic glyph metrics: See [css_fonts.md](references/domain_helpers/css_fonts.md)
    - If testing CSS property animatability, interpolation, or discrete flips: See [css_animations.md](references/domain_helpers/css_animations.md)
    - If testing cross-origin network or fetch behaviors via Javascript: See [get_host_info.md](references/domain_helpers/get_host_info.md)
+   - If testing features controlled by Permissions Policy (formerly Feature Policy): See [permissions_policy.md](references/domain_helpers/permissions_policy.md)
 - **Implementation:** Write the test logic, setup, and assertions autonomously. When generating tests for multiple permutations or variations of an API, you should consider writing a data-driven test using arrays and loops, as described in `testharness_style_guide.md`. However, do not over-engineer simple, isolated features. *Note: If the target directory lacks examples of your chosen Test Type, rely entirely on the style guides.*
 
 ### 6. Validation & Self-Correction (CRITICAL)

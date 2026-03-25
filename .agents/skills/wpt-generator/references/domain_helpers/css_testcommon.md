@@ -45,7 +45,7 @@ Use these to test whether a browser correctly parses (or rejects) a specified CS
 
 **Example:**
 ```javascript
-// CRITICAL: Always use data-driven arrays/loops for multiple values!
+// Consider using data-driven arrays/loops for multiple values.
 const valid_values = [
   { specified: 'center' },
   { specified: 'flex-start', expected: 'start' }
@@ -60,13 +60,19 @@ for (const value of invalid_values) {
 }
 ```
 
+**Validation Reassurance (Unimplemented Grammar):**
+When writing tests for newly specified grammar (e.g., a new 2-value syntax for a property), it is common for the test runner to report a failure because the browser engine hasn't implemented the new spec syntax yet. **Do not endlessly attempt to "fix" your code if it correctly matches the specification.** Write tests strictly to the spec. If the browser rejects valid grammar because it is unimplemented, accept the failure and finalize the test.
+
 ## Computed Style (`computed-testcommon.js`)
 Use these to test how a specified CSS value resolves in `getComputedStyle`.
 *   `test_computed_value(property, specified, computed)`: Tests that setting the property to `specified` results in a `getComputedStyle` value of `computed`. If `computed` is omitted, it defaults to `specified`.
 
+**CRITICAL WARNING: CSS Counters**
+Do NOT use `getComputedStyle` (or `test_computed_value`) to verify the mathematical evaluation or output of CSS counters (e.g., `counter-set`, `counter-increment`). The `getComputedStyle(element, '::before').content` API is unreliable for this purpose; many browser engines will return the raw functional value (e.g., `"counter(c)"`) instead of the computed integer string (e.g., `"1"`). **You MUST use Reftests to verify CSS counter outputs.** See `reftest_style_guide.md`.
+
 **Example:**
 ```javascript
-// CRITICAL: Always use data-driven arrays/loops for multiple values!
+// Consider using data-driven arrays/loops for multiple values.
 const computed_values = [
   { specified: 'auto' },
   { specified: '100px' },

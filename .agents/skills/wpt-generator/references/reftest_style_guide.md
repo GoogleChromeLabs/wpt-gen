@@ -2,6 +2,11 @@ Reftests (reference tests) are one of the primary tools in Web Platform Tests (W
 
 This guide provides a comprehensive overview of best practices for writing high-quality, maintainable, and robust reftests.
 
+### When to Use Reftests: The CSS Counter Exception
+While `testharness.js` is generally preferred for testing parsed or computed CSS values, **you MUST use Reftests when verifying the mathematical evaluation or visual output of CSS counters** (e.g., `counter-set`, `counter-increment`, `counter-reset`).
+*   **Why?** The JavaScript API `getComputedStyle(element, '::before').content` is unreliable for extracting the evaluated integer string of a counter across all major browser engines. Many engines will incorrectly return the raw functional value (e.g., `"counter(c)"`) instead of the computed number (e.g., `"1"`).
+*   **The Solution:** A Reftest avoids JavaScript entirely by comparing the visual output of the CSS counter against a reference file that uses hardcoded, statically defined text.
+
 ## 1. Anatomy of a Reftest
 
 A reftest requires at least two files: the test file and the reference file. 
@@ -58,6 +63,8 @@ Before creating a new reference file, **you MUST check if an existing reference 
 - Look in the current directory and any `reference/`, `references/`, or `support/` subdirectories.
 - Look for standard WPT shared references (e.g., `../reference/ref-filled-green-100px-square.xht`).
 - If an existing file produces the exact same visual rendering (e.g., a simple green square or a blank white page), link to it using `<link rel="match" href="...">` instead of creating a new `-ref.html` file.
+
+**The Cleanliness Boundary:** While reusing reference files is strongly encouraged, you must balance this against test cleanliness. If reusing an older, multi-element reference file requires you to write an overly "hacky", mangled, or excessively complex DOM in your test file just to perfectly align with its output, **do not reuse it**. A clean, readable, and focused test file takes priority over reference reuse. If the tradeoff is severe, simply spawn a new, slightly altered reference file to keep the individual tests clean.
 
 ### 3.1 Designing Tests for Reference Reuse
 

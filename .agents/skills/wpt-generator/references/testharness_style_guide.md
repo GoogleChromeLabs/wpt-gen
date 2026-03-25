@@ -90,8 +90,10 @@ Metadata and file names communicate critical information to the WPT server and r
 *   `-manual`: Indicates the test requires manual user interaction and should not be run in an automated runner without specific configuration. Must appear right before the extension.
 *   `.tentative`: Indicates the test is for a feature still under discussion or not yet standardized.
 
-### 3.2 `// META` Comments (for `.js` files)
+### 3.2 `// META` Comments and Spec Links (for `.js` files)
 *   `// META: title=Test Title`: Sets the document title.
+*   **Spec URLs:** To include a specification link in a `.js` test (like `.window.js` or `.any.js`), you MUST use a standard JavaScript comment, e.g., `// https://spec.url/path`.
+    *   **CRITICAL RULE:** Do NOT attempt to use `// META: help=...`. The `help` metadata tag is illegal and unsupported by `wptserve` for `.js` files, and it will trigger an `UNKNOWN-METADATA` linter error. Use `// https://...` instead.
 *   `// META: script=/common/utils.js`: Includes external scripts.
 *   `// META: global=window,worker`: Specifies which globals to run in (for `.any.js`).
 *   `// META: timeout=long`: Increases the test timeout (standard is 10s, long is 60s).
