@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.resources
 from pathlib import Path
 
 from jinja2 import Environment
 from rich.rule import Rule
 
-from wptgen.config import Config
+from wptgen.config import TEMPLATE_DIR, Config
 from wptgen.llm import LLMClient
 from wptgen.models import STYLE_GUIDE_MAP, TestType, WorkflowContext
 from wptgen.ui import UIProvider
@@ -111,7 +110,7 @@ async def _generate_adk_loop(
 
   ui.report_generation_start(len(approved_suggestions_xml))
 
-  resources_path = Path(str(importlib.resources.files('wptgen') / 'templates' / 'resources'))
+  resources_path = TEMPLATE_DIR / 'resources'
   wpt_style_guide = (resources_path / 'wpt_style_guide.md').read_text(encoding='utf-8')
 
   spec_urls = context.metadata.specs if context.metadata and context.metadata.specs else []

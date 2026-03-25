@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.resources
 import logging
 import os
 import sys
@@ -22,6 +23,11 @@ from typing import Any
 import yaml
 
 from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
+
+# The absolute path to the installed wptgen package root
+PACKAGE_ROOT = Path(str(importlib.resources.files('wptgen')))
+TEMPLATE_DIR = PACKAGE_ROOT / 'templates'
+SKILLS_DIR = PACKAGE_ROOT / 'skills'
 
 # Default timeout for LLM requests in seconds (10 minutes)
 DEFAULT_LLM_TIMEOUT = 600
