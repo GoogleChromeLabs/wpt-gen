@@ -248,6 +248,42 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
+  def create_directory(directory_path: str) -> dict[str, Any]:
+    """Creates a directory within the WPT repository, including any necessary parent directories.
+
+    Args:
+        directory_path: The relative or absolute path of the directory to create.
+
+    Returns:
+        A dictionary containing the 'status'.
+    """
+    try:
+      target = _validate_safe_path(Path(directory_path), wpt_path)
+      target.mkdir(parents=True, exist_ok=True)
+      return {'status': 'success'}
+    except (OSError, ValueError) as e:
+      return {'status': 'error', 'error': str(e)}
+
+  def delete_directory(directory_path: str) -> dict[str, Any]:
+    """Deletes a directory and all its contents within the WPT repository.
+
+    Args:
+        directory_path: The path to the directory to delete.
+
+    Returns:
+        A dictionary containing the 'status'.
+    """
+    try:
+      target = _validate_safe_path(Path(directory_path), wpt_path)
+      if not target.is_dir():
+        return {'status': 'error', 'error': f'Directory not found: {directory_path}'}
+      import shutil
+
+      shutil.rmtree(target)
+      return {'status': 'success'}
+    except (OSError, ValueError) as e:
+      return {'status': 'error', 'error': str(e)}
+
   def delete_file(file_path: str) -> dict[str, Any]:
     """Deletes a specific file within the WPT repository.
 
@@ -525,6 +561,8 @@ def create_agent_tools(wpt_path: Path) -> list[FunctionTool]:
     FunctionTool(func=write_file),
     FunctionTool(func=search_files),
     FunctionTool(func=list_directory),
+    FunctionTool(func=create_directory),
+    FunctionTool(func=delete_directory),
     FunctionTool(func=delete_file),
     FunctionTool(func=run_wpt_lint),
     FunctionTool(func=run_wpt_test),

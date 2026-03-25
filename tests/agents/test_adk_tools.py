@@ -269,3 +269,31 @@ def test_file_tools_search_file_contents(tmp_path: Path) -> None:
   result_invalid = search_contents_tool.func(str(wpt_root), '[invalid')
   assert result_invalid['status'] == 'error'
   assert 'Invalid regular expression' in result_invalid['error']
+
+
+def test_file_tools_create_directory(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_dir = wpt_root / 'new_test_dir'
+
+  tools = create_agent_tools(wpt_root)
+  create_dir_tool = next(t for t in tools if t.name == 'create_directory')
+
+  result = create_dir_tool.func(str(test_dir))
+  assert result['status'] == 'success'
+  assert test_dir.is_dir()
+
+
+def test_file_tools_delete_directory(tmp_path: Path) -> None:
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+  test_dir = wpt_root / 'dir_to_delete'
+  test_dir.mkdir()
+  (test_dir / 'file.txt').touch()
+
+  tools = create_agent_tools(wpt_root)
+  delete_dir_tool = next(t for t in tools if t.name == 'delete_directory')
+
+  result = delete_dir_tool.func(str(test_dir))
+  assert result['status'] == 'success'
+  assert not test_dir.exists()
