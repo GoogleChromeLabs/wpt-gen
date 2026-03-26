@@ -639,6 +639,11 @@ def chromestatus_command(
   console.print(banner)
   console.print(f'\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n')
 
+  if not suggestions_only:
+    ui.error('Test generation for ChromeStatus entries is not yet implemented.')
+    ui.info('Please use --suggestions-only to generate the coverage audit report.')
+    raise typer.Exit(code=1)
+
   if use_lightweight and use_reasoning:
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)

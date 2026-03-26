@@ -438,18 +438,24 @@ def test_chromestatus_command(
 
   result = runner.invoke(app, args)
 
-  # Check standard output and exit code
-  assert result.exit_code == 0
-  assert 'Target ChromeStatus Feature' in result.stdout
+  if suggestions_only:
+    # Check standard output and exit code
+    assert result.exit_code == 0
+    assert 'Target ChromeStatus Feature' in result.stdout
 
-  # Verify our logic called the underlying functions with the correct CLI arguments
-  mock_load_config.assert_called_once()
-  kwargs = mock_load_config.call_args.kwargs
-  assert kwargs['suggestions_only'] is suggestions_only
-  assert kwargs['chromestatus_override'] is True
+    # Verify our logic called the underlying functions with the correct CLI arguments
+    mock_load_config.assert_called_once()
+    kwargs = mock_load_config.call_args.kwargs
+    assert kwargs['suggestions_only'] is suggestions_only
+    assert kwargs['chromestatus_override'] is True
 
-  # Ensure the engine workflow was triggered with the correct feature ID
-  mock_engine_instance.run_workflow.assert_called_once_with('12345')
+    # Ensure the engine workflow was triggered with the correct feature ID
+    mock_engine_instance.run_workflow.assert_called_once_with('12345')
+  else:
+    # Should fail when --suggestions-only is missing
+    assert result.exit_code == 1
+    assert 'Test generation for ChromeStatus entries is not yet implemented' in result.stdout
+    assert 'Please use --suggestions-only' in result.stdout
 
 
 def test_audit_success(mock_load_config: Any, mock_engine_instance: Any) -> None:
