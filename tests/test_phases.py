@@ -129,7 +129,7 @@ async def test_run_context_assembly_with_mdn(
   assert context is not None
   assert isinstance(context.mdn_contents, list)
   assert len(context.mdn_contents) == 2
-  mock_ui.report_context_summary.assert_called_once()
+  mock_ui.report_context_summary.assert_called_once_with(len('Spec Content'), 0, 2, 0, 0)
 
 
 @pytest.mark.asyncio

@@ -68,7 +68,12 @@ class UIProvider(Protocol):
   # Domain-specific reporting
   def report_metadata(self, metadata: FeatureMetadata) -> None: ...
   def report_context_summary(
-    self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
+    self,
+    spec_len: int,
+    explainer_count: int,
+    mdn_count: int,
+    test_count: int,
+    dep_count: int,
   ) -> None: ...
   def report_token_usage(
     self,
@@ -176,6 +181,12 @@ class RichUIProvider:
     metadata_table.add_row('[bold]Description:[/bold]', metadata.description)
     metadata_table.add_row('[bold]Spec URL:[/bold]', f'[blue]{metadata.specs[0]}[/blue]')
 
+    if metadata.explainer_links:
+      metadata_table.add_row(
+        '[bold]Explainers:[/bold]',
+        '\n'.join(f'[blue]{url}[/blue]' for url in metadata.explainer_links),
+      )
+
     self.console.print(
       Panel(
         metadata_table,
@@ -186,10 +197,17 @@ class RichUIProvider:
     )
 
   def report_context_summary(
-    self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
+    self,
+    spec_len: int,
+    explainer_count: int,
+    mdn_count: int,
+    test_count: int,
+    dep_count: int,
   ) -> None:
+    explainer_info = f'{explainer_count} explainers, ' if explainer_count > 0 else ''
     self.success(
       f'Context gathered: {spec_len} chars of spec, '
+      f'{explainer_info}'
       f'{mdn_count} MDN pages, '
       f'{test_count} tests, '
       f'{dep_count} dependency files.'

@@ -46,6 +46,27 @@ def test_fetch_chromestatus_metadata_success(mocker: MockerFixture) -> None:
   assert metadata.wpt_descr == 'Existing tests: https://wpt.fyi/results/css/css-grid'
 
 
+def test_fetch_chromestatus_metadata_with_prefix(mocker: MockerFixture) -> None:
+  """Tests that the JSON vulnerability prefix is correctly stripped."""
+  mock_data = {
+    'name': 'Prefixed Feature',
+    'summary': 'This feature has a prefix.',
+  }
+  # Simulate the prefix found in the real ChromeStatus API
+  prefix_content = ")]}'\n" + json.dumps(mock_data)
+
+  mock_response = mocker.MagicMock()
+  mock_response.read.return_value = prefix_content.encode('utf-8')
+  mock_response.__enter__.return_value = mock_response
+  mocker.patch('urllib.request.urlopen', return_value=mock_response)
+
+  metadata = fetch_chromestatus_metadata('1238765')
+
+  assert metadata is not None
+  assert metadata.name == 'Prefixed Feature'
+  assert metadata.description == 'This feature has a prefix.'
+
+
 def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
   mocker.patch(
     'urllib.request.urlopen',

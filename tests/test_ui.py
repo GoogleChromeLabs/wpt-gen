@@ -95,6 +95,13 @@ def test_report_metadata(ui: RichUIProvider, mock_console: MagicMock) -> None:
   assert panel.title == '[bold]Feature Metadata[/bold]'
 
 
+def test_report_metadata_with_explainers(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_metadata semantic method with explainers."""
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], explainer_links=['http://explainer'])
+  ui.report_metadata(metadata)
+  mock_console.print.assert_called_once()
+
+
 def test_report_token_usage(ui: RichUIProvider, mock_console: MagicMock) -> None:
   """Test report_token_usage semantic method."""
   ui.report_token_usage('Phase', 'Model', [(100, False, 'Task')], 100)
@@ -230,7 +237,7 @@ def test_on_phase_complete(ui: RichUIProvider, mock_console: MagicMock) -> None:
 
 
 def test_report_context_summary(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  ui.report_context_summary(1, 2, 3, 4)
+  ui.report_context_summary(1, 2, 3, 4, 5)
   mock_console.print.assert_called_once()
 
 
