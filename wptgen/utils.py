@@ -1,3 +1,4 @@
+"""Module docstring."""
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,10 +26,13 @@ T = TypeVar('T')
 P = ParamSpec('P')
 
 # Regular expressions for parsing and sanitization
-SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>', re.DOTALL)
+SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>',
+                                 re.DOTALL)
 FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
-MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$', re.MULTILINE)
-MULTI_FILE_RE = re.compile(r'\[FILE_(\d+):\s*(.*?)\](.*?)\[/FILE_\1\]', re.DOTALL)
+MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$',
+                                    re.MULTILINE)
+MULTI_FILE_RE = re.compile(r'\[FILE_(\d+):\s*(.*?)\](.*?)\[/FILE_\1\]',
+                           re.DOTALL)
 
 # Maximum delay between retries in seconds
 MAX_DELAY = 60.0
@@ -38,345 +42,349 @@ MAX_RETRIES = 5
 
 
 def clean_file_content(content: str) -> str:
-  """Removes trailing whitespace from every line and ensures exactly one trailing newline."""
-  if not content:
-    return '\n'
-  content = re.sub(r'[ \t]+(\r?)$', r'\1', content, flags=re.MULTILINE)
-  return content.rstrip('\r\n') + '\n'
+    """Removes trailing whitespace from every line and ensures exactly one trailing newline."""  # pylint: disable=line-too-long
+    if not content:
+        return '\n'
+    content = re.sub(r'[ \t]+(\r?)$', r'\1', content, flags=re.MULTILINE)
+    return content.rstrip('\r\n') + '\n'
 
 
 def extract_xml_tag(text: str, tag: str) -> str | None:
-  """Extracts the content of an XML-like tag from a string."""
-  match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
-  return match.group(1).strip() if match else None
+    """Extracts the content of an XML-like tag from a string."""
+    match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
+    return match.group(1).strip() if match else None
 
 
 def parse_suggestions(raw_text: str) -> list[str]:
-  """Extracts all test suggestion blocks from a raw LLM response."""
-  return SUGGESTION_BLOCK_RE.findall(raw_text)
+    """Extracts all test suggestion blocks from a raw LLM response."""
+    return SUGGESTION_BLOCK_RE.findall(raw_text)
 
 
-def parse_multi_file_response(
-  raw_text: str, strip_tentative: bool = False
-) -> list[tuple[str, str]]:
-  """Extracts multiple files from a partitioned LLM response.
+def parse_multi_file_response(raw_text: str,
+                              strip_tentative: bool = False
+                             ) -> list[tuple[str, str]]:
+    """Extracts multiple files from a partitioned LLM response.
 
-  Expected format:
-  [FILE_1: .flags.html]
-  content
-  [/FILE_1]
+    Expected format:
+    [FILE_1: .flags.html]
+    content
+    [/FILE_1]
 
-  This function ensures the filename returned is a suffix (starting with a dot).
-  If the LLM provides a full filename, it shaves off the start until the first dot.
-  """
-  files = []
-  for match in MULTI_FILE_RE.finditer(raw_text):
-    suffix = match.group(2).strip()
+    This function ensures the filename returned is a suffix (starting with a dot).  # pylint: disable=line-too-long
+    If the LLM provides a full filename, it shaves off the start until the first dot.  # pylint: disable=line-too-long
+    """
+    files = []
+    for match in MULTI_FILE_RE.finditer(raw_text):
+        suffix = match.group(2).strip()
 
-    if strip_tentative:
-      suffix = suffix.replace('.tentative', '')
+        if strip_tentative:
+            suffix = suffix.replace('.tentative', '')
 
-    # Shave off the start if it doesn't lead with a period
-    if suffix and not suffix.startswith('.'):
-      dot_idx = suffix.find('.')
-      if dot_idx != -1:
-        suffix = suffix[dot_idx:]
-      else:
-        # Fallback if no dot found at all - prepend a dot
-        suffix = '.' + suffix
+        # Shave off the start if it doesn't lead with a period
+        if suffix and not suffix.startswith('.'):
+            dot_idx = suffix.find('.')
+            if dot_idx != -1:
+                suffix = suffix[dot_idx:]
+            else:
+                # Fallback if no dot found at all - prepend a dot
+                suffix = '.' + suffix
 
-    content = match.group(3).strip()
-    files.append((suffix, content))
-  return files
+        content = match.group(3).strip()
+        files.append((suffix, content))
+    return files
 
 
 def fix_reftest_link(test_content: str, ref_filename: str) -> str:
-  """Verifies and updates the <link rel="match" href="..."> tag in a reftest.
+    """Verifies and updates the <link rel="match" href="..."> tag in a reftest.
 
-  Args:
-    test_content: The HTML content of the test file.
-    ref_filename: The name of the reference file (e.g., 'counter-set-001-ref.html').
+    Args:
+      test_content: The HTML content of the test file.
+      ref_filename: The name of the reference file (e.g., 'counter-set-001-ref.html').  # pylint: disable=line-too-long
 
-  Returns:
-    The updated HTML content with the correct <link rel="match" href="..."> tag.
-  """
-  # Pattern to match the <link rel="match" href="..."> tag.
-  # Flexible with single/double quotes, whitespace, and self-closing tags.
-  link_re = re.compile(
-    r'<link\s+[^>]*rel=["\']match["\'][^>]*href=["\'](.*?)["\'][^>]*\/?>'
-    r'|<link\s+[^>]*href=["\'](.*?)["\'][^>]*rel=["\']match["\'][^>]*\/?>',
-    re.IGNORECASE | re.DOTALL,
-  )
+    Returns:
+      The updated HTML content with the correct <link rel="match" href="..."> tag.  # pylint: disable=line-too-long
+    """
+    # Pattern to match the <link rel="match" href="..."> tag.
+    # Flexible with single/double quotes, whitespace, and self-closing tags.
+    link_re = re.compile(
+        r'<link\s+[^>]*rel=["\']match["\'][^>]*href=["\'](.*?)["\'][^>]*\/?>'
+        r'|<link\s+[^>]*href=["\'](.*?)["\'][^>]*rel=["\']match["\'][^>]*\/?>',
+        re.IGNORECASE | re.DOTALL,
+    )
 
-  new_link = f'<link rel="match" href="{ref_filename}">'
+    new_link = f'<link rel="match" href="{ref_filename}">'
 
-  if link_re.search(test_content):
-    # Update existing link
-    return link_re.sub(new_link, test_content)
+    if link_re.search(test_content):
+        # Update existing link
+        return link_re.sub(new_link, test_content)
 
-  # If no link tag exists, add it to the <head> section.
-  head_re = re.compile(r'(<head.*?>)', re.IGNORECASE)
-  if head_re.search(test_content):
-    return head_re.sub(r'\1\n' + new_link, test_content, count=1)
+    # If no link tag exists, add it to the <head> section.
+    head_re = re.compile(r'(<head.*?>)', re.IGNORECASE)
+    if head_re.search(test_content):
+        return head_re.sub(r'\1\n' + new_link, test_content, count=1)
 
-  # Fallback: find <html> tag
-  html_re = re.compile(r'(<html.*?>)', re.IGNORECASE)
-  if html_re.search(test_content):
-    return html_re.sub(r'\1\n' + new_link, test_content, count=1)
+    # Fallback: find <html> tag
+    html_re = re.compile(r'(<html.*?>)', re.IGNORECASE)
+    if html_re.search(test_content):
+        return html_re.sub(r'\1\n' + new_link, test_content, count=1)
 
-  # Absolute fallback: prepend to content
-  return new_link + '\n' + test_content
+    # Absolute fallback: prepend to content
+    return new_link + '\n' + test_content
 
 
 def get_next_available_root(
-  feature_id: str,
-  output_dir: Path,
-  used_names: set[str],
-  max_len: int = 150,
+    feature_id: str,
+    output_dir: Path,
+    used_names: set[str],
+    max_len: int = 150,
 ) -> str:
-  """Finds the next available root filename using the {feature_id}-{num} convention.
+    """Finds the next available root filename using the {feature_id}-{num} convention.  # pylint: disable=line-too-long
 
-  Args:
-    feature_id: The ID of the web feature.
-    output_dir: The directory where tests are saved.
-    used_names: A set of root names already planned to be used in this run.
-    max_len: The maximum allowed length for the filename (including potential suffixes).
+    Args:
+      feature_id: The ID of the web feature.
+      output_dir: The directory where tests are saved.
+      used_names: A set of root names already planned to be used in this run.
+      max_len: The maximum allowed length for the filename (including potential suffixes).  # pylint: disable=line-too-long
 
-  Returns:
-    The available root filename (e.g., 'feature-001').
-  """
-  safe_feature_id = FILENAME_SANITIZATION_RE.sub('_', feature_id.lower())
+    Returns:
+      The available root filename (e.g., 'feature-001').
+    """
+    safe_feature_id = FILENAME_SANITIZATION_RE.sub('_', feature_id.lower())
 
-  # We reserve some space for suffixes like '.https.any.js' (~20 chars)
-  # and potentially '-ref' for reftests (4 chars).
-  suffix_buffer = 25
-  allowed_feature_id_len = max_len - suffix_buffer - 4  # -4 for '-001'
+    # We reserve some space for suffixes like '.https.any.js' (~20 chars)
+    # and potentially '-ref' for reftests (4 chars).
+    suffix_buffer = 25
+    allowed_feature_id_len = max_len - suffix_buffer - 4  # -4 for '-001'
 
-  truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
+    truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
 
-  n = 1
-  while True:
-    num_str = f'{n:03d}' if n < 1000 else str(n)
-    root_name = f'{truncated_feature_id}-{num_str}'
+    n = 1
+    while True:
+        num_str = f'{n:03d}' if n < 1000 else str(n)
+        root_name = f'{truncated_feature_id}-{num_str}'
 
-    # Collision check:
-    # 1. Check if we've already used this root in this run.
-    if root_name in used_names:
-      n += 1
-      continue
+        # Collision check:
+        # 1. Check if we've already used this root in this run.
+        if root_name in used_names:
+            n += 1
+            continue
 
-    # 2. Check if any file in the output directory starts with this root name.
-    # This is conservative but ensures we don't collide regardless of extension/flags.
-    collision = False
-    if output_dir.exists():
-      for path in output_dir.iterdir():
-        if path.name.startswith(root_name):
-          collision = True
-          break
+        # 2. Check if any file in the output directory starts with this root
+        #
+        # name.
+        # This is conservative but ensures we don't collide regardless of extension/flags.  # pylint: disable=line-too-long
+        collision = False
+        if output_dir.exists():
+            for path in output_dir.iterdir():
+                if path.name.startswith(root_name):
+                    collision = True
+                    break
 
-    if not collision:
-      used_names.add(root_name)
-      return root_name
+        if not collision:
+            used_names.add(root_name)
+            return root_name
 
-    n += 1
+        n += 1
 
 
 def retry(
-  exceptions: type[Exception] | tuple[type[Exception], ...],
-  max_attempts: int = 3,
-  max_attempts_attr: str | None = None,
-  initial_delay: float = 1.0,
-  backoff_factor: float = 2.0,
-  jitter: bool = True,
+    exceptions: type[Exception] | tuple[type[Exception], ...],
+    max_attempts: int = 3,
+    max_attempts_attr: str | None = None,
+    initial_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    jitter: bool = True,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
-  """
-  A decorator that retries a function with exponential backoff.
+    """
+    A decorator that retries a function with exponential backoff.
 
-  Args:
-    exceptions: The exception(s) that should trigger a retry.
-    max_attempts: Maximum number of attempts before giving up (static).
-    max_attempts_attr: If provided, look up this attribute on 'self' for the max attempts.
-      This takes precedence over 'max_attempts'.
-    initial_delay: Initial delay between retries in seconds.
-    backoff_factor: Multiplier for the delay after each attempt.
-    jitter: Whether to add random jitter to the delay.
-  """
+    Args:
+      exceptions: The exception(s) that should trigger a retry.  # pylint: disable=line-too-long
+      max_attempts: Maximum number of attempts before giving up (static).
+      max_attempts_attr: If provided, look up this attribute on 'self' for the max attempts.
+        This takes precedence over 'max_attempts'.
+      initial_delay: Initial delay between retries in seconds.
+      backoff_factor: Multiplier for the delay after each attempt.
+      jitter: Whether to add random jitter to the delay.
+    """
 
-  def decorator(func: Callable[P, T]) -> Callable[P, T]:
-    @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-      # Determine the actual max attempts
-      if max_attempts_attr is not None:
-        if not args:
-          raise ValueError(
-            f"Cannot find attribute '{max_attempts_attr}' because 'self' is missing from arguments."
-          )
-        try:
-          actual_max_attempts = getattr(args[0], max_attempts_attr)
-        except AttributeError as e:
-          raise ValueError(
-            f"Argument 'self' (type {type(args[0]).__name__}) has no attribute '{max_attempts_attr}'."
-          ) from e
-      else:
-        actual_max_attempts = max_attempts
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
 
-      # Cap the max attempts at the global MAX_RETRIES limit
-      actual_max_attempts = min(actual_max_attempts, MAX_RETRIES)
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Determine the actual max attempts
+            if max_attempts_attr is not None:
+                if not args:  # pylint: disable=line-too-long
+                    raise ValueError(
+                        f"Cannot find attribute '{max_attempts_attr}' because 'self' is missing from arguments."  # pylint: disable=line-too-long
+                    )
+                try:
+                    actual_max_attempts = getattr(args[0], max_attempts_attr)
+                except AttributeError as e:  # pylint: disable=line-too-long
+                    raise ValueError(
+                        f"Argument 'self' (type {type(args[0]).__name__}) has no attribute '{max_attempts_attr}'."  # pylint: disable=line-too-long
+                    ) from e
+            else:
+                actual_max_attempts = max_attempts
 
-      # Validate max_attempts is a positive integer
-      if not isinstance(actual_max_attempts, int) or actual_max_attempts < 1:
-        raise ValueError(f'max_attempts must be an integer >= 1, got {actual_max_attempts}')
+            # Cap the max attempts at the global MAX_RETRIES limit
+            actual_max_attempts = min(actual_max_attempts, MAX_RETRIES)
 
-      delay = initial_delay
+            # Validate max_attempts is a positive integer
+            if (not isinstance(actual_max_attempts, int) or
+                    actual_max_attempts < 1):  # pylint: disable=line-too-long
+                raise ValueError(
+                    f'max_attempts must be an integer >= 1, got {actual_max_attempts}'  # pylint: disable=line-too-long
+                )
 
-      for attempt in range(1, actual_max_attempts + 1):
-        try:
-          return func(*args, **kwargs)
-        except exceptions:
-          # If we've reached the maximum attempts, re-raise the caught exception natively
-          if attempt == actual_max_attempts:
-            raise
+            delay = initial_delay
 
-          sleep_time = min(delay, MAX_DELAY)
-          if jitter:
-            sleep_time *= random.uniform(0.5, 1.5)
+            for attempt in range(1, actual_max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)  # pylint: disable=line-too-long
+                except exceptions:
+                    # If we've reached the maximum attempts, re-raise the caught exception natively  # pylint: disable=line-too-long
+                    if attempt == actual_max_attempts:
+                        raise
 
-          time.sleep(sleep_time)
-          delay *= backoff_factor
+                    sleep_time = min(delay, MAX_DELAY)
+                    if jitter:
+                        sleep_time *= random.uniform(0.5, 1.5)
 
-      # Satisfy the type checker. This code is mathematically unreachable at runtime
-      # because the loop will always either return or raise on its final iteration.
-      raise AssertionError('Unreachable code reached in retry decorator')  # pragma: no cover
+                    time.sleep(sleep_time)
+                    delay *= backoff_factor  # pylint: disable=line-too-long
+# pylint: disable=line-too-long
+# Satisfy the type checker. This code is mathematically unreachable at runtime
+# because the loop will always either return or raise on its final iteration.
+            raise AssertionError('Unreachable code reached in retry decorator'
+                                )  # pragma: no cover
 
-    return wrapper
+        return wrapper
 
-  return decorator
+    return decorator
 
 
+# pylint: disable=line-too-long
 def ensure_testharness_imports(content: str) -> str:
-  """Ensures testharness.js and testharnessreport.js are imported in HTML tests."""
-  th_js = '<script src="/resources/testharness.js"></script>'
-  thr_js = '<script src="/resources/testharnessreport.js"></script>'
+    """Ensures testharness.js and testharnessreport.js are imported in HTML tests."""
+    th_js = '<script src="/resources/testharness.js"></script>'
+    thr_js = '<script src="/resources/testharnessreport.js"></script>'
 
-  has_th = '/resources/testharness.js' in content
-  has_thr = '/resources/testharnessreport.js' in content
+    has_th = '/resources/testharness.js' in content
+    has_thr = '/resources/testharnessreport.js' in content
 
-  if has_th and has_thr:
-    return content
+    if has_th and has_thr:
+        return content
 
-  imports_to_add = []
-  if not has_th:
-    imports_to_add.append(th_js)
-  if not has_thr:
-    imports_to_add.append(thr_js)
+    imports_to_add = []
+    if not has_th:
+        imports_to_add.append(th_js)
+    if not has_thr:
+        imports_to_add.append(thr_js)
 
-  import_str = '\n'.join(imports_to_add)
+    import_str = '\n'.join(imports_to_add)
 
-  # Try to inject inside <head>
-  head_match = re.search(r'(<head[^>]*>)', content, re.IGNORECASE)
-  if head_match:
-    return content[: head_match.end()] + '\n' + import_str + '\n' + content[head_match.end() :]
+    # Try to inject inside <head>
+    head_match = re.search(r'(<head[^>]*>)', content, re.IGNORECASE)
+    if head_match:
+        return (content[:head_match.end()] + '\n' + import_str + '\n' +
+                content[head_match.end():])
 
-  # Try to inject inside <html>
-  html_match = re.search(r'(<html[^>]*>)', content, re.IGNORECASE)
-  if html_match:
-    return (
-      content[: html_match.end()]
-      + '\n<head>\n'
-      + import_str
-      + '\n</head>\n'
-      + content[html_match.end() :]
-    )
+    # Try to inject inside <html>
+    html_match = re.search(r'(<html[^>]*>)', content, re.IGNORECASE)
+    if html_match:
+        return (content[:html_match.end()] + '\n<head>\n' + import_str +
+                '\n</head>\n' + content[html_match.end():])
 
-  # Fallback: prepend
-  return import_str + '\n' + content
+    # Fallback: prepend
+    return import_str + '\n' + content
 
 
 def get_recent_test_files(
-  target_dir: str | Path,
-  file_extension: str,
-  limit: int = 3,
-  max_tokens: int = 15000,
-  token_counter: Callable[[str], int] | None = None,
-  allowed_files: list[str] | set[str] | None = None,
+        target_dir: str | Path,
+        file_extension: str,
+        limit: int = 3,
+        max_tokens: int = 15000,
+        token_counter: Callable[[str], int] | None = None,
+        allowed_files: list[str] | set[str] | None = None,  # pylint: disable=line-too-long
 ) -> list[tuple[str, str]]:
-  """Queries the local Git repository to find the most recently modified files.
+    """Queries the local Git repository to find the most recently modified files.
 
-  Args:
-    target_dir: The directory to search within.
-    file_extension: The required file extension (e.g., '.html', '-ref.html').
-    limit: The maximum number of files to return. Default is 3.
-    max_tokens: The maximum allowed tokens for a file to be included.
-    token_counter: An optional callable to count tokens. If None, uses a
-      character-based heuristic (len(content) / 4).
-    allowed_files: An optional list/set of absolute file paths to filter by.
-      If provided, only files that exactly match a path in this list will be included.
-
-  Returns:
-    A list of tuples containing (filename, file_content) for the matched files.
-  """
-  target_path = Path(target_dir)
-  if not target_path.exists() or not target_path.is_dir():
-    return []
-
-  try:
-    result = subprocess.run(
-      [
-        'git',
-        'log',
-        '--name-only',
-        '--pretty=format:',
-        '--diff-filter=d',
-      ],
-      cwd=str(target_path),
-      capture_output=True,
-      text=True,
-      check=True,
-    )
-  except subprocess.CalledProcessError:
-    return []
-
-  seen = set()
-  files = []
-
-  for line in result.stdout.splitlines():
-    line = line.strip()
-    if not line:
-      continue
-
-    if line in seen:
-      continue
-    seen.add(line)
-
-    if not line.endswith(file_extension):
-      continue
-
-    # git log returns paths relative to the repo root
-    filepath = target_path / line
-    if not filepath.exists() or not filepath.is_file():
-      continue
-
-    if allowed_files is not None:
-      abs_path = str(filepath.resolve())
-      if abs_path not in allowed_files:
-        continue
+    Args:
+      target_dir: The directory to search within.
+      file_extension: The required file extension (e.g., '.html', '-ref.html').
+      limit: The maximum number of files to return. Default is 3.
+      max_tokens: The maximum allowed tokens for a file to be included.
+      token_counter: An optional callable to count tokens. If None, uses a
+        character-based heuristic (len(content) / 4).  # pylint: disable=line-too-long
+      allowed_files: An optional list/set of absolute file paths to filter by.
+        If provided, only files that exactly match a path in this list will be included.
+  # pylint: disable=line-too-long
+    Returns:
+      A list of tuples containing (filename, file_content) for the matched files.
+    """
+    target_path = Path(target_dir)
+    if not target_path.exists() or not target_path.is_dir():
+        return []
 
     try:
-      content = filepath.read_text(encoding='utf-8')
-    except Exception:
-      continue
+        result = subprocess.run(
+            [
+                'git',
+                'log',
+                '--name-only',
+                '--pretty=format:',
+                '--diff-filter=d',
+            ],
+            cwd=str(target_path),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        return []
 
-    if token_counter:
-      tokens = token_counter(content)
-    else:
-      tokens = len(content) // 4
+    seen = set()
+    files = []
 
-    if tokens > max_tokens:
-      continue
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
 
-    files.append((filepath.name, content))
+        if line in seen:
+            continue
+        seen.add(line)
 
-    if len(files) >= limit:
-      break
+        if not line.endswith(file_extension):
+            continue
 
-  return files
+        # git log returns paths relative to the repo root
+        filepath = target_path / line
+        if not filepath.exists() or not filepath.is_file():
+            continue
+
+        if allowed_files is not None:
+            abs_path = str(filepath.resolve())
+            if abs_path not in allowed_files:
+                continue
+
+        try:
+            content = filepath.read_text(encoding='utf-8')
+        except Exception:  # pylint: disable=broad-exception-caught
+            continue
+
+        if token_counter:
+            tokens = token_counter(content)
+        else:
+            tokens = len(content) // 4
+
+        if tokens > max_tokens:
+            continue
+
+        files.append((filepath.name, content))
+
+        if len(files) >= limit:
+            break
+
+    return files

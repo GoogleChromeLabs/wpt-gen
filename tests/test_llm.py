@@ -1,3 +1,9 @@
+"""Module docstring."""
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=import-outside-toplevel
+# pylint: disable=reimported
+# pylint: disable=protected-access
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,408 +26,448 @@ from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.llm import (
-  AnthropicClient,
-  GeminiClient,
-  InvalidModelError,
-  OpenAIClient,
-  get_llm_client,
+    AnthropicClient,
+    GeminiClient,
+    InvalidModelError,
+    OpenAIClient,
+    get_llm_client,
 )
 
 
 @pytest.fixture
 def gemini_config() -> Config:
-  """Provides a valid Gemini configuration."""
-  return Config(
-    provider='gemini',
-    default_model='gemini-3.1-pro-preview',
-    api_key='mock-gemini-key',
-    wpt_path=os.path.join('..', 'wpt'),
-    categories={
-      'lightweight': 'gemini-3-flash-preview',
-      'reasoning': 'gemini-3.1-pro-preview',
-    },
-    phase_model_mapping={
-      'requirements_extraction': 'reasoning',
-      'coverage_audit': 'reasoning',
-      'generation': 'lightweight',
-    },
-  )
+    """Provides a valid Gemini configuration."""
+    return Config(
+        provider='gemini',
+        default_model='gemini-3.1-pro-preview',
+        api_key='mock-gemini-key',
+        wpt_path=os.path.join('..', 'wpt'),
+        categories={
+            'lightweight': 'gemini-3-flash-preview',
+            'reasoning': 'gemini-3.1-pro-preview',
+        },
+        phase_model_mapping={
+            'requirements_extraction': 'reasoning',
+            'coverage_audit': 'reasoning',
+            'generation': 'lightweight',
+        },
+    )
 
 
 @pytest.fixture
 def openai_config() -> Config:
-  """Provides a valid OpenAI configuration."""
-  return Config(
-    provider='openai',
-    default_model='gpt-5.2-high',
-    api_key='mock-openai-key',
-    wpt_path='dummy',
-    categories={
-      'lightweight': 'gpt-5-mini',
-      'reasoning': 'gpt-5.2-high',
-    },
-    phase_model_mapping={
-      'requirements_extraction': 'reasoning',
-      'coverage_audit': 'reasoning',
-      'generation': 'lightweight',
-    },
-  )
+    """Provides a valid OpenAI configuration."""
+    return Config(
+        provider='openai',
+        default_model='gpt-5.2-high',
+        api_key='mock-openai-key',
+        wpt_path='dummy',
+        categories={
+            'lightweight': 'gpt-5-mini',
+            'reasoning': 'gpt-5.2-high',
+        },
+        phase_model_mapping={
+            'requirements_extraction': 'reasoning',
+            'coverage_audit': 'reasoning',
+            'generation': 'lightweight',
+        },
+    )
 
 
-def test_get_llm_client_gemini(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that the factory returns a GeminiClient when configured for Gemini."""
-  # Prevent the actual SDK from initializing
-  mocker.patch('wptgen.llm.genai.Client')
+def test_get_llm_client_gemini(mocker: MockerFixture,
+                               gemini_config: Config) -> None:
+    """Test that the factory returns a GeminiClient when configured for Gemini."""  # pylint: disable=line-too-long
+    # Prevent the actual SDK from initializing
+    mocker.patch('wptgen.llm.genai.Client')
 
-  client = get_llm_client(gemini_config)
-  assert isinstance(client, GeminiClient)
-  assert client.model == 'gemini-3.1-pro-preview'
+    client = get_llm_client(gemini_config)
+    assert isinstance(client, GeminiClient)
+    assert client.model == 'gemini-3.1-pro-preview'
 
 
-def test_get_llm_client_openai(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test that the factory returns an OpenAIClient when configured for OpenAI."""
-  # Prevent the actual SDK from initializing
-  mocker.patch('wptgen.llm.OpenAI')
+def test_get_llm_client_openai(mocker: MockerFixture,
+                               openai_config: Config) -> None:
+    """Test that the factory returns an OpenAIClient when configured for OpenAI."""  # pylint: disable=line-too-long
+    # Prevent the actual SDK from initializing
+    mocker.patch('wptgen.llm.OpenAI')
 
-  client = get_llm_client(openai_config)
-  assert isinstance(client, OpenAIClient)
-  assert client.model == 'gpt-5.2-high'
+    client = get_llm_client(openai_config)
+    assert isinstance(client, OpenAIClient)
+    assert client.model == 'gpt-5.2-high'
 
 
 def test_get_llm_client_unsupported_provider() -> None:
-  """Test that the factory raises an error for unknown providers."""
-  bad_config = Config(
-    provider='otherllm',
-    default_model='coolmodel-5',
-    api_key='mock-key',
-    wpt_path='dummy',
-    categories={},
-    phase_model_mapping={},
-  )
-  with pytest.raises(ValueError, match='Unsupported provider: otherllm'):
-    get_llm_client(bad_config)
-
-
-def test_gemini_generate_content(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that GeminiClient correctly maps to the Google GenAI SDK."""
-  # Arrange: Mock the Client class and its deep method chain
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  # Create a mock response object that has a `.text` property
-  mock_response = mocker.MagicMock()
-  mock_response.text = 'Generated by mock Gemini'
-  mock_instance.models.generate_content.return_value = mock_response
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-
-  result = client.generate_content(
-    prompt='Test prompt', system_instruction='Test instruction', temperature=0.7
-  )
-
-  assert result == 'Generated by mock Gemini'
-  mock_client_class.assert_called_once_with(
-    api_key='mock-gemini-key', http_options=types.HttpOptions(timeout=600000)
-  )
-
-  # Verify the internal SDK method was called with the correct model and prompt
-  call_kwargs = mock_instance.models.generate_content.call_args.kwargs
-  assert call_kwargs['model'] == 'gemini-3.1-pro-preview'
-  assert call_kwargs['contents'] == 'Test prompt'
-  assert call_kwargs['config'].system_instruction == 'Test instruction'
-  assert call_kwargs['config'].temperature == 0.7
-
-
-def test_gemini_generate_content_no_text(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that GeminiClient raises ValueError when API returns no text."""
-  mocker.patch('time.sleep')  # Bypass retry backoff delay
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-  mock_response = mocker.MagicMock()
-  mock_response.text = None
-  mock_instance.models.generate_content.return_value = mock_response
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-  with pytest.raises(ValueError, match='Gemini API returned no text.'):
-    client.generate_content(prompt='Test prompt')
-
-  assert mock_instance.models.generate_content.call_count == 3
-
-
-def test_gemini_count_tokens_no_count(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that GeminiClient raises ValueError when API returns no token count."""
-  mocker.patch('time.sleep')  # Bypass retry backoff delay
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-  mock_response = mocker.MagicMock()
-  mock_response.total_tokens = None
-  mock_instance.models.count_tokens.return_value = mock_response
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-  with pytest.raises(ValueError, match='Gemini API returned no token count.'):
-    client.count_tokens('Hello world')
-
-  assert mock_instance.models.count_tokens.call_count == 3
-
-
-def test_openai_generate_content_no_content(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test that OpenAIClient raises ValueError when API returns no content."""
-  mocker.patch('time.sleep')  # Bypass retry backoff delay
-  mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
-  mock_instance = mock_openai_class.return_value
-  mock_message = mocker.MagicMock()
-  mock_message.content = None
-  mock_choice = mocker.MagicMock()
-  mock_choice.message = mock_message
-  mock_response = mocker.MagicMock()
-  mock_response.choices = [mock_choice]
-  mock_instance.chat.completions.create.return_value = mock_response
-
-  assert openai_config.api_key is not None
-  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
-  with pytest.raises(ValueError, match='OpenAI API returned no content.'):
-    client.generate_content(prompt='Test prompt')
-
-  assert mock_instance.chat.completions.create.call_count == 3
-
-
-def test_gemini_count_tokens(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that GeminiClient correctly maps token counting."""
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  # Mock the token response
-  mock_response = mocker.MagicMock()
-  mock_response.total_tokens = 42
-  mock_instance.models.count_tokens.return_value = mock_response
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-  token_count = client.count_tokens('Hello world')
-
-  assert token_count == 42
-  mock_instance.models.count_tokens.assert_called_once_with(
-    model='gemini-3.1-pro-preview', contents='Hello world'
-  )
-
-
-def test_gemini_retry_on_failure(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that GeminiClient retries on failure."""
-  mocker.patch('time.sleep')  # Speed up tests
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  # Mock the response to fail twice then succeed
-  mock_response = mocker.MagicMock()
-  mock_response.text = 'Success after retry'
-
-  mock_instance.models.generate_content.side_effect = [
-    Exception('Transient error 1'),
-    Exception('Transient error 2'),
-    mock_response,
-  ]
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-  result = client.generate_content(prompt='Test prompt')
-
-  assert result == 'Success after retry'
-  assert mock_instance.models.generate_content.call_count == 3
-
-
-def test_openai_generate_content(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test that OpenAIClient correctly maps to the OpenAI SDK."""
-  # Arrange: Mock the OpenAI class and its deep method chain
-  mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
-  mock_instance = mock_openai_class.return_value
-
-  # Simulate OpenAI's deep response structure: response.choices[0].message.content
-  mock_message = mocker.MagicMock()
-  mock_message.content = 'Generated by mock OpenAI'
-  mock_choice = mocker.MagicMock()
-  mock_choice.message = mock_message
-  mock_response = mocker.MagicMock()
-  mock_response.choices = [mock_choice]
-
-  mock_instance.chat.completions.create.return_value = mock_response
-
-  assert openai_config.api_key is not None
-  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
-
-  result = client.generate_content(prompt='Test prompt', system_instruction='Test instruction')
-
-  assert result == 'Generated by mock OpenAI'
-  mock_openai_class.assert_called_once_with(api_key='mock-openai-key', timeout=600)
-
-  # Verify the payload structure sent to OpenAI
-  mock_instance.chat.completions.create.assert_called_once_with(
-    model='gpt-5.2-high',
-    messages=[
-      {'role': 'system', 'content': 'Test instruction'},
-      {'role': 'user', 'content': 'Test prompt'},
-    ],
-    temperature=None,
-  )
-
-
-def test_openai_retry_on_failure(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test that OpenAIClient retries on failure."""
-  mocker.patch('time.sleep')
-  mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
-  mock_instance = mock_openai_class.return_value
-
-  # Simulate OpenAI's deep response structure
-  mock_message = mocker.MagicMock()
-  mock_message.content = 'Success after OpenAI retry'
-  mock_choice = mocker.MagicMock()
-  mock_choice.message = mock_message
-  mock_response = mocker.MagicMock()
-  mock_response.choices = [mock_choice]
-
-  mock_instance.chat.completions.create.side_effect = [
-    Exception('OpenAI error 1'),
-    mock_response,
-  ]
-
-  assert openai_config.api_key is not None
-  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
-  result = client.generate_content(prompt='Test prompt')
-
-  assert result == 'Success after OpenAI retry'
-  assert mock_instance.chat.completions.create.call_count == 2
-
-
-def test_gemini_prompt_exceeds_limit(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test token limit checking for Gemini."""
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  # Mock count_tokens
-  mock_count_response = mocker.MagicMock()
-  mock_count_response.total_tokens = 500
-  mock_instance.models.count_tokens.return_value = mock_count_response
-
-  # Mock models.get
-  mock_model_info = mocker.MagicMock()
-  mock_model_info.input_token_limit = 1000
-  mock_instance.models.get.return_value = mock_model_info
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-
-  # Case 1: Under limit
-  assert client.prompt_exceeds_input_token_limit('some prompt') is False
-
-  # Case 2: Over limit
-  mock_count_response.total_tokens = 1500
-  assert client.prompt_exceeds_input_token_limit('huge prompt') is True
-
-  # Case 3: No limit specified in model info (fallback)
-  mock_model_info.input_token_limit = None
-  mock_count_response.total_tokens = 500000
-  assert client.prompt_exceeds_input_token_limit('prompt') is False
-  mock_count_response.total_tokens = 1500000
-  assert client.prompt_exceeds_input_token_limit('huge prompt') is True
-
-
-def test_openai_count_tokens(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test that OpenAIClient correctly maps token counting using tiktoken."""
-  mocker.patch('wptgen.llm.OpenAI')
-  assert openai_config.api_key is not None
-  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
-
-  # Test with a known string. "Hello, world!" is 4 tokens in cl100k_base:
-  # ['Hello', ',', ' world', '!']
-  token_count = client.count_tokens('Hello, world!')
-  assert token_count == 4
-
-
-def test_openai_prompt_exceeds_limit(mocker: MockerFixture, openai_config: Config) -> None:
-  """Test token limit checking for OpenAI."""
-  mocker.patch('wptgen.llm.OpenAI')
-  assert openai_config.api_key is not None
-  client = OpenAIClient(api_key=openai_config.api_key, model=openai_config.default_model)
-
-  # Case 1: Under limit (400k)
-  # A short prompt should definitely be under the 400k limit
-  assert client.prompt_exceeds_input_token_limit('short prompt') is False
-
-  # Case 2: Over limit
-  # Generate a very large prompt that exceeds 400k tokens.
-  # "a " is usually 1 token. 400,001 "a "s should exceed the limit.
-  huge_prompt = 'a ' * 400001
-  assert client.prompt_exceeds_input_token_limit(huge_prompt) is True
-
-
-def test_gemini_generate_content_model_override(
-  mocker: MockerFixture, gemini_config: Config
-) -> None:
-  """Test that GeminiClient respects the model override in generate_content."""
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  mock_response = mocker.MagicMock()
-  mock_response.text = 'Override success'
-  mock_instance.models.generate_content.return_value = mock_response
-
-  assert gemini_config.api_key is not None
-  client = GeminiClient(api_key=gemini_config.api_key, model=gemini_config.default_model)
-
-  result = client.generate_content(prompt='Test prompt', model='gemini-3-flash-override')
-
-  assert result == 'Override success'
-  # Verify the internal SDK method was called with the OVERRIDDEN model
-  call_kwargs = mock_instance.models.generate_content.call_args.kwargs
-  assert call_kwargs['model'] == 'gemini-3-flash-override'
-
-
-def test_llm_client_custom_retries(mocker: MockerFixture, gemini_config: Config) -> None:
-  """Test that LLM clients respect the custom max_retries setting."""
-  mocker.patch('time.sleep')
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-
-  # Config with 5 retries
-  gemini_config.max_retries = 5
-  client = get_llm_client(gemini_config)
-
-  # Mock to fail forever
-  mock_instance.models.generate_content.side_effect = Exception('Fail')
-
-  with pytest.raises(Exception, match='Fail'):
-    client.generate_content('test')
-
-  assert mock_instance.models.generate_content.call_count == 5
+    """Test that the factory raises an error for unknown providers."""
+    bad_config = Config(
+        provider='otherllm',
+        default_model='coolmodel-5',
+        api_key='mock-key',
+        wpt_path='dummy',
+        categories={},
+        phase_model_mapping={},
+    )
+    with pytest.raises(ValueError, match='Unsupported provider: otherllm'):
+        get_llm_client(bad_config)
+
+
+def test_gemini_generate_content(mocker: MockerFixture,
+                                 gemini_config: Config) -> None:
+    """Test that GeminiClient correctly maps to the Google GenAI SDK."""
+    # Arrange: Mock the Client class and its deep method chain
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    # Create a mock response object that has a `.text` property
+    mock_response = mocker.MagicMock()
+    mock_response.text = 'Generated by mock Gemini'
+    mock_instance.models.generate_content.return_value = mock_response
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+
+    result = client.generate_content(
+        prompt='Test prompt',
+        system_instruction='Test instruction',
+        temperature=0.7,
+    )
+
+    assert result == 'Generated by mock Gemini'
+    mock_client_class.assert_called_once_with(
+        api_key='mock-gemini-key',
+        http_options=types.HttpOptions(timeout=600000),
+    )
+
+    # Verify the internal SDK method was called with the correct model and
+    # prompt
+    call_kwargs = mock_instance.models.generate_content.call_args.kwargs
+    assert call_kwargs['model'] == 'gemini-3.1-pro-preview'
+    assert call_kwargs['contents'] == 'Test prompt'
+    assert call_kwargs['config'].system_instruction == 'Test instruction'
+    assert call_kwargs['config'].temperature == 0.7
+
+
+def test_gemini_generate_content_no_text(mocker: MockerFixture,
+                                         gemini_config: Config) -> None:
+    """Test that GeminiClient raises ValueError when API returns no text."""
+    mocker.patch('time.sleep')  # Bypass retry backoff delay
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+    mock_response = mocker.MagicMock()
+    mock_response.text = None
+    mock_instance.models.generate_content.return_value = mock_response
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+    with pytest.raises(ValueError, match='Gemini API returned no text.'):
+        client.generate_content(prompt='Test prompt')
+
+    assert mock_instance.models.generate_content.call_count == 3
+
+
+def test_gemini_count_tokens_no_count(mocker: MockerFixture,
+                                      gemini_config: Config) -> None:  # pylint: disable=line-too-long
+    """Test that GeminiClient raises ValueError when API returns no token count."""  # pylint: disable=line-too-long
+    mocker.patch('time.sleep')  # Bypass retry backoff delay
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+    mock_response = mocker.MagicMock()
+    mock_response.total_tokens = None
+    mock_instance.models.count_tokens.return_value = mock_response
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+    with pytest.raises(ValueError, match='Gemini API returned no token count.'):
+        client.count_tokens('Hello world')
+
+    assert mock_instance.models.count_tokens.call_count == 3
+
+
+def test_openai_generate_content_no_content(mocker: MockerFixture,
+                                            openai_config: Config) -> None:
+    """Test that OpenAIClient raises ValueError when API returns no content."""
+    mocker.patch('time.sleep')  # Bypass retry backoff delay
+    mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
+    mock_instance = mock_openai_class.return_value
+    mock_message = mocker.MagicMock()
+    mock_message.content = None
+    mock_choice = mocker.MagicMock()
+    mock_choice.message = mock_message
+    mock_response = mocker.MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_instance.chat.completions.create.return_value = mock_response
+
+    assert openai_config.api_key is not None
+    client = OpenAIClient(api_key=openai_config.api_key,
+                          model=openai_config.default_model)
+    with pytest.raises(ValueError, match='OpenAI API returned no content.'):
+        client.generate_content(prompt='Test prompt')
+
+    assert mock_instance.chat.completions.create.call_count == 3
+
+
+def test_gemini_count_tokens(mocker: MockerFixture,
+                             gemini_config: Config) -> None:
+    """Test that GeminiClient correctly maps token counting."""
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    # Mock the token response
+    mock_response = mocker.MagicMock()
+    mock_response.total_tokens = 42
+    mock_instance.models.count_tokens.return_value = mock_response
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+    token_count = client.count_tokens('Hello world')
+
+    assert token_count == 42
+    mock_instance.models.count_tokens.assert_called_once_with(
+        model='gemini-3.1-pro-preview', contents='Hello world')
+
+
+def test_gemini_retry_on_failure(mocker: MockerFixture,
+                                 gemini_config: Config) -> None:
+    """Test that GeminiClient retries on failure."""
+    mocker.patch('time.sleep')  # Speed up tests
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    # Mock the response to fail twice then succeed
+    mock_response = mocker.MagicMock()
+    mock_response.text = 'Success after retry'
+
+    mock_instance.models.generate_content.side_effect = [
+        Exception('Transient error 1'),
+        Exception('Transient error 2'),
+        mock_response,
+    ]
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+    result = client.generate_content(prompt='Test prompt')
+
+    assert result == 'Success after retry'
+    assert mock_instance.models.generate_content.call_count == 3
+
+
+def test_openai_generate_content(mocker: MockerFixture,
+                                 openai_config: Config) -> None:
+    """Test that OpenAIClient correctly maps to the OpenAI SDK."""
+    # Arrange: Mock the OpenAI class and its deep method chain
+    mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
+    mock_instance = mock_openai_class.return_value
+    # pylint: disable=line-too-long
+    # Simulate OpenAI's deep response structure: response.choices[0].message.content
+    mock_message = mocker.MagicMock()
+    mock_message.content = 'Generated by mock OpenAI'
+    mock_choice = mocker.MagicMock()
+    mock_choice.message = mock_message
+    mock_response = mocker.MagicMock()
+    mock_response.choices = [mock_choice]
+
+    mock_instance.chat.completions.create.return_value = mock_response
+
+    assert openai_config.api_key is not None
+    client = OpenAIClient(api_key=openai_config.api_key,
+                          model=openai_config.default_model)
+
+    result = client.generate_content(prompt='Test prompt',
+                                     system_instruction='Test instruction')
+
+    assert result == 'Generated by mock OpenAI'
+    mock_openai_class.assert_called_once_with(api_key='mock-openai-key',
+                                              timeout=600)
+
+    # Verify the payload structure sent to OpenAI
+    mock_instance.chat.completions.create.assert_called_once_with(
+        model='gpt-5.2-high',
+        messages=[
+            {
+                'role': 'system',
+                'content': 'Test instruction'
+            },
+            {
+                'role': 'user',
+                'content': 'Test prompt'
+            },
+        ],
+        temperature=None,
+    )
+
+
+def test_openai_retry_on_failure(mocker: MockerFixture,
+                                 openai_config: Config) -> None:
+    """Test that OpenAIClient retries on failure."""
+    mocker.patch('time.sleep')
+    mock_openai_class = mocker.patch('wptgen.llm.OpenAI')
+    mock_instance = mock_openai_class.return_value
+
+    # Simulate OpenAI's deep response structure
+    mock_message = mocker.MagicMock()
+    mock_message.content = 'Success after OpenAI retry'
+    mock_choice = mocker.MagicMock()
+    mock_choice.message = mock_message
+    mock_response = mocker.MagicMock()
+    mock_response.choices = [mock_choice]
+
+    mock_instance.chat.completions.create.side_effect = [
+        Exception('OpenAI error 1'),
+        mock_response,
+    ]
+
+    assert openai_config.api_key is not None
+    client = OpenAIClient(api_key=openai_config.api_key,
+                          model=openai_config.default_model)
+    result = client.generate_content(prompt='Test prompt')
+
+    assert result == 'Success after OpenAI retry'
+    assert mock_instance.chat.completions.create.call_count == 2
+
+
+def test_gemini_prompt_exceeds_limit(mocker: MockerFixture,
+                                     gemini_config: Config) -> None:
+    """Test token limit checking for Gemini."""
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    # Mock count_tokens
+    mock_count_response = mocker.MagicMock()
+    mock_count_response.total_tokens = 500
+    mock_instance.models.count_tokens.return_value = mock_count_response
+
+    # Mock models.get
+    mock_model_info = mocker.MagicMock()
+    mock_model_info.input_token_limit = 1000
+    mock_instance.models.get.return_value = mock_model_info
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+
+    # Case 1: Under limit
+    assert client.prompt_exceeds_input_token_limit('some prompt') is False
+
+    # Case 2: Over limit
+    mock_count_response.total_tokens = 1500
+    assert client.prompt_exceeds_input_token_limit('huge prompt') is True
+
+    # Case 3: No limit specified in model info (fallback)
+    mock_model_info.input_token_limit = None
+    mock_count_response.total_tokens = 500000
+    assert client.prompt_exceeds_input_token_limit('prompt') is False
+    mock_count_response.total_tokens = 1500000
+    assert client.prompt_exceeds_input_token_limit('huge prompt') is True
+
+
+def test_openai_count_tokens(mocker: MockerFixture,
+                             openai_config: Config) -> None:
+    """Test that OpenAIClient correctly maps token counting using tiktoken."""
+    mocker.patch('wptgen.llm.OpenAI')
+    assert openai_config.api_key is not None
+    client = OpenAIClient(api_key=openai_config.api_key,
+                          model=openai_config.default_model)
+
+    # Test with a known string. "Hello, world!" is 4 tokens in cl100k_base:
+    # ['Hello', ',', ' world', '!']
+    token_count = client.count_tokens('Hello, world!')
+    assert token_count == 4
+
+
+def test_openai_prompt_exceeds_limit(mocker: MockerFixture,
+                                     openai_config: Config) -> None:
+    """Test token limit checking for OpenAI."""
+    mocker.patch('wptgen.llm.OpenAI')
+    assert openai_config.api_key is not None
+    client = OpenAIClient(api_key=openai_config.api_key,
+                          model=openai_config.default_model)
+
+    # Case 1: Under limit (400k)
+    # A short prompt should definitely be under the 400k limit
+    assert client.prompt_exceeds_input_token_limit('short prompt') is False
+
+    # Case 2: Over limit
+    # Generate a very large prompt that exceeds 400k tokens.
+    # "a " is usually 1 token. 400,001 "a "s should exceed the limit.
+    huge_prompt = 'a ' * 400001
+    assert client.prompt_exceeds_input_token_limit(huge_prompt) is True
+
+
+def test_gemini_generate_content_model_override(mocker: MockerFixture,
+                                                gemini_config: Config) -> None:  # pylint: disable=line-too-long
+    """Test that GeminiClient respects the model override in generate_content."""  # pylint: disable=line-too-long
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    mock_response = mocker.MagicMock()
+    mock_response.text = 'Override success'
+    mock_instance.models.generate_content.return_value = mock_response
+
+    assert gemini_config.api_key is not None
+    client = GeminiClient(api_key=gemini_config.api_key,
+                          model=gemini_config.default_model)
+
+    result = client.generate_content(prompt='Test prompt',
+                                     model='gemini-3-flash-override')
+
+    assert result == 'Override success'
+    # Verify the internal SDK method was called with the OVERRIDDEN model
+    call_kwargs = mock_instance.models.generate_content.call_args.kwargs
+    assert call_kwargs['model'] == 'gemini-3-flash-override'
+
+
+def test_llm_client_custom_retries(mocker: MockerFixture,
+                                   gemini_config: Config) -> None:
+    """Test that LLM clients respect the custom max_retries setting."""
+    mocker.patch('time.sleep')
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+
+    # Config with 5 retries
+    gemini_config.max_retries = 5
+    client = get_llm_client(gemini_config)
+
+    # Mock to fail forever
+    mock_instance.models.generate_content.side_effect = Exception('Fail')
+
+    with pytest.raises(Exception, match='Fail'):
+        client.generate_content('test')
+
+    assert mock_instance.models.generate_content.call_count == 5
 
 
 def test_gemini_client_invalid_model(mocker: MockerFixture) -> None:
-  """Test that GeminiClient raises InvalidModelError on bad model."""
-  mock_client_class = mocker.patch('wptgen.llm.genai.Client')
-  mock_instance = mock_client_class.return_value
-  mock_instance.models.get.side_effect = Exception('Model not found')
+    """Test that GeminiClient raises InvalidModelError on bad model."""
+    mock_client_class = mocker.patch('wptgen.llm.genai.Client')
+    mock_instance = mock_client_class.return_value
+    mock_instance.models.get.side_effect = Exception('Model not found')
 
-  with pytest.raises(InvalidModelError, match="Failed to verify Gemini model 'bad-model'"):
-    GeminiClient(api_key='mock', model='bad-model')
+    with pytest.raises(InvalidModelError,
+                       match="Failed to verify Gemini model 'bad-model'"):
+        GeminiClient(api_key='mock', model='bad-model')
 
 
 def test_openai_client_invalid_model(mocker: MockerFixture) -> None:
-  """Test that OpenAIClient raises InvalidModelError on bad model."""
-  mock_client_class = mocker.patch('wptgen.llm.OpenAI')
-  mock_instance = mock_client_class.return_value
-  mock_instance.models.retrieve.side_effect = Exception('Model not found')
+    """Test that OpenAIClient raises InvalidModelError on bad model."""
+    mock_client_class = mocker.patch('wptgen.llm.OpenAI')
+    mock_instance = mock_client_class.return_value
+    mock_instance.models.retrieve.side_effect = Exception('Model not found')
 
-  with pytest.raises(InvalidModelError, match="Failed to verify OpenAI model 'bad-model'"):
-    OpenAIClient(api_key='mock', model='bad-model')
+    with pytest.raises(InvalidModelError,
+                       match="Failed to verify OpenAI model 'bad-model'"):
+        OpenAIClient(api_key='mock', model='bad-model')
 
 
 def test_anthropic_client_invalid_model(mocker: MockerFixture) -> None:
-  """Test that AnthropicClient raises InvalidModelError on bad model."""
-  mock_client_class = mocker.patch('wptgen.llm.anthropic.Anthropic')
-  mock_instance = mock_client_class.return_value
-  mock_instance.models.retrieve.side_effect = Exception('Model not found')
+    """Test that AnthropicClient raises InvalidModelError on bad model."""
+    mock_client_class = mocker.patch('wptgen.llm.anthropic.Anthropic')
+    mock_instance = mock_client_class.return_value
+    mock_instance.models.retrieve.side_effect = Exception('Model not found')
 
-  with pytest.raises(InvalidModelError, match="Failed to verify Anthropic model 'bad-model'"):
-    AnthropicClient(api_key='mock', model='bad-model')
+    with pytest.raises(InvalidModelError,
+                       match="Failed to verify Anthropic model 'bad-model'"):
+        AnthropicClient(api_key='mock', model='bad-model')

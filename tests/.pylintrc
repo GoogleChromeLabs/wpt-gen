@@ -1,0 +1,16 @@
+[MASTER]
+ignore=__pycache__
+
+[MESSAGES CONTROL]
+disable=
+    redefined-outer-name,
+    unused-argument,
+    missing-function-docstring,
+    missing-class-docstring,
+    missing-module-docstring,
+    protected-access,
+    use-implicit-booleaness-not-comparison,
+    broad-exception-caught,
+    logging-fstring-interpolation,
+    import-outside-toplevel,
+    reimported
