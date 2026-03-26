@@ -98,6 +98,12 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
     req = urllib.request.Request(url, headers={'User-Agent': 'WPT-Gen/1.0'})
     with urllib.request.urlopen(req) as response:
       content = response.read().decode('utf-8')
+      # ChromeStatus API often prefixes JSON with a vulnerability protection string.
+      if content.startswith(")]}'\n"):
+        content = content[5:]
+      elif content.startswith(")]}'"):
+        content = content[4:]
+
       data = json.loads(content)
 
       # Map ChromeStatus fields to FeatureMetadata

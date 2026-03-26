@@ -512,6 +512,234 @@ def generate(
     )
 
 
+@app.command(name='chromestatus')
+def chromestatus_command(
+  feature_id: Annotated[
+    str,
+    typer.Argument(help='The ChromeStatus feature ID (e.g., "12345").'),
+  ],
+  provider: Annotated[
+    str | None,
+    typer.Option(
+      '--provider',
+      '-p',
+      help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+    ),
+  ] = None,
+  wpt_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--wpt-dir',
+      '-w',
+      help='Path to the local web-platform-tests repository.',
+      exists=True,
+      dir_okay=True,
+      resolve_path=True,
+    ),
+  ] = None,
+  output_dir: Annotated[
+    Path | None,
+    typer.Option(
+      '--output-dir',
+      '-o',
+      help='Directory where generated tests will be saved.',
+      dir_okay=True,
+    ),
+  ] = None,
+  config_path: Annotated[
+    str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
+  ] = DEFAULT_CONFIG_PATH,
+  show_responses: Annotated[
+    bool,
+    typer.Option(
+      '--show-responses', '-s', help='Display every LLM-generated response to the user.'
+    ),
+  ] = False,
+  yes_tokens: Annotated[
+    bool,
+    typer.Option('--yes-tokens', help='Automatically confirm all token count prompts.'),
+  ] = False,
+  yes_cache: Annotated[
+    bool,
+    typer.Option(
+      '--yes-cache',
+      help='Automatically use the cache if it exists without prompting.',
+    ),
+  ] = False,
+  no_cache: Annotated[
+    bool,
+    typer.Option(
+      '--no-cache',
+      help='Automatically ignore and overwrite the cache if it exists without prompting.',
+    ),
+  ] = False,
+  resume: Annotated[
+    bool,
+    typer.Option(
+      '--resume',
+      help='Resume the workflow from the last successful phase.',
+    ),
+  ] = False,
+  max_retries: Annotated[
+    int,
+    typer.Option(
+      '--max-retries',
+      help='Maximum number of retries for LLM calls.',
+    ),
+  ] = 3,
+  timeout: Annotated[
+    int,
+    typer.Option(
+      '--timeout',
+      help='Timeout for LLM requests in seconds.',
+    ),
+  ] = DEFAULT_LLM_TIMEOUT,
+  include_thoughts: Annotated[
+    bool,
+    typer.Option(
+      '--include-thoughts',
+      help='Stream the underlying ADK model thoughts to stdout.',
+    ),
+  ] = False,
+  use_lightweight: Annotated[
+    bool,
+    typer.Option('--use-lightweight', help='Use the lightweight model for all LLM requests.'),
+  ] = False,
+  use_reasoning: Annotated[
+    bool,
+    typer.Option('--use-reasoning', help='Use the reasoning model for all LLM requests.'),
+  ] = False,
+  save_traces: Annotated[
+    bool,
+    typer.Option(
+      '--save-traces',
+      help='Save LLM interaction traces to the .wptgen/traces/ directory.',
+    ),
+  ] = False,
+  suggestions_only: Annotated[
+    bool,
+    typer.Option(
+      '--suggestions-only',
+      help='Only generate the coverage audit report, skip test generation.',
+    ),
+  ] = False,
+) -> None:
+  """
+  Perform a coverage audit and generate a report for a ChromeStatus feature.
+  """
+  banner = Panel(
+    Align.center(
+      Text.from_markup(
+        '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'
+        '[italic white]AI-Powered Web Platform Test Generation[/italic white]'
+      )
+    ),
+    border_style='bright_blue',
+  )
+  console.print(banner)
+  console.print(f'\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n')
+
+  if not suggestions_only:
+    ui.error('Test generation for ChromeStatus entries is not yet implemented.')
+    ui.info('Please use --suggestions-only to generate the coverage audit report.')
+    raise typer.Exit(code=1)
+
+  if use_lightweight and use_reasoning:
+    ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+    raise typer.Exit(code=1)
+
+  try:
+    # 1. Load configuration (merging YAML, env vars, and CLI overrides)
+    wpt_dir_str = str(wpt_dir) if wpt_dir else None
+    output_dir_str = str(output_dir) if output_dir else None
+
+    config = load_config(
+      config_path=config_path,
+      provider_override=provider,
+      wpt_dir_override=wpt_dir_str,
+      output_dir_override=output_dir_str,
+      show_responses=show_responses,
+      yes_tokens_override=yes_tokens,
+      yes_tests_override=False,
+      yes_cache_override=yes_cache,
+      no_cache_override=no_cache,
+      suggestions_only=suggestions_only,
+      brief_suggestions=False,
+      resume_override=resume,
+      resume_from_override=None,
+      state_dir_override=None,
+      max_retries_override=max_retries,
+      timeout_override=timeout,
+      spec_urls_override=None,
+      feature_description_override=None,
+      detailed_requirements_override=False,
+      include_mdn_docs_override=False,
+      draft_override=False,
+      chromestatus_override=True,
+      single_prompt_requirements_override=False,
+      use_lightweight_override=use_lightweight,
+      use_reasoning_override=use_reasoning,
+      include_thoughts_override=include_thoughts,
+      tentative_override=False,
+      save_traces_override=save_traces,
+      max_parallel_requests_override=None,
+      run_on_browser_override=None,
+      run_on_channel_override=None,
+      temperature_override=None,
+    )
+
+    config_info = Text.assemble(
+      ('Provider: ', 'bold'),
+      (f'{config.provider}\n', 'green'),
+      ('Model:    ', 'bold'),
+      (f'{config.default_model}', 'green'),
+    )
+    console.print(
+      Panel(
+        config_info,
+        title='[bold]Configuration[/bold]',
+        title_align='left',
+        expand=False,
+        border_style='bright_black',
+      )
+    )
+
+    # 2. Instantiate the core engine
+    engine = WPTGenEngine(config=config, ui=ui)
+
+    # 3. Execute the workflow
+    engine.run_workflow(feature_id)
+
+    console.print()
+    console.print(
+      Panel(
+        '[bold green]✔ ChromeStatus Audit completed successfully![/bold green]',
+        border_style='green',
+        expand=False,
+      )
+    )
+
+  except LLMTimeoutError as e:
+    console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except ValueError as e:
+    console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+  except WorkflowError:
+    console.print()
+    console.print(
+      Panel(
+        '[bold red]✘ Workflow completed with errors.[/bold red]',
+        border_style='red',
+        expand=False,
+      )
+    )
+    raise typer.Exit(code=1) from None
+  except Exception as e:
+    console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+    raise typer.Exit(code=1) from e
+
+
 @app.command(name='doctor')
 def doctor_command(
   config_path: Annotated[
