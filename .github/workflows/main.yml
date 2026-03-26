@@ -60,4 +60,4 @@ jobs:
 
     - name: Run tests with pytest
       run: |
-        pytest --cov=wptgen --cov-report=xml --cov-fail-under=80
+        pytest

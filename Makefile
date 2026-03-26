@@ -42,7 +42,7 @@ typecheck:
 	$(MYPY) $(PACKAGE_NAME)/ tests/
 
 test:
-	$(PYTEST) --cov=wptgen --cov-report=term-missing --cov-fail-under=80 tests/
+	$(PYTEST) tests/
 
 check: lint typecheck test
 

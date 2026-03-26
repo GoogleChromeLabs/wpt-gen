@@ -42,7 +42,7 @@ def update_web_features_yml(
 
   if not isinstance(yaml_data['features'], dict):
     # Handle unexpected type, maybe it's a list. But standard is dict.
-    pass
+    yaml_data['features'] = {}
 
   features_dict = yaml_data['features']
 
