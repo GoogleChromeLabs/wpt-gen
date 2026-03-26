@@ -11,4 +11,5 @@ def test_update_web_features_yml_no_files_key(tmp_path: Path) -> None:
   test_html = tmp_path / 'test.html'
   update_web_features_yml(tmp_path, 'test-feature', [test_html])
   content = yaml.safe_load(yml_file.read_text())
-  assert content['features']['test-feature']['files'] == ['test.html']
+  assert content['features'][0]['name'] == 'test-feature'
+  assert content['features'][0]['files'] == ['test.html']
