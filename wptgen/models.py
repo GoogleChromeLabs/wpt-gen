@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,68 +22,74 @@ from typing import Any
 
 class WorkflowPhase(str, Enum):
     """Class docstring."""
-    CONTEXT_ASSEMBLY = 'context_assembly'
-    REQUIREMENTS_EXTRACTION = 'requirements_extraction'
-    COVERAGE_AUDIT = 'coverage_audit'
-    GENERATION = 'generation'
+
+    CONTEXT_ASSEMBLY = "context_assembly"
+    REQUIREMENTS_EXTRACTION = "requirements_extraction"
+    COVERAGE_AUDIT = "coverage_audit"
+    GENERATION = "generation"
 
 
 class TestType(Enum):
     """Class docstring."""
+
     __test__ = False
-    JAVASCRIPT = 'JavaScript Test'
-    REFTEST = 'Reftest'
-    CRASHTEST = 'Crashtest'
+    JAVASCRIPT = "JavaScript Test"
+    REFTEST = "Reftest"
+    CRASHTEST = "Crashtest"
 
 
 REQUIREMENT_CATEGORIES = [
     (
-        'Existence',
+        "Existence",
         "Rules defining the feature's surface area (interfaces, methods, properties).",  # pylint: disable=line-too-long
     ),
     (
-        'Common Use Cases',
+        "Common Use Cases",
         'Rules defining successful behaviors, processing models, and realistic "happy paths."',  # pylint: disable=line-too-long
     ),
     (
-        'Error Scenarios',
-        'Rules defining error conditions, thrown exceptions, and invalid states.',  # pylint: disable=line-too-long
+        "Error Scenarios",
+        "Rules defining error conditions, thrown exceptions, and invalid states.",  # pylint: disable=line-too-long
     ),
     (
-        'Invalidation',
-        'Rules regarding caching, state changes, and dynamic updates, if any.',
+        "Invalidation",
+        "Rules regarding caching, state changes, and dynamic updates, if any.",
     ),
     (
-        'Integration',
-        'Rules defining mandatory interactions with other platform features, if any.',  # pylint: disable=line-too-long
+        "Integration",
+        "Rules defining mandatory interactions with other platform features, if any.",  # pylint: disable=line-too-long
     ),
 ]
 
 
 class DataSource(str, Enum):
     """Class docstring."""
-    WEB_FEATURES = 'web-features'
-    CHROMESTATUS = 'chromestatus'
+
+    WEB_FEATURES = "web-features"
+    CHROMESTATUS = "chromestatus"
 
 
 class BrowserType(str, Enum):
     """Class docstring."""
-    CHROME = 'chrome'
-    FIREFOX = 'firefox'
-    SAFARI = 'safari'
+
+    CHROME = "chrome"
+    FIREFOX = "firefox"
+    SAFARI = "safari"
 
 
 class BrowserChannel(str, Enum):
     """Class docstring."""
-    CANARY = 'canary'
-    NIGHTLY = 'nightly'
-    STABLE = 'stable'
-    DEV = 'dev'
+
+    CANARY = "canary"
+    NIGHTLY = "nightly"
+    STABLE = "stable"
+    DEV = "dev"
 
 
 @dataclass
 class FeatureMetadata:
     """Class docstring."""
+
     name: str
     description: str
     specs: list[str]
@@ -94,7 +101,7 @@ class FeatureMetadata:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'FeatureMetadata':
+    def from_dict(cls, data: dict[str, Any]) -> "FeatureMetadata":
         return cls(**data)
 
 
@@ -109,15 +116,17 @@ class WPTContext:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         # Convert sets to lists for JSON serialization
-        data['test_to_deps'] = {k: list(v) for k, v in self.test_to_deps.items()}
+        data["test_to_deps"] = {
+            k: list(v) for k, v in self.test_to_deps.items()
+        }
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'WPTContext':
+    def from_dict(cls, data: dict[str, Any]) -> "WPTContext":
         # Convert lists back to sets
-        if 'test_to_deps' in data:
-            data['test_to_deps'] = {
-                k: set(v) for k, v in data['test_to_deps'].items()
+        if "test_to_deps" in data:
+            data["test_to_deps"] = {
+                k: set(v) for k, v in data["test_to_deps"].items()
             }
         return cls(**data)
 
@@ -141,64 +150,64 @@ class WorkflowContext:
 
     def to_dict(self) -> dict[str, Any]:
         data = {
-            'feature_id':
-                self.feature_id,
-            'metadata':
-                self.metadata.to_dict() if self.metadata else None,
-            'spec_contents':
-                self.spec_contents,
-            'explainer_contents':
-                self.explainer_contents,
-            'wpt_context':
-                self.wpt_context.to_dict() if self.wpt_context else None,
-            'requirements_xml':
-                self.requirements_xml,
-            'audit_response':
-                self.audit_response,
-            'suggestions':
-                self.suggestions,
-            'approved_suggestions_xml':
-                self.approved_suggestions_xml,
-            'mdn_contents':
-                self.mdn_contents,
-            'generated_tests': ([
-                (str(p), c, s) for p, c, s in self.generated_tests
-            ] if self.generated_tests else None),
-            'wpt_urls':
-                self.wpt_urls,
+            "feature_id": self.feature_id,
+            "metadata": self.metadata.to_dict() if self.metadata else None,
+            "spec_contents": self.spec_contents,
+            "explainer_contents": self.explainer_contents,
+            "wpt_context": self.wpt_context.to_dict()
+            if self.wpt_context
+            else None,
+            "requirements_xml": self.requirements_xml,
+            "audit_response": self.audit_response,
+            "suggestions": self.suggestions,
+            "approved_suggestions_xml": self.approved_suggestions_xml,
+            "mdn_contents": self.mdn_contents,
+            "generated_tests": (
+                [(str(p), c, s) for p, c, s in self.generated_tests]
+                if self.generated_tests
+                else None
+            ),
+            "wpt_urls": self.wpt_urls,
         }
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'WorkflowContext':
-        metadata = (FeatureMetadata.from_dict(data['metadata'])
-                    if data.get('metadata') else None)
-        wpt_context = (WPTContext.from_dict(data['wpt_context'])
-                       if data.get('wpt_context') else None)
+    def from_dict(cls, data: dict[str, Any]) -> "WorkflowContext":
+        metadata = (
+            FeatureMetadata.from_dict(data["metadata"])
+            if data.get("metadata")
+            else None
+        )
+        wpt_context = (
+            WPTContext.from_dict(data["wpt_context"])
+            if data.get("wpt_context")
+            else None
+        )
         generated_tests = None
-        if data.get('generated_tests'):
+        if data.get("generated_tests"):
             generated_tests = [
-                (Path(p), c, s) for p, c, s in data['generated_tests']
+                (Path(p), c, s) for p, c, s in data["generated_tests"]
             ]
 
-        spec_contents = data.get('spec_contents')
+        spec_contents = data.get("spec_contents")
         if isinstance(spec_contents, str):
             # Fallback for old cache format
-            spec_url = (metadata.specs[0]
-                        if metadata and metadata.specs else 'unknown')
+            spec_url = (
+                metadata.specs[0] if metadata and metadata.specs else "unknown"
+            )
             spec_contents = {spec_url: spec_contents}
 
         return cls(
-            feature_id=data['feature_id'],
+            feature_id=data["feature_id"],
             metadata=metadata,
             spec_contents=spec_contents,
-            explainer_contents=data.get('explainer_contents'),
+            explainer_contents=data.get("explainer_contents"),
             wpt_context=wpt_context,
-            requirements_xml=data.get('requirements_xml'),
-            audit_response=data.get('audit_response'),
-            suggestions=data.get('suggestions', []),
-            approved_suggestions_xml=data.get('approved_suggestions_xml', []),
-            mdn_contents=data.get('mdn_contents'),
+            requirements_xml=data.get("requirements_xml"),
+            audit_response=data.get("audit_response"),
+            suggestions=data.get("suggestions", []),
+            approved_suggestions_xml=data.get("approved_suggestions_xml", []),
+            mdn_contents=data.get("mdn_contents"),
             generated_tests=generated_tests,
-            wpt_urls=data.get('wpt_urls'),
+            wpt_urls=data.get("wpt_urls"),
         )

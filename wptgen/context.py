@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +29,7 @@ from bs4 import BeautifulSoup
 
 from wptgen.models import DataSource, FeatureMetadata, WPTContext
 
-__all__ = ['DataSource', 'FeatureMetadata', 'WPTContext']
+__all__ = ["DataSource", "FeatureMetadata", "WPTContext"]
 
 logger = logging.getLogger(__name__)
 
@@ -37,24 +38,26 @@ SCRIPT_DEPENDENCY_REGEX = re.compile(r'<script\s+[^>]*src=["\']([^"\']+)["\']')
 
 # Match import/export ... from "..." or import "..."
 IMPORT_DEPENDENCY_REGEX = re.compile(
-    r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']')
+    r'(?:import|export)\s+(?:[^"\']+\s+from\s+)?["\']([^"\']+)["\']'
+)
 
 # WPT infrastructure files that should not be aggregated as dependencies
 IGNORED_DEPENDENCIES = {
-    '/resources/testharness.js',
-    '/resources/testharnessreport.js',
-    '/resources/testdriver.js',
-    '/resources/testdriver-vendor.js',
+    "/resources/testharness.js",
+    "/resources/testharnessreport.js",
+    "/resources/testdriver.js",
+    "/resources/testdriver-vendor.js",
 }
 
 MAXIMUM_TEST_SUITE_SIZE = 50
 MAXIMUM_FETCHED_DEPENDENCIES = 100
 
-MDN_MAPPINGS_URL = 'https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json'  # pylint: disable=line-too-long
+MDN_MAPPINGS_URL = "https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json"  # pylint: disable=line-too-long
 
 
-def fetch_feature_yaml(web_feature_id: str,
-                       draft: bool = False) -> dict[str, Any] | None:
+def fetch_feature_yaml(
+    web_feature_id: str, draft: bool = False
+) -> dict[str, Any] | None:
     """
     Fetches the YAML definition for a given web feature ID from the
     web-platform-dx/web-features repository.
@@ -62,16 +65,16 @@ def fetch_feature_yaml(web_feature_id: str,
     Returns the parsed YAML dictionary, or None if the feature ID is not found.
     """
     if draft:
-        url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/{web_feature_id}.yml'  # pylint: disable=line-too-long
+        url = f"https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/{web_feature_id}.yml"  # pylint: disable=line-too-long
     else:
-        url = f'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml'  # pylint: disable=line-too-long
+        url = f"https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml"  # pylint: disable=line-too-long
 
     try:
         # Use standard library to avoid bloating dependencies
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req) as response:
-            yaml_content = response.read().decode('utf-8')
+            yaml_content = response.read().decode("utf-8")
 
             # Use safe_load to securely parse the YAML string into a Python
             # dictionary
@@ -89,17 +92,17 @@ def fetch_feature_yaml(web_feature_id: str,
 
 
 def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
-    """  # pylint: disable=line-too-long
+    """# pylint: disable=line-too-long
     Fetches the metadata for a given feature ID from the ChromeStatus Features API.
 
     Returns a FeatureMetadata object, or None if the feature ID is not found.
     """
-    url = f'https://chromestatus.com/api/v0/features/{feature_id}'
+    url = f"https://chromestatus.com/api/v0/features/{feature_id}"
 
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'WPT-Gen/1.0'})
+        req = urllib.request.Request(url, headers={"User-Agent": "WPT-Gen/1.0"})
         with urllib.request.urlopen(req) as response:
-            content = response.read().decode('utf-8')  # pylint: disable=line-too-long
+            content = response.read().decode("utf-8")  # pylint: disable=line-too-long
             # ChromeStatus API often prefixes JSON with a vulnerability protection string.  # pylint: disable=line-too-long
             if content.startswith(")]}'\n"):
                 content = content[5:]
@@ -112,14 +115,14 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
             # ChromeStatus API returns a single object for this endpoint.
             feature = data[0] if isinstance(data, list) else data
 
-            name = feature.get('name', 'Unknown Feature')
-            description = feature.get('summary', '')
-            explainer_links = feature.get('explainer_links', [])
-            wpt_descr = feature.get('wpt_descr', '')
+            name = feature.get("name", "Unknown Feature")
+            description = feature.get("summary", "")
+            explainer_links = feature.get("explainer_links", [])
+            wpt_descr = feature.get("wpt_descr", "")
 
             # ChromeStatus usually has spec_link
             specs = []
-            spec_link = feature.get('spec_link')
+            spec_link = feature.get("spec_link")
             if spec_link:
                 specs.append(spec_link)
 
@@ -135,17 +138,19 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
-        logger.warning('ChromeStatus API error for %s: %s', feature_id, e)
+        logger.warning("ChromeStatus API error for %s: %s", feature_id, e)
         return None
     except (
-            urllib.error.URLError,
-            json.JSONDecodeError,
-            KeyError,
-            IndexError,
+        urllib.error.URLError,
+        json.JSONDecodeError,
+        KeyError,
+        IndexError,
     ) as e:
         logger.warning(  # pylint: disable=line-too-long
-            'Could not fetch or parse ChromeStatus metadata for %s: %s',
-            feature_id, e)
+            "Could not fetch or parse ChromeStatus metadata for %s: %s",
+            feature_id,
+            e,
+        )
         return None
 
 
@@ -161,14 +166,14 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(MDN_MAPPINGS_URL)
         with urllib.request.urlopen(req) as response:
-            json_content = response.read().decode('utf-8')
+            json_content = response.read().decode("utf-8")
             data = json.loads(json_content)
 
             feature_mappings = data.get(web_feature_id, [])
-            return [item['url'] for item in feature_mappings if 'url' in item]
+            return [item["url"] for item in feature_mappings if "url" in item]
 
     except (urllib.error.HTTPError, json.JSONDecodeError, KeyError) as e:
-        logger.warning('Could not fetch or parse MDN mapping: %s', e)
+        logger.warning("Could not fetch or parse MDN mapping: %s", e)
         return []
 
 
@@ -188,13 +193,13 @@ def fetch_explainer_contents(urls: list[str]) -> dict[str, str]:
 
 
 def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
-    """  # pylint: disable=line-too-long
+    """# pylint: disable=line-too-long
     Extracts the high-level metadata (name and description) from the feature data.
 
     Returns:
       Dict containing important feature metadata.
     """
-    spec_info = feature_data.get('spec')
+    spec_info = feature_data.get("spec")
     specs = []
     if isinstance(spec_info, list):
         specs = spec_info
@@ -202,8 +207,8 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
         specs.append(spec_info)
 
     return FeatureMetadata(
-        name=str(feature_data.get('name', 'Unknown Feature')),
-        description=str(feature_data.get('description', '')),
+        name=str(feature_data.get("name", "Unknown Feature")),
+        description=str(feature_data.get("description", "")),
         specs=specs,
     )
 
@@ -214,53 +219,55 @@ def fetch_and_extract_text(url: str) -> str | None:
     stripping away navigation, footers, and boilerplate.
     Returns the content formatted as Markdown.
     """
-    logger.info('Fetching content from: %s', url)
+    logger.info("Fetching content from: %s", url)
 
     try:
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (compatible; WPT-Gen/1.0)'})
+            url, headers={"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
+        )
         with urllib.request.urlopen(req) as response:
-            html = response.read().decode('utf-8')
+            html = response.read().decode("utf-8")
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error('Failed to download HTML from %s: %s', url, e)
+        logger.error("Failed to download HTML from %s: %s", url, e)
         return None
 
-    soup = BeautifulSoup(html, 'lxml')
+    soup = BeautifulSoup(html, "lxml")
 
     # Strip out boilerplate that isn't spec content
-    for element in soup([
-            'nav', 'script', 'style', 'footer', 'head', 'link', 'meta',
-            'noscript'
-    ]):
+    for element in soup(
+        ["nav", "script", "style", "footer", "head", "link", "meta", "noscript"]
+    ):
         element.extract()
-# pylint: disable=line-too-long
-# Find the main content area. Specs usually use <main>, <div class="main">, or just body
-    main_content = (soup.find('main') or soup.find('div', class_='main') or
-                    soup.find('body'))
+    # pylint: disable=line-too-long
+    # Find the main content area. Specs usually use <main>, <div class="main">, or just body
+    main_content = (
+        soup.find("main")
+        or soup.find("div", class_="main")
+        or soup.find("body")
+    )
 
     if not main_content:
-        logger.warning('Could not find main content block in %s', url)
+        logger.warning("Could not find main content block in %s", url)
         return None
 
     # Pre-process <a> tags to preserve internal specification links (fragments)
     # but strip external URLs to conserve token limits.
-    for a_tag in main_content.find_all('a'):
-        href = a_tag.get('href')
-        if not isinstance(href, str) or not href.startswith('#'):
+    for a_tag in main_content.find_all("a"):
+        href = a_tag.get("href")
+        if not isinstance(href, str) or not href.startswith("#"):
             a_tag.unwrap()
-# pylint: disable=line-too-long
-# Convert the HTML tree to markdown, omitting external link URLs to save token space
+    # pylint: disable=line-too-long
+    # Convert the HTML tree to markdown, omitting external link URLs to save token space
     content = markdownify.markdownify(
         str(main_content),
-        heading_style='ATX',
-        strip=['img', 'picture', 'video', 'audio', 'iframe'],
+        heading_style="ATX",
+        strip=["img", "picture", "video", "audio", "iframe"],
     )
 
     content = content.strip()
     if not content:
-        logger.warning('Could not extract meaningful text from %s', url)
+        logger.warning("Could not extract meaningful text from %s", url)
         return None
 
     return content
@@ -273,9 +280,9 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
     """
     if not wpt_descr:
         return []
-# pylint: disable=line-too-long
-# Regular expression to match any URL-like structure starting with http/https
-    url_pattern = r'https?://[^\s\n,]+'
+    # pylint: disable=line-too-long
+    # Regular expression to match any URL-like structure starting with http/https
+    url_pattern = r"https?://[^\s\n,]+"
     urls = re.findall(url_pattern, wpt_descr)
 
     extracted_paths: set[str] = set()
@@ -283,14 +290,14 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
     # Process each found URL
     for url in urls:  # pylint: disable=line-too-long
         # Strip common punctuation that might be appended to URLs in descriptions
-        clean_url = url.rstrip('.,;)]')
+        clean_url = url.rstrip(".,;)]")
         try:
             parsed = urlparse(clean_url)
-            if parsed.netloc == 'wpt.fyi':
+            if parsed.netloc == "wpt.fyi":
                 # Logic mirroring ChromeStatus: extract path after '/results/'
-                path_prefix = '/results/'
+                path_prefix = "/results/"
                 if parsed.path.startswith(path_prefix):
-                    path = parsed.path[len(path_prefix):].strip('/')
+                    path = parsed.path[len(path_prefix) :].strip("/")
                     if path:
                         extracted_paths.add(path)
         except Exception:  # pylint: disable=broad-exception-caught
@@ -302,15 +309,15 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
 
 def normalize_wpt_path(path: str) -> str:
     """Normalizes .any. variants to their source .any.js file."""
-    if '.any.' in path:
+    if ".any." in path:
         # Matches '.../test.any.worker.html' -> '.../test.any.js'
-        idx = path.find('.any.') + 5  # index after ".any."
-        return path[:idx] + 'js'
+        idx = path.find(".any.") + 5  # index after ".any."
+        return path[:idx] + "js"
     return path
 
 
 def is_wpt_test_file(path: Path) -> bool:
-    """  # pylint: disable=line-too-long
+    """# pylint: disable=line-too-long
     Checks if the file name matches the conditions for the file to be a WPT test file.  # pylint: disable=line-too-long
     Filters out non-test files like .yml, .md, .py, .ini, .headers, and hidden files.
     """
@@ -322,22 +329,23 @@ def is_wpt_test_file(path: Path) -> bool:
         return False
 
     # Filter based on extension
-    if suffix in ('.yml', '.yaml', '.md', '.py', '.ini', '.headers', '.txt'):
+    if suffix in (".yml", ".yaml", ".md", ".py", ".ini", ".headers", ".txt"):
         return False
 
     # Filter out special WPT files
-    if filename in ('MANIFEST', 'META.yml', 'WEB_FEATURES.yml'):
+    if filename in ("MANIFEST", "META.yml", "WEB_FEATURES.yml"):
         return False
 
     # Filter out hidden files
-    if filename.startswith('.'):
+    if filename.startswith("."):
         return False
 
     return True
 
 
-def validate_wpt_paths(paths: list[str],
-                       wpt_root: str) -> tuple[list[str], list[str]]:
+def validate_wpt_paths(
+    paths: list[str], wpt_root: str
+) -> tuple[list[str], list[str]]:
     """
     Validates that the given WPT paths exist in the local WPT repository.
     Returns a tuple of (valid_paths, invalid_paths).  # pylint: disable=line-too-long
@@ -351,7 +359,7 @@ def validate_wpt_paths(paths: list[str],
 
     for p in paths:
         # Normalize and Resolve
-        normalized_p = normalize_wpt_path(p.lstrip('/'))
+        normalized_p = normalize_wpt_path(p.lstrip("/"))
         abs_p = (root / normalized_p).resolve()
 
         try:
@@ -362,8 +370,8 @@ def validate_wpt_paths(paths: list[str],
             continue
 
         # 1. Handle HTML-to-JS fallback for files
-        if not abs_p.exists() and abs_p.suffix == '.html':
-            js_p = abs_p.with_suffix('.js')
+        if not abs_p.exists() and abs_p.suffix == ".html":
+            js_p = abs_p.with_suffix(".js")
             if js_p.exists():
                 abs_p = js_p
 
@@ -389,38 +397,38 @@ def validate_wpt_paths(paths: list[str],
     # CRITICAL: Safety limit check
     if len(valid_paths) > MAXIMUM_TEST_SUITE_SIZE:
         raise ValueError(  # pylint: disable=line-too-long
-            f'Too many tests found ({len(valid_paths)}). Max allowed is {MAXIMUM_TEST_SUITE_SIZE}.'  # pylint: disable=line-too-long
+            f"Too many tests found ({len(valid_paths)}). Max allowed is {MAXIMUM_TEST_SUITE_SIZE}."  # pylint: disable=line-too-long
         )
 
     return sorted(valid_paths), invalid_paths
 
 
 def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
-    """  # pylint: disable=line-too-long
+    """# pylint: disable=line-too-long
     Scans a directory recursively for test files relevant to a specific feature ID.
     """
     base_dir = Path(target_directory).resolve()
     if not base_dir.is_dir():
-        raise ValueError(f'The directory provided does not exist: {base_dir}')
+        raise ValueError(f"The directory provided does not exist: {base_dir}")
 
     relevant_files: set[str] = set()
-    target_metadata_file = 'WEB_FEATURES.yml'
+    target_metadata_file = "WEB_FEATURES.yml"
     # pylint: disable=line-too-long
     # rglob recursively finds all WEB_FEATURES.yml files in the entire repository
     for yaml_path in base_dir.rglob(target_metadata_file):
         try:
-            with open(yaml_path, encoding='utf-8') as f:
+            with open(yaml_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
-            if not data or 'features' not in data:
+            if not data or "features" not in data:
                 continue
 
             feature_config = next(
-                (f for f in data['features'] if f.get('name') == feature_id),
+                (f for f in data["features"] if f.get("name") == feature_id),
                 None,
             )
 
             if feature_config:
-                patterns = feature_config.get('files', [])
+                patterns = feature_config.get("files", [])
                 # Pass the directory containing the YAML file
                 matched_files = _resolve_patterns(yaml_path.parent, patterns)
                 relevant_files.update(matched_files)
@@ -428,25 +436,26 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
         except yaml.YAMLError:
             continue
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.warning('Error processing %s: %s', yaml_path, e)
+            logger.warning("Error processing %s: %s", yaml_path, e)
 
     # Convert back to a sorted list of absolute string paths
     return sorted(relevant_files)
 
 
 def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
-    """  # pylint: disable=line-too-long
+    """# pylint: disable=line-too-long
     Helper function to match file patterns recursively against files in a directory.
     """
     all_files = [
-        p for p in directory.rglob('*')
-        if p.is_file() and p.suffix.lower() not in ('.yml', '.yaml')
+        p
+        for p in directory.rglob("*")
+        if p.is_file() and p.suffix.lower() not in (".yml", ".yaml")
     ]
 
     selected_files: set[Path] = set()
 
     for pattern in patterns:
-        is_negative = pattern.startswith('!')
+        is_negative = pattern.startswith("!")
         clean_pattern = pattern[1:] if is_negative else pattern
 
         matches = set()
@@ -458,7 +467,7 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
 
             # If pattern is `**/*.html`, it misses root files like `test.html`.
             # We strip `**/` and check if `test.html` matches `*.html`.
-            if not is_match and clean_pattern.startswith('**/'):
+            if not is_match and clean_pattern.startswith("**/"):
                 is_match = rel_path.match(clean_pattern[3:])
             if is_match:
                 matches.add(f)
@@ -476,7 +485,7 @@ def extract_dependencies(content: str) -> list[str]:
     Scans file content for references to other files.
     """
     # Strip HTML comments to avoid picking up commented-out dependencies
-    clean_content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    clean_content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
 
     dependencies = set()
     dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, clean_content))
@@ -486,19 +495,20 @@ def extract_dependencies(content: str) -> list[str]:
     return [d for d in dependencies if d not in IGNORED_DEPENDENCIES]
 
 
-def resolve_dependency_path(current_file_path: Path, dep_ref: str,
-                            wpt_root: Path) -> Path | None:
+def resolve_dependency_path(
+    current_file_path: Path, dep_ref: str, wpt_root: Path
+) -> Path | None:
     """
     Resolves a dependency reference to a concrete local WPT repository path.
     """
-    if dep_ref.startswith(('http', '//', 'https')):
+    if dep_ref.startswith(("http", "//", "https")):
         return None
 
     current_dir = current_file_path.parent
 
-    if dep_ref.startswith('/'):
+    if dep_ref.startswith("/"):
         # Absolute path relative to repo root
-        resolved = wpt_root / dep_ref.lstrip('/')
+        resolved = wpt_root / dep_ref.lstrip("/")
     else:
         # Relative path
         resolved = (current_dir / dep_ref).resolve()
@@ -513,9 +523,10 @@ def resolve_dependency_path(current_file_path: Path, dep_ref: str,
     return None
 
 
-def gather_local_test_context(test_paths: list[str],
-                              wpt_root: str) -> WPTContext:
-    """  # pylint: disable=line-too-long
+def gather_local_test_context(
+    test_paths: list[str], wpt_root: str
+) -> WPTContext:
+    """# pylint: disable=line-too-long
     Recursively gathers the content of test files and all their dependencies from the local disk.
     Enforces MAXIMUM_FETCHED_DEPENDENCIES.
     """
@@ -542,7 +553,7 @@ def gather_local_test_context(test_paths: list[str],
 
         curr_p = Path(curr_p_str)
         try:
-            content = curr_p.read_text(encoding='utf-8')
+            content = curr_p.read_text(encoding="utf-8")
             if is_test:
                 test_contents[curr_p_str] = content
             else:
@@ -560,12 +571,14 @@ def gather_local_test_context(test_paths: list[str],
                         dependency_graph[curr_p_str].add(resolved_str)
 
                         if resolved_str not in visited:
-                            if len(visited) < (initial_test_count +
-                                               MAXIMUM_FETCHED_DEPENDENCIES):
+                            if len(visited) < (
+                                initial_test_count
+                                + MAXIMUM_FETCHED_DEPENDENCIES
+                            ):
                                 visited.add(resolved_str)
                                 queue.append((resolved_str, False))
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.warning('Error reading dependency %s: %s', curr_p_str, e)
+            logger.warning("Error reading dependency %s: %s", curr_p_str, e)
 
     # Build the reachability map
     for test_p_str in test_contents:

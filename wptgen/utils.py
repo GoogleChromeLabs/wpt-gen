@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,17 +23,20 @@ from functools import wraps
 from pathlib import Path
 from typing import ParamSpec, TypeVar
 
-T = TypeVar('T')
-P = ParamSpec('P')
+T = TypeVar("T")
+P = ParamSpec("P")
 
 # Regular expressions for parsing and sanitization
-SUGGESTION_BLOCK_RE = re.compile(r'<test_suggestion>.*?</test_suggestion>',
-                                 re.DOTALL)
-FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
-MARKDOWN_CODE_BLOCK_RE = re.compile(r'^```html\s*|^```\s*|\s*```$',
-                                    re.MULTILINE)
-MULTI_FILE_RE = re.compile(r'\[FILE_(\d+):\s*(.*?)\](.*?)\[/FILE_\1\]',
-                           re.DOTALL)
+SUGGESTION_BLOCK_RE = re.compile(
+    r"<test_suggestion>.*?</test_suggestion>", re.DOTALL
+)
+FILENAME_SANITIZATION_RE = re.compile(r"[^a-z0-9_\-]")
+MARKDOWN_CODE_BLOCK_RE = re.compile(
+    r"^```html\s*|^```\s*|\s*```$", re.MULTILINE
+)
+MULTI_FILE_RE = re.compile(
+    r"\[FILE_(\d+):\s*(.*?)\](.*?)\[/FILE_\1\]", re.DOTALL
+)
 
 # Maximum delay between retries in seconds
 MAX_DELAY = 60.0
@@ -44,14 +48,14 @@ MAX_RETRIES = 5
 def clean_file_content(content: str) -> str:
     """Removes trailing whitespace from every line and ensures exactly one trailing newline."""  # pylint: disable=line-too-long
     if not content:
-        return '\n'
-    content = re.sub(r'[ \t]+(\r?)$', r'\1', content, flags=re.MULTILINE)
-    return content.rstrip('\r\n') + '\n'
+        return "\n"
+    content = re.sub(r"[ \t]+(\r?)$", r"\1", content, flags=re.MULTILINE)
+    return content.rstrip("\r\n") + "\n"
 
 
 def extract_xml_tag(text: str, tag: str) -> str | None:
     """Extracts the content of an XML-like tag from a string."""
-    match = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
+    match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
     return match.group(1).strip() if match else None
 
 
@@ -60,9 +64,9 @@ def parse_suggestions(raw_text: str) -> list[str]:
     return SUGGESTION_BLOCK_RE.findall(raw_text)
 
 
-def parse_multi_file_response(raw_text: str,
-                              strip_tentative: bool = False
-                             ) -> list[tuple[str, str]]:
+def parse_multi_file_response(
+    raw_text: str, strip_tentative: bool = False
+) -> list[tuple[str, str]]:
     """Extracts multiple files from a partitioned LLM response.
 
     Expected format:
@@ -78,16 +82,16 @@ def parse_multi_file_response(raw_text: str,
         suffix = match.group(2).strip()
 
         if strip_tentative:
-            suffix = suffix.replace('.tentative', '')
+            suffix = suffix.replace(".tentative", "")
 
         # Shave off the start if it doesn't lead with a period
-        if suffix and not suffix.startswith('.'):
-            dot_idx = suffix.find('.')
+        if suffix and not suffix.startswith("."):
+            dot_idx = suffix.find(".")
             if dot_idx != -1:
                 suffix = suffix[dot_idx:]
             else:
                 # Fallback if no dot found at all - prepend a dot
-                suffix = '.' + suffix
+                suffix = "." + suffix
 
         content = match.group(3).strip()
         files.append((suffix, content))
@@ -119,17 +123,17 @@ def fix_reftest_link(test_content: str, ref_filename: str) -> str:
         return link_re.sub(new_link, test_content)
 
     # If no link tag exists, add it to the <head> section.
-    head_re = re.compile(r'(<head.*?>)', re.IGNORECASE)
+    head_re = re.compile(r"(<head.*?>)", re.IGNORECASE)
     if head_re.search(test_content):
-        return head_re.sub(r'\1\n' + new_link, test_content, count=1)
+        return head_re.sub(r"\1\n" + new_link, test_content, count=1)
 
     # Fallback: find <html> tag
-    html_re = re.compile(r'(<html.*?>)', re.IGNORECASE)
+    html_re = re.compile(r"(<html.*?>)", re.IGNORECASE)
     if html_re.search(test_content):
-        return html_re.sub(r'\1\n' + new_link, test_content, count=1)
+        return html_re.sub(r"\1\n" + new_link, test_content, count=1)
 
     # Absolute fallback: prepend to content
-    return new_link + '\n' + test_content
+    return new_link + "\n" + test_content
 
 
 def get_next_available_root(
@@ -149,7 +153,7 @@ def get_next_available_root(
     Returns:
       The available root filename (e.g., 'feature-001').
     """
-    safe_feature_id = FILENAME_SANITIZATION_RE.sub('_', feature_id.lower())
+    safe_feature_id = FILENAME_SANITIZATION_RE.sub("_", feature_id.lower())
 
     # We reserve some space for suffixes like '.https.any.js' (~20 chars)
     # and potentially '-ref' for reftests (4 chars).
@@ -160,8 +164,8 @@ def get_next_available_root(
 
     n = 1
     while True:
-        num_str = f'{n:03d}' if n < 1000 else str(n)
-        root_name = f'{truncated_feature_id}-{num_str}'
+        num_str = f"{n:03d}" if n < 1000 else str(n)
+        root_name = f"{truncated_feature_id}-{num_str}"
 
         # Collision check:
         # 1. Check if we've already used this root in this run.
@@ -231,10 +235,12 @@ def retry(
             actual_max_attempts = min(actual_max_attempts, MAX_RETRIES)
 
             # Validate max_attempts is a positive integer
-            if (not isinstance(actual_max_attempts, int) or
-                    actual_max_attempts < 1):  # pylint: disable=line-too-long
+            if (
+                not isinstance(actual_max_attempts, int)
+                or actual_max_attempts < 1
+            ):  # pylint: disable=line-too-long
                 raise ValueError(
-                    f'max_attempts must be an integer >= 1, got {actual_max_attempts}'  # pylint: disable=line-too-long
+                    f"max_attempts must be an integer >= 1, got {actual_max_attempts}"  # pylint: disable=line-too-long
                 )
 
             delay = initial_delay
@@ -253,11 +259,12 @@ def retry(
 
                     time.sleep(sleep_time)
                     delay *= backoff_factor  # pylint: disable=line-too-long
-# pylint: disable=line-too-long
-# Satisfy the type checker. This code is mathematically unreachable at runtime
-# because the loop will always either return or raise on its final iteration.
-            raise AssertionError('Unreachable code reached in retry decorator'
-                                )  # pragma: no cover
+            # pylint: disable=line-too-long
+            # Satisfy the type checker. This code is mathematically unreachable at runtime
+            # because the loop will always either return or raise on its final iteration.
+            raise AssertionError(
+                "Unreachable code reached in retry decorator"
+            )  # pragma: no cover
 
         return wrapper
 
@@ -270,8 +277,8 @@ def ensure_testharness_imports(content: str) -> str:
     th_js = '<script src="/resources/testharness.js"></script>'
     thr_js = '<script src="/resources/testharnessreport.js"></script>'
 
-    has_th = '/resources/testharness.js' in content
-    has_thr = '/resources/testharnessreport.js' in content
+    has_th = "/resources/testharness.js" in content
+    has_thr = "/resources/testharnessreport.js" in content
 
     if has_th and has_thr:
         return content
@@ -282,46 +289,56 @@ def ensure_testharness_imports(content: str) -> str:
     if not has_thr:
         imports_to_add.append(thr_js)
 
-    import_str = '\n'.join(imports_to_add)
+    import_str = "\n".join(imports_to_add)
 
     # Try to inject inside <head>
-    head_match = re.search(r'(<head[^>]*>)', content, re.IGNORECASE)
+    head_match = re.search(r"(<head[^>]*>)", content, re.IGNORECASE)
     if head_match:
-        return (content[:head_match.end()] + '\n' + import_str + '\n' +
-                content[head_match.end():])
+        return (
+            content[: head_match.end()]
+            + "\n"
+            + import_str
+            + "\n"
+            + content[head_match.end() :]
+        )
 
     # Try to inject inside <html>
-    html_match = re.search(r'(<html[^>]*>)', content, re.IGNORECASE)
+    html_match = re.search(r"(<html[^>]*>)", content, re.IGNORECASE)
     if html_match:
-        return (content[:html_match.end()] + '\n<head>\n' + import_str +
-                '\n</head>\n' + content[html_match.end():])
+        return (
+            content[: html_match.end()]
+            + "\n<head>\n"
+            + import_str
+            + "\n</head>\n"
+            + content[html_match.end() :]
+        )
 
     # Fallback: prepend
-    return import_str + '\n' + content
+    return import_str + "\n" + content
 
 
 def get_recent_test_files(
-        target_dir: str | Path,
-        file_extension: str,
-        limit: int = 3,
-        max_tokens: int = 15000,
-        token_counter: Callable[[str], int] | None = None,
-        allowed_files: list[str] | set[str] | None = None,  # pylint: disable=line-too-long
+    target_dir: str | Path,
+    file_extension: str,
+    limit: int = 3,
+    max_tokens: int = 15000,
+    token_counter: Callable[[str], int] | None = None,
+    allowed_files: list[str] | set[str] | None = None,  # pylint: disable=line-too-long
 ) -> list[tuple[str, str]]:
     """Queries the local Git repository to find the most recently modified files.
 
-    Args:
-      target_dir: The directory to search within.
-      file_extension: The required file extension (e.g., '.html', '-ref.html').
-      limit: The maximum number of files to return. Default is 3.
-      max_tokens: The maximum allowed tokens for a file to be included.
-      token_counter: An optional callable to count tokens. If None, uses a
-        character-based heuristic (len(content) / 4).  # pylint: disable=line-too-long
-      allowed_files: An optional list/set of absolute file paths to filter by.
-        If provided, only files that exactly match a path in this list will be included.
-  # pylint: disable=line-too-long
-    Returns:
-      A list of tuples containing (filename, file_content) for the matched files.
+      Args:
+        target_dir: The directory to search within.
+        file_extension: The required file extension (e.g., '.html', '-ref.html').
+        limit: The maximum number of files to return. Default is 3.
+        max_tokens: The maximum allowed tokens for a file to be included.
+        token_counter: An optional callable to count tokens. If None, uses a
+          character-based heuristic (len(content) / 4).  # pylint: disable=line-too-long
+        allowed_files: An optional list/set of absolute file paths to filter by.
+          If provided, only files that exactly match a path in this list will be included.
+    # pylint: disable=line-too-long
+      Returns:
+        A list of tuples containing (filename, file_content) for the matched files.
     """
     target_path = Path(target_dir)
     if not target_path.exists() or not target_path.is_dir():
@@ -330,11 +347,11 @@ def get_recent_test_files(
     try:
         result = subprocess.run(
             [
-                'git',
-                'log',
-                '--name-only',
-                '--pretty=format:',
-                '--diff-filter=d',
+                "git",
+                "log",
+                "--name-only",
+                "--pretty=format:",
+                "--diff-filter=d",
             ],
             cwd=str(target_path),
             capture_output=True,
@@ -370,7 +387,7 @@ def get_recent_test_files(
                 continue
 
         try:
-            content = filepath.read_text(encoding='utf-8')
+            content = filepath.read_text(encoding="utf-8")
         except Exception:  # pylint: disable=broad-exception-caught
             continue
 

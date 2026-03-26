@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,42 +37,47 @@ def _load_cached_requirements(
     if not cache_file.exists():
         return None
 
-    ui.info(f'Found cached requirements for {web_feature_id}.')
+    ui.info(f"Found cached requirements for {web_feature_id}.")
     use_cache = False
     if config.yes_cache:
         use_cache = True
-        ui.success('Automatically using cached requirements (--yes-cache).')
+        ui.success("Automatically using cached requirements (--yes-cache).")
     elif config.no_cache:
         use_cache = False
-        ui.info('Automatically ignoring cached requirements (--no-cache).')
+        ui.info("Automatically ignoring cached requirements (--no-cache).")
     else:
-        use_cache = ui.confirm('Use cached requirements?')
+        use_cache = ui.confirm("Use cached requirements?")
 
     if use_cache:
-        requirements_xml = cache_file.read_text(encoding='utf-8')
+        requirements_xml = cache_file.read_text(encoding="utf-8")
         if not config.yes_cache:
-            ui.success('Using cached requirements.')
+            ui.success("Using cached requirements.")
         return requirements_xml
     return None
 
 
-async def _fetch_explainer_contents(context: WorkflowContext,
-                                    ui: UIProvider) -> None:
+async def _fetch_explainer_contents(
+    context: WorkflowContext, ui: UIProvider
+) -> None:
     """
     Fetches explainer contents if they are not already present in the context.
     """
-    if (not context.explainer_contents and context.metadata and
-            context.metadata.explainer_links):
-        ui.print('Fetching explainer content...')
-        with ui.status('Fetching and extracting text from explainers...'):
+    if (
+        not context.explainer_contents
+        and context.metadata
+        and context.metadata.explainer_links
+    ):
+        ui.print("Fetching explainer content...")
+        with ui.status("Fetching and extracting text from explainers..."):
             context.explainer_contents = await asyncio.to_thread(
-                fetch_explainer_contents, context.metadata.explainer_links)
+                fetch_explainer_contents, context.metadata.explainer_links
+            )
 
             # Check for missing URLs to show warnings
             for url in context.metadata.explainer_links:
                 if url not in context.explainer_contents:
                     ui.warning(
-                        f'Failed to fetch or extract content from explainer: {url}'  # pylint: disable=line-too-long
+                        f"Failed to fetch or extract content from explainer: {url}"  # pylint: disable=line-too-long
                     )
 
 
@@ -83,62 +89,67 @@ async def run_requirements_extraction(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
-    ui.on_phase_start(2, 'Requirements Extraction')
+    ui.on_phase_start(2, "Requirements Extraction")
 
     assert context.metadata is not None
 
     web_feature_id = context.feature_id
-    cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
 
-    requirements_xml = _load_cached_requirements(web_feature_id, cache_file,
-                                                 config, ui)
+    requirements_xml = _load_cached_requirements(
+        web_feature_id, cache_file, config, ui
+    )
 
     if not requirements_xml:
         await _fetch_explainer_contents(context, ui)
         extraction_prompt = jinja_env.get_template(
-            'requirements_extraction.jinja').render(
-                feature_name=context.metadata.name,
-                feature_description=context.metadata.description,
-                specs=context.spec_contents,
-                mdn_contents=context.mdn_contents,
-                explainer_contents=context.explainer_contents,
-            )
+            "requirements_extraction.jinja"
+        ).render(
+            feature_name=context.metadata.name,
+            feature_description=context.metadata.description,
+            specs=context.spec_contents,
+            mdn_contents=context.mdn_contents,
+            explainer_contents=context.explainer_contents,
+        )
         extraction_system_prompt = jinja_env.get_template(
-            'requirements_extraction_system.jinja').render(
-                has_mdn=bool(context.mdn_contents),
-                has_explainer=bool(context.explainer_contents),
-            )
+            "requirements_extraction_system.jinja"
+        ).render(
+            has_mdn=bool(context.mdn_contents),
+            has_explainer=bool(context.explainer_contents),
+        )
 
         await confirm_prompts(
-            [(extraction_prompt, 'Requirements Extraction')],
-            'Requirements Extraction',
+            [(extraction_prompt, "Requirements Extraction")],
+            "Requirements Extraction",
             llm,
             ui,
             config,
             model=config.get_model_for_phase(
-                WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                WorkflowPhase.REQUIREMENTS_EXTRACTION
+            ),
         )
 
         requirements_xml = await generate_safe(
             extraction_prompt,
-            'Requirements Extraction',
+            "Requirements Extraction",
             llm,
             ui,
             config,
             system_instruction=extraction_system_prompt,
             temperature=0.01,
             model=config.get_model_for_phase(
-                WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                WorkflowPhase.REQUIREMENTS_EXTRACTION
+            ),
         )
 
         if not requirements_xml:
             return None
 
         # Save to cache
-        cache_file.write_text(requirements_xml, encoding='utf-8')
+        cache_file.write_text(requirements_xml, encoding="utf-8")
 
-    count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
-    ui.success(f'Extracted {count} test requirements.')
+    count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
+    ui.success(f"Extracted {count} test requirements.")
 
     context.requirements_xml = requirements_xml
     return requirements_xml
@@ -152,15 +163,16 @@ async def run_requirements_extraction_categorized(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
-    ui.on_phase_start(2, 'Requirements Extraction (Categorized)')
+    ui.on_phase_start(2, "Requirements Extraction (Categorized)")
 
     assert context.metadata is not None
 
     web_feature_id = context.feature_id
-    cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
 
-    requirements_xml = _load_cached_requirements(web_feature_id, cache_file,
-                                                 config, ui)
+    requirements_xml = _load_cached_requirements(
+        web_feature_id, cache_file, config, ui
+    )
 
     if not requirements_xml:
         await _fetch_explainer_contents(context, ui)
@@ -173,34 +185,37 @@ async def run_requirements_extraction_categorized(
 
         for category_name, category_description in REQUIREMENT_CATEGORIES:
             extraction_prompt = jinja_env.get_template(
-                'requirements_extraction_categorized.jinja').render(
-                    feature_name=metadata.name,
-                    feature_description=metadata.description,
-                    specs=context.spec_contents,
-                    mdn_contents=context.mdn_contents,
-                    explainer_contents=context.explainer_contents,
-                )
+                "requirements_extraction_categorized.jinja"
+            ).render(
+                feature_name=metadata.name,
+                feature_description=metadata.description,
+                specs=context.spec_contents,
+                mdn_contents=context.mdn_contents,
+                explainer_contents=context.explainer_contents,
+            )
             extraction_system_prompt = jinja_env.get_template(
-                'requirements_extraction_categorized_system.jinja').render(
-                    category_name=category_name,
-                    category_description=category_description,
-                    has_mdn=bool(context.mdn_contents),
-                    has_explainer=bool(context.explainer_contents),
-                )
+                "requirements_extraction_categorized_system.jinja"
+            ).render(
+                category_name=category_name,
+                category_description=category_description,
+                has_mdn=bool(context.mdn_contents),
+                has_explainer=bool(context.explainer_contents),
+            )
             category_prompts.append(extraction_prompt)
             category_system_prompts.append(extraction_system_prompt)
             prompts_to_confirm.append(
-                (extraction_prompt,
-                 f'Requirements Extraction: {category_name}'))
+                (extraction_prompt, f"Requirements Extraction: {category_name}")
+            )
 
         await confirm_prompts(
             prompts_to_confirm,
-            'Requirements Extraction (Categorized Parallel)',
+            "Requirements Extraction (Categorized Parallel)",
             llm,
             ui,
             config,
             model=config.get_model_for_phase(
-                WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                WorkflowPhase.REQUIREMENTS_EXTRACTION
+            ),
         )
 
         async def extract_for_category(
@@ -210,71 +225,77 @@ async def run_requirements_extraction_categorized(
         ) -> str | None:
             return await generate_safe(
                 extraction_prompt,
-                f'Requirements Extraction: {category_name}',
+                f"Requirements Extraction: {category_name}",
                 llm,
                 ui,
                 config,
                 system_instruction=extraction_system_prompt,
                 temperature=0.01,
                 model=config.get_model_for_phase(
-                    WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                    WorkflowPhase.REQUIREMENTS_EXTRACTION
+                ),
             )
 
         ui.info(
-            f'Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests...'  # pylint: disable=line-too-long
+            f"Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests..."  # pylint: disable=line-too-long
         )
         total_tasks = len(REQUIREMENT_CATEGORIES)
         completed_count = 0
 
         async def wrap_with_progress(
-                name: str, extraction_prompt: str,
-                extraction_system_prompt: str) -> str | None:
+            name: str, extraction_prompt: str, extraction_system_prompt: str
+        ) -> str | None:
             nonlocal completed_count
-            res = await extract_for_category(name, extraction_prompt,
-                                             extraction_system_prompt)
+            res = await extract_for_category(
+                name, extraction_prompt, extraction_system_prompt
+            )
             completed_count += 1
             remaining = total_tasks - completed_count
             progress.update(
-                description='Extracting requirements...',
+                description="Extracting requirements...",
                 outstanding=remaining if remaining > 0 else None,
             )
             progress.advance()
             return res
 
         with ui.progress_indicator(
-                f'Extracting requirements... ({total_tasks} outstanding)',
-                total=total_tasks,
+            f"Extracting requirements... ({total_tasks} outstanding)",
+            total=total_tasks,
         ) as progress:
-            responses = await asyncio.gather(*[
-                wrap_with_progress(cat[0], prompt, sys_prompt)
-                for cat, prompt, sys_prompt in zip(
-                    REQUIREMENT_CATEGORIES,
-                    category_prompts,
-                    category_system_prompts,
-                    strict=True,
-                )
-            ])
+            responses = await asyncio.gather(
+                *[
+                    wrap_with_progress(cat[0], prompt, sys_prompt)
+                    for cat, prompt, sys_prompt in zip(
+                        REQUIREMENT_CATEGORIES,
+                        category_prompts,
+                        category_system_prompts,
+                        strict=True,
+                    )
+                ]
+            )
 
         all_requirements: list[str] = []
         requirement_counter = 1
 
-        for (name, _), response in zip(REQUIREMENT_CATEGORIES,
-                                       responses,
-                                       strict=True):
+        for (name, _), response in zip(
+            REQUIREMENT_CATEGORIES, responses, strict=True
+        ):
             if not response:
                 continue
 
             # Extract individual <requirement> blocks.
-            new_reqs = re.findall(r'(<requirement\b[^>]*>.*?</requirement>)',
-                                  response, re.DOTALL)
+            new_reqs = re.findall(
+                r"(<requirement\b[^>]*>.*?</requirement>)", response, re.DOTALL
+            )
 
             if not new_reqs:
                 # If no requirements, look for a rationale.
-                rationale_match = re.search(r'<rationale>(.*?)</rationale>',
-                                            response, re.DOTALL)
+                rationale_match = re.search(
+                    r"<rationale>(.*?)</rationale>", response, re.DOTALL
+                )
                 if rationale_match:
                     ui.info(
-                        f'No requirements found for category [{name}] {rationale_match.group(1).strip()}'  # pylint: disable=line-too-long
+                        f"No requirements found for category [{name}] {rationale_match.group(1).strip()}"  # pylint: disable=line-too-long
                     )
                 continue
 
@@ -289,18 +310,20 @@ async def run_requirements_extraction_categorized(
                 requirement_counter += 1
 
         if not all_requirements:
-            ui.error('No requirements extracted.')
+            ui.error("No requirements extracted.")
             return None
 
-        requirements_xml = ('<requirements_list>\n  ' +
-                            '\n  '.join(all_requirements) +
-                            '\n</requirements_list>')
+        requirements_xml = (
+            "<requirements_list>\n  "
+            + "\n  ".join(all_requirements)
+            + "\n</requirements_list>"
+        )
 
         # Save to cache
-        cache_file.write_text(requirements_xml, encoding='utf-8')
+        cache_file.write_text(requirements_xml, encoding="utf-8")
 
-    count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
-    ui.success(f'Extracted {count} test requirements.')
+    count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
+    ui.success(f"Extracted {count} test requirements.")
     context.requirements_xml = requirements_xml
     return requirements_xml
 
@@ -313,15 +336,16 @@ async def run_requirements_extraction_iterative(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
-    ui.on_phase_start(2, 'Requirements Extraction (Iterative)')
+    ui.on_phase_start(2, "Requirements Extraction (Iterative)")
 
     assert context.metadata is not None
 
     web_feature_id = context.feature_id
-    cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
 
-    requirements_xml = _load_cached_requirements(web_feature_id, cache_file,
-                                                 config, ui)
+    requirements_xml = _load_cached_requirements(
+        web_feature_id, cache_file, config, ui
+    )
 
     if not requirements_xml:
         await _fetch_explainer_contents(context, ui)
@@ -331,68 +355,76 @@ async def run_requirements_extraction_iterative(
         requirement_counter = 1
 
         while iteration <= max_iterations:
-            existing_requirements_xml = '\n'.join(all_requirements)
+            existing_requirements_xml = "\n".join(all_requirements)
 
             extraction_prompt = jinja_env.get_template(
-                'requirements_extraction_iterative.jinja').render(
-                    feature_name=context.metadata.name,
-                    feature_description=context.metadata.description,
-                    specs=context.spec_contents,
-                    mdn_contents=context.mdn_contents,
-                    explainer_contents=context.explainer_contents,
-                    existing_requirements_xml=existing_requirements_xml,
-                )
+                "requirements_extraction_iterative.jinja"
+            ).render(
+                feature_name=context.metadata.name,
+                feature_description=context.metadata.description,
+                specs=context.spec_contents,
+                mdn_contents=context.mdn_contents,
+                explainer_contents=context.explainer_contents,
+                existing_requirements_xml=existing_requirements_xml,
+            )
             extraction_system_prompt = jinja_env.get_template(
-                'requirements_extraction_iterative_system.jinja').render(
-                    has_mdn=bool(context.mdn_contents),
-                    has_explainer=bool(context.explainer_contents),
-                )
+                "requirements_extraction_iterative_system.jinja"
+            ).render(
+                has_mdn=bool(context.mdn_contents),
+                has_explainer=bool(context.explainer_contents),
+            )
 
             if iteration == 1:
                 await confirm_prompts(
-                    [(
-                        extraction_prompt,
-                        'Requirements Extraction (Iterative)',
-                    )],
-                    'Requirements Extraction',
+                    [
+                        (
+                            extraction_prompt,
+                            "Requirements Extraction (Iterative)",
+                        )
+                    ],
+                    "Requirements Extraction",
                     llm,
                     ui,
                     config,
                     model=config.get_model_for_phase(
-                        WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                        WorkflowPhase.REQUIREMENTS_EXTRACTION
+                    ),
                 )
 
             response = await generate_safe(
                 extraction_prompt,
-                f'Requirements Extraction (Iteration {iteration})',
+                f"Requirements Extraction (Iteration {iteration})",
                 llm,
                 ui,
                 config,
                 system_instruction=extraction_system_prompt,
                 temperature=0.01,
                 model=config.get_model_for_phase(
-                    WorkflowPhase.REQUIREMENTS_EXTRACTION),
+                    WorkflowPhase.REQUIREMENTS_EXTRACTION
+                ),
             )
 
             if not response:
                 break
 
-            if '<status>EXHAUSTED</status>' in response:
+            if "<status>EXHAUSTED</status>" in response:
                 ui.success(
-                    f'Extraction complete: LLM signaled exhaustion at iteration {iteration}.'  # pylint: disable=line-too-long
+                    f"Extraction complete: LLM signaled exhaustion at iteration {iteration}."  # pylint: disable=line-too-long
                 )
                 break
 
             # Extract individual <requirement> blocks.
-            new_reqs = re.findall(r'(<requirement\b[^>]*>.*?</requirement>)',
-                                  response, re.DOTALL)
+            new_reqs = re.findall(
+                r"(<requirement\b[^>]*>.*?</requirement>)", response, re.DOTALL
+            )
 
             if not new_reqs:
                 ui.warning(
-                    'No new requirements found in this iteration. Stopping.')
+                    "No new requirements found in this iteration. Stopping."
+                )
                 break
 
-            ui.print(f'  - Found {len(new_reqs)} new requirements.')
+            ui.print(f"  - Found {len(new_reqs)} new requirements.")
 
             # Re-index requirements as they come out
             for req in new_reqs:
@@ -407,20 +439,22 @@ async def run_requirements_extraction_iterative(
             iteration += 1
         else:
             if iteration > max_iterations:
-                ui.warning(f'Reached maximum iterations ({max_iterations}).')
+                ui.warning(f"Reached maximum iterations ({max_iterations}).")
 
         if not all_requirements:
-            ui.error('No requirements extracted.')
+            ui.error("No requirements extracted.")
             return None
 
-        requirements_xml = ('<requirements_list>\n  ' +
-                            '\n  '.join(all_requirements) +
-                            '\n</requirements_list>')
+        requirements_xml = (
+            "<requirements_list>\n  "
+            + "\n  ".join(all_requirements)
+            + "\n</requirements_list>"
+        )
 
         # Save to cache
-        cache_file.write_text(requirements_xml, encoding='utf-8')
+        cache_file.write_text(requirements_xml, encoding="utf-8")
 
-    count = len(re.findall(r'<requirement\b[^>]*>', requirements_xml))
-    ui.success(f'Extracted {count} test requirements.')
+    count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
+    ui.success(f"Extracted {count} test requirements.")
     context.requirements_xml = requirements_xml
     return requirements_xml

@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,15 +28,17 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.ui import UIProvider
 from wptgen.utils import extract_xml_tag, parse_suggestions
 
-FILENAME_SANITIZATION_RE = re.compile(r'[^a-z0-9_\-]')
+FILENAME_SANITIZATION_RE = re.compile(r"[^a-z0-9_\-]")
 
 
-def partition_requirements_xml(xml_string: str,
-                               max_threshold: int = 40) -> list[str]:
+def partition_requirements_xml(
+    xml_string: str, max_threshold: int = 40
+) -> list[str]:
     if not xml_string:
         return []
     matches = list(
-        re.finditer(r'(?s)<requirement\b[^>]*>.*?</requirement>', xml_string))
+        re.finditer(r"(?s)<requirement\b[^>]*>.*?</requirement>", xml_string)
+    )
     if not matches:
         return [xml_string] if xml_string.strip() else []
 
@@ -50,9 +53,10 @@ def partition_requirements_xml(xml_string: str,
     for i in range(num_chunks):
         end_idx = start_idx + chunk_size + (1 if i < remainder else 0)
         chunk_matches = matches[start_idx:end_idx]
-        chunk_str = '\n'.join(m.group(0) for m in chunk_matches)
+        chunk_str = "\n".join(m.group(0) for m in chunk_matches)
         partitions.append(
-            f'<requirements_list>\n{chunk_str}\n</requirements_list>')
+            f"<requirements_list>\n{chunk_str}\n</requirements_list>"
+        )
         start_idx = end_idx
 
     return partitions
@@ -63,22 +67,27 @@ def combine_audit_responses(responses: list[str]) -> str:
     combined_suggestions = []
 
     for resp in responses:
-        worksheet = extract_xml_tag(resp, 'audit_worksheet')
+        worksheet = extract_xml_tag(resp, "audit_worksheet")
         if worksheet:
             combined_worksheets.append(worksheet.strip())
 
         suggestions = parse_suggestions(resp)
         combined_suggestions.extend(suggestions)
 
-    overall_status = 'TESTS_NEEDED' if combined_suggestions else 'SATISFIED'
+    overall_status = "TESTS_NEEDED" if combined_suggestions else "SATISFIED"
 
-    final_response = f'<status>{overall_status}</status>\n'
-    final_response += ('<audit_worksheet>\n' + '\n'.join(combined_worksheets) +
-                       '\n</audit_worksheet>\n')
+    final_response = f"<status>{overall_status}</status>\n"
+    final_response += (
+        "<audit_worksheet>\n"
+        + "\n".join(combined_worksheets)
+        + "\n</audit_worksheet>\n"
+    )
     if combined_suggestions:
-        final_response += ('<test_suggestions>\n' +
-                           '\n'.join(combined_suggestions) +
-                           '\n</test_suggestions>\n')
+        final_response += (
+            "<test_suggestions>\n"
+            + "\n".join(combined_suggestions)
+            + "\n</test_suggestions>\n"
+        )
 
     return final_response
 
@@ -90,44 +99,50 @@ async def run_coverage_audit(
     ui: UIProvider,
     jinja_env: Environment,
 ) -> str | None:
-    ui.on_phase_start(3, 'Coverage Audit')
+    ui.on_phase_start(3, "Coverage Audit")
 
-    req_partitions = partition_requirements_xml(context.requirements_xml or '',
-                                                max_threshold=40)
+    req_partitions = partition_requirements_xml(
+        context.requirements_xml or "", max_threshold=40
+    )
 
     prompts = []
     for i, req_xml in enumerate(req_partitions):
-        prompt = jinja_env.get_template('coverage_audit.jinja').render(
+        prompt = jinja_env.get_template("coverage_audit.jinja").render(
             requirements_list_xml=req_xml,
             wpt_context=context.wpt_context,
         )
 
         if llm.prompt_exceeds_input_token_limit(
-                prompt,
-                model=config.get_model_for_phase(WorkflowPhase.COVERAGE_AUDIT),
+            prompt,
+            model=config.get_model_for_phase(WorkflowPhase.COVERAGE_AUDIT),
         ):
-            ui.error('This test suite to too large to audit.')
+            ui.error("This test suite to too large to audit.")
             return None
 
-        req_count = len(re.findall(r'<requirement\b[^>]*>', req_xml))
+        req_count = len(re.findall(r"<requirement\b[^>]*>", req_xml))
         task_name = (
-            f'Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)'  # pylint: disable=line-too-long
-            if len(req_partitions) > 1 else
-            f'Coverage Audit ({req_count} requirements)')
+            f"Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)"  # pylint: disable=line-too-long
+            if len(req_partitions) > 1
+            else f"Coverage Audit ({req_count} requirements)"
+        )
         prompts.append((prompt, task_name))
 
-    spec_urls = (context.metadata.specs
-                 if context.metadata and context.metadata.specs else [])
+    spec_urls = (
+        context.metadata.specs
+        if context.metadata and context.metadata.specs
+        else []
+    )
 
     audit_system_prompt = jinja_env.get_template(
-        'coverage_audit_system.jinja').render(
-            brief_suggestions=True,
-            spec_urls=spec_urls,
-        )
+        "coverage_audit_system.jinja"
+    ).render(
+        brief_suggestions=True,
+        spec_urls=spec_urls,
+    )
 
     await confirm_prompts(
         prompts,
-        'Coverage Audit',
+        "Coverage Audit",
         llm,
         ui,
         config,
@@ -138,8 +153,9 @@ async def run_coverage_audit(
     tasks = []
     for i, (prompt, task_name) in enumerate(prompts):
 
-        async def _run_with_index(idx: int, p: str,
-                                  t_name: str) -> tuple[int, str]:
+        async def _run_with_index(
+            idx: int, p: str, t_name: str
+        ) -> tuple[int, str]:
             res = await generate_safe(
                 p,
                 t_name,
@@ -159,15 +175,15 @@ async def run_coverage_audit(
 
     if total_tasks > 1:
         with ui.progress_indicator(
-                f'Running coverage audit... ({total_tasks} outstanding)',
-                total=total_tasks,
+            f"Running coverage audit... ({total_tasks} outstanding)",
+            total=total_tasks,
         ) as progress:
             for future in asyncio.as_completed(tasks):
                 idx, result = await future
                 results_map[idx] = result
                 remaining = total_tasks - len(results_map)
                 progress.update(
-                    description='Running coverage audit...',
+                    description="Running coverage audit...",
                     outstanding=remaining if remaining > 0 else None,
                 )
                 progress.advance()
@@ -182,42 +198,47 @@ async def run_coverage_audit(
     return audit_response
 
 
-async def provide_coverage_report(context: WorkflowContext, config: Config,
-                                  ui: UIProvider) -> None:
+async def provide_coverage_report(
+    context: WorkflowContext, config: Config, ui: UIProvider
+) -> None:
     """Prints the coverage audit report and optionally saves it to a file."""
     assert context.audit_response is not None
 
-    audit_worksheet = extract_xml_tag(context.audit_response, 'audit_worksheet')
-    test_suggestions_block = extract_xml_tag(context.audit_response,
-                                             'test_suggestions')
+    audit_worksheet = extract_xml_tag(context.audit_response, "audit_worksheet")
+    test_suggestions_block = extract_xml_tag(
+        context.audit_response, "test_suggestions"
+    )
 
     if audit_worksheet and test_suggestions_block:
         ui.report_coverage_audit()
         ui.report_audit_worksheet(audit_worksheet)
 
-        if '<status>SATISFIED</status>' in test_suggestions_block:
+        if "<status>SATISFIED</status>" in test_suggestions_block:
             ui.success(
-                'All requirements are SATISFIED. No new tests suggested.')
+                "All requirements are SATISFIED. No new tests suggested."
+            )
         else:
             suggestions = parse_suggestions(test_suggestions_block)
             for idx, suggestion in enumerate(suggestions, 1):
-                title = extract_xml_tag(suggestion, 'title') or 'Untitled'
-                description = (extract_xml_tag(suggestion, 'description') or
-                               'No description provided')
-                test_type = extract_xml_tag(suggestion, 'test_type')
+                title = extract_xml_tag(suggestion, "title") or "Untitled"
+                description = (
+                    extract_xml_tag(suggestion, "description")
+                    or "No description provided"
+                )
+                test_type = extract_xml_tag(suggestion, "test_type")
                 ui.report_test_suggestion(idx, title, description, test_type)
     else:
         ui.report_coverage_audit(context.audit_response)
 
-    if ui.confirm('\nSave report to a file?'):
+    if ui.confirm("\nSave report to a file?"):
         # Create a sanitized filename from the feature ID
-        safe_id = FILENAME_SANITIZATION_RE.sub('_', context.feature_id.lower())
-        filename = f'{safe_id}_coverage_audit.md'
+        safe_id = FILENAME_SANITIZATION_RE.sub("_", context.feature_id.lower())
+        filename = f"{safe_id}_coverage_audit.md"
 
-        output_path = Path(config.output_dir or '.') / filename
+        output_path = Path(config.output_dir or ".") / filename
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(context.audit_response, encoding='utf-8')
-            ui.success(f'Saved: {output_path.absolute()}')
+            output_path.write_text(context.audit_response, encoding="utf-8")
+            ui.success(f"Saved: {output_path.absolute()}")
         except Exception as e:  # pylint: disable=broad-exception-caught
-            ui.error(f'Error saving file: {e}')
+            ui.error(f"Error saving file: {e}")

@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
 # pylint: disable=import-outside-toplevel
@@ -27,29 +28,30 @@ from pytest_mock import MockerFixture
 from wptgen.config import Config
 from wptgen.models import FeatureMetadata, WorkflowContext
 from wptgen.phases.requirements_extraction import (
-    run_requirements_extraction_iterative,)
+    run_requirements_extraction_iterative,
+)
 
 
 @pytest.fixture
 def mock_config(tmp_path: Path) -> Config:
     """Provides a basic Config object with a temporary cache path."""
     return Config(
-        provider='llmbargainbin',
-        default_model='discountmodel',
-        api_key='fake-key',
+        provider="llmbargainbin",
+        default_model="discountmodel",
+        api_key="fake-key",
         categories={
-            'lightweight': 'fast-model',
-            'reasoning': 'smart-model',
+            "lightweight": "fast-model",
+            "reasoning": "smart-model",
         },
         phase_model_mapping={
-            'requirements_extraction': 'reasoning',
-            'coverage_audit': 'reasoning',
-            'generation': 'lightweight',
+            "requirements_extraction": "reasoning",
+            "coverage_audit": "reasoning",
+            "generation": "lightweight",
         },
         yes_tokens=True,
-        wpt_path=str(tmp_path / 'wpt'),
-        cache_path=str(tmp_path / '.wpt-gen-cache'),
-        output_dir=str(tmp_path / 'output'),
+        wpt_path=str(tmp_path / "wpt"),
+        cache_path=str(tmp_path / ".wpt-gen-cache"),
+        output_dir=str(tmp_path / "output"),
     )
 
 
@@ -57,7 +59,7 @@ def mock_config(tmp_path: Path) -> Config:
 def mock_llm() -> MagicMock:
     """Provides a mocked LLM client."""
     llm = MagicMock()
-    llm.generate_content.return_value = 'Mocked LLM Response'
+    llm.generate_content.return_value = "Mocked LLM Response"
     llm.count_tokens.return_value = 100
     llm.prompt_exceeds_input_token_limit.return_value = False
     return llm
@@ -80,55 +82,56 @@ async def test_requirements_cache_miss(
     mocker: MockerFixture,
 ) -> None:
     """Verify that requirements extraction generates and saves cache on a miss."""  # pylint: disable=line-too-long
-    metadata = FeatureMetadata(name='Feat',
-                               description='Desc',
-                               specs=['http://spec'])
-    context = WorkflowContext(
-        feature_id='test-feat',
-        metadata=metadata,
-        spec_contents={'http://spec': 'spec content'},
+    metadata = FeatureMetadata(
+        name="Feat", description="Desc", specs=["http://spec"]
     )
-    cache_dir = tmp_path / 'cache'
+    context = WorkflowContext(
+        feature_id="test-feat",
+        metadata=metadata,
+        spec_contents={"http://spec": "spec content"},
+    )
+    cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
 
     mock_llm.generate_content.side_effect = [
         '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',  # pylint: disable=line-too-long
-        '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+        "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
-    jinja_env.get_template.return_value.render.return_value = 'Prompt'
+    jinja_env.get_template.return_value.render.return_value = "Prompt"
 
     mocker.patch(
-        'wptgen.phases.requirements_extraction.confirm_prompts',
+        "wptgen.phases.requirements_extraction.confirm_prompts",
         return_value=None,
     )
     result = await run_requirements_extraction_iterative(
-        context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir)
+        context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+    )
 
     assert result is not None
     assert '<requirement id="R1">' in result
-    assert 'New Requirements' in result
+    assert "New Requirements" in result
 
     # Verify cache file was created
-    cache_file = cache_dir / 'test-feat__requirements.xml'
+    cache_file = cache_dir / "test-feat__requirements.xml"
     assert cache_file.exists()
     cache_content = cache_file.read_text()
     assert '<requirement id="R1">' in cache_content
-    assert 'New Requirements' in cache_content
+    assert "New Requirements" in cache_content
 
 
 @pytest.mark.asyncio
-async def test_requirements_cache_hit_accept(mock_config: Config,
-                                             mock_llm: MagicMock,
-                                             mock_ui: MagicMock,
-                                             tmp_path: Path) -> None:
+async def test_requirements_cache_hit_accept(
+    mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
+) -> None:
     """Verify that requirements extraction uses cached requirements when user accepts."""  # pylint: disable=line-too-long
-    web_feature_id = 'cached-feat'
-    cache_dir = tmp_path / 'cache'
+    web_feature_id = "cached-feat"
+    cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        '<requirements_list>Cached Requirements</requirements_list>')
+        "<requirements_list>Cached Requirements</requirements_list>"
+    )
 
     context = WorkflowContext(
         feature_id=web_feature_id,
@@ -139,14 +142,16 @@ async def test_requirements_cache_hit_accept(mock_config: Config,
     mock_ui.confirm.return_value = True
 
     result = await run_requirements_extraction_iterative(
-        context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir)
+        context, mock_config, mock_llm, mock_ui, MagicMock(), cache_dir
+    )
 
     assert (
-        result == '<requirements_list>Cached Requirements</requirements_list>')
+        result == "<requirements_list>Cached Requirements</requirements_list>"
+    )
 
     # LLM should NOT have been called (for extraction).
     assert mock_llm.generate_content.call_count == 0
-    mock_ui.confirm.assert_called_once_with('Use cached requirements?')
+    mock_ui.confirm.assert_called_once_with("Use cached requirements?")
 
 
 @pytest.mark.asyncio
@@ -158,41 +163,43 @@ async def test_requirements_cache_hit_reject(
     mocker: MockerFixture,
 ) -> None:
     """Verify that requirements extraction regenerates requirements when user rejects cache."""  # pylint: disable=line-too-long
-    web_feature_id = 'rejected-cache-feat'
-    cache_dir = tmp_path / 'cache'
+    web_feature_id = "rejected-cache-feat"
+    cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    cache_file = cache_dir / f'{web_feature_id}__requirements.xml'
+    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        '<requirements_list>Old Cached Requirements</requirements_list>')
+        "<requirements_list>Old Cached Requirements</requirements_list>"
+    )
 
-    metadata = FeatureMetadata(name='Feat',
-                               description='Desc',
-                               specs=['http://spec'])
+    metadata = FeatureMetadata(
+        name="Feat", description="Desc", specs=["http://spec"]
+    )
     context = WorkflowContext(
         feature_id=web_feature_id,
         metadata=metadata,
-        spec_contents={'http://spec': 'spec content'},
+        spec_contents={"http://spec": "spec content"},
     )
 
     # User rejects cache
     mock_ui.confirm.return_value = False
     mock_llm.generate_content.side_effect = [
         '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',  # pylint: disable=line-too-long
-        '<requirements_list><status>EXHAUSTED</status></requirements_list>',
+        "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
-    jinja_env.get_template.return_value.render.return_value = 'Prompt'
+    jinja_env.get_template.return_value.render.return_value = "Prompt"
 
     mocker.patch(
-        'wptgen.phases.requirements_extraction.confirm_prompts',
+        "wptgen.phases.requirements_extraction.confirm_prompts",
         return_value=None,
     )
     result = await run_requirements_extraction_iterative(
-        context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir)
+        context, mock_config, mock_llm, mock_ui, jinja_env, cache_dir
+    )
 
     assert result is not None
     assert '<requirement id="R1">' in result
-    assert 'New Requirements' in result
+    assert "New Requirements" in result
 
     # LLM should have been called twice (one for data, one for exhaustion).
     assert mock_llm.generate_content.call_count == 2
@@ -200,4 +207,4 @@ async def test_requirements_cache_hit_reject(
     # Cache file should be updated.
     cache_content = cache_file.read_text()
     assert '<requirement id="R1">' in cache_content
-    assert 'New Requirements' in cache_content
+    assert "New Requirements" in cache_content

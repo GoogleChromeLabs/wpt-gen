@@ -1,4 +1,5 @@
 """Module docstring."""
+
 from pathlib import Path
 from typing import Any
 
@@ -11,11 +12,11 @@ def is_path_covered(rel_path: Path, patterns: list[str]) -> bool:
     """
     is_covered = False
     for pattern in patterns:
-        is_negative = pattern.startswith('!')
+        is_negative = pattern.startswith("!")
         clean_pattern = pattern[1:] if is_negative else pattern
 
         is_match = rel_path.match(clean_pattern)
-        if not is_match and clean_pattern.startswith('**/'):
+        if not is_match and clean_pattern.startswith("**/"):
             is_match = rel_path.match(clean_pattern[3:])
 
         if is_match:
@@ -24,38 +25,40 @@ def is_path_covered(rel_path: Path, patterns: list[str]) -> bool:
     return is_covered
 
 
-def update_web_features_yml(output_dir: Path, web_feature_id: str,
-                            generated_paths: list[Path]) -> None:
+def update_web_features_yml(
+    output_dir: Path, web_feature_id: str, generated_paths: list[Path]
+) -> None:
     """
     Updates or creates a WEB_FEATURES.yml file at the root of output_dir, linking  # pylint: disable=line-too-long
     generated tests to the given web_feature_id.
     """
-    yml_path = output_dir / 'WEB_FEATURES.yml'
+    yml_path = output_dir / "WEB_FEATURES.yml"
     yaml_data: dict[str, Any] = {}
 
     if yml_path.exists():
-        with open(yml_path, encoding='utf-8') as f:
+        with open(yml_path, encoding="utf-8") as f:
             yaml_data = yaml.safe_load(f) or {}
 
-    if 'features' not in yaml_data:
-        yaml_data['features'] = {}
+    if "features" not in yaml_data:
+        yaml_data["features"] = {}
 
-    if not isinstance(yaml_data['features'], list):
+    if not isinstance(yaml_data["features"], list):
         # Ensure it's a list. If not, override it.
-        yaml_data['features'] = []
+        yaml_data["features"] = []
 
-    features_list: list[dict[str, Any]] = yaml_data['features']
+    features_list: list[dict[str, Any]] = yaml_data["features"]
 
     feature_block = next(
-        (f for f in features_list if f.get('name') == web_feature_id), None)
+        (f for f in features_list if f.get("name") == web_feature_id), None
+    )
 
     if feature_block is None:
-        feature_block = {'name': web_feature_id, 'files': []}
+        feature_block = {"name": web_feature_id, "files": []}
         features_list.append(feature_block)
-    elif 'files' not in feature_block:
-        feature_block['files'] = []
+    elif "files" not in feature_block:
+        feature_block["files"] = []
 
-    existing_patterns = feature_block['files']
+    existing_patterns = feature_block["files"]
 
     new_patterns = []
     for test_path in generated_paths:
@@ -69,5 +72,5 @@ def update_web_features_yml(output_dir: Path, web_feature_id: str,
             if p not in existing_patterns:
                 existing_patterns.append(p)
 
-        with open(yml_path, 'w', encoding='utf-8') as f:
+        with open(yml_path, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, sort_keys=False, default_flow_style=False)

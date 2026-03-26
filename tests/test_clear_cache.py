@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
 # pylint: disable=import-outside-toplevel
@@ -35,40 +36,41 @@ runner = CliRunner()
 
 def normalize_ws(text: str) -> str:
     """Normalizes whitespace by replacing any sequence of whitespace with a single space."""  # pylint: disable=line-too-long
-    return re.sub(r'\s+', ' ', text).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
 
 @pytest.fixture
 def mock_config(tmp_path: Path) -> Config:
     """Provides a dummy configuration object."""
-    cache_path = tmp_path / 'cache'
+    cache_path = tmp_path / "cache"
     cache_path.mkdir()
     return Config(
-        provider='gemini',
-        default_model='gemini-3.1-pro-preview',
+        provider="gemini",
+        default_model="gemini-3.1-pro-preview",
         api_key=None,  # API key is not required for clear-cache
         categories={},
         phase_model_mapping={},
-        wpt_path=str(tmp_path / 'wpt'),
+        wpt_path=str(tmp_path / "wpt"),
         cache_path=str(cache_path),
-        output_dir=str(tmp_path / 'output'),
+        output_dir=str(tmp_path / "output"),
     )
 
 
 @pytest.fixture
 def mock_load_config(mocker: MockerFixture, mock_config: Config) -> MagicMock:
     """Mocks load_config to return the mock_config."""
-    return mocker.patch('wptgen.main.load_config', return_value=mock_config)
+    return mocker.patch("wptgen.main.load_config", return_value=mock_config)
 
 
 @pytest.fixture
 def mock_ui(mocker: MockerFixture) -> MagicMock:
     """Mocks the UI interactions."""
-    return mocker.patch('wptgen.main.ui')
+    return mocker.patch("wptgen.main.ui")
 
 
-def test_clear_cache_success(mock_config: Config, mock_load_config: MagicMock,
-                             mock_ui: MagicMock) -> None:
+def test_clear_cache_success(
+    mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
     """Test successful cache clearing when user confirms."""
     mock_ui.confirm.return_value = True
 
@@ -76,75 +78,79 @@ def test_clear_cache_success(mock_config: Config, mock_load_config: MagicMock,
     cache_dir = Path(mock_config.cache_path)
 
     # Populate cache
-    (cache_dir / 'file1.txt').write_text('content1')
-    (cache_dir / 'subdir').mkdir()
-    (cache_dir / 'subdir' / 'file2.txt').write_text('content2')
+    (cache_dir / "file1.txt").write_text("content1")
+    (cache_dir / "subdir").mkdir()
+    (cache_dir / "subdir" / "file2.txt").write_text("content2")
 
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert 'Cache cleared successfully' in normalize_ws(result.stdout)
-    assert not (cache_dir / 'file1.txt').exists()
-    assert not (cache_dir / 'subdir').exists()
+    assert "Cache cleared successfully" in normalize_ws(result.stdout)
+    assert not (cache_dir / "file1.txt").exists()
+    assert not (cache_dir / "subdir").exists()
     assert cache_dir.exists()  # The directory itself should remain, but empty
 
 
-def test_clear_cache_aborted(mock_config: Config, mock_load_config: MagicMock,
-                             mock_ui: MagicMock) -> None:
+def test_clear_cache_aborted(
+    mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
     """Test cache clearing when user aborts."""
     mock_ui.confirm.return_value = False
 
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
-    cache_file = cache_dir / 'file1.txt'
-    cache_file.write_text('content1')
+    cache_file = cache_dir / "file1.txt"
+    cache_file.write_text("content1")
 
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert 'Aborted' in normalize_ws(result.stdout)
+    assert "Aborted" in normalize_ws(result.stdout)
     assert cache_file.exists()
 
 
 def test_clear_cache_already_empty(mock_load_config: MagicMock) -> None:
     """Test cache clearing when the directory is already empty."""
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert 'is already empty' in normalize_ws(result.stdout)
+    assert "is already empty" in normalize_ws(result.stdout)
 
 
-def test_clear_cache_dir_not_exists(mock_config: Config,
-                                    mock_load_config: MagicMock) -> None:
+def test_clear_cache_dir_not_exists(
+    mock_config: Config, mock_load_config: MagicMock
+) -> None:
     """Test cache clearing when the directory does not exist."""
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
     shutil.rmtree(cache_dir)
 
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert 'does not exist' in normalize_ws(result.stdout)
+    assert "does not exist" in normalize_ws(result.stdout)
 
 
-def test_clear_cache_no_path_configured(mock_config: Config,
-                                        mock_load_config: MagicMock) -> None:
+def test_clear_cache_no_path_configured(
+    mock_config: Config, mock_load_config: MagicMock
+) -> None:
     """Test cache clearing when no cache path is configured."""
     mock_config.cache_path = None
 
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert 'Cache path not configured' in normalize_ws(result.stdout)
+    assert "Cache path not configured" in normalize_ws(result.stdout)
 
 
 def test_clear_cache_config_error(mocker: MockerFixture) -> None:
     """Test that configuration errors are handled."""
-    mocker.patch('wptgen.main.load_config',
-                 side_effect=ValueError('Config error'))
+    mocker.patch(
+        "wptgen.main.load_config", side_effect=ValueError("Config error")
+    )
 
-    result = runner.invoke(app, ['clear-cache'])
+    result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 1
-    assert 'Configuration Error' in normalize_ws(result.stdout)
-    assert 'Config error' in normalize_ws(result.stdout)
+    assert "Configuration Error" in normalize_ws(result.stdout)
+    assert "Config error" in normalize_ws(result.stdout)

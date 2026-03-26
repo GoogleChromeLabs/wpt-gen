@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
 # pylint: disable=import-outside-toplevel
@@ -29,76 +30,77 @@ from wptgen.context import DataSource, fetch_chromestatus_metadata
 
 def test_fetch_chromestatus_metadata_success(mocker: MockerFixture) -> None:
     mock_data = {
-        'name': 'Test Feature',
-        'summary': 'This is a test feature.',
-        'explainer_links': [
-            'https://explainer.com/1',
-            'https://explainer.com/2',
+        "name": "Test Feature",
+        "summary": "This is a test feature.",
+        "explainer_links": [
+            "https://explainer.com/1",
+            "https://explainer.com/2",
         ],
-        'spec_link': 'https://spec.com/test',
-        'wpt_descr': 'Existing tests: https://wpt.fyi/results/css/css-grid',
+        "spec_link": "https://spec.com/test",
+        "wpt_descr": "Existing tests: https://wpt.fyi/results/css/css-grid",
     }
 
     mock_response = mocker.MagicMock()
-    mock_response.read.return_value = json.dumps(mock_data).encode('utf-8')
+    mock_response.read.return_value = json.dumps(mock_data).encode("utf-8")
     mock_response.__enter__.return_value = mock_response
-    mocker.patch('urllib.request.urlopen', return_value=mock_response)
+    mocker.patch("urllib.request.urlopen", return_value=mock_response)
 
-    metadata = fetch_chromestatus_metadata('12345')
+    metadata = fetch_chromestatus_metadata("12345")
 
     assert metadata is not None
-    assert metadata.name == 'Test Feature'
-    assert metadata.description == 'This is a test feature.'
-    assert metadata.specs == ['https://spec.com/test']
+    assert metadata.name == "Test Feature"
+    assert metadata.description == "This is a test feature."
+    assert metadata.specs == ["https://spec.com/test"]
     assert metadata.source == DataSource.CHROMESTATUS
     assert metadata.explainer_links == [
-        'https://explainer.com/1',
-        'https://explainer.com/2',
+        "https://explainer.com/1",
+        "https://explainer.com/2",
     ]
-    assert (metadata.wpt_descr ==
-            'Existing tests: https://wpt.fyi/results/css/css-grid')
+    assert (
+        metadata.wpt_descr
+        == "Existing tests: https://wpt.fyi/results/css/css-grid"
+    )
 
 
 def test_fetch_chromestatus_metadata_with_prefix(mocker: MockerFixture) -> None:
     """Tests that the JSON vulnerability prefix is correctly stripped."""
     mock_data = {
-        'name': 'Prefixed Feature',
-        'summary': 'This feature has a prefix.',
+        "name": "Prefixed Feature",
+        "summary": "This feature has a prefix.",
     }
     # Simulate the prefix found in the real ChromeStatus API
     prefix_content = ")]}'\n" + json.dumps(mock_data)
 
     mock_response = mocker.MagicMock()
-    mock_response.read.return_value = prefix_content.encode('utf-8')
+    mock_response.read.return_value = prefix_content.encode("utf-8")
     mock_response.__enter__.return_value = mock_response
-    mocker.patch('urllib.request.urlopen', return_value=mock_response)
+    mocker.patch("urllib.request.urlopen", return_value=mock_response)
 
-    metadata = fetch_chromestatus_metadata('1238765')
+    metadata = fetch_chromestatus_metadata("1238765")
 
     assert metadata is not None
-    assert metadata.name == 'Prefixed Feature'
-    assert metadata.description == 'This feature has a prefix.'
+    assert metadata.name == "Prefixed Feature"
+    assert metadata.description == "This feature has a prefix."
 
 
 def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
     mocker.patch(
-        'urllib.request.urlopen',
-        side_effect=urllib.error.HTTPError('url',
-                                           404,
-                                           'Not Found',
-                                           hdrs=Message(),
-                                           fp=None),
+        "urllib.request.urlopen",
+        side_effect=urllib.error.HTTPError(
+            "url", 404, "Not Found", hdrs=Message(), fp=None
+        ),
     )
 
-    metadata = fetch_chromestatus_metadata('nonexistent')
+    metadata = fetch_chromestatus_metadata("nonexistent")
 
     assert metadata is None
 
 
 def test_fetch_chromestatus_metadata_api_error(mocker: MockerFixture) -> None:
-    mocker.patch('urllib.request.urlopen',
-                 side_effect=urllib.error.URLError('API Error'))
+    mocker.patch(
+        "urllib.request.urlopen", side_effect=urllib.error.URLError("API Error")
+    )
 
-    metadata = fetch_chromestatus_metadata('12345')
+    metadata = fetch_chromestatus_metadata("12345")
 
     assert metadata is None

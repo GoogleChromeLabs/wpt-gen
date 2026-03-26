@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,12 +49,14 @@ async def confirm_prompts(
     target_model = model or llm.model
 
     with ui.status(
-            f'Calculating token usage for {phase_name} ({target_model})...'):
+        f"Calculating token usage for {phase_name} ({target_model})..."
+    ):
         # We do token counting concurrently for speed
         async def get_info(prompt: str, name: str) -> tuple[int, bool, str]:
             async with get_semaphore(config):
-                tokens = await loop.run_in_executor(None, llm.count_tokens,
-                                                    prompt, target_model)
+                tokens = await loop.run_in_executor(
+                    None, llm.count_tokens, prompt, target_model
+                )
                 limit_exceeded = await loop.run_in_executor(
                     None,
                     llm.prompt_exceeds_input_token_limit,
@@ -62,8 +65,9 @@ async def confirm_prompts(
                 )
             return tokens, limit_exceeded, name
 
-        results = await asyncio.gather(*(get_info(p, n) for p, n in prompt_data)
-                                      )
+        results = await asyncio.gather(
+            *(get_info(p, n) for p, n in prompt_data)
+        )
 
     for tokens, _, _ in results:
         total_tokens += tokens
@@ -79,8 +83,8 @@ async def confirm_prompts(
     if config.yes_tokens:
         return
 
-    if not ui.confirm('\nProceed with these LLM requests?'):
-        ui.warning('Aborting workflow due to user cancellation.')
+    if not ui.confirm("\nProceed with these LLM requests?"):
+        ui.warning("Aborting workflow due to user cancellation.")
         raise typer.Abort()
 
 
@@ -96,11 +100,12 @@ async def generate_safe(
 ) -> str:
     """Helper to run LLM generation in a thread and handle errors gracefully."""
     target_model = model or llm.model
-    effective_temperature = (config.temperature
-                             if config.temperature is not None else temperature)
+    effective_temperature = (
+        config.temperature if config.temperature is not None else temperature
+    )
     try:
         loop = asyncio.get_running_loop()
-        with ui.status(f'Executing {task_name} ({target_model})...'):
+        with ui.status(f"Executing {task_name} ({target_model})..."):
             async with get_semaphore(config):
                 response = await loop.run_in_executor(
                     None,
@@ -111,10 +116,10 @@ async def generate_safe(
                     model,
                 )
 
-        ui.success(f'{task_name} finished (using {target_model}).')
+        ui.success(f"{task_name} finished (using {target_model}).")
         if config.show_responses:
             ui.report_llm_response(response, task_name)
         return response
     except Exception as e:  # pylint: disable=broad-exception-caught
-        ui.error(f'{task_name} failed ({target_model}): {e}')
-        return ''
+        ui.error(f"{task_name} failed ({target_model}): {e}")
+        return ""

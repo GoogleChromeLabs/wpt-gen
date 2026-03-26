@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
 # pylint: disable=import-outside-toplevel
@@ -38,11 +39,12 @@ def mock_jinja_env() -> MagicMock:
     system_template = MagicMock()
     prompt_template = MagicMock()
     system_template.render.return_value = (
-        'Mock System Instruction with {{host}} and {{ invalid var }}')
-    prompt_template.render.return_value = 'Mock Prompt'
+        "Mock System Instruction with {{host}} and {{ invalid var }}"
+    )
+    prompt_template.render.return_value = "Mock Prompt"
 
     def mock_get_template(name: str) -> MagicMock:
-        if name == 'adk_test_generator_system.jinja':
+        if name == "adk_test_generator_system.jinja":
             return system_template
         return prompt_template
 
@@ -51,30 +53,34 @@ def mock_jinja_env() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock,
-                                      mock_jinja_env: MagicMock) -> None:
-    wpt_root = tmp_path / 'wpt'
+async def test_generate_test_with_adk(
+    tmp_path: Path, mocker: MagicMock, mock_jinja_env: MagicMock
+) -> None:
+    wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
     # Create the file we pretend the agent generated
-    output_dir = wpt_root / 'output'
+    output_dir = wpt_root / "output"
     output_dir.mkdir()
-    test_file = output_dir / 'my-feature-1.html'
-    test_file.write_text('<!DOCTYPE html>\n<title>Test</title>',
-                         encoding='utf-8')
+    test_file = output_dir / "my-feature-1.html"
+    test_file.write_text(
+        "<!DOCTYPE html>\n<title>Test</title>", encoding="utf-8"
+    )
 
     # Mock the ADK Runner to simulate the agent calling the completion tool
-    mock_runner_cls = mocker.patch('wptgen.agents.adk_test_generator.Runner')
+    mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
         # In actual ADK, the tools are attached to the agent which is passed
         # to Runner
-        agent = mock_runner_cls.call_args.kwargs['agent']
+        agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t for t in agent.tools
-            if t.func.__name__ == 'report_generation_complete')
+            t
+            for t in agent.tools
+            if t.func.__name__ == "report_generation_complete"
+        )
 
         # Simulate the LLM calling the tool with the generated path
         completion_tool.func([str(test_file)])
@@ -87,19 +93,20 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock,
     # Mock environment setup to avoid needing real API keys during tests
     # Use gemini-pro to ensure coverage of the native thought-blocks logic
     mocker.patch(
-        'wptgen.agents.adk_test_generator.setup_adk_environment',
-        return_value='gemini-pro',
+        "wptgen.agents.adk_test_generator.setup_adk_environment",
+        return_value="gemini-pro",
     )
-    mocker.patch.dict(os.environ, {'GOOGLE_API_KEY': 'fake'}, clear=True)
+    mocker.patch.dict(os.environ, {"GOOGLE_API_KEY": "fake"}, clear=True)
     # pylint: disable=line-too-long
     # Ensure skill directory doesn't exist to cover the "skill directory not found" UI warning path
-    mocker.patch('wptgen.agents.adk_test_generator.Path.is_dir',
-                 return_value=False)
+    mocker.patch(
+        "wptgen.agents.adk_test_generator.Path.is_dir", return_value=False
+    )
 
     config = Config(
-        provider='gemini',
-        default_model='gemini-pro',
-        api_key='fake',
+        provider="gemini",
+        default_model="gemini-pro",
+        api_key="fake",
         wpt_path=str(wpt_root),
         output_dir=str(output_dir),
         categories={},
@@ -107,16 +114,16 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock,
     )
 
     context = WorkflowContext(
-        feature_id='my-feature',
-        spec_contents={'spec1': 'fake spec'},
+        feature_id="my-feature",
+        spec_contents={"spec1": "fake spec"},
         metadata=None,
-        audit_response='fake audit',
+        audit_response="fake audit",
     )
 
     mock_ui = MagicMock()
     results = await generate_test_with_adk(
-        suggestion_xml='<test_suggestion></test_suggestion>',
-        root_name='my-feature-1',
+        suggestion_xml="<test_suggestion></test_suggestion>",
+        root_name="my-feature-1",
         test_type_enum=WPTTestType.JAVASCRIPT,
         context=context,
         config=config,
@@ -126,20 +133,21 @@ async def test_generate_test_with_adk(tmp_path: Path, mocker: MagicMock,
 
     assert len(results) == 1
     assert results[0][0] == test_file.resolve()
-    assert '<!DOCTYPE html>' in results[0][1]
+    assert "<!DOCTYPE html>" in results[0][1]
     mock_ui.warning.assert_called_with(  # pylint: disable=line-too-long
-        'wpt-generator skill directory not found. Agent will generate tests without skill guidance.'
+        "wpt-generator skill directory not found. Agent will generate tests without skill guidance."
     )
 
 
 @pytest.mark.asyncio
 async def test_generate_test_missing_output_dir_and_no_paths(
-        tmp_path: Path, mocker: MagicMock, mock_jinja_env: MagicMock) -> None:
-    wpt_root = tmp_path / 'wpt'
+    tmp_path: Path, mocker: MagicMock, mock_jinja_env: MagicMock
+) -> None:
+    wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     # pylint: disable=line-too-long
     # Mock the ADK Runner to simulate an agent that finishes *without* calling the completion tool
-    mock_runner_cls = mocker.patch('wptgen.agents.adk_test_generator.Runner')
+    mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
 
@@ -151,39 +159,40 @@ async def test_generate_test_missing_output_dir_and_no_paths(
 
     # Setup the mock environment
     mocker.patch(
-        'wptgen.agents.adk_test_generator.setup_adk_environment',
-        return_value='gemini-mock',
+        "wptgen.agents.adk_test_generator.setup_adk_environment",
+        return_value="gemini-mock",
     )
     # pylint: disable=line-too-long
     # Mock load_skill_from_dir to raise an exception, testing the error handling for malformed skills
-    mocker.patch('wptgen.agents.adk_test_generator.Path.is_dir',
-                 return_value=True)
     mocker.patch(
-        'wptgen.agents.adk_test_generator.load_skill_from_dir',
-        side_effect=Exception('Test error'),
+        "wptgen.agents.adk_test_generator.Path.is_dir", return_value=True
+    )
+    mocker.patch(
+        "wptgen.agents.adk_test_generator.load_skill_from_dir",
+        side_effect=Exception("Test error"),
     )
 
     config = Config(
-        provider='google',
-        default_model='gemini',
-        api_key='fake',
+        provider="google",
+        default_model="gemini",
+        api_key="fake",
         wpt_path=str(wpt_root),
-        output_dir='',  # Cover logic where output_dir falls back to wpt_root
+        output_dir="",  # Cover logic where output_dir falls back to wpt_root
         categories={},
         phase_model_mapping={},
     )
 
     context = WorkflowContext(
-        feature_id='my-feature',
-        spec_contents={'spec1': 'fake spec'},
+        feature_id="my-feature",
+        spec_contents={"spec1": "fake spec"},
         metadata=None,
-        audit_response='fake audit',
+        audit_response="fake audit",
     )
 
     mock_ui = MagicMock()
     results = await generate_test_with_adk(
-        suggestion_xml='<test_suggestion></test_suggestion>',
-        root_name='my-feature-1',
+        suggestion_xml="<test_suggestion></test_suggestion>",
+        root_name="my-feature-1",
         test_type_enum=WPTTestType.JAVASCRIPT,
         context=context,
         config=config,
@@ -193,52 +202,58 @@ async def test_generate_test_missing_output_dir_and_no_paths(
 
     assert len(results) == 0
     mock_ui.warning.assert_called_with(
-        'Agent finished but did not report any generated paths.')
+        "Agent finished but did not report any generated paths."
+    )
     mock_ui.error.assert_called_with(
-        'Failed to load wpt-generator skill: Test error')
+        "Failed to load wpt-generator skill: Test error"
+    )
 
 
 @pytest.mark.asyncio
-async def test_generate_test_invalid_path(tmp_path: Path, mocker: MagicMock,
-                                          mock_jinja_env: MagicMock) -> None:
-    wpt_root = tmp_path / 'wpt'
+async def test_generate_test_invalid_path(
+    tmp_path: Path, mocker: MagicMock, mock_jinja_env: MagicMock
+) -> None:
+    wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     # pylint: disable=line-too-long
     # Mock the ADK Runner to simulate an agent that tries to write maliciously outside the root
-    mock_runner_cls = mocker.patch('wptgen.agents.adk_test_generator.Runner')
+    mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
-        agent = mock_runner_cls.call_args.kwargs['agent']
+        agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t for t in agent.tools
-            if t.func.__name__ == 'report_generation_complete')
+            t
+            for t in agent.tools
+            if t.func.__name__ == "report_generation_complete"
+        )
         # pylint: disable=line-too-long
         # Provide an invalid path outside wpt_root (simulating a path traversal attack / mistake)
-        completion_tool.func(['/etc/passwd'])
+        completion_tool.func(["/etc/passwd"])
         yield MagicMock()
 
     mock_runner_instance.run_async = mock_run_async
 
     # Setup the mock environment
     mocker.patch(
-        'wptgen.agents.adk_test_generator.setup_adk_environment',
-        return_value='gemini-mock',
+        "wptgen.agents.adk_test_generator.setup_adk_environment",
+        return_value="gemini-mock",
     )
 
     # Ensure the skill is loaded properly for coverage
-    mocker.patch('wptgen.agents.adk_test_generator.Path.is_dir',
-                 return_value=True)
     mocker.patch(
-        'wptgen.agents.adk_test_generator.load_skill_from_dir',
+        "wptgen.agents.adk_test_generator.Path.is_dir", return_value=True
+    )
+    mocker.patch(
+        "wptgen.agents.adk_test_generator.load_skill_from_dir",
         return_value=MagicMock(),
     )
 
     config = Config(
-        provider='google',
-        default_model='gemini',
-        api_key='fake',
+        provider="google",
+        default_model="gemini",
+        api_key="fake",
         wpt_path=str(wpt_root),
         output_dir=str(wpt_root),
         categories={},
@@ -246,16 +261,16 @@ async def test_generate_test_invalid_path(tmp_path: Path, mocker: MagicMock,
     )
 
     context = WorkflowContext(
-        feature_id='my-feature',
-        spec_contents={'spec1': 'fake spec'},
+        feature_id="my-feature",
+        spec_contents={"spec1": "fake spec"},
         metadata=None,
-        audit_response='fake audit',
+        audit_response="fake audit",
     )
 
     mock_ui = MagicMock()
     results = await generate_test_with_adk(
-        suggestion_xml='<test_suggestion></test_suggestion>',
-        root_name='my-feature-1',
+        suggestion_xml="<test_suggestion></test_suggestion>",
+        root_name="my-feature-1",
         test_type_enum=WPTTestType.JAVASCRIPT,
         context=context,
         config=config,
@@ -265,5 +280,7 @@ async def test_generate_test_invalid_path(tmp_path: Path, mocker: MagicMock,
 
     assert len(results) == 0
     assert mock_ui.error.call_count == 1
-    assert ("Failed to read securely generated file '/etc/passwd'"
-            in mock_ui.error.call_args[0][0])
+    assert (
+        "Failed to read securely generated file '/etc/passwd'"
+        in mock_ui.error.call_args[0][0]
+    )

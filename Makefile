@@ -8,7 +8,7 @@ PIP := $(PYTHON) -m pip
 RUFF := ruff
 MYPY := mypy
 PYTEST := pytest
-YAPF := yapf
+PYINK := pyink
 PYLINT := pylint
 PACKAGE_NAME := wptgen
 
@@ -33,11 +33,11 @@ install:
 lint:
 	$(RUFF) check .
 	$(PYLINT) $(PACKAGE_NAME)/ tests/
-	$(YAPF) --style=google -d -r $(PACKAGE_NAME)/ tests/
+	$(PYINK) -l 80 --check $(PACKAGE_NAME)/ tests/
 
 lint-fix:
 	$(RUFF) check . --fix
-	$(YAPF) --style=google -i -r $(PACKAGE_NAME)/ tests/
+	$(PYINK) -l 80 $(PACKAGE_NAME)/ tests/
 
 format: lint-fix
 

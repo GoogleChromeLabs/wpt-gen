@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +23,9 @@ from typing import Any
 class Tracer:
     """Captures LLM interactions for observability and evaluation."""
 
-    def __init__(self,
-                 save_traces: bool = False,
-                 trace_dir: str = '.wptgen/traces'):
+    def __init__(
+        self, save_traces: bool = False, trace_dir: str = ".wptgen/traces"
+    ):
         self.save_traces = save_traces
         self.trace_dir = Path(trace_dir)
         self.traces: list[dict[str, Any]] = []
@@ -32,7 +33,7 @@ class Tracer:
 
         if self.save_traces:
             self.trace_dir.mkdir(parents=True, exist_ok=True)
-            self.trace_file = self.trace_dir / f'trace_{int(time.time())}.jsonl'
+            self.trace_file = self.trace_dir / f"trace_{int(time.time())}.jsonl"
 
     def record(
         self,
@@ -46,17 +47,17 @@ class Tracer:
     ) -> None:
         """Records a single LLM interaction trace."""
         trace_entry = {
-            'prompt': prompt,
-            'system_instruction': system_instruction,
-            'model': model,
-            'temperature': temperature,
-            'raw_response': raw_response,
-            'token_usage': token_usage,
-            'latency': latency,
-            'timestamp': time.time(),
+            "prompt": prompt,
+            "system_instruction": system_instruction,
+            "model": model,
+            "temperature": temperature,
+            "raw_response": raw_response,
+            "token_usage": token_usage,
+            "latency": latency,
+            "timestamp": time.time(),
         }
         self.traces.append(trace_entry)
 
         if self.save_traces and self.trace_file:
-            with open(self.trace_file, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(trace_entry) + '\n')
+            with open(self.trace_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(trace_entry) + "\n")

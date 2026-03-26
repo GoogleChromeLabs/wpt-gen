@@ -1,4 +1,7 @@
 """Module docstring."""
+
+# pylint: disable=inconsistent-quotes
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +55,7 @@ class DimYellowWarningFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         msg = super().format(record)
         if record.levelno == logging.WARNING:
-            return f'\033[2;33m{msg}\033[0m'
+            return f"\033[2;33m{msg}\033[0m"
         return msg
 
 
@@ -64,9 +67,11 @@ class SuppressDuplicateWarningFilter(logging.Filter):
         self.seen_warning = False
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if (record.levelno == logging.WARNING and
-                'Both GOOGLE_API_KEY and GEMINI_API_KEY are set'
-                in record.getMessage()):
+        if (
+            record.levelno == logging.WARNING
+            and "Both GOOGLE_API_KEY and GEMINI_API_KEY are set"
+            in record.getMessage()
+        ):
             if self.seen_warning:
                 return False
             self.seen_warning = True
@@ -76,16 +81,18 @@ class SuppressDuplicateWarningFilter(logging.Filter):
 # Apply the custom warning formatter globally
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(
-    DimYellowWarningFormatter('%(levelname)s:%(name)s:%(message)s'))
+    DimYellowWarningFormatter("%(levelname)s:%(name)s:%(message)s")
+)
 logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
 
-logging.getLogger('google_genai._api_client').addFilter(
-    SuppressDuplicateWarningFilter())
+logging.getLogger("google_genai._api_client").addFilter(
+    SuppressDuplicateWarningFilter()
+)
 
 # Initialize Typer app and Rich console
 app = typer.Typer(
-    name='wpt-gen',
-    help='AI-Powered Web Platform Test Generation CLI',
+    name="wpt-gen",
+    help="AI-Powered Web Platform Test Generation CLI",
     add_completion=False,
 )
 console = Console()
@@ -103,20 +110,20 @@ def _check_workflow_flags(
     single_prompt_requirements: bool,
 ) -> None:
     if wf_yml_update and not output_dir:
-        ui.error('--output-dir is required when using --wf-yml-update.')
+        ui.error("--output-dir is required when using --wf-yml-update.")
         raise typer.Exit(code=1)
 
     if use_lightweight and use_reasoning:
-        ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+        ui.error("Cannot use both --use-lightweight and --use-reasoning.")
         raise typer.Exit(code=1)
 
     if yes_cache and no_cache:
-        ui.error('Cannot use both --yes-cache and --no-cache.')
+        ui.error("Cannot use both --yes-cache and --no-cache.")
         raise typer.Exit(code=1)
 
     if detailed_requirements and single_prompt_requirements:
         ui.error(
-            'Cannot use both --detailed-requirements and --single-prompt-requirements.'  # pylint: disable=line-too-long
+            "Cannot use both --detailed-requirements and --single-prompt-requirements."  # pylint: disable=line-too-long
         )
         raise typer.Exit(code=1)
 
@@ -125,14 +132,16 @@ def _print_workflow_banner(web_feature_id: str) -> None:
     banner = Panel(
         Align.center(
             Text.from_markup(
-                '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'  # pylint: disable=line-too-long
-                '[italic white]AI-Powered Web Platform Test Generation[/italic white]'  # pylint: disable=line-too-long
-            )),
-        border_style='bright_blue',
+                "[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n"  # pylint: disable=line-too-long
+                "[italic white]AI-Powered Web Platform Test Generation[/italic white]"  # pylint: disable=line-too-long
+            )
+        ),
+        border_style="bright_blue",
     )
     console.print(banner)
     console.print(
-        f'\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n')
+        f"\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n"
+    )
 
 
 @contextmanager
@@ -140,24 +149,25 @@ def _workflow_error_handler() -> Generator[None, None, None]:
     try:
         yield
     except LLMTimeoutError as e:
-        console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+        console.print(f"[bold red]LLM Request Timeout:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
     except ValueError as e:
         # Catch configuration errors (like missing API keys) and exit gracefully
-        console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
     except WorkflowError:
         console.print()
         console.print(
             Panel(
-                '[bold red]✘ Workflow completed with errors.[/bold red]',
-                border_style='red',
+                "[bold red]✘ Workflow completed with errors.[/bold red]",
+                border_style="red",
                 expand=False,
-            ))
+            )
+        )
         raise typer.Exit(code=1) from None
     except Exception as e:  # pylint: disable=broad-exception-caught
         # Catch unexpected runtime errors
-        console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -169,19 +179,20 @@ def _execute_workflow(
     is_audit: bool = False,
 ) -> None:
     config_info = Text.assemble(
-        ('Provider: ', 'bold'),
-        (f'{config.provider}\n', 'green'),
-        ('Model:    ', 'bold'),
-        (f'{config.default_model}', 'green'),
+        ("Provider: ", "bold"),
+        (f"{config.provider}\n", "green"),
+        ("Model:    ", "bold"),
+        (f"{config.default_model}", "green"),
     )
     console.print(
         Panel(
             config_info,
-            title='[bold]Configuration[/bold]',
-            title_align='left',
+            title="[bold]Configuration[/bold]",
+            title_align="left",
             expand=False,
-            border_style='bright_black',
-        ))
+            border_style="bright_black",
+        )
+    )
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -193,10 +204,11 @@ def _execute_workflow(
         console.print()
         console.print(
             Panel(
-                '[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]',  # pylint: disable=line-too-long
-                border_style='green',
+                "[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]",  # pylint: disable=line-too-long
+                border_style="green",
                 expand=False,
-            ))
+            )
+        )
     else:
         if wf_yml_update and output_dir and context and context.generated_tests:
             from wptgen.metadata import update_web_features_yml  # pylint: disable=import-outside-toplevel
@@ -204,16 +216,17 @@ def _execute_workflow(
             generated_paths = [path for path, _, _ in context.generated_tests]
             update_web_features_yml(output_dir, web_feature_id, generated_paths)
             console.print(
-                f'[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]'  # pylint: disable=line-too-long
+                f"[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]"  # pylint: disable=line-too-long
             )
 
         console.print()
         console.print(
             Panel(
-                '[bold green]✔ Workflow completed successfully![/bold green]',
-                border_style='green',
+                "[bold green]✔ Workflow completed successfully![/bold green]",
+                border_style="green",
                 expand=False,
-            ))
+            )
+        )
 
 
 @app.command()
@@ -221,25 +234,23 @@ def generate(
     web_feature_id: Annotated[
         str,
         typer.Argument(
-            help=
-            "The web feature ID to generate tests for (e.g., 'grid', 'popover')."  # pylint: disable=line-too-long
+            help="The web feature ID to generate tests for (e.g., 'grid', 'popover')."  # pylint: disable=line-too-long
         ),
     ],
     provider: Annotated[
         str | None,
         typer.Option(
-            '--provider',
-            '-p',
-            help=
-            "Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
+            "--provider",
+            "-p",
+            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
         ),
     ] = None,
     wpt_dir: Annotated[
         Path | None,
         typer.Option(
-            '--wpt-dir',
-            '-w',
-            help='Path to the local web-platform-tests repository.',
+            "--wpt-dir",
+            "-w",
+            help="Path to the local web-platform-tests repository.",
             exists=True,
             dir_okay=True,
             resolve_path=True,
@@ -248,98 +259,95 @@ def generate(
     output_dir: Annotated[
         Path | None,
         typer.Option(
-            '--output-dir',
-            '-o',
-            help='Directory where generated tests will be saved.',
+            "--output-dir",
+            "-o",
+            help="Directory where generated tests will be saved.",
             dir_okay=True,
         ),
     ] = None,
     wf_yml_update: Annotated[
         bool,
         typer.Option(
-            '--wf-yml-update',
-            help='Update WEB_FEATURES.yml with generated tests.',
+            "--wf-yml-update",
+            help="Update WEB_FEATURES.yml with generated tests.",
         ),
     ] = False,
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
     show_responses: Annotated[
         bool,
         typer.Option(
-            '--show-responses',
-            '-s',
-            help='Display every LLM-generated response to the user.',
+            "--show-responses",
+            "-s",
+            help="Display every LLM-generated response to the user.",
         ),
     ] = False,
     yes_tokens: Annotated[
         bool,
         typer.Option(
-            '--yes-tokens',
-            help='Automatically confirm all token count prompts.',
+            "--yes-tokens",
+            help="Automatically confirm all token count prompts.",
         ),
     ] = False,
     yes_tests: Annotated[
         bool,
         typer.Option(
-            '--yes-tests',
-            help=
-            'Automatically confirm and generate all proposed test suggestions without prompting.',  # pylint: disable=line-too-long
+            "--yes-tests",
+            help="Automatically confirm and generate all proposed test suggestions without prompting.",  # pylint: disable=line-too-long
         ),
     ] = False,
     yes_cache: Annotated[
         bool,
         typer.Option(
-            '--yes-cache',
-            help='Automatically use the cache if it exists without prompting.',
+            "--yes-cache",
+            help="Automatically use the cache if it exists without prompting.",
         ),
     ] = False,
     no_cache: Annotated[
         bool,
         typer.Option(
-            '--no-cache',
-            help=
-            'Automatically ignore and overwrite the cache if it exists without prompting.',  # pylint: disable=line-too-long
+            "--no-cache",
+            help="Automatically ignore and overwrite the cache if it exists without prompting.",  # pylint: disable=line-too-long
         ),
     ] = False,
     suggestions_only: Annotated[
         bool,
         typer.Option(
-            '--suggestions-only',
-            help='Only show test suggestions and skip the test generation step.',  # pylint: disable=line-too-long
+            "--suggestions-only",
+            help="Only show test suggestions and skip the test generation step.",  # pylint: disable=line-too-long
         ),
     ] = False,
     brief_suggestions: Annotated[
         bool,
         typer.Option(
-            '--brief-suggestions',
-            help=
-            'Only generate test titles and descriptions for suggestions (omits detailed blueprints).',  # pylint: disable=line-too-long
+            "--brief-suggestions",
+            help="Only generate test titles and descriptions for suggestions (omits detailed blueprints).",  # pylint: disable=line-too-long
         ),
     ] = False,
     resume: Annotated[
         bool,
         typer.Option(
-            '--resume',
-            help='Resume the workflow from the last successful phase.',
+            "--resume",
+            help="Resume the workflow from the last successful phase.",
         ),
     ] = False,
     resume_from: Annotated[
         WorkflowPhase | None,
         typer.Option(
-            '--resume-from',
-            help='Resume the workflow explicitly from a specific phase.',
+            "--resume-from",
+            help="Resume the workflow explicitly from a specific phase.",
         ),
     ] = None,
     state_dir: Annotated[
         Path | None,
         typer.Option(
-            '--state-dir',
-            '--tests-dir',
-            help=
-            'Directory containing the necessary artifacts to hydrate the requested phase.',  # pylint: disable=line-too-long
+            "--state-dir",
+            "--tests-dir",
+            help="Directory containing the necessary artifacts to hydrate the requested phase.",  # pylint: disable=line-too-long
             dir_okay=True,
             exists=True,
         ),
@@ -347,125 +355,122 @@ def generate(
     max_retries: Annotated[
         int,
         typer.Option(
-            '--max-retries',
-            help='Maximum number of retries for LLM calls.',
+            "--max-retries",
+            help="Maximum number of retries for LLM calls.",
         ),
     ] = 3,
     timeout: Annotated[
         int,
         typer.Option(
-            '--timeout',
-            help='Timeout for LLM requests in seconds.',
+            "--timeout",
+            help="Timeout for LLM requests in seconds.",
         ),
     ] = DEFAULT_LLM_TIMEOUT,
     spec_urls: Annotated[
         str | None,
         typer.Option(
-            '--spec-urls',
-            '-u',
-            help=
-            'Comma-separated list of spec URLs to use, bypassing automatic fetching.',  # pylint: disable=line-too-long
+            "--spec-urls",
+            "-u",
+            help="Comma-separated list of spec URLs to use, bypassing automatic fetching.",  # pylint: disable=line-too-long
         ),
     ] = None,
     description: Annotated[
         str | None,
         typer.Option(
-            '--description',
-            '-d',
-            help='Manually provide a description for the web feature.',
+            "--description",
+            "-d",
+            help="Manually provide a description for the web feature.",
         ),
     ] = None,
     detailed_requirements: Annotated[
         bool,
         typer.Option(
-            '--detailed-requirements',
-            help=
-            'Use a more detailed, iterative requirements extraction process.',  # pylint: disable=line-too-long
+            "--detailed-requirements",
+            help="Use a more detailed, iterative requirements extraction process.",  # pylint: disable=line-too-long
         ),
     ] = False,
     include_mdn_docs: Annotated[
         bool,
         typer.Option(
-            '--include-mdn-docs',
-            help='Include MDN documentation in requirements extraction.',
+            "--include-mdn-docs",
+            help="Include MDN documentation in requirements extraction.",
         ),
     ] = False,
     include_thoughts: Annotated[
         bool,
         typer.Option(
-            '--include-thoughts',
-            help='Stream the underlying ADK model thoughts to stdout.',
+            "--include-thoughts",
+            help="Stream the underlying ADK model thoughts to stdout.",
         ),
     ] = False,
     draft: Annotated[
         bool,
         typer.Option(
-            '--draft',
-            help='Enable fetching metadata from the draft features directory.',
+            "--draft",
+            help="Enable fetching metadata from the draft features directory.",
         ),
     ] = False,
     single_prompt_requirements: Annotated[
         bool,
         typer.Option(
-            '--single-prompt-requirements',
-            help='Use a single-prompt requirements extraction process (legacy).',  # pylint: disable=line-too-long
+            "--single-prompt-requirements",
+            help="Use a single-prompt requirements extraction process (legacy).",  # pylint: disable=line-too-long
         ),
     ] = False,
     use_lightweight: Annotated[
         bool,
         typer.Option(
-            '--use-lightweight',
-            help='Use the lightweight model for all LLM requests.',
+            "--use-lightweight",
+            help="Use the lightweight model for all LLM requests.",
         ),
     ] = False,
     use_reasoning: Annotated[
         bool,
         typer.Option(
-            '--use-reasoning',
-            help='Use the reasoning model for all LLM requests.',
+            "--use-reasoning",
+            help="Use the reasoning model for all LLM requests.",
         ),
     ] = False,
     tentative: Annotated[
         bool,
         typer.Option(
-            '--tentative',
-            help='Generate test files with the .tentative flag.',
+            "--tentative",
+            help="Generate test files with the .tentative flag.",
         ),
     ] = False,
     save_traces: Annotated[
         bool,
         typer.Option(
-            '--save-traces',
-            help='Save LLM interaction traces to the .wptgen/traces/ directory.',  # pylint: disable=line-too-long
+            "--save-traces",
+            help="Save LLM interaction traces to the .wptgen/traces/ directory.",  # pylint: disable=line-too-long
         ),
     ] = False,
     max_parallel_requests: Annotated[
         int | None,
         typer.Option(
-            '--max-parallel-requests',
-            help='Maximum number of parallel asynchronous LLM requests.',
+            "--max-parallel-requests",
+            help="Maximum number of parallel asynchronous LLM requests.",
         ),
     ] = None,
     temperature: Annotated[
         float | None,
         typer.Option(
-            '--temperature',
-            help=
-            'Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',  # pylint: disable=line-too-long
+            "--temperature",
+            help="Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.",  # pylint: disable=line-too-long
         ),
     ] = None,
     run_on_browser: Annotated[
         BrowserType | None,
         typer.Option(
-            '--run-on-browser',
-            help='Browser to use for the local WPT test runner.',
+            "--run-on-browser",
+            help="Browser to use for the local WPT test runner.",
         ),
     ] = None,
     run_on_channel: Annotated[
         BrowserChannel | None,
         typer.Option(
-            '--run-on-channel',
-            help='Release channel to use for the local WPT test runner.',
+            "--run-on-channel",
+            help="Release channel to use for the local WPT test runner.",
         ),
     ] = None,
 ) -> None:
@@ -492,7 +497,7 @@ def generate(
         # Parse spec_urls if provided
         spec_urls_list = None
         if spec_urls:
-            spec_urls_list = [u.strip() for u in spec_urls.split(',')]
+            spec_urls_list = [u.strip() for u in spec_urls.split(",")]
 
         config = load_config(
             config_path=config_path,
@@ -537,7 +542,7 @@ def generate(
         )
 
 
-@app.command(name='chromestatus')
+@app.command(name="chromestatus")
 def chromestatus_command(
     feature_id: Annotated[
         str,
@@ -546,18 +551,17 @@ def chromestatus_command(
     provider: Annotated[
         str | None,
         typer.Option(
-            '--provider',
-            '-p',
-            help=
-            "Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
+            "--provider",
+            "-p",
+            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
         ),
     ] = None,
     wpt_dir: Annotated[
         Path | None,
         typer.Option(
-            '--wpt-dir',
-            '-w',
-            help='Path to the local web-platform-tests repository.',
+            "--wpt-dir",
+            "-w",
+            help="Path to the local web-platform-tests repository.",
             exists=True,
             dir_okay=True,
             resolve_path=True,
@@ -566,102 +570,101 @@ def chromestatus_command(
     output_dir: Annotated[
         Path | None,
         typer.Option(
-            '--output-dir',
-            '-o',
-            help='Directory where generated tests will be saved.',
+            "--output-dir",
+            "-o",
+            help="Directory where generated tests will be saved.",
             dir_okay=True,
         ),
     ] = None,
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
     show_responses: Annotated[
         bool,
         typer.Option(
-            '--show-responses',
-            '-s',
-            help='Display every LLM-generated response to the user.',
+            "--show-responses",
+            "-s",
+            help="Display every LLM-generated response to the user.",
         ),
     ] = False,
     yes_tokens: Annotated[
         bool,
         typer.Option(
-            '--yes-tokens',
-            help='Automatically confirm all token count prompts.',
+            "--yes-tokens",
+            help="Automatically confirm all token count prompts.",
         ),
     ] = False,
     yes_cache: Annotated[
         bool,
         typer.Option(
-            '--yes-cache',
-            help='Automatically use the cache if it exists without prompting.',
+            "--yes-cache",
+            help="Automatically use the cache if it exists without prompting.",
         ),
     ] = False,
     no_cache: Annotated[
         bool,
         typer.Option(
-            '--no-cache',
-            help=
-            'Automatically ignore and overwrite the cache if it exists without prompting.',  # pylint: disable=line-too-long
+            "--no-cache",
+            help="Automatically ignore and overwrite the cache if it exists without prompting.",  # pylint: disable=line-too-long
         ),
     ] = False,
     resume: Annotated[
         bool,
         typer.Option(
-            '--resume',
-            help='Resume the workflow from the last successful phase.',
+            "--resume",
+            help="Resume the workflow from the last successful phase.",
         ),
     ] = False,
     max_retries: Annotated[
         int,
         typer.Option(
-            '--max-retries',
-            help='Maximum number of retries for LLM calls.',
+            "--max-retries",
+            help="Maximum number of retries for LLM calls.",
         ),
     ] = 3,
     timeout: Annotated[
         int,
         typer.Option(
-            '--timeout',
-            help='Timeout for LLM requests in seconds.',
+            "--timeout",
+            help="Timeout for LLM requests in seconds.",
         ),
     ] = DEFAULT_LLM_TIMEOUT,
     include_thoughts: Annotated[
         bool,
         typer.Option(
-            '--include-thoughts',
-            help='Stream the underlying ADK model thoughts to stdout.',
+            "--include-thoughts",
+            help="Stream the underlying ADK model thoughts to stdout.",
         ),
     ] = False,
     use_lightweight: Annotated[
         bool,
         typer.Option(
-            '--use-lightweight',
-            help='Use the lightweight model for all LLM requests.',
+            "--use-lightweight",
+            help="Use the lightweight model for all LLM requests.",
         ),
     ] = False,
     use_reasoning: Annotated[
         bool,
         typer.Option(
-            '--use-reasoning',
-            help='Use the reasoning model for all LLM requests.',
+            "--use-reasoning",
+            help="Use the reasoning model for all LLM requests.",
         ),
     ] = False,
     save_traces: Annotated[
         bool,
         typer.Option(
-            '--save-traces',
-            help='Save LLM interaction traces to the .wptgen/traces/ directory.',  # pylint: disable=line-too-long
+            "--save-traces",
+            help="Save LLM interaction traces to the .wptgen/traces/ directory.",  # pylint: disable=line-too-long
         ),
     ] = False,
     suggestions_only: Annotated[
         bool,
         typer.Option(
-            '--suggestions-only',
-            help=
-            'Only generate the coverage audit report, skip test generation.',  # pylint: disable=line-too-long
+            "--suggestions-only",
+            help="Only generate the coverage audit report, skip test generation.",  # pylint: disable=line-too-long
         ),
     ] = False,
 ) -> None:
@@ -671,26 +674,28 @@ def chromestatus_command(
     banner = Panel(
         Align.center(
             Text.from_markup(
-                '[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n'  # pylint: disable=line-too-long
-                '[italic white]AI-Powered Web Platform Test Generation[/italic white]'  # pylint: disable=line-too-long
-            )),
-        border_style='bright_blue',
+                "[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n"  # pylint: disable=line-too-long
+                "[italic white]AI-Powered Web Platform Test Generation[/italic white]"  # pylint: disable=line-too-long
+            )
+        ),
+        border_style="bright_blue",
     )
     console.print(banner)
     console.print(
-        f'\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n'  # pylint: disable=line-too-long
+        f"\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n"  # pylint: disable=line-too-long
     )
 
     if not suggestions_only:
         ui.error(
-            'Test generation for ChromeStatus entries is not yet implemented.')
+            "Test generation for ChromeStatus entries is not yet implemented."
+        )
         ui.info(
-            'Please use --suggestions-only to generate the coverage audit report.'  # pylint: disable=line-too-long
+            "Please use --suggestions-only to generate the coverage audit report."  # pylint: disable=line-too-long
         )
         raise typer.Exit(code=1)
 
     if use_lightweight and use_reasoning:
-        ui.error('Cannot use both --use-lightweight and --use-reasoning.')
+        ui.error("Cannot use both --use-lightweight and --use-reasoning.")
         raise typer.Exit(code=1)
 
     try:
@@ -734,19 +739,20 @@ def chromestatus_command(
         )
 
         config_info = Text.assemble(
-            ('Provider: ', 'bold'),
-            (f'{config.provider}\n', 'green'),
-            ('Model:    ', 'bold'),
-            (f'{config.default_model}', 'green'),
+            ("Provider: ", "bold"),
+            (f"{config.provider}\n", "green"),
+            ("Model:    ", "bold"),
+            (f"{config.default_model}", "green"),
         )
         console.print(
             Panel(
                 config_info,
-                title='[bold]Configuration[/bold]',
-                title_align='left',
+                title="[bold]Configuration[/bold]",
+                title_align="left",
                 expand=False,
-                border_style='bright_black',
-            ))
+                border_style="bright_black",
+            )
+        )
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)
@@ -757,108 +763,121 @@ def chromestatus_command(
         console.print()
         console.print(
             Panel(
-                '[bold green]✔ ChromeStatus Audit completed successfully![/bold green]',  # pylint: disable=line-too-long
-                border_style='green',
+                "[bold green]✔ ChromeStatus Audit completed successfully![/bold green]",  # pylint: disable=line-too-long
+                border_style="green",
                 expand=False,
-            ))
+            )
+        )
 
     except LLMTimeoutError as e:
-        console.print(f'[bold red]LLM Request Timeout:[/bold red] {str(e)}')
+        console.print(f"[bold red]LLM Request Timeout:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
     except ValueError as e:
-        console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
     except WorkflowError:
         console.print()
         console.print(
             Panel(
-                '[bold red]✘ Workflow completed with errors.[/bold red]',
-                border_style='red',
+                "[bold red]✘ Workflow completed with errors.[/bold red]",
+                border_style="red",
                 expand=False,
-            ))
+            )
+        )
         raise typer.Exit(code=1) from None
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
 
 
-@app.command(name='doctor')
-def doctor_command(config_path: Annotated[
-    str,
-    typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
-] = DEFAULT_CONFIG_PATH,) -> None:
+@app.command(name="doctor")
+def doctor_command(
+    config_path: Annotated[
+        str,
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+) -> None:
     """
     Verify that all system prerequisites are met.
     """
     success = True
-    console.print('[bold]WPT-Gen System Check[/bold]\n')
+    console.print("[bold]WPT-Gen System Check[/bold]\n")
 
     try:
         config = load_config(config_path=config_path, require_api_key=False)
         console.print(
-            '[bold green]✔[/bold green] Configuration loaded successfully.')
+            "[bold green]✔[/bold green] Configuration loaded successfully."
+        )
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]✘[/bold red] Configuration error: {str(e)}')
+        console.print(f"[bold red]✘[/bold red] Configuration error: {str(e)}")
         raise typer.Exit(code=1) from e
 
     if config.api_key:
         console.print(
-            f'[bold green]✔[/bold green] API key for {config.provider} is configured.'  # pylint: disable=line-too-long
+            f"[bold green]✔[/bold green] API key for {config.provider} is configured."  # pylint: disable=line-too-long
         )
     else:
         console.print(
-            f'[bold red]✘[/bold red] API key for {config.provider} is missing.')
+            f"[bold red]✘[/bold red] API key for {config.provider} is missing."
+        )
         success = False
 
     wpt_path = Path(config.wpt_path)
     if wpt_path.is_dir():
         console.print(
-            f'[bold green]✔[/bold green] WPT directory found: {wpt_path}')
-        if (wpt_path / '.git').exists():
+            f"[bold green]✔[/bold green] WPT directory found: {wpt_path}"
+        )
+        if (wpt_path / ".git").exists():
             console.print(
-                '[bold green]✔[/bold green] WPT directory is a valid git repository.'  # pylint: disable=line-too-long
+                "[bold green]✔[/bold green] WPT directory is a valid git repository."  # pylint: disable=line-too-long
             )
         else:
             console.print(
-                '[bold red]✘[/bold red] WPT directory is not a git repository.')
+                "[bold red]✘[/bold red] WPT directory is not a git repository."
+            )
             success = False
 
-        wpt_exec = wpt_path / 'wpt'
+        wpt_exec = wpt_path / "wpt"
         if wpt_exec.exists() and os.access(wpt_exec, os.X_OK):
             console.print(
-                '[bold green]✔[/bold green] WPT executable (./wpt) is runnable.'
+                "[bold green]✔[/bold green] WPT executable (./wpt) is runnable."
             )
         else:
             console.print(
-                '[bold red]✘[/bold red] WPT executable (./wpt) is missing or not executable.'  # pylint: disable=line-too-long
+                "[bold red]✘[/bold red] WPT executable (./wpt) is missing or not executable."  # pylint: disable=line-too-long
             )
             success = False
     else:
         console.print(
-            f'[bold red]✘[/bold red] WPT directory not found: {wpt_path}')
+            f"[bold red]✘[/bold red] WPT directory not found: {wpt_path}"
+        )
         success = False
 
     console.print()
     if success:
         console.print(
             Panel(
-                '[bold green]All checks passed! System is ready.[/bold green]',
+                "[bold green]All checks passed! System is ready.[/bold green]",
                 expand=False,
-            ))
+            )
+        )
     else:
         console.print(
             Panel(
-                '[bold red]Some checks failed. Please resolve the issues above.[/bold red]',  # pylint: disable=line-too-long
+                "[bold red]Some checks failed. Please resolve the issues above.[/bold red]",  # pylint: disable=line-too-long
                 expand=False,
-            ))
+            )
+        )
         raise typer.Exit(code=1)
 
 
 config_app = typer.Typer(
-    help='Manage WPT-Gen configuration.',
+    help="Manage WPT-Gen configuration.",
     add_completion=False,
 )
-app.add_typer(config_app, name='config')
+app.add_typer(config_app, name="config")
 
 
 def _display_config(config_path: str) -> None:
@@ -868,29 +887,30 @@ def _display_config(config_path: str) -> None:
 
         if config.loaded_from:
             console.print(
-                f'Reading configuration from: [cyan]{config.loaded_from}[/cyan]'
+                f"Reading configuration from: [cyan]{config.loaded_from}[/cyan]"
             )
         else:
             console.print(
-                'Reading configuration from: [yellow]Defaults (no config file found)[/yellow]'  # pylint: disable=line-too-long
+                "Reading configuration from: [yellow]Defaults (no config file found)[/yellow]"  # pylint: disable=line-too-long
             )
 
         # Remove internal or sensitive fields from display
-        config_dict.pop('loaded_from', None)
-        config_dict.pop('api_key', None)
+        config_dict.pop("loaded_from", None)
+        config_dict.pop("api_key", None)
 
-        yaml_str = yaml.dump(config_dict,
-                             sort_keys=False,
-                             default_flow_style=False)
+        yaml_str = yaml.dump(
+            config_dict, sort_keys=False, default_flow_style=False
+        )
         console.print(
             Panel(
                 yaml_str,
-                title='Resolved Configuration',
-                border_style='blue',
+                title="Resolved Configuration",
+                border_style="blue",
                 expand=False,
-            ))
+            )
+        )
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -899,8 +919,9 @@ def config_callback(
     ctx: typer.Context,
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
 ) -> None:
     """
@@ -910,32 +931,37 @@ def config_callback(
         _display_config(config_path)
 
 
-@config_app.command(name='show')
-def config_show(config_path: Annotated[
-    str,
-    typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
-] = DEFAULT_CONFIG_PATH,) -> None:
+@config_app.command(name="show")
+def config_show(
+    config_path: Annotated[
+        str,
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+) -> None:
     """
     Display the currently active, fully resolved configuration.
     """
     _display_config(config_path)
 
 
-@config_app.command(name='set')
+@config_app.command(name="set")
 def config_set(
     key: Annotated[
         str,
         typer.Argument(
-            help='Configuration key using dot-notation (e.g., default_provider).'  # pylint: disable=line-too-long
+            help="Configuration key using dot-notation (e.g., default_provider)."  # pylint: disable=line-too-long
         ),
     ],
-    value: Annotated[str,
-                     typer.Argument(
-                         help='Value to set for the configuration key.')],
+    value: Annotated[
+        str, typer.Argument(help="Value to set for the configuration key.")
+    ],
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
 ) -> None:
     """
@@ -952,14 +978,15 @@ def config_set(
     yaml_data: dict[str, Any] = {}
     if target_file.exists():
         try:
-            with open(target_file, encoding='utf-8') as f:
+            with open(target_file, encoding="utf-8") as f:
                 yaml_data = yaml.safe_load(f) or {}
         except Exception as e:  # pylint: disable=broad-exception-caught
             console.print(
-                f'[bold red]Error reading config file:[/bold red] {e}')
+                f"[bold red]Error reading config file:[/bold red] {e}"
+            )
             raise typer.Exit(code=1) from e
 
-    keys = key.split('.')
+    keys = key.split(".")
     current = yaml_data
     for k in keys[:-1]:
         if k not in current or not isinstance(current[k], dict):
@@ -968,9 +995,9 @@ def config_set(
 
     typed_value: Any
     val_lower = value.lower()
-    if val_lower == 'true':
+    if val_lower == "true":
         typed_value = True
-    elif val_lower == 'false':
+    elif val_lower == "false":
         typed_value = False
     elif value.isdigit():
         typed_value = int(value)
@@ -983,31 +1010,31 @@ def config_set(
     current[keys[-1]] = typed_value
 
     try:
-        with open(target_file, 'w', encoding='utf-8') as f:
+        with open(target_file, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, sort_keys=False, default_flow_style=False)
         console.print(
-            f'[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = [yellow]{typed_value}[/yellow] in [magenta]{target_file.resolve()}[/magenta]'  # pylint: disable=line-too-long
+            f"[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = [yellow]{typed_value}[/yellow] in [magenta]{target_file.resolve()}[/magenta]"  # pylint: disable=line-too-long
         )
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]Error writing config file:[/bold red] {e}')
+        console.print(f"[bold red]Error writing config file:[/bold red] {e}")
         raise typer.Exit(code=1) from e
 
 
-@app.command(name='list-models')
+@app.command(name="list-models")
 def list_models(
     provider: Annotated[
         str | None,
         typer.Option(
-            '--provider',
-            '-p',
-            help=
-            "Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
+            "--provider",
+            "-p",
+            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
         ),
     ] = None,
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
 ) -> None:
     """
@@ -1023,45 +1050,44 @@ def list_models(
         )
 
         table = Table(
-            title=f'Configured Models for {config.provider.capitalize()}')
-        table.add_column('Category', justify='left', style='cyan', no_wrap=True)
-        table.add_column('Model Name', justify='left', style='magenta')
+            title=f"Configured Models for {config.provider.capitalize()}"
+        )
+        table.add_column("Category", justify="left", style="cyan", no_wrap=True)
+        table.add_column("Model Name", justify="left", style="magenta")
 
-        table.add_row('default', config.default_model)
+        table.add_row("default", config.default_model)
         for cat_name, mod_name in config.categories.items():
             table.add_row(cat_name, mod_name)
 
         console.print()
         console.print(table)
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
 
 
-@app.command(name='audit')
+@app.command(name="audit")
 def audit(
     web_feature_id: Annotated[
         str,
         typer.Argument(
-            help=
-            "The web feature ID to generate tests for (e.g., 'grid', 'popover')."  # pylint: disable=line-too-long
+            help="The web feature ID to generate tests for (e.g., 'grid', 'popover')."  # pylint: disable=line-too-long
         ),
     ],
     provider: Annotated[
         str | None,
         typer.Option(
-            '--provider',
-            '-p',
-            help=
-            "Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
+            "--provider",
+            "-p",
+            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",  # pylint: disable=line-too-long
         ),
     ] = None,
     wpt_dir: Annotated[
         Path | None,
         typer.Option(
-            '--wpt-dir',
-            '-w',
-            help='Path to the local web-platform-tests repository.',
+            "--wpt-dir",
+            "-w",
+            help="Path to the local web-platform-tests repository.",
             exists=True,
             dir_okay=True,
             resolve_path=True,
@@ -1070,83 +1096,81 @@ def audit(
     output_dir: Annotated[
         Path | None,
         typer.Option(
-            '--output-dir',
-            '-o',
-            help='Directory where generated tests will be saved.',
+            "--output-dir",
+            "-o",
+            help="Directory where generated tests will be saved.",
             dir_okay=True,
         ),
     ] = None,
     wf_yml_update: Annotated[
         bool,
         typer.Option(
-            '--wf-yml-update',
-            help='Update WEB_FEATURES.yml with generated tests.',
+            "--wf-yml-update",
+            help="Update WEB_FEATURES.yml with generated tests.",
         ),
     ] = False,
     config_path: Annotated[
         str,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = DEFAULT_CONFIG_PATH,
     show_responses: Annotated[
         bool,
         typer.Option(
-            '--show-responses',
-            '-s',
-            help='Display every LLM-generated response to the user.',
+            "--show-responses",
+            "-s",
+            help="Display every LLM-generated response to the user.",
         ),
     ] = False,
     yes_tokens: Annotated[
         bool,
         typer.Option(
-            '--yes-tokens',
-            help='Automatically confirm all token count prompts.',
+            "--yes-tokens",
+            help="Automatically confirm all token count prompts.",
         ),
     ] = False,
     yes_cache: Annotated[
         bool,
         typer.Option(
-            '--yes-cache',
-            help='Automatically use the cache if it exists without prompting.',
+            "--yes-cache",
+            help="Automatically use the cache if it exists without prompting.",
         ),
     ] = False,
     no_cache: Annotated[
         bool,
         typer.Option(
-            '--no-cache',
-            help=
-            'Automatically ignore and overwrite the cache if it exists without prompting.',  # pylint: disable=line-too-long
+            "--no-cache",
+            help="Automatically ignore and overwrite the cache if it exists without prompting.",  # pylint: disable=line-too-long
         ),
     ] = False,
     brief_suggestions: Annotated[
         bool,
         typer.Option(
-            '--brief-suggestions',
-            help=
-            'Only generate test titles and descriptions for suggestions (omits detailed blueprints).',  # pylint: disable=line-too-long
+            "--brief-suggestions",
+            help="Only generate test titles and descriptions for suggestions (omits detailed blueprints).",  # pylint: disable=line-too-long
         ),
     ] = False,
     resume: Annotated[
         bool,
         typer.Option(
-            '--resume',
-            help='Resume the workflow from the last successful phase.',
+            "--resume",
+            help="Resume the workflow from the last successful phase.",
         ),
     ] = False,
     resume_from: Annotated[
         WorkflowPhase | None,
         typer.Option(
-            '--resume-from',
-            help='Resume the workflow explicitly from a specific phase.',
+            "--resume-from",
+            help="Resume the workflow explicitly from a specific phase.",
         ),
     ] = None,
     state_dir: Annotated[
         Path | None,
         typer.Option(
-            '--state-dir',
-            '--tests-dir',
-            help=
-            'Directory containing the necessary artifacts to hydrate the requested phase.',  # pylint: disable=line-too-long
+            "--state-dir",
+            "--tests-dir",
+            help="Directory containing the necessary artifacts to hydrate the requested phase.",  # pylint: disable=line-too-long
             dir_okay=True,
             exists=True,
         ),
@@ -1154,118 +1178,115 @@ def audit(
     max_retries: Annotated[
         int,
         typer.Option(
-            '--max-retries',
-            help='Maximum number of retries for LLM calls.',
+            "--max-retries",
+            help="Maximum number of retries for LLM calls.",
         ),
     ] = 3,
     timeout: Annotated[
         int,
         typer.Option(
-            '--timeout',
-            help='Timeout for LLM requests in seconds.',
+            "--timeout",
+            help="Timeout for LLM requests in seconds.",
         ),
     ] = DEFAULT_LLM_TIMEOUT,
     spec_urls: Annotated[
         str | None,
         typer.Option(
-            '--spec-urls',
-            '-u',
-            help=
-            'Comma-separated list of spec URLs to use, bypassing automatic fetching.',  # pylint: disable=line-too-long
+            "--spec-urls",
+            "-u",
+            help="Comma-separated list of spec URLs to use, bypassing automatic fetching.",  # pylint: disable=line-too-long
         ),
     ] = None,
     description: Annotated[
         str | None,
         typer.Option(
-            '--description',
-            '-d',
-            help='Manually provide a description for the web feature.',
+            "--description",
+            "-d",
+            help="Manually provide a description for the web feature.",
         ),
     ] = None,
     detailed_requirements: Annotated[
         bool,
         typer.Option(
-            '--detailed-requirements',
-            help=
-            'Use a more detailed, iterative requirements extraction process.',  # pylint: disable=line-too-long
+            "--detailed-requirements",
+            help="Use a more detailed, iterative requirements extraction process.",  # pylint: disable=line-too-long
         ),
     ] = False,
     include_mdn_docs: Annotated[
         bool,
         typer.Option(
-            '--include-mdn-docs',
-            help='Include MDN documentation in requirements extraction.',
+            "--include-mdn-docs",
+            help="Include MDN documentation in requirements extraction.",
         ),
     ] = False,
     include_thoughts: Annotated[
         bool,
         typer.Option(
-            '--include-thoughts',
-            help='Stream the underlying ADK model thoughts to stdout.',
+            "--include-thoughts",
+            help="Stream the underlying ADK model thoughts to stdout.",
         ),
     ] = False,
     draft: Annotated[
         bool,
         typer.Option(
-            '--draft',
-            help='Enable fetching metadata from the draft features directory.',
+            "--draft",
+            help="Enable fetching metadata from the draft features directory.",
         ),
     ] = False,
     single_prompt_requirements: Annotated[
         bool,
         typer.Option(
-            '--single-prompt-requirements',
-            help='Use a single-prompt requirements extraction process (legacy).',  # pylint: disable=line-too-long
+            "--single-prompt-requirements",
+            help="Use a single-prompt requirements extraction process (legacy).",  # pylint: disable=line-too-long
         ),
     ] = False,
     use_lightweight: Annotated[
         bool,
         typer.Option(
-            '--use-lightweight',
-            help='Use the lightweight model for all LLM requests.',
+            "--use-lightweight",
+            help="Use the lightweight model for all LLM requests.",
         ),
     ] = False,
     use_reasoning: Annotated[
         bool,
         typer.Option(
-            '--use-reasoning',
-            help='Use the reasoning model for all LLM requests.',
+            "--use-reasoning",
+            help="Use the reasoning model for all LLM requests.",
         ),
     ] = False,
     save_traces: Annotated[
         bool,
         typer.Option(
-            '--save-traces',
-            help='Save LLM interaction traces to the .wptgen/traces/ directory.',  # pylint: disable=line-too-long
+            "--save-traces",
+            help="Save LLM interaction traces to the .wptgen/traces/ directory.",  # pylint: disable=line-too-long
         ),
     ] = False,
     max_parallel_requests: Annotated[
         int | None,
         typer.Option(
-            '--max-parallel-requests',
-            help='Maximum number of parallel asynchronous LLM requests.',
+            "--max-parallel-requests",
+            help="Maximum number of parallel asynchronous LLM requests.",
         ),
     ] = None,
     temperature: Annotated[
         float | None,
         typer.Option(
-            '--temperature',
-            help=
-            'Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.',  # pylint: disable=line-too-long
+            "--temperature",
+            help="Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.",  # pylint: disable=line-too-long
         ),
     ] = None,
     run_on_browser: Annotated[
         BrowserType | None,
         typer.Option(
-            '--run-on-browser',
-            help='Browser to use for the local WPT test runner.',
+            "--run-on-browser",
+            help="Browser to use for the local WPT test runner.",
         ),
     ] = None,
     run_on_channel: Annotated[
         BrowserChannel | None,
         typer.Option(
-            '--run-on-channel',
-            help='Release channel to use for the local WPT test runner.',
+            "--run-on-channel",
+            help="Release channel to use for the local WPT test runner.",
         ),
     ] = None,
 ) -> None:
@@ -1292,7 +1313,7 @@ def audit(
         # Parse spec_urls if provided
         spec_urls_list = None
         if spec_urls:
-            spec_urls_list = [u.strip() for u in spec_urls.split(',')]
+            spec_urls_list = [u.strip() for u in spec_urls.split(",")]
 
         config = load_config(
             config_path=config_path,
@@ -1337,11 +1358,15 @@ def audit(
         )
 
 
-@app.command(name='clear-cache')
-def clear_cache(config_path: Annotated[
-    str,
-    typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
-] = DEFAULT_CONFIG_PATH,) -> None:
+@app.command(name="clear-cache")
+def clear_cache(
+    config_path: Annotated[
+        str,
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+) -> None:
     """
     Clear the existing cached data for wpt-gen.
     """
@@ -1349,25 +1374,27 @@ def clear_cache(config_path: Annotated[
         config = load_config(config_path=config_path, require_api_key=False)
         if not config.cache_path:
             console.print(
-                '[bold red]Error:[/bold red] Cache path not configured.')
+                "[bold red]Error:[/bold red] Cache path not configured."
+            )
             return
 
         cache_dir = Path(config.cache_path)
 
         if not cache_dir.exists():
             console.print(
-                f'Cache directory [cyan]{cache_dir}[/cyan] does not exist. Nothing to clear.'  # pylint: disable=line-too-long
+                f"Cache directory [cyan]{cache_dir}[/cyan] does not exist. Nothing to clear."  # pylint: disable=line-too-long
             )
             return
 
         files = list(cache_dir.iterdir())
         if not files:
             console.print(
-                f'Cache directory [cyan]{cache_dir}[/cyan] is already empty.')
+                f"Cache directory [cyan]{cache_dir}[/cyan] is already empty."
+            )
             return
 
         if ui.confirm(
-                f'Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?'  # pylint: disable=line-too-long
+            f"Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?"  # pylint: disable=line-too-long
         ):
             for item in files:
                 if item.is_file():
@@ -1375,15 +1402,16 @@ def clear_cache(config_path: Annotated[
                 elif item.is_dir():
                     shutil.rmtree(item)
             console.print(
-                '[bold green]✔ Cache cleared successfully![/bold green]')
+                "[bold green]✔ Cache cleared successfully![/bold green]"
+            )
         else:
-            console.print('Aborted.')
+            console.print("Aborted.")
 
     except ValueError as e:
-        console.print(f'[bold red]Configuration Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
     except Exception as e:  # pylint: disable=broad-exception-caught
-        console.print(f'[bold red]Unexpected Error:[/bold red] {str(e)}')
+        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -1396,21 +1424,22 @@ def version() -> None:
         # Replace 'your-package-name' with the name defined in pyproject.toml
         console.print(f"wpt-gen version {app_version('wpt-gen')}")
     except PackageNotFoundError:
-        console.print('unknown')
+        console.print("unknown")
 
 
-@app.command(name='init')
+@app.command(name="init")
 def init(
     config_path: Annotated[
         str | None,
-        typer.
-        Option('--config', '-c', help='Path to a custom wpt-gen.yml file.'),
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
     ] = None,
     wpt_path: Annotated[
         str | None,
         typer.Option(
-            '--wpt-path',
-            help='Absolute path to local web-platform-tests directory.',
+            "--wpt-path",
+            help="Absolute path to local web-platform-tests directory.",
         ),
     ] = None,
 ) -> None:
@@ -1427,57 +1456,60 @@ def init(
 
     if resolved_path.exists():
         overwrite = Confirm.ask(
-            f'[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?',  # pylint: disable=line-too-long
+            f"[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",  # pylint: disable=line-too-long
             default=False,
         )
         if not overwrite:
-            console.print('Aborted.')
+            console.print("Aborted.")
             return
 
     provider = Prompt.ask(
-        'Preferred LLM Provider',
-        choices=['gemini', 'openai', 'anthropic'],
-        default='gemini',
+        "Preferred LLM Provider",
+        choices=["gemini", "openai", "anthropic"],
+        default="gemini",
     )
 
     defaults = DEFAULT_PROVIDER_MODELS[provider]
 
-    console.print(f'\n[cyan]Configuring models for {provider}[/cyan]')
-    default_model = Prompt.ask('Default model', default=defaults['default'])
-    lightweight_model = Prompt.ask('Lightweight model',
-                                   default=defaults['lightweight'])
-    reasoning_model = Prompt.ask('Reasoning model',
-                                 default=defaults['reasoning'])
+    console.print(f"\n[cyan]Configuring models for {provider}[/cyan]")
+    default_model = Prompt.ask("Default model", default=defaults["default"])
+    lightweight_model = Prompt.ask(
+        "Lightweight model", default=defaults["lightweight"]
+    )
+    reasoning_model = Prompt.ask(
+        "Reasoning model", default=defaults["reasoning"]
+    )
 
     if wpt_path is None:
         wpt_path = Prompt.ask(
-            '\nAbsolute path to local web-platform-tests directory',
-            default=str(Path.home() / 'wpt'),
+            "\nAbsolute path to local web-platform-tests directory",
+            default=str(Path.home() / "wpt"),
         )
 
     config_data = {
-        'default_provider': provider,
-        'wpt_path': str(Path(wpt_path).expanduser().resolve()),
-        'providers': {
+        "default_provider": provider,
+        "wpt_path": str(Path(wpt_path).expanduser().resolve()),
+        "providers": {
             provider: {
-                'default_model': default_model,
-                'categories': {
-                    'lightweight': lightweight_model,
-                    'reasoning': reasoning_model,
+                "default_model": default_model,
+                "categories": {
+                    "lightweight": lightweight_model,
+                    "reasoning": reasoning_model,
                 },
             }
         },
     }
 
     try:
-        with open(resolved_path, 'w', encoding='utf-8') as f:
+        with open(resolved_path, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
         console.print(
-            f'\n[bold green]✔ Configuration saved successfully to [cyan]{resolved_path}[/cyan][/bold green]'  # pylint: disable=line-too-long
+            f"\n[bold green]✔ Configuration saved successfully to [cyan]{resolved_path}[/cyan][/bold green]"  # pylint: disable=line-too-long
         )
     except Exception as e:  # pylint: disable=broad-exception-caught
         console.print(
-            f'[bold red]Failed to save configuration:[/bold red] {str(e)}')
+            f"[bold red]Failed to save configuration:[/bold red] {str(e)}"
+        )
         raise typer.Exit(code=1) from e
 
 
@@ -1489,5 +1521,5 @@ def main_callback() -> None:
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app()  # pragma: no cover

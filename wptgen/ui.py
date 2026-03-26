@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,9 +43,9 @@ class ProgressIndicator(Protocol):
     def advance(self, amount: float = 1) -> None:
         ...
 
-    def update(self,
-               description: str | None = None,
-               outstanding: int | None = None) -> None:
+    def update(
+        self, description: str | None = None, outstanding: int | None = None
+    ) -> None:
         ...
 
 
@@ -56,15 +57,15 @@ class UIProvider(Protocol):
         ...
 
     def progress_indicator(
-            self, description: str,
-            total: int) -> AbstractContextManager[ProgressIndicator]:
+        self, description: str, total: int
+    ) -> AbstractContextManager[ProgressIndicator]:
         ...
 
     def confirm(self, question: str, default: bool = True) -> bool:
         ...
 
     # Generic semantic messaging
-    def print(self, message: Any = '', style: str | None = None) -> None:
+    def print(self, message: Any = "", style: str | None = None) -> None:
         ...
 
     def stream_text(self, text: str) -> None:
@@ -96,8 +97,9 @@ class UIProvider(Protocol):
     def report_metadata(self, metadata: FeatureMetadata) -> None:
         ...
 
-    def report_context_summary(self, spec_len: int, mdn_count: int,
-                               test_count: int, dep_count: int) -> None:
+    def report_context_summary(
+        self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
+    ) -> None:
         ...
 
     def report_token_usage(
@@ -141,7 +143,8 @@ class UIProvider(Protocol):
         ...
 
     def report_generation_summary(
-            self, generated_tests: list[tuple[Path, str, str]]) -> None:
+        self, generated_tests: list[tuple[Path, str, str]]
+    ) -> None:
         ...
 
 
@@ -156,13 +159,13 @@ class RichUIProvider:
 
     @contextmanager
     def progress_indicator(
-            self, description: str,
-            total: int) -> Generator[ProgressIndicator, None, None]:
+        self, description: str, total: int
+    ) -> Generator[ProgressIndicator, None, None]:
         with Progress(
-                SpinnerColumn(),
-                TextColumn('[progress.description]{task.description}'),
-                console=self.console,
-                transient=True,
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=self.console,
+            transient=True,
         ) as progress:
             task_id = progress.add_task(description, total=total)
 
@@ -180,10 +183,11 @@ class RichUIProvider:
                     kwargs: dict[str, Any] = {}
                     if description is not None:
                         if outstanding is not None:
-                            kwargs['description'] = (
-                                f'{description} ({outstanding} outstanding)')
+                            kwargs["description"] = (
+                                f"{description} ({outstanding} outstanding)"
+                            )
                         else:
-                            kwargs['description'] = description
+                            kwargs["description"] = description
                     progress.update(task_id, **kwargs)
 
             yield _Indicator()
@@ -191,69 +195,78 @@ class RichUIProvider:
     def confirm(self, question: str, default: bool = True) -> bool:
         return Confirm.ask(question, default=default)
 
-    def print(self, message: Any = '', style: str | None = None) -> None:
+    def print(self, message: Any = "", style: str | None = None) -> None:
         self.console.print(message, style=style)
 
     def stream_text(self, text: str) -> None:
-        self.console.out(text, end='')
+        self.console.out(text, end="")
 
     def info(self, message: str) -> None:
-        self.console.print(f'[blue]ℹ[/blue] {message}')
+        self.console.print(f"[blue]ℹ[/blue] {message}")
 
     def success(self, message: str) -> None:
-        self.console.print(f'[bold green]✔[/bold green] {message}')
+        self.console.print(f"[bold green]✔[/bold green] {message}")
 
     def warning(self, message: str) -> None:
-        self.console.print(f'[yellow]⚠[/yellow] {message}')
+        self.console.print(f"[yellow]⚠[/yellow] {message}")
 
     def error(self, message: str) -> None:
-        self.console.print(f'[bold red]✘[/bold red] {message}')
+        self.console.print(f"[bold red]✘[/bold red] {message}")
 
     def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
         diff = list(
             difflib.unified_diff(
                 old_text.splitlines(),
                 new_text.splitlines(),
-                fromfile=f'a/{file_path}',
-                tofile=f'b/{file_path}',
-                lineterm='',
-            ))
+                fromfile=f"a/{file_path}",
+                tofile=f"b/{file_path}",
+                lineterm="",
+            )
+        )
         if diff:
-            diff_text = '\n'.join(diff)
+            diff_text = "\n".join(diff)
             self.console.print(
-                Syntax(diff_text, 'diff', theme='monokai', line_numbers=False))
+                Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
+            )
 
     def on_phase_start(self, phase_num: int, phase_name: str) -> None:
         self.console.print()
-        self.console.rule(f'[bold cyan]Phase {phase_num}: {phase_name}')
+        self.console.rule(f"[bold cyan]Phase {phase_num}: {phase_name}")
         self.console.print()
 
     def on_phase_complete(self, phase_name: str) -> None:
-        self.success(f'{phase_name} complete.')
+        self.success(f"{phase_name} complete.")
 
     def report_metadata(self, metadata: FeatureMetadata) -> None:
         metadata_table = Table(show_header=False, box=None, padding=(0, 2))
-        metadata_table.add_row('[bold]Web Feature Name:[/bold]',
-                               f'[cyan]{metadata.name}[/cyan]')
-        metadata_table.add_row('[bold]Description:[/bold]',
-                               metadata.description)
-        metadata_table.add_row('[bold]Spec URL:[/bold]',
-                               f'[blue]{metadata.specs[0]}[/blue]')
+        metadata_table.add_row(
+            "[bold]Web Feature Name:[/bold]", f"[cyan]{metadata.name}[/cyan]"
+        )
+        metadata_table.add_row(
+            "[bold]Description:[/bold]", metadata.description
+        )
+        metadata_table.add_row(
+            "[bold]Spec URL:[/bold]", f"[blue]{metadata.specs[0]}[/blue]"
+        )
 
         self.console.print(
             Panel(
                 metadata_table,
-                title='[bold]Feature Metadata[/bold]',
-                border_style='blue',
+                title="[bold]Feature Metadata[/bold]",
+                border_style="blue",
                 expand=False,
-            ))
+            )
+        )
 
-    def report_context_summary(self, spec_len: int, mdn_count: int,
-                               test_count: int, dep_count: int) -> None:
-        self.success(f'Context gathered: {spec_len} chars of spec, '
-                     f'{mdn_count} MDN pages, '
-                     f'{test_count} tests, '
-                     f'{dep_count} dependency files.')
+    def report_context_summary(
+        self, spec_len: int, mdn_count: int, test_count: int, dep_count: int
+    ) -> None:
+        self.success(
+            f"Context gathered: {spec_len} chars of spec, "
+            f"{mdn_count} MDN pages, "
+            f"{test_count} tests, "
+            f"{dep_count} dependency files."
+        )
 
     def report_token_usage(
         self,
@@ -264,70 +277,74 @@ class RichUIProvider:
         auto_confirmed: bool = False,
     ) -> None:
         table = Table(
-            title=f'Token Usage Summary ({phase_name})',
+            title=f"Token Usage Summary ({phase_name})",
             show_header=True,
-            header_style='bold magenta',
+            header_style="bold magenta",
         )
-        table.add_column('Task', style='dim')
-        table.add_column('Model', style='blue')
-        table.add_column('Tokens', justify='right', style='cyan')
-        table.add_column('Status', justify='center')
+        table.add_column("Task", style="dim")
+        table.add_column("Model", style="blue")
+        table.add_column("Tokens", justify="right", style="cyan")
+        table.add_column("Status", justify="center")
 
         for tokens, limit_exceeded, name in results:
-            status = ('[bold red]EXCEEDED[/bold red]'
-                      if limit_exceeded else '[bold green]OK[/bold green]')
+            status = (
+                "[bold red]EXCEEDED[/bold red]"
+                if limit_exceeded
+                else "[bold green]OK[/bold green]"
+            )
             table.add_row(name, model, str(tokens), status)
 
         self.console.print(table)
         if len(results) > 1:
             self.console.print(
-                f'[bold]Total Estimated Tokens:[/bold] [cyan]{total_tokens}[/cyan]'  # pylint: disable=line-too-long
+                f"[bold]Total Estimated Tokens:[/bold] [cyan]{total_tokens}[/cyan]"  # pylint: disable=line-too-long
             )
 
         if any(limit_exceeded for _, limit_exceeded, _ in results):
             self.console.print(
-                '\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!'  # pylint: disable=line-too-long
+                "\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!"  # pylint: disable=line-too-long
             )
 
         if auto_confirmed:
             self.console.print(
-                '\n[yellow]Auto-confirming token usage (--yes-tokens).[/yellow]'
+                "\n[yellow]Auto-confirming token usage (--yes-tokens).[/yellow]"
             )
 
     def report_llm_response(self, response: str, task_name: str) -> None:
         # Determine syntax highlighting based on content (defaulting to xml).
-        syntax_lexer = 'xml'
+        syntax_lexer = "xml"
         parsed_files = parse_multi_file_response(response)
 
         if parsed_files:
             suffix = parsed_files[0][0].lower()
-            if suffix.endswith('.js'):
-                syntax_lexer = 'javascript'
-            elif suffix.endswith('.html'):
-                syntax_lexer = 'html'
+            if suffix.endswith(".js"):
+                syntax_lexer = "javascript"
+            elif suffix.endswith(".html"):
+                syntax_lexer = "html"
         else:
             # Fallback to current logic if no file tags found
-            if 'gen:' in task_name.lower() or 'eval:' in task_name.lower():
-                syntax_lexer = 'html'
+            if "gen:" in task_name.lower() or "eval:" in task_name.lower():
+                syntax_lexer = "html"
 
         syntax = Syntax(
             response,
             syntax_lexer,
-            theme='monokai',
+            theme="monokai",
             line_numbers=True,
             word_wrap=True,
         )
         self.console.print(
             Panel(
                 syntax,
-                title=f'[bold]LLM Response: {task_name}[/bold]',
-                border_style='cyan',
+                title=f"[bold]LLM Response: {task_name}[/bold]",
+                border_style="cyan",
                 expand=False,
-            ))
+            )
+        )
 
     def report_coverage_audit(self, audit_response: str | None = None) -> None:
         self.console.print()
-        self.console.rule('[bold cyan]Coverage Audit Report')
+        self.console.rule("[bold cyan]Coverage Audit Report")
         self.console.print()
         if audit_response:
             self.console.print(Markdown(audit_response))
@@ -335,18 +352,18 @@ class RichUIProvider:
 
     def report_audit_worksheet(self, worksheet_text: str) -> None:
         table = Table(
-            title='Coverage Audit Worksheet',
+            title="Coverage Audit Worksheet",
             show_header=True,
-            header_style='bold cyan',
+            header_style="bold cyan",
         )
-        table.add_column('ID', style='dim')
-        table.add_column('Requirement')
-        table.add_column('Status', justify='center')
+        table.add_column("ID", style="dim")
+        table.add_column("Requirement")
+        table.add_column("Status", justify="center")
 
         # Regex to parse lines like: R1: [Requirement Text] -> [COVERED by
         # filename.html]
         # or R1: [Requirement Text] -> [UNCOVERED]
-        pattern = re.compile(r'^(R\d+):\s*(.*)\s*->\s*\[(.*)\]', re.MULTILINE)
+        pattern = re.compile(r"^(R\d+):\s*(.*)\s*->\s*\[(.*)\]", re.MULTILINE)
 
         matches = list(pattern.finditer(worksheet_text))
         # Sort by numerical value of the ID (e.g., R1, R2, R10)
@@ -355,10 +372,10 @@ class RichUIProvider:
         for match in matches:
             req_id, req_text, status_info = match.groups()
 
-            if 'UNCOVERED' in status_info.upper():
-                status_display = f'[bold red]✘ {status_info}[/bold red]'
+            if "UNCOVERED" in status_info.upper():
+                status_display = f"[bold red]✘ {status_info}[/bold red]"
             else:
-                status_display = f'[green]✔ {status_info}[/green]'
+                status_display = f"[green]✔ {status_info}[/green]"
 
             table.add_row(req_id, req_text.strip(), status_display)
 
@@ -372,22 +389,23 @@ class RichUIProvider:
         description: str,
         test_type: str | None = None,
     ) -> None:
-        content = f'[bold cyan]Description:[/bold cyan] {description}'
+        content = f"[bold cyan]Description:[/bold cyan] {description}"
         if test_type:
-            content += f'\n[bold cyan]Test Type:[/bold cyan] {test_type}'
+            content += f"\n[bold cyan]Test Type:[/bold cyan] {test_type}"
 
         self.console.print(
             Panel(
                 content,  # pylint: disable=line-too-long
-                title=
-                f'[bold cyan] Test Suggestion #{suggestion_index}:[/bold cyan] [white]{title}[/white]',  # pylint: disable=line-too-long
-                border_style='blue',
+                title=f"[bold cyan] Test Suggestion #{suggestion_index}:[/bold cyan] [white]{title}[/white]",  # pylint: disable=line-too-long
+                border_style="blue",
                 expand=False,
-            ))
+            )
+        )
 
     def report_generation_start(self, count: int) -> None:
         self.console.print(
-            f'\nGenerating [bold]{count}[/bold] tests in parallel...')
+            f"\nGenerating [bold]{count}[/bold] tests in parallel..."
+        )
 
     def report_test_generated(
         self,
@@ -406,18 +424,19 @@ class RichUIProvider:
                     f'[green]✔ Saved:[/green] {path.absolute() if path else ""}'  # pylint: disable=inconsistent-quotes
                 )
         else:
-            self.error(f'Failed to generate: {root_name}')
+            self.error(f"Failed to generate: {root_name}")
 
     def report_generation_summary(
-            self, generated_tests: list[tuple[Path, str, str]]) -> None:
+        self, generated_tests: list[tuple[Path, str, str]]
+    ) -> None:
         if generated_tests:
             summary_table = Table(
-                title='Generated Tests Summary',
+                title="Generated Tests Summary",
                 show_header=True,
-                header_style='bold green',
+                header_style="bold green",
             )
-            summary_table.add_column('File Name', style='cyan')
-            summary_table.add_column('Full Path', style='dim')
+            summary_table.add_column("File Name", style="cyan")
+            summary_table.add_column("Full Path", style="dim")
 
             for p, _, _ in generated_tests:
                 summary_table.add_row(p.name, str(p.absolute()))
@@ -425,6 +444,7 @@ class RichUIProvider:
             self.console.print()
             self.console.print(summary_table)
             self.success(
-                f'{len(generated_tests)} tests generated successfully.')
+                f"{len(generated_tests)} tests generated successfully."
+            )
         else:
-            self.error('No tests were successfully generated.')
+            self.error("No tests were successfully generated.")

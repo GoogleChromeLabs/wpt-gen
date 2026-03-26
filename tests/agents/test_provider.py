@@ -1,4 +1,5 @@
 """Module docstring."""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
 # pylint: disable=import-outside-toplevel
@@ -37,45 +38,47 @@ def _create_config(provider: str, api_key: str, default_model: str) -> Config:
         provider=provider,
         api_key=api_key,
         default_model=default_model,
-        wpt_path='/dummy/path',
+        wpt_path="/dummy/path",
         categories={},
         phase_model_mapping={},
     )
 
 
 @pytest.mark.parametrize(
-    ('provider', 'expected_env_var', 'expected_model'),
+    ("provider", "expected_env_var", "expected_model"),
     [
-        ('gemini', 'GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-        ('google', 'GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-        ('anthropic', 'ANTHROPIC_API_KEY', 'claude-opus-4-6'),
-        ('openai', 'OPENAI_API_KEY', 'gpt-5.2-high'),
+        ("gemini", "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
+        ("google", "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
+        ("anthropic", "ANTHROPIC_API_KEY", "claude-opus-4-6"),
+        ("openai", "OPENAI_API_KEY", "gpt-5.2-high"),
     ],
 )
-def test_setup_adk_environment_providers(provider: str, expected_env_var: str,
-                                         expected_model: str) -> None:
-    config = _create_config(provider, f'test-key-{provider}', '')
+def test_setup_adk_environment_providers(
+    provider: str, expected_env_var: str, expected_model: str
+) -> None:
+    config = _create_config(provider, f"test-key-{provider}", "")
     model = setup_adk_environment(config)
 
-    assert os.environ.get(expected_env_var) == f'test-key-{provider}'
+    assert os.environ.get(expected_env_var) == f"test-key-{provider}"
     assert model == expected_model
 
 
 def test_setup_adk_environment_custom_model() -> None:
-    config = _create_config('gemini', 'test-key', 'custom-model-123')
+    config = _create_config("gemini", "test-key", "custom-model-123")
     model = setup_adk_environment(config)
 
-    assert model == 'custom-model-123'
+    assert model == "custom-model-123"
 
 
 def test_setup_adk_environment_missing_api_key() -> None:
-    config = _create_config('gemini', '', '')
-    with pytest.raises(ValueError,
-                       match='An API key is required for the gemini provider.'):
+    config = _create_config("gemini", "", "")
+    with pytest.raises(
+        ValueError, match="An API key is required for the gemini provider."
+    ):
         setup_adk_environment(config)
 
 
 def test_setup_adk_environment_unsupported_provider() -> None:
-    config = _create_config('unknown', 'test-key', '')
-    with pytest.raises(ValueError, match='Unsupported ADK provider: unknown'):
+    config = _create_config("unknown", "test-key", "")
+    with pytest.raises(ValueError, match="Unsupported ADK provider: unknown"):
         setup_adk_environment(config)
