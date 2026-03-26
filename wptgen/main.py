@@ -1367,4 +1367,4 @@ def main_callback() -> None:
 
 
 if __name__ == '__main__':
-  app()  # pragma: no cover
+  app()

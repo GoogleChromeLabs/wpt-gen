@@ -37,10 +37,7 @@ def update_web_features_yml(
     with open(yml_path, encoding='utf-8') as f:
       yaml_data = yaml.safe_load(f) or {}
 
-  if 'features' not in yaml_data:
-    yaml_data['features'] = {}
-
-  if not isinstance(yaml_data['features'], list):
+  if 'features' not in yaml_data or not isinstance(yaml_data['features'], list):
     # Ensure it's a list. If not, override it.
     yaml_data['features'] = []
 

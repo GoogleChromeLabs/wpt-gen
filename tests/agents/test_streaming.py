@@ -93,3 +93,100 @@ def test_adk_stream_manager_empty_event() -> None:
 
   ui_mock.stream_text.assert_not_called()
   ui_mock.print.assert_not_called()
+
+
+def test_format_tool_call_model_dump() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  class MockArgs:
+    def model_dump(self) -> dict[str, str]:
+      return {'test_path': 'a'}
+
+  panel = format_tool_call('tool', MockArgs())
+  from typing import cast
+
+  from rich.table import Table
+
+  table = cast(Table, panel.renderable)
+  assert 'test_path:' in list(table.columns[0].cells)
+
+
+def test_format_tool_call_dict() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  class MockArgs:
+    def __init__(self) -> None:
+      self.test_path = 'a'
+
+  panel = format_tool_call('tool', MockArgs())
+  from typing import cast
+
+  from rich.table import Table
+
+  table = cast(Table, panel.renderable)
+  assert 'test_path:' in list(table.columns[0].cells)
+
+
+def test_format_tool_call_exception() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  class MockArgs:
+    @property
+    def model_dump(self) -> dict[str, str]:
+      raise ValueError('error')
+
+  panel = format_tool_call('tool', MockArgs())
+  # Should fall back to string rep
+  assert 'MockArgs' in str(panel.renderable)
+
+
+def test_format_tool_call_empty_dict() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  panel = format_tool_call('tool', {})
+  assert 'No arguments' in str(panel.renderable)
+
+
+def test_format_tool_call_string() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  panel = format_tool_call('tool', 'some string')
+  assert 'some string' in str(panel.renderable)
+
+
+def test_format_tool_call_long_string_and_brackets() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  long_val = ['A' * 150]  # a list, not string, over 100 chars
+  panel = format_tool_call('tool', long_val)
+  assert '...' in str(panel.renderable)
+  assert '\\[' in str(panel.renderable)
+
+
+def test_format_tool_call_sort_key_not_in_priority() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  panel = format_tool_call('tool', {'test_path': 'a', 'unknown_key': 'b'})
+  # Both should be present, unknown_key should be sorted later
+  from typing import cast
+
+  from rich.table import Table
+
+  table = cast(Table, panel.renderable)
+  cells = list(table.columns[0].cells)
+  assert cells[0] == 'test_path:'
+  assert cells[1] == 'unknown_key:'
+
+
+def test_format_tool_call_empty_args_dict() -> None:
+  from wptgen.agents.streaming import format_tool_call
+
+  class MockArgs:
+    def model_dump(self) -> dict[str, str]:
+      return {}
+
+    def __bool__(self) -> bool:
+      return True
+
+  panel = format_tool_call('tool', MockArgs())
+  assert 'No arguments' in str(panel.renderable)
