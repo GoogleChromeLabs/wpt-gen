@@ -26,14 +26,21 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. | From config |
 | `--config` | `-c` | Path to a custom `wpt-gen.yml` file. | `~/.wpt-gen.yml` |
 | `--output-dir` | `-o` | Directory where generated tests will be saved. | Local WPT repo |
+| `--wf-yml-update` | | Update `WEB_FEATURES.yml` with generated tests. | |
+| `--tentative` | | Generate test files with the `.tentative` flag. | |
 
 #### Execution Control
 | Option | Description |
 | :--- | :--- |
 | `--resume` | Resume the workflow from the last successful phase for this feature ID. |
+| `--resume-from` | Resume the workflow explicitly from a specific phase (`context_assembly`, `requirements_extraction`, `coverage_audit`, `generation`). |
+| `--state-dir` | Directory containing the necessary artifacts to hydrate the requested phase (alias: `--tests-dir`). |
 | `--suggestions-only` | Stop after generating test blueprints/suggestions. Skip the actual test file generation. |
 | `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed blueprints. |
 | `--yes-tokens` | Automatically confirm all prompts related to LLM token counts. |
+| `--yes-tests` | Automatically confirm and generate all proposed test suggestions without prompting. |
+| `--yes-cache` | Automatically use the cache if it exists without prompting. |
+| `--no-cache` | Automatically ignore and overwrite the cache if it exists without prompting. |
 | `--max-parallel-requests` | Limit the number of concurrent asynchronous LLM requests. |
 
 #### Model Configuration
@@ -42,6 +49,9 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--use-lightweight` | Force the use of the provider's "lightweight" model for all phases. |
 | `--use-reasoning` | Force the use of the provider's "reasoning" model for all phases. |
 | `--show-responses`, `-s` | Print every raw LLM response to the console (useful for debugging). |
+| `--include-thoughts` | Stream the underlying ADK model thoughts to stdout. |
+| `--save-traces` | Save LLM interaction traces to the `.wptgen/traces/` directory. |
+| `--temperature` | Global temperature setting for all LLM requests (e.g., `0.01`). Overrides phase-specific defaults. |
 | `--max-retries` | Maximum number of retries for failed LLM calls. |
 | `--timeout` | Timeout for individual LLM requests in seconds. |
 
@@ -52,7 +62,14 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--description` | `-d` | Provide a manual description/summary of the feature to the agent. |
 | `--detailed-requirements` | | Use an iterative process to extract highly granular requirements (slower). |
 | `--draft` | | Enable fetching metadata from the draft features directory. |
-| `--categorized-requirements` | | Extract requirements in parallel across technical categories (faster). |
+| `--include-mdn-docs` | | Include MDN documentation in requirements extraction. |
+| `--single-prompt-requirements` | | Use a single-prompt requirements extraction process (legacy). |
+
+#### Local Test Runner
+| Option | Description |
+| :--- | :--- |
+| `--run-on-browser` | Browser to use for the local WPT test runner (`chrome`, `firefox`, `safari`). |
+| `--run-on-channel` | Release channel to use for the local WPT test runner (`canary`, `nightly`, `stable`, `dev`). |
 
 ---
 
