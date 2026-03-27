@@ -48,6 +48,7 @@ def update_web_features_yml(
   if feature_block is None:
     feature_block = {'name': web_feature_id, 'files': []}
     features_list.append(feature_block)
+
   elif 'files' not in feature_block:
     feature_block['files'] = []
 
