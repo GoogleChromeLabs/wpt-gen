@@ -1236,6 +1236,7 @@ def clear_cache(
   config_path: Annotated[
     str, typer.Option('--config', '-c', help='Path to a custom wpt-gen.yml file.')
   ] = DEFAULT_CONFIG_PATH,
+  force: Annotated[bool, typer.Option('--force', '-f', help='Bypass confirmation prompt.')] = False,
 ) -> None:
   """
   Clear the existing cached data for wpt-gen.
@@ -1257,7 +1258,9 @@ def clear_cache(
       console.print(f'Cache directory [cyan]{cache_dir}[/cyan] is already empty.')
       return
 
-    if ui.confirm(f'Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?'):
+    if force or ui.confirm(
+      f'Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?'
+    ):
       for item in files:
         if item.is_file():
           item.unlink()
