@@ -333,7 +333,7 @@ def test_engine_hydrate_context(mocker: MockerFixture, tmp_path: Path, mock_conf
   (Path(mock_config.state_dir) / 'requirements.json').write_text(
     '{"requirements_xml": "<test-reqs/>"}'
   )
-  (Path(mock_config.state_dir) / 'blueprints.json').write_text(
+  (Path(mock_config.state_dir) / 'test_suggestions.json').write_text(
     '{"audit_response": "<test-audit/>"}'
   )
 
@@ -410,7 +410,7 @@ def test_engine_hydrate_context_exceptions(
   # Write valid JSON but wrong types to trigger exceptions after load
   (state_dir / 'resume_mock_feature.json').write_text('null')
   (state_dir / 'requirements.json').write_text('null')
-  (state_dir / 'blueprints.json').write_text('null')
+  (state_dir / 'test_suggestions.json').write_text('null')
 
   # create generated_tests dir and tests json
   tests_dir = state_dir / 'generated_tests'

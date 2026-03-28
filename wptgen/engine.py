@@ -111,7 +111,7 @@ class WPTGenEngine:
       except Exception:
         pass
 
-    audit_file = state_dir / 'blueprints.json'
+    audit_file = state_dir / 'test_suggestions.json'
     if audit_file.exists():
       try:
         with open(audit_file, encoding='utf-8') as f:
@@ -158,7 +158,7 @@ class WPTGenEngine:
         json.dump({'requirements_xml': context.requirements_xml}, f, indent=2)
 
     elif phase == WorkflowPhase.COVERAGE_AUDIT and context.audit_response:
-      audit_file = state_dir / 'blueprints.json'
+      audit_file = state_dir / 'test_suggestions.json'
       with open(audit_file, 'w', encoding='utf-8') as f:
         json.dump({'audit_response': context.audit_response}, f, indent=2)
 

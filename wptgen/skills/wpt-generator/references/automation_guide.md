@@ -151,4 +151,4 @@ promise_test(async t => {
 ```
 
 ### When to use Manual Tests (`-manual`)
-If the blueprint specifically requires simulating OS-level hardware interventions (e.g., physically unplugging a USB device, locking a device, or simulating a hardware fault) AND you have verified that no `testdriver.js` extension or `wdspec` backend exists to mock this specific state, you MUST default to a `-manual` test. Do not attempt to automate physical hardware manipulations if the testing infrastructure lacks a mock interface for it.
+If the test suggestion specifically requires simulating OS-level hardware interventions (e.g., physically unplugging a USB device, locking a device, or simulating a hardware fault) AND you have verified that no `testdriver.js` extension or `wdspec` backend exists to mock this specific state, you MUST default to a `-manual` test. Do not attempt to automate physical hardware manipulations if the testing infrastructure lacks a mock interface for it.

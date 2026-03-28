@@ -19,8 +19,8 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 *   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch specification and MDN documentation (if available), using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
-*   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
-*   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved blueprints using an autonomous agent powered by `google-adk`.
+*   **Test Suggestions:** Brainstorms specific, actionable test scenarios (test suggestions) that address identified gaps.
+*   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved test suggestions using an autonomous agent powered by `google-adk`.
 *   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai` and thinking models), OpenAI, and Anthropic models.
 
 ## How it Works
@@ -37,7 +37,7 @@ flowchart TD
     subgraph Analysis[Requirement & Gap Analysis]
         B & D --> E{{Requirements Extraction}}
         E --> F{{Coverage Audit}}
-        F --> G[Test Blueprints]
+        F --> G[test suggestions]
     end
 
     subgraph Generation[Test Generation]
@@ -54,8 +54,8 @@ For an in-depth explanation of the internal logic, inputs, outputs, and LLM inte
 
 1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
-3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test blueprints.
-4.  **Phase 4: Test Generation:** Translates user-selected blueprints into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using an autonomous agent powered by `google-adk`, which leverages specialized file-system tools and style guide instructions.
+3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test suggestions.
+4.  **Phase 4: Test Generation:** Translates user-selected test suggestions into functional WPT-compliant code (JavaScript, Reftests, or Crashtests) using an autonomous agent powered by `google-adk`, which leverages specialized file-system tools and style guide instructions.
 
 ## Prerequisites
 

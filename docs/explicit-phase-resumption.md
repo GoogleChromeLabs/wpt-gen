@@ -13,7 +13,7 @@ To support this, WPT-Gen automatically checkpoints its state after every major p
 As WPT-Gen completes each major phase, it automatically serializes the structured output to your system's cache directory (or a custom directory if provided). The key artifacts saved include:
 
 1. **`requirements.json`**: Saved after Phase 2 (Requirements Extraction). Contains the extracted technical requirements from the specification.
-2. **`blueprints.json`**: Saved after Phase 3 (Coverage Audit). Contains the gap analysis and proposed test blueprints.
+2. **`test_suggestions.json`**: Saved after Phase 3 (Coverage Audit). Contains the gap analysis and proposed test suggestions.
 3. **`generated_tests.json`**: Saved after Phase 4 (Test Generation). Contains the raw generated test code and file paths.
 
 These artifacts act as the "memory" of the workflow, allowing `wpt-gen` to seamlessly pick up where it left off.

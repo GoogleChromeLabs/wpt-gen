@@ -31,8 +31,8 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | Option | Description |
 | :--- | :--- |
 | `--resume` | Resume the workflow from the last successful phase for this feature ID. |
-| `--suggestions-only` | Stop after generating test blueprints/suggestions. Skip the actual test file generation. |
-| `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed blueprints. |
+| `--suggestions-only` | Stop after generating test suggestions. Skip the actual test file generation. |
+| `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed test suggestions. |
 | `--yes-tokens` | Automatically confirm all prompts related to LLM token counts. |
 | `--max-parallel-requests` | Limit the number of concurrent asynchronous LLM requests. |
 

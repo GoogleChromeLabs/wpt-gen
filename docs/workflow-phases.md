@@ -27,19 +27,19 @@ The `wpt-gen generate` command orchestrates a complex, multi-phase agentic workf
 
 ## Phase 3: Coverage Audit (`coverage_audit.py`)
 
-*   **Responsibility:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase identifies gaps in coverage and produces high-level test blueprints.
+*   **Responsibility:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase identifies gaps in coverage and produces high-level test suggestions.
 *   **Inputs:** `WorkflowContext` (with requirements and local test tree), `Config`, `LLMClient`, `UIProvider`, `jinja_env`.
-*   **Outputs:** A string of XML representing the audit response (including missing test blueprints), saved to `WorkflowContext.audit_response`.
+*   **Outputs:** A string of XML representing the audit response (including missing test suggestions), saved to `WorkflowContext.audit_response`.
 *   **LLM Integration:** Uses the LLM to cross-reference extracted requirements with existing test files to intelligently determine what new tests are needed. It automatically partitions requirements into chunks (e.g., `max_threshold=40`) to remain within context limits.
     *   **System Prompt:** `coverage_audit_system.jinja`
     *   **User Prompt:** `coverage_audit.jinja`
 
 ## Phase 4: Test Generation (`generation.py`)
 
-*   **Responsibility:** Translates user-selected blueprints into functional WPT-compliant code (e.g., JavaScript tests, Reftests, or Crashtests) using specific style guide instructions.
-*   **Inputs:** `WorkflowContext` (with the audit response/blueprints), `Config`, `LLMClient`, `UIProvider`, `jinja_env`.
+*   **Responsibility:** Translates user-selected test suggestions into functional WPT-compliant code (e.g., JavaScript tests, Reftests, or Crashtests) using specific style guide instructions.
+*   **Inputs:** `WorkflowContext` (with the audit response/test suggestions), `Config`, `LLMClient`, `UIProvider`, `jinja_env`.
 *   **Outputs:** A list of generated test files, each represented as a tuple of `(Path, string content, suggestion_xml)`. Saves the initial versions of these files to disk.
-*   **LLM Integration:** The LLM receives the test blueprint, WPT authoring guidelines, and relevant spec context to generate valid, idiomatic code for the new test files.
+*   **LLM Integration:** The LLM receives the test suggestion, WPT authoring guidelines, and relevant spec context to generate valid, idiomatic code for the new test files.
     *   **System Prompt:** `test_generation_system.jinja`
     *   **User Prompt:** `test_generation.jinja`
 

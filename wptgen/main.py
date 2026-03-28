@@ -192,7 +192,7 @@ def _execute_workflow(
     console.print()
     console.print(
       Panel(
-        '[bold green]✔ Audit completed successfully! Blueprints generated.[/bold green]',
+        '[bold green]✔ Audit completed successfully! Test suggestions generated.[/bold green]',
         border_style='green',
         expand=False,
       )
@@ -301,7 +301,7 @@ def generate(
     bool,
     typer.Option(
       '--brief-suggestions',
-      help='Only generate test titles and descriptions for suggestions (omits detailed blueprints).',
+      help='Only generate test titles and descriptions for suggestions (omits detailed test suggestions).',
     ),
   ] = False,
   resume: Annotated[
@@ -1027,7 +1027,7 @@ def audit(
     bool,
     typer.Option(
       '--brief-suggestions',
-      help='Only generate test titles and descriptions for suggestions (omits detailed blueprints).',
+      help='Only generate test titles and descriptions for suggestions (omits detailed test suggestions).',
     ),
   ] = False,
   resume: Annotated[
@@ -1164,7 +1164,7 @@ def audit(
   ] = None,
 ) -> None:
   """
-  Perform a gap analysis and generate coverage blueprints without generating WPT files.
+  Perform a gap analysis and generate coverage test suggestions without generating WPT files.
   """
   _print_workflow_banner(web_feature_id)
   _check_workflow_flags(
