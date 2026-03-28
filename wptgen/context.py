@@ -316,6 +316,10 @@ def is_wpt_test_file(path: Path) -> bool:
   if filename in ('MANIFEST', 'META.yml', 'WEB_FEATURES.yml'):
     return False
 
+  # Filter out reference files
+  if '-ref.' in filename:
+    return False
+
   # Filter out hidden files
   if filename.startswith('.'):
     return False
@@ -521,6 +525,11 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
     idx += 1
 
     curr_p = Path(curr_p_str)
+
+    # Exclude reference files from context assembly
+    if is_test and '-ref.' in curr_p.name:
+      continue
+
     try:
       content = curr_p.read_text(encoding='utf-8')
       if is_test:
