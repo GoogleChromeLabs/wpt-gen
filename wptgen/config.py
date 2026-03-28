@@ -72,6 +72,7 @@ class Config:
   suggestions_only: bool = False
   brief_suggestions: bool = False
   resume: bool = False
+  skip_run: bool = False
   max_retries: int = 3
   timeout: int = DEFAULT_LLM_TIMEOUT
   cache_path: str | None = None
@@ -189,6 +190,7 @@ def load_config(
   suggestions_only: bool = False,
   brief_suggestions: bool = False,
   resume_override: bool = False,
+  skip_run_override: bool = False,
   resume_from_override: WorkflowPhase | None = None,
   state_dir_override: str | None = None,
   max_retries_override: int | None = None,
@@ -278,6 +280,7 @@ def load_config(
   suggestions_only = suggestions_only or yaml_data.get('suggestions_only', False)
   brief_suggestions = brief_suggestions or yaml_data.get('brief_suggestions', False)
   resume = resume_override or yaml_data.get('resume', False)
+  skip_run = skip_run_override or yaml_data.get('skip_run', False)
 
   resume_from_raw = resume_from_override or yaml_data.get('resume_from')
   resume_from = WorkflowPhase(resume_from_raw) if resume_from_raw else None
@@ -345,6 +348,7 @@ def load_config(
     suggestions_only=suggestions_only,
     brief_suggestions=brief_suggestions,
     resume=resume,
+    skip_run=skip_run,
     max_retries=max_retries,
     timeout=timeout,
     cache_path=cache_path,

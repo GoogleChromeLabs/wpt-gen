@@ -126,7 +126,7 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
 
 
 def create_agent_tools(
-  wpt_path: Path, ui: UIProvider, browser: str, channel: str
+  wpt_path: Path, ui: UIProvider, browser: str, channel: str, include_run_tool: bool = True
 ) -> list[FunctionTool]:
   """Creates a suite of strictly validated tools for the ADK agent.
 
@@ -623,7 +623,7 @@ def create_agent_tools(
     except (OSError, ValueError) as e:
       return {'status': 'error', 'error': str(e)}
 
-  return [
+  tools = [
     FunctionTool(func=read_file),
     FunctionTool(func=write_file),
     FunctionTool(func=search_files),
@@ -633,9 +633,11 @@ def create_agent_tools(
     FunctionTool(func=delete_file),
     FunctionTool(func=move_file),
     FunctionTool(func=run_wpt_lint),
-    FunctionTool(func=run_wpt_test),
     FunctionTool(func=search_feature_tests),
     FunctionTool(func=fetch_spec_content),
     FunctionTool(func=search_file_contents),
     FunctionTool(func=replace_in_file),
   ]
+  if include_run_tool:
+    tools.append(FunctionTool(func=run_wpt_test))
+  return tools

@@ -78,7 +78,7 @@ Before completing the task, you MUST validate that the code you generated is syn
 1. **Linting:** Use the `run_wpt_lint` tool on the file you created/modified.
    - If the linter reports errors (e.g., `TRAILING WHITESPACE`, `INDENT TABS`), you MUST use the `replace_in_file` tool to fix the errors and re-run the linter until it passes cleanly. This saves context tokens compared to rewriting the entire file.
 
-2. **Execution:** Use the `run_wpt_test` tool on the file you created/modified.
+2. **Execution:** If the `run_wpt_test` tool is available, use it on the file you created/modified. If the user prompt explicitly instructs you to skip running tests, or if the tool is not in your toolset, you MUST SKIP this execution step.
    - **CRITICAL RULE - Manual Tests:** If the test you created or modified is a manual test (e.g., ends in `-manual.html` or requires human intervention), you **MUST SKIP** this execution step entirely. Rely strictly on the linter for manual tests.
    - **Analyze the Output:** Read the test runner's output carefully.
    - **Self-Correct:** If the runner reports a `Harness Error`, `SyntaxError`, a timeout, or a failure that indicates a flaw in your test logic (e.g., calling an undefined helper function or making an incorrect assertion), you MUST use the `replace_in_file` or `write_file` tools to fix the bug, and re-run the test. Use `replace_in_file` whenever possible.

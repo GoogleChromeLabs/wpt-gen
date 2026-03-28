@@ -80,6 +80,7 @@ def default_load_config_kwargs() -> dict[str, bool | str | int | None | list[str
     'suggestions_only': False,
     'brief_suggestions': False,
     'resume_override': False,
+    'skip_run_override': False,
     'resume_from_override': None,
     'state_dir_override': None,
     'max_retries_override': 3,
