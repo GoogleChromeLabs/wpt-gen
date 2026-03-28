@@ -646,3 +646,20 @@ def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
     request_obj.full_url
     == 'https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/draft-feature.yml'
   )
+
+
+def test_gather_local_test_context_excludes_refs(tmp_path: Path) -> None:
+  """Test that reference files (containing '-ref.') are excluded."""
+  wpt_root = tmp_path / 'wpt'
+  wpt_root.mkdir()
+
+  test_html = wpt_root / 'test.html'
+  test_html.write_text('<!DOCTYPE html>', encoding='utf-8')
+
+  test_ref = wpt_root / 'test-ref.html'
+  test_ref.write_text('<!DOCTYPE html>', encoding='utf-8')
+
+  context = gather_local_test_context([str(test_html), str(test_ref)], str(wpt_root))
+
+  assert str(test_html) in context.test_contents
+  assert str(test_ref) not in context.test_contents

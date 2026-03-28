@@ -510,6 +510,8 @@ def gather_local_test_context(test_paths: list[str], wpt_root: str) -> WPTContex
   # Initialize queue with (absolute_path, is_test)
   queue: list[tuple[str, bool]] = []
   for p in test_paths:
+    if '-ref.' in Path(p).name:
+      continue
     abs_p = str(Path(p).resolve())
     queue.append((abs_p, True))
     visited.add(abs_p)
