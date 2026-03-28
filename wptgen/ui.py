@@ -331,6 +331,6 @@ class RichUIProvider:
 
       self.console.print()
       self.console.print(summary_table)
-      self.success(f'{len(generated_tests)} tests generated successfully.')
+      self.success(f'{len(generated_tests)} files created or updated successfully.')
     else:
       self.error('No tests were successfully generated.')
