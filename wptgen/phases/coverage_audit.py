@@ -89,7 +89,9 @@ async def run_coverage_audit(
 ) -> str | None:
   ui.on_phase_start(3, 'Coverage Audit')
 
-  req_partitions = partition_requirements_xml(context.requirements_xml or '', max_threshold=40)
+  req_partitions = partition_requirements_xml(
+    context.requirements_xml or '', max_threshold=config.audit_partition_size
+  )
 
   prompts = []
   for i, req_xml in enumerate(req_partitions):

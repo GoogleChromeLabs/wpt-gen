@@ -94,6 +94,7 @@ def default_load_config_kwargs() -> dict[str, bool | str | int | None | list[str
     'use_reasoning_override': False,
     'tentative_override': False,
     'save_traces_override': False,
+    'audit_partition_size_override': None,
     'max_parallel_requests_override': None,
     'temperature_override': None,
     'include_thoughts_override': False,

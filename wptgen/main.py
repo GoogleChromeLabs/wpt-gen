@@ -415,6 +415,13 @@ def generate(
       help='Save LLM interaction traces to the .wptgen/traces/ directory.',
     ),
   ] = False,
+  audit_partition_size: Annotated[
+    int | None,
+    typer.Option(
+      '--audit-partition-size',
+      help='Number of requirements to evaluate per coverage audit partition.',
+    ),
+  ] = None,
   max_parallel_requests: Annotated[
     int | None,
     typer.Option(
@@ -496,6 +503,7 @@ def generate(
       use_reasoning_override=use_reasoning,
       tentative_override=tentative,
       save_traces_override=save_traces,
+      audit_partition_size_override=audit_partition_size,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       include_thoughts_override=include_thoughts,
@@ -1134,6 +1142,13 @@ def audit(
       help='Save LLM interaction traces to the .wptgen/traces/ directory.',
     ),
   ] = False,
+  audit_partition_size: Annotated[
+    int | None,
+    typer.Option(
+      '--audit-partition-size',
+      help='Number of requirements to evaluate per coverage audit partition.',
+    ),
+  ] = None,
   max_parallel_requests: Annotated[
     int | None,
     typer.Option(
@@ -1215,6 +1230,7 @@ def audit(
       use_reasoning_override=use_reasoning,
       tentative_override=False,
       save_traces_override=save_traces,
+      audit_partition_size_override=audit_partition_size,
       max_parallel_requests_override=max_parallel_requests,
       temperature_override=temperature,
       include_thoughts_override=include_thoughts,

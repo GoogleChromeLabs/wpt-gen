@@ -92,6 +92,7 @@ class Config:
   resume_from: WorkflowPhase | None = None
   state_dir: str | None = None
   max_parallel_requests: int = 10
+  audit_partition_size: int = 40
   temperature: float | None = None
   loaded_from: str | None = None
 
@@ -206,6 +207,7 @@ def load_config(
   tentative_override: bool = False,
   save_traces_override: bool = False,
   require_api_key: bool = True,
+  audit_partition_size_override: int | None = None,
   max_parallel_requests_override: int | None = None,
   run_on_browser_override: BrowserType | None = None,
   run_on_channel_override: BrowserChannel | None = None,
@@ -296,6 +298,7 @@ def load_config(
   )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
+  audit_partition_size = audit_partition_size_override or yaml_data.get('audit_partition_size', 40)
   max_parallel_requests = max_parallel_requests_override or yaml_data.get(
     'max_parallel_requests', 10
   )
@@ -368,6 +371,7 @@ def load_config(
     save_traces=save_traces,
     resume_from=resume_from,
     state_dir=state_dir,
+    audit_partition_size=audit_partition_size,
     max_parallel_requests=max_parallel_requests,
     temperature=temperature_override
     if temperature_override is not None
