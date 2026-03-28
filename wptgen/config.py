@@ -187,7 +187,7 @@ def _deep_merge(
 
 
 def load_config(
-    config_path: str = DEFAULT_CONFIG_PATH,
+    config_path: str | None = DEFAULT_CONFIG_PATH,
     provider_override: str | None = None,
     wpt_dir_override: str | None = None,
     output_dir_override: str | None = None,
@@ -227,21 +227,22 @@ def load_config(
     Loads configuration from YAML and environment variables.
     Selects the active LLM provider and fetches the corresponding API key.
     """
-    path = Path(config_path)
     yaml_data: dict[str, Any] = {}
     loaded_from: str | None = None
 
-    if path.exists():
-        with open(path, encoding="utf-8") as f:
-            yaml_data = yaml.safe_load(f) or {}
-        loaded_from = str(path.resolve())
-    elif config_path == DEFAULT_CONFIG_PATH:
-        # Fallback to global config if the default local path does not exist
-        global_path = Path(_get_global_config_path())
-        if global_path.exists():
-            with open(global_path, encoding="utf-8") as f:
+    if config_path is not None:
+        path = Path(config_path)
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
                 yaml_data = yaml.safe_load(f) or {}
-            loaded_from = str(global_path.resolve())
+            loaded_from = str(path.resolve())
+        elif config_path == DEFAULT_CONFIG_PATH:
+            # Fallback to global config if the default local path does not exist
+            global_path = Path(_get_global_config_path())
+            if global_path.exists():
+                with open(global_path, encoding="utf-8") as f:
+                    yaml_data = yaml.safe_load(f) or {}
+                loaded_from = str(global_path.resolve())
 
     # Determine the active provider
     # CLI override takes precedence, then YAML default.

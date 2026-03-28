@@ -358,13 +358,14 @@ def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
 
     assert result.exit_code == 0
     assert "Resolved Configuration" in result.stdout
-    assert "provider:" in result.stdout
+    assert "provider" in result.stdout
+    assert "gemini" in result.stdout
     assert "Reading configuration from:" in result.stdout
     assert "/dummy/path/wpt-gen.yml" in result.stdout
     assert (
         "loaded_from:" not in result.stdout
     )  # Ensure it's not in the YAML dump
-    mock_load_config.assert_called_once_with(
+    mock_load_config.assert_any_call(
         config_path=DEFAULT_CONFIG_PATH, require_api_key=False
     )
 
@@ -383,7 +384,7 @@ def test_config_command_defaults(
         "Reading configuration from: Defaults (no config file found)"
         in result.stdout
     )
-    mock_load_config.assert_called_once_with(
+    mock_load_config.assert_any_call(
         config_path=DEFAULT_CONFIG_PATH, require_api_key=False
     )
 
