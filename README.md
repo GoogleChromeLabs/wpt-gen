@@ -17,6 +17,7 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 ## Key Features
 
 *   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch specification and MDN documentation (if available), using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
+*   **ChromeStatus Integration:** Pulls granular feature data directly from the ChromeStatus API to drive higher quality, targeted test generation.
 *   **Deep Local Analysis:** Scans your local WPT repository using `WEB_FEATURES.yml` metadata to identify existing tests and their dependencies.
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (blueprints) that address identified gaps.
@@ -226,6 +227,16 @@ Apache header:
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        https://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+ense.
     You may obtain a copy of the License at
 
         https://www.apache.org/licenses/LICENSE-2.0
