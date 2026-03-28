@@ -426,6 +426,7 @@ def test_chromestatus_command(
   mock_load_config: Any,
   mock_engine_instance: Any,
   suggestions_only: bool,
+  default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
 ) -> None:
   """Test the chromestatus command with and without --suggestions-only."""
   # Mock load_config and the Engine so they don't actually execute
@@ -444,10 +445,10 @@ def test_chromestatus_command(
     assert 'Target ChromeStatus Feature' in result.stdout
 
     # Verify our logic called the underlying functions with the correct CLI arguments
-    mock_load_config.assert_called_once()
-    kwargs = mock_load_config.call_args.kwargs
-    assert kwargs['suggestions_only'] is suggestions_only
-    assert kwargs['chromestatus_override'] is True
+    expected_kwargs = default_load_config_kwargs.copy()
+    expected_kwargs['suggestions_only'] = suggestions_only
+    expected_kwargs['chromestatus_override'] = True
+    mock_load_config.assert_called_once_with(**expected_kwargs)
 
     # Ensure the engine workflow was triggered with the correct feature ID
     mock_engine_instance.run_workflow.assert_called_once_with('12345')
@@ -458,7 +459,11 @@ def test_chromestatus_command(
     assert 'Please use --suggestions-only' in result.stdout
 
 
-def test_audit_success(mock_load_config: Any, mock_engine_instance: Any) -> None:
+def test_audit_success(
+  mock_load_config: Any,
+  mock_engine_instance: Any,
+  default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
   """Test the happy path execution of the audit command."""
   result = runner.invoke(app, ['audit', 'grid', '--provider', 'gemini'])
 
@@ -466,10 +471,10 @@ def test_audit_success(mock_load_config: Any, mock_engine_instance: Any) -> None
   assert 'Target Feature' in result.stdout
   assert 'Audit completed successfully' in result.stdout
 
-  mock_load_config.assert_called_once()
-  kwargs = mock_load_config.call_args.kwargs
-  assert kwargs['suggestions_only'] is True
-  assert kwargs['provider_override'] == 'gemini'
+  expected_kwargs = default_load_config_kwargs.copy()
+  expected_kwargs['suggestions_only'] = True
+  expected_kwargs['provider_override'] = 'gemini'
+  mock_load_config.assert_called_once_with(**expected_kwargs)
 
   mock_engine_instance.run_workflow.assert_called_once_with('grid')
 
