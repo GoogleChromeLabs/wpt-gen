@@ -43,6 +43,8 @@ def test_is_wpt_test_file() -> None:
   assert is_wpt_test_file(Path('test.html')) is True
   assert is_wpt_test_file(Path('test.js')) is True
   assert is_wpt_test_file(Path('test.any.js')) is True
+  assert is_wpt_test_file(Path('test-ref.html')) is False
+  assert is_wpt_test_file(Path('test-ref.js')) is False
   assert is_wpt_test_file(Path('test.md')) is False
   assert is_wpt_test_file(Path('test.py')) is False
   assert is_wpt_test_file(Path('test.yml')) is False
