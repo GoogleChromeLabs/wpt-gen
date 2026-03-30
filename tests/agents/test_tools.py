@@ -147,3 +147,71 @@ def test_tool_search_file_contents(wpt_root: Path, agent_tools: dict[str, Functi
   assert res['status'] == 'success'
   assert 'dir1/file1.txt:2:foo bar' in res['search_output']
   assert 'dir1/file2.txt:1:test foo' in res['search_output']
+
+
+def test_tool_path_traversal_prevention(
+  wpt_root: Path, agent_tools: dict[str, FunctionTool]
+) -> None:
+  malicious_paths = [
+    '../../../etc/passwd',
+    '/root/.ssh/id_rsa',
+    '../../../../../../../../windows/system32/cmd.exe',
+    '../outside_file.txt',
+  ]
+
+  # Create a safe file for tools that require an existing file
+  safe_file = wpt_root / 'safe.txt'
+  safe_file.touch()
+
+  for path in malicious_paths:
+    res = agent_tools['read_file'].func(file_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['write_file'].func(file_path=path, content='test')
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['search_files'].func(directory=path, pattern='*')
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['list_directory'].func(directory=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['create_directory'].func(directory_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['delete_directory'].func(directory_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['delete_file'].func(file_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['move_file'].func(source_path=path, destination_path='safe2.txt')
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['move_file'].func(source_path='safe.txt', destination_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['run_wpt_lint'].func(file_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['run_wpt_test'].func(file_path=path)
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['search_file_contents'].func(directory=path, pattern='test')
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
+
+    res = agent_tools['replace_in_file'].func(file_path=path, old_string='a', new_string='b')
+    assert res['status'] == 'error'
+    assert 'outside the designated WPT' in res['error']
