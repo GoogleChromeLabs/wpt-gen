@@ -42,10 +42,10 @@ async def generate_test_with_adk(
   jinja_env: Environment,
   ui: UIProvider,
 ) -> list[tuple[Path, str, str]]:
-  """Runs the ADK Agent to generate tests for a single blueprint.
+  """Runs the ADK Agent to generate tests for a single test suggestion.
 
   Args:
-      suggestion_xml: The XML blueprint for the test.
+      suggestion_xml: The XML test suggestion for the test.
       root_name: The base filename to use (e.g., 'feature-1').
       test_type_enum: The type of test to generate.
       context: The workflow context (contains metadata).

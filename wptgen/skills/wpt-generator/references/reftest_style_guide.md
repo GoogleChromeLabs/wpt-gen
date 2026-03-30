@@ -82,8 +82,8 @@ Instead, consolidate the permutations sequentially into a single layout that eva
 
 Tests should be "self-describing" so a human can easily verify them.
 
-### 5.1 Pruning Redundant Scaffolding (Crucial for Blueprints)
-When generating a Reftest from a blueprint, treat the `<pre_conditions>` as structural guidelines, not strict requirements. If the `<pre_conditions>` request multiple HTML elements (like a container with multiple children), but assigning explicit CSS dimensions or applying standard visual patterns (like a single 100x100 green square) makes some of those requested DOM elements visually or geometrically redundant, you **MUST** remove them to minimize boilerplate. Do not blindly copy HTML elements from a blueprint or from legacy "Golden Examples" if they do not participate in the layout or the interaction being tested.
+### 5.1 Pruning Redundant Scaffolding (Crucial for test suggestions)
+When generating a Reftest from a test suggestion, treat the `<pre_conditions>` as structural guidelines, not strict requirements. If the `<pre_conditions>` request multiple HTML elements (like a container with multiple children), but assigning explicit CSS dimensions or applying standard visual patterns (like a single 100x100 green square) makes some of those requested DOM elements visually or geometrically redundant, you **MUST** remove them to minimize boilerplate. Do not blindly copy HTML elements from a test suggestion or from legacy "Golden Examples" if they do not participate in the layout or the interaction being tested.
 - **Prefer Pseudo-Elements:** Whenever a test requires verifying a behavior on pseudo-elements, or for visual tricks like "Red-Under-Green" and stacking context triggers, you MUST attach those pseudo-elements directly to pre-existing structural container nodes. Do not introduce new, dedicated, empty DOM elements purely to host them.
 
 - **The Green Square**: A very common pattern. The test passes if it produces a 100x100 green square.
