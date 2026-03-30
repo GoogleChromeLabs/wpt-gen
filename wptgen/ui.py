@@ -321,16 +321,32 @@ class RichUIProvider:
   def report_generation_summary(self, generated_tests: list[tuple[Path, str, str]]) -> None:
     if generated_tests:
       summary_table = Table(
-        title='Generated Tests Summary', show_header=True, header_style='bold green'
+        title='Generated Files Summary', show_header=True, header_style='bold green'
       )
       summary_table.add_column('File Name', style='cyan')
       summary_table.add_column('Full Path', style='dim')
+      summary_table.add_column('Type', style='magenta')
 
+      breakdown: dict[str, int] = {}
       for p, _content, _s_xml in generated_tests:
-        summary_table.add_row(p.name, str(p.absolute()))
+        file_type = 'Core Test'
+        if p.name == 'WEB_FEATURES.yml':
+          file_type = 'Config File'
+        elif p.name.endswith(('-ref.html', '-ref.js', '-ref.any.js', '-ref.sub.html')):
+          file_type = 'Reference File'
+        elif p.name.endswith(('.headers', '.txt')):
+          file_type = 'Support File'
+
+        breakdown[file_type] = breakdown.get(file_type, 0) + 1
+        summary_table.add_row(p.name, str(p.absolute()), file_type)
 
       self.console.print()
       self.console.print(summary_table)
-      self.success(f'{len(generated_tests)} tests generated successfully.')
+
+      self.console.print('[bold cyan]Breakdown:[/bold cyan]')
+      for category, count in breakdown.items():
+        self.console.print(f'  - {category}: {count}')
+
+      self.success(f'{len(generated_tests)} files created or updated successfully.')
     else:
-      self.error('No tests were successfully generated.')
+      self.error('No files were successfully created.')
