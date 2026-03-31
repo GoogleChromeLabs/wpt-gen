@@ -19,7 +19,6 @@ from pathlib import Path
 from jinja2 import Environment
 
 from wptgen.config import Config
-from wptgen.context import fetch_explainer_contents
 from wptgen.llm import LLMClient
 from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
@@ -54,23 +53,6 @@ def _load_cached_requirements(
   return None
 
 
-async def _fetch_explainer_contents(context: WorkflowContext, ui: UIProvider) -> None:
-  """
-  Fetches explainer contents if they are not already present in the context.
-  """
-  if not context.explainer_contents and context.metadata and context.metadata.explainer_links:
-    ui.print('Fetching explainer content...')
-    with ui.status('Fetching and extracting text from explainers...'):
-      context.explainer_contents = await asyncio.to_thread(
-        fetch_explainer_contents, context.metadata.explainer_links
-      )
-
-      # Check for missing URLs to show warnings
-      for url in context.metadata.explainer_links:
-        if url not in context.explainer_contents:
-          ui.warning(f'Failed to fetch or extract content from explainer: {url}')
-
-
 async def run_requirements_extraction(
   context: WorkflowContext,
   config: Config,
@@ -89,7 +71,6 @@ async def run_requirements_extraction(
   requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
-    await _fetch_explainer_contents(context, ui)
     extraction_prompt = jinja_env.get_template('requirements_extraction.jinja').render(
       feature_name=context.metadata.name,
       feature_description=context.metadata.description,
@@ -155,7 +136,6 @@ async def run_requirements_extraction_categorized(
   requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
-    await _fetch_explainer_contents(context, ui)
     metadata = context.metadata
     assert metadata is not None
 
@@ -297,7 +277,6 @@ async def run_requirements_extraction_iterative(
   requirements_xml = _load_cached_requirements(web_feature_id, cache_file, config, ui)
 
   if not requirements_xml:
-    await _fetch_explainer_contents(context, ui)
     all_requirements: list[str] = []
     iteration = 1
     max_iterations = 10

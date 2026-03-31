@@ -87,7 +87,7 @@ def test_on_phase_start(ui: RichUIProvider, mock_console: MagicMock) -> None:
 
 def test_report_metadata(ui: RichUIProvider, mock_console: MagicMock) -> None:
   """Test report_metadata semantic method."""
-  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'], explainer_links=['http://explainer'])
   ui.report_metadata(metadata)
   mock_console.print.assert_called_once()
   args, _ = mock_console.print.call_args
@@ -229,9 +229,20 @@ def test_on_phase_complete(ui: RichUIProvider, mock_console: MagicMock) -> None:
   mock_console.print.assert_called_once_with('[bold green]✔[/bold green] Phase 1 complete.')
 
 
-def test_report_context_summary(ui: RichUIProvider, mock_console: MagicMock) -> None:
-  ui.report_context_summary(1, 2, 3, 4)
-  mock_console.print.assert_called_once()
+def test_report_context_summary_chromestatus(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_context_summary with arguments for ChromeStatus."""
+  ui.report_context_summary(spec_len=1000, explainer_count=1, test_count=5)
+  mock_console.print.assert_called_once_with(
+    '[bold green]✔[/bold green] Context gathered: 1000 chars of spec, 1 explainers, 5 tests.'
+  )
+
+
+def test_report_context_summary_generate(ui: RichUIProvider, mock_console: MagicMock) -> None:
+  """Test report_context_summary with arguments for web feature command."""
+  ui.report_context_summary(spec_len=5000, mdn_count=2, test_count=10, dep_count=3)
+  mock_console.print.assert_called_once_with(
+    '[bold green]✔[/bold green] Context gathered: 5000 chars of spec, 2 MDN pages, 10 tests, 3 dependency files.'
+  )
 
 
 def test_report_token_usage_warnings(ui: RichUIProvider, mock_console: MagicMock) -> None:

@@ -81,11 +81,17 @@ async def test_run_context_assembly_success(
 ) -> None:
   """Test successful context assembly for a registered feature."""
   mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
+  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
+  metadata.explainer_links = ['http://explainer']
   mocker.patch(
     'wptgen.phases.context_assembly.extract_feature_metadata',
-    return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+    return_value=metadata,
   )
   mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch(
+    'wptgen.phases.context_assembly.fetch_explainer_contents',
+    return_value={'http://explainer': 'Explainer Content'},
+  )
   mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
   mocker.patch(
     'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
@@ -98,6 +104,7 @@ async def test_run_context_assembly_success(
   assert context.metadata is not None
   assert context.metadata.name == 'Feat'
   assert context.spec_contents == {'http://spec': 'Spec Content'}
+  assert context.explainer_contents == {'http://explainer': 'Explainer Content'}
   mock_ui.on_phase_start.assert_called_once_with(1, 'Context Assembly')
   mock_ui.report_metadata.assert_called_once()
 
@@ -158,6 +165,32 @@ async def test_run_context_assembly_without_mdn(
   assert context.mdn_contents is None
   mock_fetch_mdn.assert_not_called()
   mock_ui.print.assert_any_call('Skipping MDN documentation fetch (not requested).')
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_chromestatus_skips_mdn(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+  """Test that context assembly skips MDN fetching for ChromeStatus features."""
+  mock_config.chromestatus = True
+  mock_config.include_mdn_docs = True
+  mocker.patch(
+    'wptgen.phases.context_assembly.fetch_chromestatus_metadata',
+    return_value=FeatureMetadata('Feat', 'Desc', ['http://spec']),
+  )
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mock_fetch_mdn = mocker.patch('wptgen.phases.context_assembly.fetch_mdn_urls')
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
+
+  context = await run_context_assembly('feat-id', mock_config, mock_ui)
+
+  assert context is not None
+  assert context.mdn_contents is None
+  mock_fetch_mdn.assert_not_called()
+  mock_ui.print.assert_any_call('Skipping MDN documentation fetch for ChromeStatus feature.')
 
 
 @pytest.mark.asyncio
@@ -345,80 +378,54 @@ async def test_run_requirements_extraction_with_explainer(
 
 
 @pytest.mark.asyncio
-async def test_run_requirements_extraction_fetches_explainer(
+async def test_run_requirements_extraction_success(
   mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
-  """Test that requirements extraction fetches explainer content if missing from context."""
-  metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
-  metadata.explainer_links = ['http://explainer1']
+  """Test successful requirements extraction with mocked LLM response."""
   context = WorkflowContext(
-    feature_id='feat-fetch-explainer',
-    metadata=metadata,
+    feature_id='feat',
+    metadata=FeatureMetadata('Feat', 'Desc', ['http://spec']),
     spec_contents={'http://spec': 'Spec Content'},
-    explainer_contents=None,  # Missing from context
   )
   jinja_env = MagicMock()
   template_mock = MagicMock()
   jinja_env.get_template.return_value = template_mock
 
   with patch(
-    'wptgen.phases.requirements_extraction.fetch_explainer_contents',
-    return_value={'http://explainer1': 'Fetched Explainer Content'},
-  ) as mock_fetch:
-    with patch(
-      'wptgen.phases.requirements_extraction.generate_safe',
-      return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
-    ):
-      await run_requirements_extraction(
-        context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-      )
+    'wptgen.phases.requirements_extraction.generate_safe',
+    return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+  ):
+    await run_requirements_extraction(context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path)
 
-    # Verify fetch_explainer_contents was called
-    mock_fetch.assert_called_once_with(['http://explainer1'])
-
-  # Verify explainer_contents was passed to render
-  template_mock.render.assert_any_call(
-    feature_name='Feat',
-    feature_description='Desc',
-    specs={'http://spec': 'Spec Content'},
-    mdn_contents=None,
-    explainer_contents={'http://explainer1': 'Fetched Explainer Content'},
-  )
-
-  # Verify it's stored in context
-  assert context.explainer_contents == {'http://explainer1': 'Fetched Explainer Content'}
+  mock_ui.on_phase_start.assert_called_once_with(2, 'Requirements Extraction')
+  mock_ui.success.assert_any_call('Extracted 1 test requirements.')
 
 
 @pytest.mark.asyncio
-async def test_run_requirements_extraction_explainer_fetch_warning(
-  mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+async def test_run_context_assembly_explainer_fetch_warning(
+  mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-  """Test that a warning is shown if an explainer fails to fetch."""
+  """Test that a warning is shown if an explainer fails to fetch during context assembly."""
+  mocker.patch('wptgen.phases.context_assembly.fetch_feature_yaml', return_value={'name': 'feat'})
   metadata = FeatureMetadata('Feat', 'Desc', ['http://spec'])
   metadata.explainer_links = ['http://explainer-fail']
-  context = WorkflowContext(
-    feature_id='feat-fail-explainer',
-    metadata=metadata,
-    spec_contents={'http://spec': 'Spec Content'},
-    explainer_contents=None,
+  mocker.patch(
+    'wptgen.phases.context_assembly.extract_feature_metadata',
+    return_value=metadata,
   )
-  jinja_env = MagicMock()
-  jinja_env.get_template.return_value = MagicMock()
+  mocker.patch('wptgen.phases.context_assembly.fetch_and_extract_text', return_value='Spec Content')
+  mocker.patch(
+    'wptgen.phases.context_assembly.fetch_explainer_contents',
+    return_value={},  # Fail
+  )
+  mocker.patch('wptgen.phases.context_assembly.find_feature_tests', return_value=[])
+  mocker.patch(
+    'wptgen.phases.context_assembly.gather_local_test_context', return_value=WPTContext()
+  )
 
-  with patch(
-    'wptgen.phases.requirements_extraction.fetch_explainer_contents',
-    return_value={},  # Failed to fetch
-  ):
-    with patch(
-      'wptgen.phases.requirements_extraction.generate_safe',
-      return_value='<requirements_list></requirements_list>',
-    ):
-      await run_requirements_extraction(
-        context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-      )
+  await run_context_assembly('feat-id', mock_config, mock_ui)
 
-  # Verify warning was shown
-  mock_ui.warning.assert_called_with(
+  mock_ui.warning.assert_any_call(
     'Failed to fetch or extract content from explainer: http://explainer-fail'
   )
 
