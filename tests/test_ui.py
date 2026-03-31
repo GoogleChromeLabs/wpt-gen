@@ -183,8 +183,8 @@ def test_report_test_suggestion(ui: RichUIProvider, mock_console: MagicMock) -> 
 def test_report_generation_summary(ui: RichUIProvider, mock_console: MagicMock) -> None:
   """Test report_generation_summary semantic method."""
   ui.report_generation_summary([(Path('p'), 'c', 's')])
-  # Newline + Table + Success message
-  assert mock_console.print.call_count == 3
+  # Newline + Table + Breakdown Title + Breakdown Item + Success message
+  assert mock_console.print.call_count == 5
 
 
 def test_progress_indicator(mocker: MockerFixture, ui: RichUIProvider) -> None:
@@ -274,7 +274,7 @@ def test_report_test_generated_fail(ui: RichUIProvider, mock_console: MagicMock)
 def test_report_generation_summary_empty(ui: RichUIProvider, mock_console: MagicMock) -> None:
   ui.report_generation_summary([])
   mock_console.print.assert_called_once_with(
-    '[bold red]✘[/bold red] No tests were successfully generated.'
+    '[bold red]✘[/bold red] No files were successfully created.'
   )
 
 

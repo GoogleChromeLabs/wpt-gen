@@ -65,6 +65,19 @@ class BrowserChannel(str, Enum):
   DEV = 'dev'
 
 
+class LLMProvider(str, Enum):
+  GEMINI = 'gemini'
+  GOOGLE = 'google'
+  ANTHROPIC = 'anthropic'
+  OPENAI = 'openai'
+
+
+@dataclass(frozen=True)
+class ProviderDefaults:
+  env_var: str
+  default_model: str
+
+
 @dataclass
 class FeatureMetadata:
   name: str

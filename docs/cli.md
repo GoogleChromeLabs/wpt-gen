@@ -35,8 +35,8 @@ wpt-gen generate [OPTIONS] WEB_FEATURE_ID
 | `--resume` | Resume the workflow from the last successful phase for this feature ID. |
 | `--resume-from` | Resume the workflow explicitly from a specific phase (`context_assembly`, `requirements_extraction`, `coverage_audit`, `generation`). |
 | `--state-dir` | Directory containing the necessary artifacts to hydrate the requested phase (alias: `--tests-dir`). |
-| `--suggestions-only` | Stop after generating test blueprints/suggestions. Skip the actual test file generation. |
-| `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed blueprints. |
+| `--suggestions-only` | Stop after generating test suggestions. Skip the actual test file generation. |
+| `--brief-suggestions` | Only generate test titles and descriptions for suggestions, omitting detailed test suggestions. |
 | `--yes-tokens` | Automatically confirm all prompts related to LLM token counts. |
 | `--yes-tests` | Automatically confirm and generate all proposed test suggestions without prompting. |
 | `--yes-cache` | Automatically use the cache if it exists without prompting. |

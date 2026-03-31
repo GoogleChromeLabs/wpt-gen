@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from google.adk.events import Event
@@ -101,12 +102,19 @@ def format_tool_call(tool_name: str, args: Any, agent_name: str = 'WPT-Gen Agent
   )
 
 
+@dataclass(frozen=True)
+class StreamConfig:
+  """Configuration for the ADKStreamManager."""
+
+  include_thoughts: bool = False
+
+
 class ADKStreamManager:
   """Manages the streaming of ADK events into the UI."""
 
-  def __init__(self, ui: UIProvider, include_thoughts: bool = False):
+  def __init__(self, ui: UIProvider, config: StreamConfig | None = None):
     self.ui = ui
-    self.include_thoughts = include_thoughts
+    self.config = config or StreamConfig()
 
   def __enter__(self) -> ADKStreamManager:
     return self
@@ -128,7 +136,7 @@ class ADKStreamManager:
 
       if part.text:
         if is_thought:
-          if self.include_thoughts:
+          if self.config.include_thoughts:
             # Stream the agent's internal thought process directly to stdout in dim italic text
             self.ui.stream_text(part.text)
         else:

@@ -1,18 +1,18 @@
 ---
 name: wpt-generator
-description: Generate Web Platform Tests (WPT) from minimal XML blueprints. The agent will autonomously determine the test type and implementation details by analyzing existing repository paradigms. Use when the user asks to generate a Web Platform Test based on a blueprint.
+description: Generate Web Platform Tests (WPT) from minimal XML test suggestions. The agent will autonomously determine the test type and implementation details by analyzing existing repository paradigms. Use when the user asks to generate a Web Platform Test based on a test suggestion.
 ---
 # Web Platform Test Generator
 
-This skill enables an ADK agent to generate Web Platform Tests (WPT) from minimal XML blueprints. Because the blueprint only contains high-level requirements, you must rely on existing codebase paradigms to determine how the test should be written.
+This skill enables an ADK agent to generate Web Platform Tests (WPT) from minimal XML test suggestions. Because the test suggestion only contains high-level requirements, you must rely on existing codebase paradigms to determine how the test should be written.
 
 ## Workflow
 
 **Temporary Files Policy:** If you need to create any temporary files during research, prototyping, or debugging, use the `write_file` tool to place them exclusively inside a `.wpt-generator-tmp/` directory at the root of the repository. Do not scatter temporary files across the codebase.
 
-When asked to generate a WPT from an XML blueprint, follow these steps:
+When asked to generate a WPT from an XML test suggestion, follow these steps:
 
-### 1. Parse the Blueprint
+### 1. Parse the test suggestion
 Extract the following elements from the `<test_suggestion>` XML snippet provided by the user:
 - `<web_feature_id>`: Used to find where the test should live.
 - `<description>`: The underlying requirement or specification behavior to test.
@@ -39,13 +39,13 @@ Since you are not provided with explicit steps or a test type, you MUST research
 ### 4. Determine the Appropriate File(s) & Name
 Before creating a new file, rigorously check if the test logic belongs in existing files. **Minimize boilerplate by reusing existing files whenever possible.**
 1. **Analyze Directory Paradigms:** Check if the target directory splits tests by category (e.g., separating valid vs. invalid values, or computed vs. parsing behavior).
-2. **Split the Blueprint if Necessary:** A single XML blueprint might encompass multiple test categories. If the directory separates testing into distinct files (e.g., `feature-valid.html` and `feature-invalid.html`), **you MUST split the test logic across the respective existing files** rather than creating a single, monolithic new file.
+2. **Split the test suggestion if Necessary:** A single XML test suggestion might encompass multiple test categories. If the directory separates testing into distinct files (e.g., `feature-valid.html` and `feature-invalid.html`), **you MUST split the test logic across the respective existing files** rather than creating a single, monolithic new file.
 3. **Reftest Reference Search:** If you selected **Reftest**, you MUST search the target directory (and any `reference/` subdirectories) for existing reusable reference files (e.g., `ref-filled-green-100px-square.xht`) before deciding to create a new one. Do NOT generate a duplicate reference file if a suitable one exists.
 4. **Create New Only When Necessary:** Only if no logical match is found (even after considering splitting and manual consolidation), plan to create a new file. **Consult `references/wpt_style_guide.md` to determine the correct filename extension and suffixes** (e.g., `.html`, `.window.js`, `.any.js`) based on your chosen test type. Name the file logically based on the `<web_feature_id>`.
 5. **File Existence Check:** Before using `write_file` to create a new test file, you MUST verify that the proposed filename does not already exist in the target directory (e.g., by using the `list_directory` tool).
 6. **Naming Conflicts:** If a file with the proposed name already exists, you MUST either append the new test logic to the existing file (if logically appropriate) or generate a new unique filename by incrementing a numerical suffix (e.g., changing `-001.html` to `-002.html`) to prevent overwriting existing work.
-7. **Existing Test Expansion:** If you detect that the core assertion of the WPT blueprint is already present in an existing test (i.e. a test perfectly matching the blueprint exists), you MUST ensure all specification edge cases, permutations, or multi-level DOM configurations are thoroughly exercised, and expand the existing test file as necessary instead of creating a redundant new test.
-   - **Handling `.tentative` files:** If an existing `.tentative` file matches your blueprint, append your new test cases directly to it. **Do NOT remove the `.tentative` suffix or rename the file** to "upgrade" it unless explicitly instructed to do so by the user.
+7. **Existing Test Expansion:** If you detect that the core assertion of the WPT test suggestion is already present in an existing test (i.e. a test perfectly matching the test suggestion exists), you MUST ensure all specification edge cases, permutations, or multi-level DOM configurations are thoroughly exercised, and expand the existing test file as necessary instead of creating a redundant new test.
+   - **Handling `.tentative` files:** If an existing `.tentative` file matches your test suggestion, append your new test cases directly to it. **Do NOT remove the `.tentative` suffix or rename the file** to "upgrade" it unless explicitly instructed to do so by the user.
 
 ### 5. Load References & Generate the Test
 **Before writing any code**, you MUST read the appropriate style guides to ensure correct formatting and syntax:

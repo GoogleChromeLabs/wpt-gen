@@ -20,7 +20,7 @@ from google.genai import types
 from rich.panel import Panel
 from rich.table import Table
 
-from wptgen.agents.streaming import ADKStreamManager
+from wptgen.agents.streaming import ADKStreamManager, StreamConfig
 
 
 def test_adk_stream_manager_text(capsys: pytest.CaptureFixture[str]) -> None:
@@ -42,7 +42,7 @@ def test_adk_stream_manager_thought() -> None:
   part = types.Part(text='Pondering deeply...', thought=True)
   event = Event(author='agent', content=types.Content(parts=[part]))
 
-  with ADKStreamManager(ui_mock, include_thoughts=True) as manager:
+  with ADKStreamManager(ui_mock, config=StreamConfig(include_thoughts=True)) as manager:
     manager.process_event(event)
 
   ui_mock.stream_text.assert_called_once_with('Pondering deeply...')

@@ -26,7 +26,7 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.streaming import ADKStreamManager
+from wptgen.agents.streaming import ADKStreamManager, StreamConfig
 from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.models import TestType, WorkflowContext
@@ -42,10 +42,10 @@ async def generate_test_with_adk(
   jinja_env: Environment,
   ui: UIProvider,
 ) -> list[tuple[Path, str, str]]:
-  """Runs the ADK Agent to generate tests for a single blueprint.
+  """Runs the ADK Agent to generate tests for a single test suggestion.
 
   Args:
-      suggestion_xml: The XML blueprint for the test.
+      suggestion_xml: The XML test suggestion for the test.
       root_name: The base filename to use (e.g., 'feature-1').
       test_type_enum: The type of test to generate.
       context: The workflow context (contains metadata).
@@ -154,7 +154,9 @@ async def generate_test_with_adk(
     events = runner.run_async(session_id=session.id, user_id='cli_user', new_message=content)
 
     # We just consume the stream to let the agent run.
-    with ADKStreamManager(ui, include_thoughts=config.include_thoughts) as stream_manager:
+    with ADKStreamManager(
+      ui, config=StreamConfig(include_thoughts=config.include_thoughts)
+    ) as stream_manager:
       async for event in events:
         stream_manager.process_event(event)
 

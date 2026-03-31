@@ -15,12 +15,13 @@
 import os
 
 from wptgen.config import Config
+from wptgen.models import LLMProvider, ProviderDefaults
 
-_PROVIDER_CONFIG = {
-  'gemini': ('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-  'google': ('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-  'anthropic': ('ANTHROPIC_API_KEY', 'claude-opus-4-6'),
-  'openai': ('OPENAI_API_KEY', 'gpt-5.2-high'),
+_PROVIDER_CONFIG: dict[LLMProvider, ProviderDefaults] = {
+  LLMProvider.GEMINI: ProviderDefaults('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
+  LLMProvider.GOOGLE: ProviderDefaults('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
+  LLMProvider.ANTHROPIC: ProviderDefaults('ANTHROPIC_API_KEY', 'claude-opus-4-6'),
+  LLMProvider.OPENAI: ProviderDefaults('OPENAI_API_KEY', 'gpt-5.2-high'),
 }
 
 
@@ -37,15 +38,15 @@ def setup_adk_environment(config: Config) -> str:
     ValueError: If the required API key for the selected provider is missing
       or if the provider is unsupported.
   """
-  provider = config.provider.lower()
+  try:
+    provider = LLMProvider(config.provider.lower())
+  except ValueError:
+    raise ValueError(f'Unsupported ADK provider: {config.provider}') from None
 
   if not config.api_key:
-    raise ValueError(f'An API key is required for the {provider} provider.')
+    raise ValueError(f'An API key is required for the {provider.value} provider.')
 
-  if provider not in _PROVIDER_CONFIG:
-    raise ValueError(f'Unsupported ADK provider: {provider}')
+  defaults = _PROVIDER_CONFIG[provider]
+  os.environ[defaults.env_var] = config.api_key
 
-  env_var, default_model = _PROVIDER_CONFIG[provider]
-  os.environ[env_var] = config.api_key
-
-  return config.default_model or default_model
+  return config.default_model or defaults.default_model
