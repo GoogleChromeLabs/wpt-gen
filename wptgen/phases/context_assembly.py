@@ -21,6 +21,7 @@ from wptgen.context import (
   extract_wpt_paths,
   fetch_and_extract_text,
   fetch_chromestatus_metadata,
+  fetch_explainer_contents,
   fetch_feature_yaml,
   fetch_mdn_urls,
   find_feature_tests,
@@ -83,6 +84,19 @@ async def run_context_assembly(
     ui.error('Failed to extract spec content.')
     return None
 
+  explainer_contents: dict[str, str] | None = None
+  if metadata.explainer_links:
+    ui.print('Fetching explainer content...')
+    with ui.status('Fetching and extracting text from explainers...'):
+      explainer_contents = await asyncio.to_thread(
+        fetch_explainer_contents, metadata.explainer_links
+      )
+
+      # Check for missing URLs to show warnings
+      for url in metadata.explainer_links:
+        if url not in explainer_contents:
+          ui.warning(f'Failed to fetch or extract content from explainer: {url}')
+
   ui.print('Scanning local WPT repository for existing tests and dependencies...')
   test_paths = find_feature_tests(config.wpt_path, web_feature_id)
   extracted_wpt_urls: list[str] | None = None
@@ -107,7 +121,7 @@ async def run_context_assembly(
   wpt_context = gather_local_test_context(test_paths, config.wpt_path)
 
   mdn_contents: list[str] | None = None
-  if config.include_mdn_docs:
+  if config.include_mdn_docs and not config.chromestatus:
     ui.print('Fetching MDN documentation...')
     mdn_urls = fetch_mdn_urls(web_feature_id)
     if mdn_urls:
@@ -121,21 +135,30 @@ async def run_context_assembly(
           for url, res in zip(mdn_urls, results, strict=True)
           if res
         ]
+  elif config.chromestatus and config.include_mdn_docs:
+    ui.print('Skipping MDN documentation fetch for ChromeStatus feature.')
   else:
     ui.print('Skipping MDN documentation fetch (not requested).')
 
-  ui.report_context_summary(
-    sum(len(content) for content in spec_contents.values()),
-    len(mdn_contents) if mdn_contents else 0,
-    len(wpt_context.test_contents),
-    len(wpt_context.dependency_contents),
-  )
+  if config.chromestatus:
+    ui.report_context_summary(
+      spec_len=sum(len(content) for content in spec_contents.values()),
+      explainer_count=len(explainer_contents) if explainer_contents else 0,
+      test_count=len(wpt_context.test_contents),
+    )
+  else:
+    ui.report_context_summary(
+      spec_len=sum(len(content) for content in spec_contents.values()),
+      mdn_count=len(mdn_contents) if mdn_contents else 0,
+      test_count=len(wpt_context.test_contents),
+      dep_count=len(wpt_context.dependency_contents),
+    )
 
   return WorkflowContext(
     feature_id=web_feature_id,
     metadata=metadata,
     spec_contents=spec_contents,
-    explainer_contents=None,
+    explainer_contents=explainer_contents,
     mdn_contents=mdn_contents,
     wpt_context=wpt_context,
     wpt_urls=extracted_wpt_urls,
