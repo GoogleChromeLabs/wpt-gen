@@ -271,8 +271,8 @@ def load_config(
     )
 
   wpt_path = wpt_dir_override or yaml_data.get('wpt_path', WPT_DEFAULT_PATH)
-  output_dir_raw = output_dir_override or yaml_data.get('output_dir', '.')
-  output_dir = validate_output_dir(output_dir_raw)
+  output_dir_raw = output_dir_override or yaml_data.get('output_dir')
+  output_dir = validate_output_dir(output_dir_raw) if output_dir_raw else None
 
   show_responses = show_responses or yaml_data.get('show_responses', False)
   yes_tokens = yes_tokens_override or yaml_data.get('yes_tokens', False)

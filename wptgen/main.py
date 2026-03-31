@@ -198,11 +198,12 @@ def _execute_workflow(
       )
     )
   else:
-    if wf_yml_update and output_dir and context and context.generated_tests:
+    target_dir = output_dir or (Path(config.output_dir) if config.output_dir else None)
+    if wf_yml_update and target_dir and context and context.generated_tests:
       from wptgen.metadata import update_web_features_yml
 
       generated_paths = [path for path, _, _ in context.generated_tests]
-      update_web_features_yml(output_dir, web_feature_id, generated_paths)
+      update_web_features_yml(target_dir, web_feature_id, generated_paths)
       console.print(f'[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]')
 
     console.print()
@@ -647,11 +648,6 @@ def chromestatus_command(
   console.print(banner)
   console.print(f'\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n')
 
-  if not suggestions_only:
-    ui.error('Test generation for ChromeStatus entries is not yet implemented.')
-    ui.info('Please use --suggestions-only to generate the coverage audit report.')
-    raise typer.Exit(code=1)
-
   if use_lightweight and use_reasoning:
     ui.error('Cannot use both --use-lightweight and --use-reasoning.')
     raise typer.Exit(code=1)
@@ -719,9 +715,14 @@ def chromestatus_command(
     engine.run_workflow(feature_id)
 
     console.print()
+    if suggestions_only:
+      msg = '[bold green]✔ ChromeStatus Audit completed successfully! Blueprints generated.[/bold green]'
+    else:
+      msg = '[bold green]✔ ChromeStatus Workflow completed successfully![/bold green]'
+
     console.print(
       Panel(
-        '[bold green]✔ ChromeStatus Audit completed successfully![/bold green]',
+        msg,
         border_style='green',
         expand=False,
       )

@@ -203,7 +203,13 @@ class WPTGenEngine:
       context = await run_context_assembly(web_feature_id, self.config, self.ui)
       if not context:
         raise WorkflowError('Phase 1: Context Assembly failed.')
+
       self._save_resume_state(context)
+
+    if not self.config.output_dir:
+      from wptgen.utils import determine_output_directory
+
+      self.config.output_dir = determine_output_directory(context, self.config, self.ui)
 
     # Phase 2: Requirements Extraction
     if should_run(WorkflowPhase.REQUIREMENTS_EXTRACTION, bool(context.requirements_xml)):

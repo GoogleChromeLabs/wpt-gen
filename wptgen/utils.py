@@ -16,10 +16,16 @@ import random
 import re
 import subprocess
 import time
+from collections import Counter
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import ParamSpec, TypeVar
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
+
+if TYPE_CHECKING:
+  from wptgen.config import Config
+  from wptgen.models import WorkflowContext
+  from wptgen.ui import UIProvider
 
 T = TypeVar('T')
 P = ParamSpec('P')
@@ -380,3 +386,69 @@ def get_recent_test_files(
       break
 
   return files
+
+
+def determine_output_directory(
+  context: 'WorkflowContext', config: 'Config', ui: 'UIProvider'
+) -> str:
+  wpt_path = Path(config.wpt_path).resolve()
+
+  # 1. Infer from existing tests
+  if context.wpt_context and context.wpt_context.test_contents:
+    dirs = [Path(p).parent for p in context.wpt_context.test_contents.keys()]
+    if dirs:
+      most_common = Counter(dirs).most_common(1)[0][0]
+      try:
+        rel_path = most_common.relative_to(wpt_path)
+      except ValueError:
+        rel_path = most_common
+      ui.success(f'Inferred output directory from existing tests: {rel_path}')
+      return str(most_common.resolve())
+
+  # 2. Infer from Spec URLs
+  if context.metadata and context.metadata.specs:
+    for url in context.metadata.specs:
+      css_match = re.search(
+        r'(?:csswg\.org|csswg-drafts)/(css-[a-z0-9-]+?)(?:-\d+)?/?(?:#.*)?$', url
+      )
+      if css_match:
+        candidate = wpt_path / 'css' / css_match.group(1)
+        if candidate.exists():
+          ui.success(f'Inferred output directory from spec URL: css/{css_match.group(1)}')
+          return str(candidate.resolve())
+
+      for prefix in ['w3c.github.io', 'wicg.github.io']:
+        match = re.search(rf'{prefix}/([a-z0-9-]+)/?', url)
+        if match:
+          shortname = match.group(1)
+          candidates = [wpt_path / shortname]
+          if shortname.endswith('-api'):
+            candidates.append(wpt_path / shortname[:-4])
+          for cand in candidates:
+            if cand.exists() and cand.is_dir():
+              ui.success(f'Inferred output directory from spec URL: {cand.relative_to(wpt_path)}')
+              return str(cand.resolve())
+
+      if 'html.spec.whatwg.org' in url:
+        candidate = wpt_path / 'html'
+        if candidate.exists():
+          ui.success('Inferred output directory from HTML spec: html')
+          return str(candidate.resolve())
+
+  # 3. Prompt user / Fallback to landing zone
+  ui.warning('Could not automatically determine a specific target directory for generated tests.')
+  choice = ''
+  if not config.yes_tests:
+    ui.print(
+      'Please specify a directory relative to the WPT root, or press Enter to use the "incubations" landing zone.'
+    )
+    choice = ui.prompt('Target directory', default='incubations')
+
+  if choice and choice.strip() != 'incubations':
+    landing_zone = wpt_path / choice.strip()
+  else:
+    landing_zone = wpt_path / 'incubations'
+
+  landing_zone.mkdir(parents=True, exist_ok=True)
+  ui.info(f'Using target directory: {landing_zone.relative_to(wpt_path)}')
+  return str(landing_zone.resolve())
