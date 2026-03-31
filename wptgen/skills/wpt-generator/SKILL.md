@@ -108,7 +108,7 @@ Every generated test file MUST be explicitly mapped to the target `<web_feature_
 
 {% endif %}
 
-### 8. Finalizing
+### {% if has_web_feature_id %}8{% else %}7{% endif %}. Finalizing
 - Ensure standard WPT scripts are included properly (if applicable) using absolute paths from the root server.
 - Ensure crashtests end with `-crash.html` if creating a new crashtest file.
 - **Clean Up:** You MUST explicitly delete any temporary files you created in `.wpt-generator-tmp/` using the `delete_file` tool to ensure no temporary prototypes, scripts, or intermediate files are left behind in the repository.
