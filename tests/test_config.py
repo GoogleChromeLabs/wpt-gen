@@ -355,3 +355,31 @@ providers:
   assert config.categories['lightweight'] == 'gemini-custom-flash'
   # The reasoning default category should be preserved
   assert config.categories['reasoning'] == 'gemini-3.1-pro-preview'
+
+
+def test_load_config_audit_partition_size(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that audit_partition_size is correctly loaded."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  # Case 1: Default (40)
+  config = load_config(config_path='non_existent_dummy.yaml')
+  assert config.audit_partition_size == 40
+
+  # Case 2: Override to 20
+  config = load_config(config_path='non_existent_dummy.yaml', audit_partition_size_override=20)
+  assert config.audit_partition_size == 20
+
+
+def test_load_config_audit_partition_size_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that an invalid audit_partition_size raises ValueError."""
+  monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
+
+  with pytest.raises(
+    ValueError, match='CRITICAL: audit_partition_size must be strictly greater than 0'
+  ):
+    load_config(config_path='non_existent_dummy.yaml', audit_partition_size_override=0)
+
+  with pytest.raises(
+    ValueError, match='CRITICAL: audit_partition_size must be strictly greater than 0'
+  ):
+    load_config(config_path='non_existent_dummy.yaml', audit_partition_size_override=-5)
