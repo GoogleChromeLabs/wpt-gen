@@ -36,7 +36,9 @@ def test_fetch_chromestatus_metadata_success(mocker: MockerFixture) -> None:
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = json.dumps(mock_data).encode("utf-8")
     mock_response.__enter__.return_value = mock_response
-    mocker.patch("urllib.request.urlopen", return_value=mock_response)
+    mocker.patch(
+        "wptgen.context._ssrf_safe_opener.open", return_value=mock_response
+    )
 
     metadata = fetch_chromestatus_metadata("12345")
 
@@ -67,7 +69,9 @@ def test_fetch_chromestatus_metadata_with_prefix(mocker: MockerFixture) -> None:
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = prefix_content.encode("utf-8")
     mock_response.__enter__.return_value = mock_response
-    mocker.patch("urllib.request.urlopen", return_value=mock_response)
+    mocker.patch(
+        "wptgen.context._ssrf_safe_opener.open", return_value=mock_response
+    )
 
     metadata = fetch_chromestatus_metadata("1238765")
 
