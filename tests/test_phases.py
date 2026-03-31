@@ -472,7 +472,9 @@ async def test_run_requirements_extraction_success(
     """Test successful requirements extraction with mocked LLM response."""
     context = WorkflowContext(
         feature_id="feat",
-        metadata=FeatureMetadata("Feat", "Desc", ["http://spec"]),
+        metadata=FeatureMetadata(
+            "Feat", "Desc", ["http://spec"], explainer_links=["http://explainer1"]
+        ),
         spec_contents={"http://spec": "Spec Content"},
     )
     jinja_env = MagicMock()
@@ -480,12 +482,33 @@ async def test_run_requirements_extraction_success(
     jinja_env.get_template.return_value = template_mock
 
     with patch(
-        "wptgen.phases.requirements_extraction.generate_safe",
-        return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
-    ):
-        await run_requirements_extraction(
-            context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
-        )
+        "wptgen.phases.requirements_extraction.fetch_and_extract_text",
+        return_value="Fetched Explainer Content",
+    ) as mock_fetch:
+        with patch(
+            "wptgen.phases.requirements_extraction.generate_safe",
+            return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+        ):
+            await run_requirements_extraction(
+                context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+            )
+
+        # Verify fetch_and_extract_text was called
+        mock_fetch.assert_called_once_with("http://explainer1")
+
+    # Verify explainer_contents was passed to render
+    template_mock.render.assert_any_call(
+        feature_name="Feat",
+        feature_description="Desc",
+        specs={"http://spec": "Spec Content"},
+        mdn_contents=None,
+        explainer_contents={"http://explainer1": "Fetched Explainer Content"},
+    )
+
+    # Verify it's stored in context
+    assert context.explainer_contents == {
+        "http://explainer1": "Fetched Explainer Content"
+    }
 
     mock_ui.on_phase_start.assert_called_once_with(2, "Requirements Extraction")
     mock_ui.success.assert_any_call("Extracted 1 test requirements.")
