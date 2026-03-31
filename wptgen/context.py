@@ -26,6 +26,7 @@ import yaml
 from bs4 import BeautifulSoup
 
 from wptgen.models import DataSource, FeatureMetadata, WPTContext
+from wptgen.utils import MAX_RETRIES, retry
 
 __all__ = ["DataSource", "FeatureMetadata", "WPTContext"]
 
@@ -172,21 +173,6 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
         return []
 
 
-def fetch_explainer_contents(urls: list[str]) -> dict[str, str]:
-    """
-    Fetches and extracts text content from a list of explainer URLs.
-
-    Returns:
-      Dictionary mapping each URL to its extracted markdown content.
-    """
-    contents = {}
-    for url in urls:
-        res = fetch_and_extract_text(url)
-        if res:
-            contents[url] = res
-    return contents
-
-
 def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
     """
     Extracts the high-level metadata (name and description) from the feature data.
@@ -216,13 +202,20 @@ def fetch_and_extract_text(url: str) -> str | None:
     """
     logger.info(f"Fetching content from: {url}")
 
-    try:
+    @retry(
+        (urllib.error.HTTPError, urllib.error.URLError),
+        max_attempts=MAX_RETRIES,
+    )
+    def _fetch() -> str:
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(
             url, headers={"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
         )
         with urllib.request.urlopen(req) as response:
-            html = response.read().decode("utf-8")
+            return str(response.read().decode("utf-8"))
+
+    try:
+        html = _fetch()
     except Exception as e:
         logger.error(f"Failed to download HTML from {url}: {e}")
         return None
