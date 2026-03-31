@@ -33,6 +33,8 @@ SKILLS_DIR = PACKAGE_ROOT / 'skills'
 DEFAULT_LLM_TIMEOUT = 600
 # Minimum allowed timeout for Gemini API (10 seconds)
 MIN_LLM_TIMEOUT = 10
+# Default partition size for requirement auditing
+DEFAULT_AUDIT_PARTITION_SIZE = 40
 
 DEFAULT_PROVIDER_MODELS = {
   'gemini': {
@@ -92,7 +94,7 @@ class Config:
   resume_from: WorkflowPhase | None = None
   state_dir: str | None = None
   max_parallel_requests: int = 10
-  audit_partition_size: int = 40
+  audit_partition_size: int = DEFAULT_AUDIT_PARTITION_SIZE
   temperature: float | None = None
   loaded_from: str | None = None
 
@@ -298,7 +300,15 @@ def load_config(
   )
   max_retries = max_retries_override or yaml_data.get('max_retries', 3)
   timeout = timeout_override or yaml_data.get('timeout', DEFAULT_LLM_TIMEOUT)
-  audit_partition_size = audit_partition_size_override or yaml_data.get('audit_partition_size', 40)
+  audit_partition_size = (
+    audit_partition_size_override
+    if audit_partition_size_override is not None
+    else yaml_data.get('audit_partition_size', DEFAULT_AUDIT_PARTITION_SIZE)
+  )
+  if audit_partition_size <= 0:
+    raise ValueError(
+      f'CRITICAL: audit_partition_size must be strictly greater than 0. Got: {audit_partition_size}'
+    )
   max_parallel_requests = max_parallel_requests_override or yaml_data.get(
     'max_parallel_requests', 10
   )
