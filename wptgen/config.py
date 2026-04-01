@@ -111,23 +111,6 @@ class Config:
             return None
         return self.categories.get(category)
 
-    def get_model_info_for_phase(
-        self, phase: WorkflowPhase | str
-    ) -> str | None:
-        """Returns a descriptive string of the active model and its category for the phase."""
-        phase_name = phase.value if isinstance(phase, WorkflowPhase) else phase
-        if self.use_lightweight:
-            model = self.categories.get("lightweight")
-            return f"{model} (lightweight) (Overridden by --use-lightweight)"
-        if self.use_reasoning:
-            model = self.categories.get("reasoning")
-            return f"{model} (reasoning) (Overridden by --use-reasoning)"
-        category = self.phase_model_mapping.get(phase_name)
-        if not category:
-            return None
-        model = self.categories.get(category)
-        return f"{model} ({category})"
-
 
 def _get_default_cache_path() -> str:
     """Returns a platform-appropriate default cache directory."""

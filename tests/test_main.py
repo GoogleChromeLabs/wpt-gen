@@ -185,7 +185,6 @@ def test_generate_success(
         ("--max-parallel-requests", "max_parallel_requests_override", 5, ["5"]),
         ("--draft", "draft_override", True, []),
         ("--brief-suggestions", "brief_suggestions", True, []),
-        ("--skip-run", "skip_run_override", True, []),
     ],
 )
 def test_generate_flags(
@@ -506,11 +505,6 @@ def test_chromestatus_command(
         args.append("--suggestions-only")
 
     result = runner.invoke(app, args)
-
-    if not suggestions_only:
-        assert result.exit_code == 1
-        assert "not yet implemented" in result.stdout
-        return
 
     # Check standard output and exit code
     assert result.exit_code == 0

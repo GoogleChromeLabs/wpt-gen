@@ -487,9 +487,7 @@ async def test_run_requirements_extraction_success(
             context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
         )
 
-    mock_ui.on_phase_start.assert_called_once_with(
-        2, "Requirements Extraction", "smart-model (reasoning)"
-    )
+    mock_ui.on_phase_start.assert_called_once_with(2, "Requirements Extraction")
     mock_ui.success.assert_any_call("Extracted 1 test requirements.")
 
 
