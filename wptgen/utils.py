@@ -444,11 +444,13 @@ def determine_output_directory(
     )
     choice = ui.prompt('Target directory', default='incubations')
 
-  if choice and choice.strip() != 'incubations':
-    landing_zone = wpt_path / choice.strip()
-  else:
-    landing_zone = wpt_path / 'incubations'
+  from wptgen.config import validate_output_dir
 
-  landing_zone.mkdir(parents=True, exist_ok=True)
-  ui.info(f'Using target directory: {landing_zone.relative_to(wpt_path)}')
-  return str(landing_zone.resolve())
+  if choice and choice.strip() != 'incubations':
+    final_path = wpt_path / choice.strip()
+  else:
+    final_path = wpt_path / 'incubations'
+
+  validated_path = validate_output_dir(str(final_path))
+  ui.info(f'Using target directory: {Path(validated_path).relative_to(wpt_path)}')
+  return validated_path
