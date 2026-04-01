@@ -217,7 +217,7 @@ def test_validate_wpt_paths_outside_root(tmp_path: Path) -> None:
 
 def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
     """Test successfully fetching MDN URLs from the mapping JSON."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = b'{"fetch": [{"url": "https://developer.mozilla.org/en-US/docs/Web/API/fetch"}]}'
     mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -232,7 +232,7 @@ def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
 
 def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
     """Test that if a feature ID is not in the mapping, it returns an empty list."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
         b'{"fetch": [{"url": "https://example.com"}]}'
@@ -246,7 +246,7 @@ def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
 
 def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
     """Test that HTTP errors during mapping fetch return an empty list."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_urlopen.side_effect = urllib.error.HTTPError(
         url="", code=404, msg="Not Found", hdrs=Message(), fp=None
     )
@@ -258,7 +258,7 @@ def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
 
 def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:
     """Test the happy path where the YAML file is successfully fetched and parsed."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     # Setup the context manager mock so it returns a byte string when .read() is called
     mock_response = mocker.MagicMock()
@@ -278,7 +278,7 @@ def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:
 
 def test_fetch_feature_yaml_not_found(mocker: MockerFixture) -> None:
     """Test that a 404 error from GitHub safely returns None."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     # Simulate a 404 HTTPError
     mock_urlopen.side_effect = urllib.error.HTTPError(
@@ -292,7 +292,7 @@ def test_fetch_feature_yaml_not_found(mocker: MockerFixture) -> None:
 
 def test_fetch_feature_yaml_server_error(mocker: MockerFixture) -> None:
     """Test that a 500 error (or rate limit) raises an exception."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     # Simulate a 500 HTTPError
     mock_urlopen.side_effect = urllib.error.HTTPError(
@@ -344,9 +344,39 @@ def test_extract_feature_metadata_defaults() -> None:
     assert result.specs == []
 
 
+def test_fetch_and_extract_text_ssrf_validation_blocks_localhost() -> None:
+    """Test that fetching from localhost is blocked by the SSRF validation."""
+    with pytest.raises(
+        ValueError, match="URL resolves to a restricted IP address"
+    ):
+        fetch_and_extract_text("http://localhost/spec")
+
+
+def test_fetch_and_extract_text_ssrf_validation_blocks_private_ip() -> None:
+    """Test that fetching from a private IP is blocked by the SSRF validation."""
+    with pytest.raises(
+        ValueError, match="URL resolves to a restricted IP address"
+    ):
+        fetch_and_extract_text("http://192.168.1.5/admin")
+
+
+def test_fetch_and_extract_text_ssrf_validation_blocks_metadata() -> None:
+    """Test that fetching from a cloud metadata IP is blocked by the SSRF validation."""
+    with pytest.raises(
+        ValueError, match="URL resolves to a restricted IP address"
+    ):
+        fetch_and_extract_text("http://169.254.169.254/latest/meta-data/")
+
+
+def test_fetch_and_extract_text_ssrf_validation_invalid_url() -> None:
+    """Test that an invalid URL without a hostname raises an error."""
+    with pytest.raises(ValueError, match="Invalid URL scheme: file"):
+        fetch_and_extract_text("file:///etc/passwd")
+
+
 def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
     """Test the happy path where HTML is downloaded and successfully converted to Markdown."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
         b"<html><body><main><h1>Spec</h1><p>Text</p></main></body></html>"
@@ -362,7 +392,7 @@ def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
 
 def test_fetch_and_extract_text_retry_success(mocker: MockerFixture) -> None:
     """Test that fetch_and_extract_text retries on transient errors and eventually succeeds."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
@@ -397,7 +427,7 @@ def test_fetch_and_extract_text_retry_max_reached(
     """Test that fetch_and_extract_text eventually gives up after MAX_RETRIES."""
     from wptgen.utils import MAX_RETRIES
 
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     error429 = urllib.error.HTTPError(
         url="https://example.com",
@@ -421,7 +451,7 @@ def test_fetch_and_extract_text_retry_max_reached(
 
 def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
     """Test that if the URL cannot be fetched, the function returns None."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_urlopen.side_effect = Exception("Network error")
 
     result = fetch_and_extract_text("https://example.com")
@@ -431,7 +461,7 @@ def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
 
 def test_fetch_and_extract_text_extract_fails(mocker: MockerFixture) -> None:
     """Test that if no content is found, the function returns None."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = b"<html></html>"
     mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -445,7 +475,7 @@ def test_fetch_and_extract_text_preserves_internal_links(
     mocker: MockerFixture,
 ) -> None:
     """Test that internal spec links are preserved while external links are stripped."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
         b"<html><body><main><h1>Spec</h1>\n"
@@ -666,7 +696,7 @@ def test_gather_local_test_context(tmp_path: Path) -> None:
 
 def test_fetch_feature_yaml_not_a_dict(mocker: MockerFixture) -> None:
     """Test that if the YAML file is not a dictionary, it returns None."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = b'["not", "a", "dict"]'
     mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -729,7 +759,7 @@ def test_gather_local_test_context_exception(
 
 def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
     """Test that fetching a draft feature constructs the correct URL."""
-    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = b"name: 'Draft Feature'"
