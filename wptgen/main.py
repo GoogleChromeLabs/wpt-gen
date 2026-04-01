@@ -481,8 +481,7 @@ def generate(
         typer.Option(
             "--draft",
             help=(
-                "Enable fetching metadata from the draft features "
-                "directory."
+                "Enable fetching metadata from the draft features " "directory."
             ),
         ),
     ] = False,

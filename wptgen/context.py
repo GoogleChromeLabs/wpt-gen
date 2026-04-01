@@ -110,9 +110,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
     url = f"https://chromestatus.com/api/v0/features/{feature_id}"
 
     try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "WPT-Gen/1.0"}
-        )
+        req = urllib.request.Request(url, headers={"User-Agent": "WPT-Gen/1.0"})
         with urllib.request.urlopen(req) as response:
             content = response.read().decode("utf-8")
             # ChromeStatus API often prefixes JSON with a vulnerability
@@ -243,7 +241,6 @@ def fetch_and_extract_text(url: str) -> str | None:
     except (urllib.error.URLError, urllib.error.HTTPError) as e:
         logger.error("Failed to download HTML from %s: %s", url, e)
         return None
-
 
     soup = BeautifulSoup(html, "lxml")
 
