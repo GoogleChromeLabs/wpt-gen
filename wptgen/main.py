@@ -304,6 +304,13 @@ def generate(
       help='Only generate test titles and descriptions for suggestions (omits detailed test suggestions).',
     ),
   ] = False,
+  skip_run: Annotated[
+    bool,
+    typer.Option(
+      '--skip-run',
+      help='Opt out of running generated tests.',
+    ),
+  ] = False,
   resume: Annotated[
     bool,
     typer.Option(
@@ -489,6 +496,7 @@ def generate(
       suggestions_only=suggestions_only,
       brief_suggestions=brief_suggestions,
       resume_override=resume,
+      skip_run_override=skip_run,
       resume_from_override=resume_from,
       state_dir_override=str(state_dir) if state_dir else None,
       max_retries_override=max_retries,
@@ -1038,6 +1046,13 @@ def audit(
       help='Only generate test titles and descriptions for suggestions (omits detailed test suggestions).',
     ),
   ] = False,
+  skip_run: Annotated[
+    bool,
+    typer.Option(
+      '--skip-run',
+      help='Opt out of running generated tests.',
+    ),
+  ] = False,
   resume: Annotated[
     bool,
     typer.Option(
@@ -1216,6 +1231,7 @@ def audit(
       suggestions_only=True,
       brief_suggestions=brief_suggestions,
       resume_override=resume,
+      skip_run_override=skip_run,
       resume_from_override=resume_from,
       state_dir_override=str(state_dir) if state_dir else None,
       max_retries_override=max_retries,
