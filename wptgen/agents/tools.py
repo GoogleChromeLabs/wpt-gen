@@ -52,6 +52,14 @@ BINARY_EXTENSIONS = {
     ".sqlite3",
 }
 
+BANNED_PATH_COMPONENTS = {
+    ".git",
+    ".env",
+    ".gemini",
+    "__pycache__",
+    ".pytest_cache",
+}
+
 
 def _parse_test_results(log_path: str) -> dict[str, str]:
     """Parses the JSON log output to extract failing test IDs and error messages."""
@@ -139,7 +147,7 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
         ) from e
 
     # Enforce explicit deny-list for internal/sensitive files
-    if ".git" in rel_path.parts or ".env" in rel_path.parts:
+    if any(part in BANNED_PATH_COMPONENTS for part in rel_path.parts):
         raise ValueError(
             f"Access to internal or sensitive repository path '{target_path}' is strictly prohibited."
         )
