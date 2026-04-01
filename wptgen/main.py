@@ -168,19 +168,36 @@ def _workflow_error_handler() -> Generator[None, None, None]:
         raise typer.Exit(code=1) from e
 
 
-def _execute_workflow(
-    web_feature_id: str,
-    config: Any,
-    wf_yml_update: bool,
-    output_dir: Path | None,
-    is_audit: bool = False,
-) -> None:
-    config_info = Text.assemble(
+def _print_run_config(config: Any) -> None:
+    parts = [
         ("Provider: ", "bold"),
         (f"{config.provider}\n", "green"),
         ("Model:    ", "bold"),
-        (f"{config.default_model}", "green"),
-    )
+        (f"{config.default_model}\n", "green"),
+    ]
+
+    if "lightweight" in config.categories:
+        lightweight_model = config.categories["lightweight"]
+        parts.extend(
+            [
+                ("  lightweight: ", "bold dim"),
+                (f"{lightweight_model}\n", "green dim"),
+            ]
+        )
+    if "reasoning" in config.categories:
+        reasoning_model = config.categories["reasoning"]
+        parts.extend(
+            [
+                ("  reasoning:   ", "bold dim"),
+                (f"{reasoning_model}\n", "green dim"),
+            ]
+        )
+
+    # Strip trailing newline from the last tuple if any
+    if parts[-1][0].endswith("\n"):
+        parts[-1] = (parts[-1][0][:-1], parts[-1][1])
+
+    config_info = Text.assemble(*parts)
     console.print(
         Panel(
             config_info,
@@ -190,6 +207,16 @@ def _execute_workflow(
             border_style="bright_black",
         )
     )
+
+
+def _execute_workflow(
+    web_feature_id: str,
+    config: Any,
+    wf_yml_update: bool,
+    output_dir: Path | None,
+    is_audit: bool = False,
+) -> None:
+    _print_run_config(config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -745,21 +772,7 @@ def chromestatus_command(
             temperature_override=None,
         )
 
-        config_info = Text.assemble(
-            ("Provider: ", "bold"),
-            (f"{config.provider}\n", "green"),
-            ("Model:    ", "bold"),
-            (f"{config.default_model}", "green"),
-        )
-        console.print(
-            Panel(
-                config_info,
-                title="[bold]Configuration[/bold]",
-                title_align="left",
-                expand=False,
-                border_style="bright_black",
-            )
-        )
+        _print_run_config(config)
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)

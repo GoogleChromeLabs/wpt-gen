@@ -88,7 +88,9 @@ class UIProvider(Protocol):
         ...
 
     # Phase and lifecycle events
-    def on_phase_start(self, phase_num: int, phase_name: str) -> None:
+    def on_phase_start(
+        self, phase_num: int, phase_name: str, model_info: str | None = None
+    ) -> None:
         ...
 
     def on_phase_complete(self, phase_name: str) -> None:
@@ -239,9 +241,13 @@ class RichUIProvider:
                 Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
             )
 
-    def on_phase_start(self, phase_num: int, phase_name: str) -> None:
+    def on_phase_start(
+        self, phase_num: int, phase_name: str, model_info: str | None = None
+    ) -> None:
         self.console.print()
         self.console.rule(f"[bold cyan]Phase {phase_num}: {phase_name}")
+        if model_info:
+            self.console.print(f"[dim]Using model: {model_info}[/dim]")
         self.console.print()
 
     def on_phase_complete(self, phase_name: str) -> None:
