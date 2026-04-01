@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Configuration management for WPT-Gen."""
+
 import importlib.resources
 import logging
 import os
@@ -161,7 +163,8 @@ def validate_output_dir(output_dir: str) -> str:
         # Ensure the directory exists
         path.mkdir(parents=True, exist_ok=True)
 
-        # Verify write permissions by attempting to create and remove a temporary file
+        # Verify write permissions by attempting to create and remove
+        # a temporary file
         test_file = path / ".wpt-gen-write-test"
         test_file.touch()
         test_file.unlink()
@@ -254,7 +257,8 @@ def load_config(
     providers_config = yaml_data.get("providers", {})
     provider_settings = providers_config.get(active_provider, {})
 
-    # Provide sensible defaults if the YAML is missing the specific provider block
+    # Provide sensible defaults if the YAML is missing the specific
+    # provider block
     if active_provider not in DEFAULT_PROVIDER_MODELS:
         raise ValueError(
             f"CRITICAL: Unsupported provider '{active_provider}' requested."
@@ -333,7 +337,8 @@ def load_config(
     )
     if audit_partition_size <= 0:
         raise ValueError(
-            f"CRITICAL: audit_partition_size must be strictly greater than 0. Got: {audit_partition_size}"
+            f"CRITICAL: audit_partition_size must be strictly greater than 0. "
+            f"Got: {audit_partition_size}"
         )
     max_parallel_requests = max_parallel_requests_override or yaml_data.get(
         "max_parallel_requests", 10
@@ -341,8 +346,11 @@ def load_config(
 
     if timeout < MIN_LLM_TIMEOUT:
         logging.warning(
-            f"Requested timeout {timeout}s is less than the minimum allowed ({MIN_LLM_TIMEOUT}s). "
-            f"Setting timeout to {MIN_LLM_TIMEOUT}s."
+            "Requested timeout %ds is less than the minimum allowed (%ds). "
+            "Setting timeout to %ds.",
+            timeout,
+            MIN_LLM_TIMEOUT,
+            MIN_LLM_TIMEOUT,
         )
         timeout = MIN_LLM_TIMEOUT
 

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""LLM client implementations for various providers."""
+
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -93,6 +95,7 @@ class LLMClient(ABC):
 
 
 class GeminiClient(LLMClient):
+    """Client for interacting with Google's Gemini API."""
 
     def __init__(
         self,
@@ -104,7 +107,8 @@ class GeminiClient(LLMClient):
     ):
         super().__init__(api_key, model, max_retries, timeout, tracer)
         # Initialize the official Google GenAI client
-        # Casting timeout to milliseconds to ensure it's interpreted correctly by the SDK
+        # Casting timeout to milliseconds to ensure it's interpreted
+        # correctly by the SDK
         self.client = genai.Client(
             api_key=self.api_key,
             http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
@@ -206,13 +210,14 @@ class GeminiClient(LLMClient):
             model_info.input_token_limit or 1_000_000
         )  # Fallback to 1M if not specified
 
-        logging.info(f"Prompt token count: {token_count}")
-        logging.info(f"Model's context limit token count: {limit}")
+        logging.info("Prompt token count: %d", token_count)
+        logging.info("Model's context limit token count: %d", limit)
 
         return token_count > limit
 
 
 class OpenAIClient(LLMClient):
+    """Client for interacting with OpenAI's API."""
 
     def __init__(
         self,
@@ -235,7 +240,9 @@ class OpenAIClient(LLMClient):
             ) from e
 
     def count_tokens(self, prompt: str, model: str | None = None) -> int:
-        """Returns the total number of tokens for the given prompt using tiktoken."""
+        """Returns the total number of tokens for the given prompt using
+        tiktoken.
+        """
         target_model = model or self.model
         try:
             encoding = tiktoken.encoding_for_model(target_model)
@@ -307,18 +314,19 @@ class OpenAIClient(LLMClient):
         target_model = model or self.model
         token_count = self.count_tokens(prompt, model=target_model)
 
-        # There is no way to programmatically check model token limits for OpenAI
-        # models. GPT-5.2 has a 400,000 token context limit according to:
+        # There is no way to programmatically check model token limits for
+        # OpenAI models. GPT-5.2 has a 400,000 token context limit according to:
         # https://developers.openai.com/api/docs/models/gpt-5.2
         limit = 400_000
 
-        logging.info(f"Prompt token count (estimated): {token_count}")
-        logging.info(f"Model's assumed context limit token count: {limit}")
+        logging.info("Prompt token count (estimated): %d", token_count)
+        logging.info("Model's assumed context limit token count: %d", limit)
 
         return token_count > limit
 
 
 class AnthropicClient(LLMClient):
+    """Client for interacting with Anthropic's API."""
 
     def __init__(
         self,
@@ -344,7 +352,9 @@ class AnthropicClient(LLMClient):
 
     @retry(exceptions=Exception, max_attempts_attr="max_retries")
     def count_tokens(self, prompt: str, model: str | None = None) -> int:
-        """Returns the total number of tokens for the given prompt using Anthropic SDK."""
+        """Returns the total number of tokens for the given prompt using
+        Anthropic SDK.
+        """
         target_model = model or self.model
         try:
             response = self.client.messages.count_tokens(
@@ -385,7 +395,8 @@ class AnthropicClient(LLMClient):
                 f"Anthropic API request timed out after {self.timeout}s: {e}"
             ) from e
 
-        # Anthropic returns a list of content blocks. We assume the first block is text.
+        # Anthropic returns a list of content blocks. We assume the first
+        # block is text.
         if not response.content:
             raise ValueError("Anthropic API returned no content.")
 
@@ -430,8 +441,8 @@ class AnthropicClient(LLMClient):
         # Claude 4 models have a 200,000 token context limit.
         limit = 200_000
 
-        logging.info(f"Prompt token count: {token_count}")
-        logging.info(f"Model's context limit token count: {limit}")
+        logging.info("Prompt token count: %d", token_count)
+        logging.info("Model's context limit token count: %d", limit)
 
         return token_count > limit
 

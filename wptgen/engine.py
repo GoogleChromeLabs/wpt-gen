@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Core engine for orchestrating the WPT generation workflow."""
+
 import asyncio
 import json
 from pathlib import Path
@@ -48,6 +50,7 @@ class WorkflowError(Exception):
 
 
 class WPTGenEngine:
+    """Core engine for managing the end-to-end workflow."""
 
     def __init__(self, config: Config, ui: UIProvider):
         self.config = config
@@ -93,7 +96,9 @@ class WPTGenEngine:
             return None
 
     def _hydrate_context(self, web_feature_id: str) -> WorkflowContext:
-        """Hydrates context from explicitly provided state directory or default cache."""
+        """Hydrates context from explicitly provided state directory or
+        default cache.
+        """
         state_dir = (
             Path(self.config.state_dir)
             if self.config.state_dir
@@ -109,7 +114,7 @@ class WPTGenEngine:
                 with open(resume_file, encoding="utf-8") as f:
                     data = json.load(f)
                 context = WorkflowContext.from_dict(data)
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
                 self.ui.warning(
                     f"Failed to load resume state from {resume_file}: {e}"
                 )
@@ -121,7 +126,7 @@ class WPTGenEngine:
                     context.requirements_xml = json.load(f).get(
                         "requirements_xml"
                     )
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass
 
         audit_file = state_dir / "test_suggestions.json"
@@ -129,7 +134,7 @@ class WPTGenEngine:
             try:
                 with open(audit_file, encoding="utf-8") as f:
                     context.audit_response = json.load(f).get("audit_response")
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass
 
         tests_dir = (
@@ -150,7 +155,7 @@ class WPTGenEngine:
                         )
                         for item in tests_data
                     ]
-            except Exception:
+            except (OSError, json.JSONDecodeError, KeyError, TypeError):
                 pass
         else:
             html_files = list(tests_dir.glob("*.html"))
@@ -162,7 +167,10 @@ class WPTGenEngine:
                     (
                         hf,
                         hf.read_text(encoding="utf-8"),
-                        "<test_suggestion><title>Imported Test</title></test_suggestion>",
+                        (
+                            "<test_suggestion><title>Imported Test</title>"
+                            "</test_suggestion>"
+                        ),
                     )
                     for hf in html_files
                 ]
@@ -212,7 +220,8 @@ class WPTGenEngine:
 
         if self.config.resume_from:
             self.ui.success(
-                f"Explicitly resuming workflow from: {self.config.resume_from.value}"
+                f"Explicitly resuming workflow from: "
+                f"{self.config.resume_from.value}"
             )
             context = self._hydrate_context(web_feature_id)
         elif self.config.resume:
@@ -311,7 +320,8 @@ class WPTGenEngine:
         # Skip Phase 4 if the user only wants the coverage audit report.
         if self.config.suggestions_only or self.config.brief_suggestions:
             await provide_coverage_report(context, self.config, self.ui)
-            # Cleanup resume file if it exists, as this is a terminal state for suggestions-only
+            # Cleanup resume file if it exists, as this is a terminal
+            # state for suggestions-only
             self._get_resume_file_path(web_feature_id).unlink(missing_ok=True)
             return context
 
