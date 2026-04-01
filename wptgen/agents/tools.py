@@ -377,13 +377,14 @@ def create_agent_tools(
     except (OSError, ValueError, subprocess.SubprocessError) as e:
       return {'status': 'error', 'error': str(e)}
 
-  def run_wpt_test(file_path: str) -> dict[str, Any]:
+  def run_wpt_test(file_path: str, headless: bool = True) -> dict[str, Any]:
     """Executes a specific test file using the local WPT test runner infrastructure.
 
     This command can take a while to complete (e.g. 10-20 seconds).
 
     Args:
         file_path: The path to the test file to run.
+        headless: Set to False to run tests with a visible browser UI for debugging.
 
     Returns:
         A dictionary containing the 'status', any 'failing_tests' messages,
@@ -400,18 +401,22 @@ def create_agent_tools(
         log_path = f.name
 
       try:
-        # Use headless browser for testing
         cmd = [
           './wpt',
           'run',
           '--channel',
           channel,
-          '--headless',
-          '--log-raw',
-          log_path,
-          browser,
-          rel_path,
         ]
+        if headless:
+          cmd.append('--headless')
+        cmd.extend(
+          [
+            '--log-raw',
+            log_path,
+            browser,
+            rel_path,
+          ]
+        )
 
         try:
           result = subprocess.run(
