@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -510,3 +511,109 @@ def test_ensure_testharness_imports_partial() -> None:
   result = ensure_testharness_imports(content)
   assert result.count('/resources/testharness.js') == 1
   assert result.count('/resources/testharnessreport.js') == 1
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path) -> 'MagicMock':
+  from unittest.mock import MagicMock
+
+  config = MagicMock()
+  wpt_dir = tmp_path / 'wpt'
+  config.wpt_path = str(wpt_dir)
+  config.yes_tests = False
+  return config
+
+
+@pytest.fixture
+def mock_ui() -> 'MagicMock':
+  from unittest.mock import MagicMock
+
+  ui = MagicMock()
+  ui.prompt.return_value = 'incubations'
+  return ui
+
+
+@pytest.fixture
+def mock_context() -> 'MagicMock':
+  from unittest.mock import MagicMock
+
+  context = MagicMock()
+  context.wpt_context.test_contents = {}
+  context.metadata.specs = []
+  return context
+
+
+def test_determine_output_directory_default_incubations(
+  mock_context: 'MagicMock', mock_config: 'MagicMock', mock_ui: 'MagicMock', mocker: MockerFixture
+) -> None:
+  from wptgen.utils import determine_output_directory
+
+  mock_ui.prompt.return_value = 'incubations'
+  mocker.patch(
+    'wptgen.config.validate_output_dir',
+    return_value=str(Path(mock_config.wpt_path).resolve() / 'incubations'),
+  )
+
+  result = determine_output_directory(mock_context, mock_config, mock_ui)
+  assert result == str(Path(mock_config.wpt_path).resolve() / 'incubations')
+
+
+def test_determine_output_directory_user_choice(
+  mock_context: 'MagicMock', mock_config: 'MagicMock', mock_ui: 'MagicMock', mocker: MockerFixture
+) -> None:
+  from wptgen.utils import determine_output_directory
+
+  mock_ui.prompt.return_value = 'css/css-flexbox'
+  expected_path = str(Path(mock_config.wpt_path).resolve() / 'css/css-flexbox')
+  mocker.patch('wptgen.config.validate_output_dir', return_value=expected_path)
+
+  result = determine_output_directory(mock_context, mock_config, mock_ui)
+  assert result == expected_path
+
+
+def test_determine_output_directory_validate_fails(
+  mock_context: 'MagicMock', mock_config: 'MagicMock', mock_ui: 'MagicMock', mocker: MockerFixture
+) -> None:
+  from wptgen.utils import determine_output_directory
+
+  mock_ui.prompt.return_value = 'invalid-dir'
+  mocker.patch(
+    'wptgen.config.validate_output_dir', side_effect=ValueError('CRITICAL: Cannot write')
+  )
+
+  with pytest.raises(ValueError, match='CRITICAL: Cannot write'):
+    determine_output_directory(mock_context, mock_config, mock_ui)
+
+
+def test_determine_output_directory_inferred_from_tests(
+  mock_context: 'MagicMock', mock_config: 'MagicMock', mock_ui: 'MagicMock'
+) -> None:
+  from wptgen.utils import determine_output_directory
+
+  wpt_path = Path(mock_config.wpt_path).resolve()
+  css_path = wpt_path / 'css' / 'css-grid'
+  css_path.mkdir(parents=True, exist_ok=True)
+
+  mock_context.wpt_context.test_contents = {
+    str(css_path / 'test1.html'): 'content',
+    str(css_path / 'test2.html'): 'content',
+  }
+
+  result = determine_output_directory(mock_context, mock_config, mock_ui)
+  assert result == str(css_path)
+
+
+def test_determine_output_directory_inferred_from_spec_html(
+  mock_context: 'MagicMock', mock_config: 'MagicMock', mock_ui: 'MagicMock'
+) -> None:
+  from wptgen.utils import determine_output_directory
+
+  wpt_path = Path(mock_config.wpt_path).resolve()
+  html_path = wpt_path / 'html'
+  html_path.mkdir(parents=True, exist_ok=True)
+
+  mock_context.wpt_context.test_contents = {}
+  mock_context.metadata.specs = ['https://html.spec.whatwg.org/']
+
+  result = determine_output_directory(mock_context, mock_config, mock_ui)
+  assert result == str(html_path)

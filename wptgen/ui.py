@@ -51,6 +51,7 @@ class UIProvider(Protocol):
     self, description: str, total: int
   ) -> AbstractContextManager[ProgressIndicator]: ...
   def confirm(self, question: str, default: bool = True) -> bool: ...
+  def prompt(self, question: str, default: str = '') -> str: ...
 
   # Generic semantic messaging
   def print(self, message: Any = '', style: str | None = None) -> None: ...
@@ -134,6 +135,11 @@ class RichUIProvider:
 
   def confirm(self, question: str, default: bool = True) -> bool:
     return Confirm.ask(question, default=default)
+
+  def prompt(self, question: str, default: str = '') -> str:
+    from rich.prompt import Prompt
+
+    return Prompt.ask(question, default=default)
 
   def print(self, message: Any = '', style: str | None = None) -> None:
     self.console.print(message, style=style)

@@ -90,9 +90,9 @@ def test_load_config_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
   """Test that output_dir is correctly loaded and validated."""
   monkeypatch.setenv('GEMINI_API_KEY', 'mock-key')
 
-  # Case 1: Default (resolves to current directory)
+  # Case 1: Default (None)
   config = load_config(config_path='non_existent_dummy.yaml')
-  assert config.output_dir == str(Path('.').resolve())
+  assert config.output_dir is None
 
   # Case 2: Override with existing directory
   test_dir = tmp_path / 'existing_dir'
