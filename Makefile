@@ -6,6 +6,8 @@
 PYTHON := python3
 PIP := $(PYTHON) -m pip
 RUFF := ruff
+PYINK := pyink
+PYLINT := pylint
 MYPY := mypy
 PYTEST := pytest
 PACKAGE_NAME := wptgen
@@ -40,10 +42,11 @@ license-fix:
 
 lint: license-check
 	$(RUFF) check .
-	$(RUFF) format --check .
+	$(PYINK) --check .
+	$(PYLINT) $(PACKAGE_NAME) tests
 
 lint-fix: license-fix
-	$(RUFF) format .
+	$(PYINK) .
 	$(RUFF) check . --fix
 
 format: lint-fix

@@ -1,0 +1,9 @@
+[MASTER]
+load-plugins=pylint.extensions.docparams
+
+[MESSAGES CONTROL]
+# redefined-outer-name: used for pytest fixtures
+# unused-argument: common in pytest fixtures or mocks
+disable=
+    redefined-outer-name,
+    unused-argument,

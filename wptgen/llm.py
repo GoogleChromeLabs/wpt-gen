@@ -35,399 +35,440 @@ MAX_RETRIES = 3
 
 
 class LLMTimeoutError(Exception):
-  """Raised when an LLM request times out."""
+    """Raised when an LLM request times out."""
 
-  pass
+    pass
 
 
 class InvalidModelError(Exception):
-  """Raised when the provided model is invalid or inaccessible."""
+    """Raised when the provided model is invalid or inaccessible."""
 
-  pass
+    pass
 
 
 class LLMClient(ABC):
-  """Abstract base class for all LLM providers."""
+    """Abstract base class for all LLM providers."""
 
-  def __init__(
-    self,
-    api_key: str,
-    model: str,
-    max_retries: int = MAX_RETRIES,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    tracer: Tracer | None = None,
-  ):
-    self.api_key = api_key
-    self.model = model
-    self.max_retries = max_retries
-    self.timeout = timeout
-    self.tracer = tracer
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ):
+        self.api_key = api_key
+        self.model = model
+        self.max_retries = max_retries
+        self.timeout = timeout
+        self.tracer = tracer
 
-  @abstractmethod
-  def verify_model(self) -> None:
-    """Verifies that the requested model is valid and accessible."""
-    pass
+    @abstractmethod
+    def verify_model(self) -> None:
+        """Verifies that the requested model is valid and accessible."""
+        pass
 
-  @abstractmethod
-  def count_tokens(self, prompt: str, model: str | None = None) -> int:
-    """Returns the total number of tokens for the given prompt."""
-    pass
+    @abstractmethod
+    def count_tokens(self, prompt: str, model: str | None = None) -> int:
+        """Returns the total number of tokens for the given prompt."""
+        pass
 
-  @abstractmethod
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str | None = None,
-    temperature: float | None = None,
-    model: str | None = None,
-  ) -> str:
-    """Generates a response from the LLM."""
-    pass
+    @abstractmethod
+    def generate_content(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        temperature: float | None = None,
+        model: str | None = None,
+    ) -> str:
+        """Generates a response from the LLM."""
+        pass
 
-  @abstractmethod
-  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
-    """Checks if the prompt exceeds the model's input token limit."""
-    pass
+    @abstractmethod
+    def prompt_exceeds_input_token_limit(
+        self, prompt: str, model: str | None = None
+    ) -> bool:
+        """Checks if the prompt exceeds the model's input token limit."""
+        pass
 
 
 class GeminiClient(LLMClient):
-  def __init__(
-    self,
-    api_key: str,
-    model: str,
-    max_retries: int = MAX_RETRIES,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    tracer: Tracer | None = None,
-  ):
-    super().__init__(api_key, model, max_retries, timeout, tracer)
-    # Initialize the official Google GenAI client
-    # Casting timeout to milliseconds to ensure it's interpreted correctly by the SDK
-    self.client = genai.Client(
-      api_key=self.api_key,
-      http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
-    )
-    self.verify_model()
 
-  def verify_model(self) -> None:
-    try:
-      self.client.models.get(model=self.model)
-    except Exception as e:
-      raise InvalidModelError(f"Failed to verify Gemini model '{self.model}': {e}") from e
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ):
+        super().__init__(api_key, model, max_retries, timeout, tracer)
+        # Initialize the official Google GenAI client
+        # Casting timeout to milliseconds to ensure it's interpreted correctly by the SDK
+        self.client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
+        )
+        self.verify_model()
 
-  @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def count_tokens(self, prompt: str, model: str | None = None) -> int:
-    target_model = model or self.model
-    try:
-      response = self.client.models.count_tokens(model=target_model, contents=prompt)
-    except httpx.TimeoutException as e:
-      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
-    if response.total_tokens is None:
-      raise ValueError('Gemini API returned no token count.')
-    return response.total_tokens
+    def verify_model(self) -> None:
+        try:
+            self.client.models.get(model=self.model)
+        except Exception as e:
+            raise InvalidModelError(
+                f"Failed to verify Gemini model '{self.model}': {e}"
+            ) from e
 
-  @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str | None = None,
-    temperature: float | None = None,
-    model: str | None = None,
-  ) -> str:
-    target_model = model or self.model
-    config = types.GenerateContentConfig()
-    if system_instruction:
-      config.system_instruction = system_instruction
-    if temperature is not None:
-      config.temperature = temperature
+    @retry(exceptions=Exception, max_attempts_attr="max_retries")
+    def count_tokens(self, prompt: str, model: str | None = None) -> int:
+        target_model = model or self.model
+        try:
+            response = self.client.models.count_tokens(
+                model=target_model, contents=prompt
+            )
+        except httpx.TimeoutException as e:
+            raise LLMTimeoutError(
+                f"Gemini API request timed out after {self.timeout}s: {e}"
+            ) from e
+        if response.total_tokens is None:
+            raise ValueError("Gemini API returned no token count.")
+        return response.total_tokens
 
-    try:
-      start_time = time.time()
-      response = self.client.models.generate_content(
-        model=target_model, contents=prompt, config=config
-      )
-      latency = time.time() - start_time
-    except httpx.TimeoutException as e:
-      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
+    @retry(exceptions=Exception, max_attempts_attr="max_retries")
+    def generate_content(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        temperature: float | None = None,
+        model: str | None = None,
+    ) -> str:
+        target_model = model or self.model
+        config = types.GenerateContentConfig()
+        if system_instruction:
+            config.system_instruction = system_instruction
+        if temperature is not None:
+            config.temperature = temperature
 
-    if response.text is None:
-      raise ValueError('Gemini API returned no text.')
+        try:
+            start_time = time.time()
+            response = self.client.models.generate_content(
+                model=target_model, contents=prompt, config=config
+            )
+            latency = time.time() - start_time
+        except httpx.TimeoutException as e:
+            raise LLMTimeoutError(
+                f"Gemini API request timed out after {self.timeout}s: {e}"
+            ) from e
 
-    token_usage = (
-      response.usage_metadata.total_token_count
-      if hasattr(response, 'usage_metadata') and response.usage_metadata
-      else None
-    )
-    if self.tracer:
-      self.tracer.record(
-        prompt=prompt,
-        system_instruction=system_instruction,
-        model=target_model,
-        temperature=temperature,
-        raw_response=response.text,
-        token_usage=token_usage,
-        latency=latency,
-      )
+        if response.text is None:
+            raise ValueError("Gemini API returned no text.")
 
-    return response.text
+        token_usage = (
+            response.usage_metadata.total_token_count
+            if hasattr(response, "usage_metadata") and response.usage_metadata
+            else None
+        )
+        if self.tracer:
+            self.tracer.record(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                model=target_model,
+                temperature=temperature,
+                raw_response=response.text,
+                token_usage=token_usage,
+                latency=latency,
+            )
 
-  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
-    """Checks the token size of a prompt and checks if it exceeds the input
-       limit of the Gemini model.
+        return response.text
 
-    Args:
-      prompt: The input prompt string.
-      model: Optional model override.
+    def prompt_exceeds_input_token_limit(
+        self, prompt: str, model: str | None = None
+    ) -> bool:
+        """Checks the token size of a prompt and checks if it exceeds the input
+           limit of the Gemini model.
 
-    Returns:
-      Boolean value of whether the input token limit is exceeded.
-    """
-    target_model = model or self.model
-    token_count = self.count_tokens(prompt, model=target_model)
-    try:
-      model_info = self.client.models.get(model=target_model)
-    except httpx.TimeoutException as e:
-      raise LLMTimeoutError(f'Gemini API request timed out after {self.timeout}s: {e}') from e
-    limit = model_info.input_token_limit or 1_000_000  # Fallback to 1M if not specified
+        Args:
+          prompt: The input prompt string.
+          model: Optional model override.
 
-    logging.info(f'Prompt token count: {token_count}')
-    logging.info(f"Model's context limit token count: {limit}")
+        Returns:
+          Boolean value of whether the input token limit is exceeded.
+        """
+        target_model = model or self.model
+        token_count = self.count_tokens(prompt, model=target_model)
+        try:
+            model_info = self.client.models.get(model=target_model)
+        except httpx.TimeoutException as e:
+            raise LLMTimeoutError(
+                f"Gemini API request timed out after {self.timeout}s: {e}"
+            ) from e
+        limit = (
+            model_info.input_token_limit or 1_000_000
+        )  # Fallback to 1M if not specified
 
-    return token_count > limit
+        logging.info(f"Prompt token count: {token_count}")
+        logging.info(f"Model's context limit token count: {limit}")
+
+        return token_count > limit
 
 
 class OpenAIClient(LLMClient):
-  def __init__(
-    self,
-    api_key: str,
-    model: str,
-    max_retries: int = MAX_RETRIES,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    tracer: Tracer | None = None,
-  ):
-    super().__init__(api_key, model, max_retries, timeout, tracer)
-    self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
-    self.verify_model()
 
-  def verify_model(self) -> None:
-    try:
-      self.client.models.retrieve(self.model)
-    except Exception as e:
-      raise InvalidModelError(f"Failed to verify OpenAI model '{self.model}': {e}") from e
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ):
+        super().__init__(api_key, model, max_retries, timeout, tracer)
+        self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
+        self.verify_model()
 
-  def count_tokens(self, prompt: str, model: str | None = None) -> int:
-    """Returns the total number of tokens for the given prompt using tiktoken."""
-    target_model = model or self.model
-    try:
-      encoding = tiktoken.encoding_for_model(target_model)
-    except KeyError:
-      # Fallback for unknown models
-      encoding = tiktoken.get_encoding('cl100k_base')
-    return len(encoding.encode(prompt))
+    def verify_model(self) -> None:
+        try:
+            self.client.models.retrieve(self.model)
+        except Exception as e:
+            raise InvalidModelError(
+                f"Failed to verify OpenAI model '{self.model}': {e}"
+            ) from e
 
-  @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str | None = None,
-    temperature: float | None = None,
-    model: str | None = None,
-  ) -> str:
-    target_model = model or self.model
-    messages: list[ChatCompletionMessageParam] = []
-    if system_instruction:
-      messages.append({'role': 'system', 'content': system_instruction})
-    messages.append({'role': 'user', 'content': prompt})
+    def count_tokens(self, prompt: str, model: str | None = None) -> int:
+        """Returns the total number of tokens for the given prompt using tiktoken."""
+        target_model = model or self.model
+        try:
+            encoding = tiktoken.encoding_for_model(target_model)
+        except KeyError:
+            # Fallback for unknown models
+            encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(prompt))
 
-    try:
-      start_time = time.time()
-      response = self.client.chat.completions.create(
-        model=target_model, messages=messages, temperature=temperature
-      )
-      latency = time.time() - start_time
-    except openai.APITimeoutError as e:
-      raise LLMTimeoutError(f'OpenAI API request timed out after {self.timeout}s: {e}') from e
+    @retry(exceptions=Exception, max_attempts_attr="max_retries")
+    def generate_content(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        temperature: float | None = None,
+        model: str | None = None,
+    ) -> str:
+        target_model = model or self.model
+        messages: list[ChatCompletionMessageParam] = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
 
-    content = response.choices[0].message.content
-    if content is None:
-      raise ValueError('OpenAI API returned no content.')
+        try:
+            start_time = time.time()
+            response = self.client.chat.completions.create(
+                model=target_model, messages=messages, temperature=temperature
+            )
+            latency = time.time() - start_time
+        except openai.APITimeoutError as e:
+            raise LLMTimeoutError(
+                f"OpenAI API request timed out after {self.timeout}s: {e}"
+            ) from e
 
-    token_usage = (
-      response.usage.total_tokens if hasattr(response, 'usage') and response.usage else None
-    )
-    if self.tracer:
-      self.tracer.record(
-        prompt=prompt,
-        system_instruction=system_instruction,
-        model=target_model,
-        temperature=temperature,
-        raw_response=content,
-        token_usage=token_usage,
-        latency=latency,
-      )
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("OpenAI API returned no content.")
 
-    return content
+        token_usage = (
+            response.usage.total_tokens
+            if hasattr(response, "usage") and response.usage
+            else None
+        )
+        if self.tracer:
+            self.tracer.record(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                model=target_model,
+                temperature=temperature,
+                raw_response=content,
+                token_usage=token_usage,
+                latency=latency,
+            )
 
-  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
-    """Checks the token size of a prompt and checks if it exceeds the input
-       limit of the OpenAI model.
+        return content
 
-    Args:
-      prompt: The input prompt string.
-      model: Optional model override.
+    def prompt_exceeds_input_token_limit(
+        self, prompt: str, model: str | None = None
+    ) -> bool:
+        """Checks the token size of a prompt and checks if it exceeds the input
+           limit of the OpenAI model.
 
-    Returns:
-      Boolean value of whether the input token limit is exceeded.
-    """
-    target_model = model or self.model
-    token_count = self.count_tokens(prompt, model=target_model)
+        Args:
+          prompt: The input prompt string.
+          model: Optional model override.
 
-    # There is no way to programmatically check model token limits for OpenAI
-    # models. GPT-5.2 has a 400,000 token context limit according to:
-    # https://developers.openai.com/api/docs/models/gpt-5.2
-    limit = 400_000
+        Returns:
+          Boolean value of whether the input token limit is exceeded.
+        """
+        target_model = model or self.model
+        token_count = self.count_tokens(prompt, model=target_model)
 
-    logging.info(f'Prompt token count (estimated): {token_count}')
-    logging.info(f"Model's assumed context limit token count: {limit}")
+        # There is no way to programmatically check model token limits for OpenAI
+        # models. GPT-5.2 has a 400,000 token context limit according to:
+        # https://developers.openai.com/api/docs/models/gpt-5.2
+        limit = 400_000
 
-    return token_count > limit
+        logging.info(f"Prompt token count (estimated): {token_count}")
+        logging.info(f"Model's assumed context limit token count: {limit}")
+
+        return token_count > limit
 
 
 class AnthropicClient(LLMClient):
-  def __init__(
-    self,
-    api_key: str,
-    model: str,
-    max_retries: int = MAX_RETRIES,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    tracer: Tracer | None = None,
-  ):
-    super().__init__(api_key, model, max_retries, timeout, tracer)
-    self.client = anthropic.Anthropic(api_key=self.api_key, timeout=float(self.timeout))
-    self.verify_model()
 
-  def verify_model(self) -> None:
-    try:
-      self.client.models.retrieve(self.model)
-    except Exception as e:
-      raise InvalidModelError(f"Failed to verify Anthropic model '{self.model}': {e}") from e
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ):
+        super().__init__(api_key, model, max_retries, timeout, tracer)
+        self.client = anthropic.Anthropic(
+            api_key=self.api_key, timeout=float(self.timeout)
+        )
+        self.verify_model()
 
-  @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def count_tokens(self, prompt: str, model: str | None = None) -> int:
-    """Returns the total number of tokens for the given prompt using Anthropic SDK."""
-    target_model = model or self.model
-    try:
-      response = self.client.messages.count_tokens(
-        model=target_model,
-        messages=[{'role': 'user', 'content': prompt}],
-      )
-      return response.input_tokens
-    except anthropic.APITimeoutError as e:
-      raise LLMTimeoutError(f'Anthropic API request timed out after {self.timeout}s: {e}') from e
+    def verify_model(self) -> None:
+        try:
+            self.client.models.retrieve(self.model)
+        except Exception as e:
+            raise InvalidModelError(
+                f"Failed to verify Anthropic model '{self.model}': {e}"
+            ) from e
 
-  @retry(exceptions=Exception, max_attempts_attr='max_retries')
-  def generate_content(
-    self,
-    prompt: str,
-    system_instruction: str | None = None,
-    temperature: float | None = None,
-    model: str | None = None,
-  ) -> str:
-    target_model = model or self.model
-    kwargs: dict[str, Any] = {
-      'model': target_model,
-      'messages': [{'role': 'user', 'content': prompt}],
-    }
+    @retry(exceptions=Exception, max_attempts_attr="max_retries")
+    def count_tokens(self, prompt: str, model: str | None = None) -> int:
+        """Returns the total number of tokens for the given prompt using Anthropic SDK."""
+        target_model = model or self.model
+        try:
+            response = self.client.messages.count_tokens(
+                model=target_model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.input_tokens
+        except anthropic.APITimeoutError as e:
+            raise LLMTimeoutError(
+                f"Anthropic API request timed out after {self.timeout}s: {e}"
+            ) from e
 
-    if system_instruction:
-      kwargs['system'] = system_instruction
-    if temperature is not None:
-      kwargs['temperature'] = temperature
+    @retry(exceptions=Exception, max_attempts_attr="max_retries")
+    def generate_content(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        temperature: float | None = None,
+        model: str | None = None,
+    ) -> str:
+        target_model = model or self.model
+        kwargs: dict[str, Any] = {
+            "model": target_model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
 
-    try:
-      start_time = time.time()
-      response = self.client.messages.create(**kwargs)
-      latency = time.time() - start_time
-    except anthropic.APITimeoutError as e:
-      raise LLMTimeoutError(f'Anthropic API request timed out after {self.timeout}s: {e}') from e
+        if system_instruction:
+            kwargs["system"] = system_instruction
+        if temperature is not None:
+            kwargs["temperature"] = temperature
 
-    # Anthropic returns a list of content blocks. We assume the first block is text.
-    if not response.content:
-      raise ValueError('Anthropic API returned no content.')
+        try:
+            start_time = time.time()
+            response = self.client.messages.create(**kwargs)
+            latency = time.time() - start_time
+        except anthropic.APITimeoutError as e:
+            raise LLMTimeoutError(
+                f"Anthropic API request timed out after {self.timeout}s: {e}"
+            ) from e
 
-    content = response.content[0].text
-    if not isinstance(content, str):
-      raise ValueError('Anthropic API returned no text.')
+        # Anthropic returns a list of content blocks. We assume the first block is text.
+        if not response.content:
+            raise ValueError("Anthropic API returned no content.")
 
-    token_usage = (
-      response.usage.input_tokens + response.usage.output_tokens
-      if hasattr(response, 'usage') and response.usage
-      else None
-    )
-    if self.tracer:
-      self.tracer.record(
-        prompt=prompt,
-        system_instruction=system_instruction,
-        model=target_model,
-        temperature=temperature,
-        raw_response=content,
-        token_usage=token_usage,
-        latency=latency,
-      )
+        content = response.content[0].text
+        if not isinstance(content, str):
+            raise ValueError("Anthropic API returned no text.")
 
-    return content
+        token_usage = (
+            response.usage.input_tokens + response.usage.output_tokens
+            if hasattr(response, "usage") and response.usage
+            else None
+        )
+        if self.tracer:
+            self.tracer.record(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                model=target_model,
+                temperature=temperature,
+                raw_response=content,
+                token_usage=token_usage,
+                latency=latency,
+            )
 
-  def prompt_exceeds_input_token_limit(self, prompt: str, model: str | None = None) -> bool:
-    """Checks the token size of a prompt and checks if it exceeds the input
-       limit of the Anthropic model.
+        return content
 
-    Args:
-      prompt: The input prompt string.
-      model: Optional model override.
+    def prompt_exceeds_input_token_limit(
+        self, prompt: str, model: str | None = None
+    ) -> bool:
+        """Checks the token size of a prompt and checks if it exceeds the input
+           limit of the Anthropic model.
 
-    Returns:
-      Boolean value of whether the input token limit is exceeded.
-    """
-    target_model = model or self.model
-    token_count = self.count_tokens(prompt, model=target_model)
+        Args:
+          prompt: The input prompt string.
+          model: Optional model override.
 
-    # Claude 4 models have a 200,000 token context limit.
-    limit = 200_000
+        Returns:
+          Boolean value of whether the input token limit is exceeded.
+        """
+        target_model = model or self.model
+        token_count = self.count_tokens(prompt, model=target_model)
 
-    logging.info(f'Prompt token count: {token_count}')
-    logging.info(f"Model's context limit token count: {limit}")
+        # Claude 4 models have a 200,000 token context limit.
+        limit = 200_000
 
-    return token_count > limit
+        logging.info(f"Prompt token count: {token_count}")
+        logging.info(f"Model's context limit token count: {limit}")
+
+        return token_count > limit
 
 
 def get_llm_client(config: Config) -> LLMClient:
-  """Factory function to instantiate the correct LLM provider."""
-  assert config.api_key is not None, 'api_key must be set in configuration'
+    """Factory function to instantiate the correct LLM provider."""
+    assert config.api_key is not None, "api_key must be set in configuration"
 
-  tracer = Tracer(save_traces=config.save_traces) if getattr(config, 'save_traces', False) else None
+    tracer = (
+        Tracer(save_traces=config.save_traces)
+        if getattr(config, "save_traces", False)
+        else None
+    )
 
-  if config.provider == 'gemini':
-    return GeminiClient(
-      api_key=config.api_key,
-      model=config.default_model,
-      max_retries=config.max_retries,
-      timeout=config.timeout,
-      tracer=tracer,
-    )
-  elif config.provider == 'openai':
-    return OpenAIClient(
-      api_key=config.api_key,
-      model=config.default_model,
-      max_retries=config.max_retries,
-      timeout=config.timeout,
-      tracer=tracer,
-    )
-  elif config.provider == 'anthropic':
-    return AnthropicClient(
-      api_key=config.api_key,
-      model=config.default_model,
-      max_retries=config.max_retries,
-      timeout=config.timeout,
-      tracer=tracer,
-    )
-  else:
-    raise ValueError(f'Unsupported provider: {config.provider}')
+    if config.provider == "gemini":
+        return GeminiClient(
+            api_key=config.api_key,
+            model=config.default_model,
+            max_retries=config.max_retries,
+            timeout=config.timeout,
+            tracer=tracer,
+        )
+    elif config.provider == "openai":
+        return OpenAIClient(
+            api_key=config.api_key,
+            model=config.default_model,
+            max_retries=config.max_retries,
+            timeout=config.timeout,
+            tracer=tracer,
+        )
+    elif config.provider == "anthropic":
+        return AnthropicClient(
+            api_key=config.api_key,
+            model=config.default_model,
+            max_retries=config.max_retries,
+            timeout=config.timeout,
+            tracer=tracer,
+        )
+    else:
+        raise ValueError(f"Unsupported provider: {config.provider}")

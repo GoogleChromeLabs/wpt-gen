@@ -18,35 +18,45 @@ from wptgen.config import Config
 from wptgen.models import LLMProvider, ProviderDefaults
 
 _PROVIDER_CONFIG: dict[LLMProvider, ProviderDefaults] = {
-  LLMProvider.GEMINI: ProviderDefaults('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-  LLMProvider.GOOGLE: ProviderDefaults('GOOGLE_API_KEY', 'gemini-3.1-pro-preview'),
-  LLMProvider.ANTHROPIC: ProviderDefaults('ANTHROPIC_API_KEY', 'claude-opus-4-6'),
-  LLMProvider.OPENAI: ProviderDefaults('OPENAI_API_KEY', 'gpt-5.2-high'),
+    LLMProvider.GEMINI: ProviderDefaults(
+        "GOOGLE_API_KEY", "gemini-3.1-pro-preview"
+    ),
+    LLMProvider.GOOGLE: ProviderDefaults(
+        "GOOGLE_API_KEY", "gemini-3.1-pro-preview"
+    ),
+    LLMProvider.ANTHROPIC: ProviderDefaults(
+        "ANTHROPIC_API_KEY", "claude-opus-4-6"
+    ),
+    LLMProvider.OPENAI: ProviderDefaults("OPENAI_API_KEY", "gpt-5.2-high"),
 }
 
 
 def setup_adk_environment(config: Config) -> str:
-  """Configures the ADK environment with the appropriate API keys and returns the model string.
+    """Configures the ADK environment with the appropriate API keys and returns the model string.
 
-  Args:
-    config: The WPT-Gen configuration object.
+    Args:
+      config: The WPT-Gen configuration object.
 
-  Returns:
-    The fully qualified ADK model string.
+    Returns:
+      The fully qualified ADK model string.
 
-  Raises:
-    ValueError: If the required API key for the selected provider is missing
-      or if the provider is unsupported.
-  """
-  try:
-    provider = LLMProvider(config.provider.lower())
-  except ValueError:
-    raise ValueError(f'Unsupported ADK provider: {config.provider}') from None
+    Raises:
+      ValueError: If the required API key for the selected provider is missing
+        or if the provider is unsupported.
+    """
+    try:
+        provider = LLMProvider(config.provider.lower())
+    except ValueError:
+        raise ValueError(
+            f"Unsupported ADK provider: {config.provider}"
+        ) from None
 
-  if not config.api_key:
-    raise ValueError(f'An API key is required for the {provider.value} provider.')
+    if not config.api_key:
+        raise ValueError(
+            f"An API key is required for the {provider.value} provider."
+        )
 
-  defaults = _PROVIDER_CONFIG[provider]
-  os.environ[defaults.env_var] = config.api_key
+    defaults = _PROVIDER_CONFIG[provider]
+    os.environ[defaults.env_var] = config.api_key
 
-  return config.default_model or defaults.default_model
+    return config.default_model or defaults.default_model

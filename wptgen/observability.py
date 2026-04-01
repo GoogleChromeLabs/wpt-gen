@@ -19,41 +19,43 @@ from typing import Any
 
 
 class Tracer:
-  """Captures LLM interactions for observability and evaluation."""
+    """Captures LLM interactions for observability and evaluation."""
 
-  def __init__(self, save_traces: bool = False, trace_dir: str = '.wptgen/traces'):
-    self.save_traces = save_traces
-    self.trace_dir = Path(trace_dir)
-    self.traces: list[dict[str, Any]] = []
-    self.trace_file: Path | None = None
+    def __init__(
+        self, save_traces: bool = False, trace_dir: str = ".wptgen/traces"
+    ):
+        self.save_traces = save_traces
+        self.trace_dir = Path(trace_dir)
+        self.traces: list[dict[str, Any]] = []
+        self.trace_file: Path | None = None
 
-    if self.save_traces:
-      self.trace_dir.mkdir(parents=True, exist_ok=True)
-      self.trace_file = self.trace_dir / f'trace_{int(time.time())}.jsonl'
+        if self.save_traces:
+            self.trace_dir.mkdir(parents=True, exist_ok=True)
+            self.trace_file = self.trace_dir / f"trace_{int(time.time())}.jsonl"
 
-  def record(
-    self,
-    prompt: str,
-    system_instruction: str | None,
-    model: str,
-    temperature: float | None,
-    raw_response: str,
-    token_usage: int | None,
-    latency: float,
-  ) -> None:
-    """Records a single LLM interaction trace."""
-    trace_entry = {
-      'prompt': prompt,
-      'system_instruction': system_instruction,
-      'model': model,
-      'temperature': temperature,
-      'raw_response': raw_response,
-      'token_usage': token_usage,
-      'latency': latency,
-      'timestamp': time.time(),
-    }
-    self.traces.append(trace_entry)
+    def record(
+        self,
+        prompt: str,
+        system_instruction: str | None,
+        model: str,
+        temperature: float | None,
+        raw_response: str,
+        token_usage: int | None,
+        latency: float,
+    ) -> None:
+        """Records a single LLM interaction trace."""
+        trace_entry = {
+            "prompt": prompt,
+            "system_instruction": system_instruction,
+            "model": model,
+            "temperature": temperature,
+            "raw_response": raw_response,
+            "token_usage": token_usage,
+            "latency": latency,
+            "timestamp": time.time(),
+        }
+        self.traces.append(trace_entry)
 
-    if self.save_traces and self.trace_file:
-      with open(self.trace_file, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(trace_entry) + '\n')
+        if self.save_traces and self.trace_file:
+            with open(self.trace_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(trace_entry) + "\n")

@@ -20,9 +20,13 @@ from wptgen.context import fetch_chromestatus_metadata
 
 
 def test_fetch_chromestatus_metadata_http_error_non_404() -> None:
-  with patch('urllib.request.urlopen') as mock_urlopen:
-    mock_urlopen.side_effect = urllib.error.HTTPError(
-      url='http://test.com', code=500, msg='Internal Server Error', hdrs=Message(), fp=None
-    )
-    res = fetch_chromestatus_metadata('1234')
-    assert res is None
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="http://test.com",
+            code=500,
+            msg="Internal Server Error",
+            hdrs=Message(),
+            fp=None,
+        )
+        res = fetch_chromestatus_metadata("1234")
+        assert res is None
