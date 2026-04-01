@@ -114,7 +114,7 @@ class WPTGenEngine:
                 with open(resume_file, encoding="utf-8") as f:
                     data = json.load(f)
                 context = WorkflowContext.from_dict(data)
-            except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+            except Exception as e:
                 self.ui.warning(
                     f"Failed to load resume state from {resume_file}: {e}"
                 )
@@ -126,7 +126,7 @@ class WPTGenEngine:
                     context.requirements_xml = json.load(f).get(
                         "requirements_xml"
                     )
-            except (OSError, json.JSONDecodeError):
+            except Exception:
                 pass
 
         audit_file = state_dir / "test_suggestions.json"
@@ -134,7 +134,7 @@ class WPTGenEngine:
             try:
                 with open(audit_file, encoding="utf-8") as f:
                     context.audit_response = json.load(f).get("audit_response")
-            except (OSError, json.JSONDecodeError):
+            except Exception:
                 pass
 
         tests_dir = (
@@ -155,7 +155,7 @@ class WPTGenEngine:
                         )
                         for item in tests_data
                     ]
-            except (OSError, json.JSONDecodeError, KeyError, TypeError):
+            except Exception:
                 pass
         else:
             html_files = list(tests_dir.glob("*.html"))

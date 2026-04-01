@@ -238,7 +238,7 @@ def fetch_and_extract_text(url: str) -> str | None:
         )
         with urllib.request.urlopen(req) as response:
             html = response.read().decode("utf-8")
-    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+    except Exception as e:
         logger.error("Failed to download HTML from %s: %s", url, e)
         return None
 
@@ -449,7 +449,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
 
         except yaml.YAMLError:
             continue
-        except OSError as e:
+        except Exception as e:
             logger.warning("Error processing %s: %s", yaml_path, e)
 
     # Convert back to a sorted list of absolute string paths
@@ -595,7 +595,7 @@ def gather_local_test_context(
                             if len(visited) < limit:
                                 visited.add(resolved_str)
                                 queue.append((resolved_str, False))
-        except OSError as e:
+        except Exception as e:
             logger.warning("Error reading dependency %s: %s", curr_p_str, e)
 
     # Build the reachability map
