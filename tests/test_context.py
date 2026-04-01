@@ -360,6 +360,65 @@ def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
     mock_urlopen.assert_called_once()
 
 
+def test_fetch_and_extract_text_retry_success(mocker: MockerFixture) -> None:
+    """Test that fetch_and_extract_text retries on transient errors and eventually succeeds."""
+    mock_urlopen = mocker.patch("urllib.request.urlopen")
+
+    mock_response = mocker.MagicMock()
+    mock_response.read.return_value = (
+        b"<html><body><main><h1>Spec</h1><p>Text</p></main></body></html>"
+    )
+    mock_response.__enter__.return_value = mock_response
+
+    # Fail twice with 429, then succeed
+    error429 = urllib.error.HTTPError(
+        url="https://example.com",
+        code=429,
+        msg="Too Many Requests",
+        hdrs=Message(),
+        fp=None,
+    )
+
+    mock_urlopen.side_effect = [error429, error429, mock_response]
+
+    # We need to mock time.sleep to avoid waiting in tests
+    mock_sleep = mocker.patch("time.sleep")
+
+    result = fetch_and_extract_text("https://example.com")
+
+    assert result == "# Spec\n\nText"
+    assert mock_urlopen.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+def test_fetch_and_extract_text_retry_max_reached(
+    mocker: MockerFixture,
+) -> None:
+    """Test that fetch_and_extract_text eventually gives up after MAX_RETRIES."""
+    from wptgen.utils import MAX_RETRIES
+
+    mock_urlopen = mocker.patch("urllib.request.urlopen")
+
+    error429 = urllib.error.HTTPError(
+        url="https://example.com",
+        code=429,
+        msg="Too Many Requests",
+        hdrs=Message(),
+        fp=None,
+    )
+
+    # Fail MAX_RETRIES times
+    mock_urlopen.side_effect = [error429] * MAX_RETRIES
+
+    mock_sleep = mocker.patch("time.sleep")
+
+    result = fetch_and_extract_text("https://example.com")
+
+    assert result is None
+    assert mock_urlopen.call_count == MAX_RETRIES
+    assert mock_sleep.call_count == MAX_RETRIES - 1
+
+
 def test_fetch_and_extract_text_fetch_fails(mocker: MockerFixture) -> None:
     """Test that if the URL cannot be fetched, the function returns None."""
     mock_urlopen = mocker.patch("urllib.request.urlopen")

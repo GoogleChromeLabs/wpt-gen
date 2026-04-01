@@ -21,7 +21,6 @@ from wptgen.context import (
     extract_wpt_paths,
     fetch_and_extract_text,
     fetch_chromestatus_metadata,
-    fetch_explainer_contents,
     fetch_feature_yaml,
     fetch_mdn_urls,
     find_feature_tests,
@@ -99,9 +98,20 @@ async def run_context_assembly(
     if metadata.explainer_links:
         ui.print("Fetching explainer content...")
         with ui.status("Fetching and extracting text from explainers..."):
-            explainer_contents = await asyncio.to_thread(
-                fetch_explainer_contents, metadata.explainer_links
+            # Fetch all explainers concurrently using to_thread since fetch_and_extract_text is blocking
+            explainer_results = await asyncio.gather(
+                *[
+                    asyncio.to_thread(fetch_and_extract_text, url)
+                    for url in metadata.explainer_links
+                ]
             )
+            explainer_contents = {
+                url: res
+                for url, res in zip(
+                    metadata.explainer_links, explainer_results, strict=True
+                )
+                if res
+            }
 
             # Check for missing URLs to show warnings
             for url in metadata.explainer_links:

@@ -90,14 +90,10 @@ async def test_run_context_assembly_success(
         "wptgen.phases.context_assembly.extract_feature_metadata",
         return_value=metadata,
     )
-    mocker.patch(
-        "wptgen.phases.context_assembly.fetch_and_extract_text",
-        return_value="Spec Content",
+    mock_fetch = mocker.patch(
+        "wptgen.phases.context_assembly.fetch_and_extract_text"
     )
-    mocker.patch(
-        "wptgen.phases.context_assembly.fetch_explainer_contents",
-        return_value={"http://explainer": "Explainer Content"},
-    )
+    mock_fetch.side_effect = ["Spec Content", "Explainer Content"]
     mocker.patch(
         "wptgen.phases.context_assembly.find_feature_tests", return_value=[]
     )
@@ -510,14 +506,12 @@ async def test_run_context_assembly_explainer_fetch_warning(
         "wptgen.phases.context_assembly.extract_feature_metadata",
         return_value=metadata,
     )
-    mocker.patch(
-        "wptgen.phases.context_assembly.fetch_and_extract_text",
-        return_value="Spec Content",
+    mock_fetch = mocker.patch(
+        "wptgen.phases.context_assembly.fetch_and_extract_text"
     )
-    mocker.patch(
-        "wptgen.phases.context_assembly.fetch_explainer_contents",
-        return_value={},  # Fail
-    )
+    # First for spec (success), second for explainer (fail)
+    mock_fetch.side_effect = ["Spec Content", None]
+
     mocker.patch(
         "wptgen.phases.context_assembly.find_feature_tests", return_value=[]
     )
