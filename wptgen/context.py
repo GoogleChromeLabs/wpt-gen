@@ -14,9 +14,12 @@
 
 """Functions for assembly and management of web feature context."""
 
+import http.client
+import ipaddress
 import json
 import logging
 import re
+import socket
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +31,7 @@ import yaml
 from bs4 import BeautifulSoup
 
 from wptgen.models import DataSource, FeatureMetadata, WPTContext
+from wptgen.utils import MAX_RETRIES, retry
 
 __all__ = ["DataSource", "FeatureMetadata", "WPTContext"]
 
@@ -82,7 +86,7 @@ def fetch_feature_yaml(
         # Use standard library to avoid bloating dependencies
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(req) as response:
+        with _ssrf_safe_opener.open(req, timeout=10) as response:
             yaml_content = response.read().decode("utf-8")
 
             # Use safe_load to securely parse the YAML string into a Python dict
@@ -111,7 +115,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "WPT-Gen/1.0"})
-        with urllib.request.urlopen(req) as response:
+        with _ssrf_safe_opener.open(req, timeout=10) as response:
             content = response.read().decode("utf-8")
             # ChromeStatus API often prefixes JSON with a vulnerability
             # protection string.
@@ -176,7 +180,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
     try:
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(MDN_MAPPINGS_URL)
-        with urllib.request.urlopen(req) as response:
+        with _ssrf_safe_opener.open(req, timeout=10) as response:
             json_content = response.read().decode("utf-8")
             data = json.loads(json_content)
 
@@ -186,21 +190,6 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
     except (urllib.error.HTTPError, json.JSONDecodeError, KeyError) as e:
         logger.warning("Could not fetch or parse MDN mapping: %s", e)
         return []
-
-
-def fetch_explainer_contents(urls: list[str]) -> dict[str, str]:
-    """
-    Fetches and extracts text content from a list of explainer URLs.
-
-    Returns:
-      Dictionary mapping each URL to its extracted markdown content.
-    """
-    contents = {}
-    for url in urls:
-        res = fetch_and_extract_text(url)
-        if res:
-            contents[url] = res
-    return contents
 
 
 def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
@@ -223,21 +212,201 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
     )
 
 
+def validate_ip_against_ssrf(ip: str) -> None:
+    ip_obj = ipaddress.ip_address(ip)
+    if (
+        ip_obj.is_loopback
+        or ip_obj.is_private
+        or ip_obj.is_link_local
+        or ip_obj.is_multicast
+        or ip_obj.is_reserved
+        or ip == "0.0.0.0"
+    ):
+        raise ValueError(f"URL resolves to a restricted IP address: {ip}")
+
+
+class SafeHTTPConnection(http.client.HTTPConnection):
+
+    def connect(self) -> None:
+        err = None
+        for res in socket.getaddrinfo(
+            self.host, self.port, 0, socket.SOCK_STREAM
+        ):
+            af, socktype, proto, _, sa = res
+            ip = str(sa[0])
+            validate_ip_against_ssrf(ip)
+            try:
+                self.sock = socket.socket(af, socktype, proto)
+                if hasattr(self, "timeout") and self.timeout is not getattr(
+                    socket, "_GLOBAL_DEFAULT_TIMEOUT", object()
+                ):
+                    self.sock.settimeout(self.timeout)
+                self.sock.connect(sa)
+                if getattr(self, "_tunnel_host", None):
+                    self._tunnel()  # type: ignore[attr-defined]
+                return
+            except OSError as e:
+                err = e
+                if self.sock:
+                    self.sock.close()
+        if err is not None:
+            raise err
+        else:
+            raise OSError(f"getaddrinfo returns an empty list for {self.host}")
+
+
+class SafeHTTPSConnection(http.client.HTTPSConnection):
+
+    def connect(self) -> None:
+        err = None
+        for res in socket.getaddrinfo(
+            self.host, self.port, 0, socket.SOCK_STREAM
+        ):
+            af, socktype, proto, _, sa = res
+            ip = str(sa[0])
+            validate_ip_against_ssrf(ip)
+            try:
+                self.sock = socket.socket(af, socktype, proto)
+                if hasattr(self, "timeout") and self.timeout is not getattr(
+                    socket, "_GLOBAL_DEFAULT_TIMEOUT", object()
+                ):
+                    self.sock.settimeout(self.timeout)
+                self.sock.connect(sa)
+                if getattr(self, "_tunnel_host", None):
+                    self._tunnel()  # type: ignore[attr-defined]
+                tunnel_host = getattr(self, "_tunnel_host", None)
+                server_hostname = tunnel_host if tunnel_host else self.host
+                self.sock = self._context.wrap_socket(  # type: ignore[attr-defined]
+                    self.sock, server_hostname=server_hostname
+                )
+                return
+            except OSError as e:
+                err = e
+                if self.sock:
+                    self.sock.close()
+        if err is not None:
+            raise err
+        else:
+            raise OSError(f"getaddrinfo returns an empty list for {self.host}")
+
+
+class SafeHTTPHandler(urllib.request.HTTPHandler):
+
+    def http_open(self, req: urllib.request.Request) -> Any:
+        return self.do_open(SafeHTTPConnection, req)
+
+
+class SafeHTTPSHandler(urllib.request.HTTPSHandler):
+
+    def https_open(self, req: urllib.request.Request) -> Any:
+        return self.do_open(
+            SafeHTTPSConnection, req, context=getattr(self, "_context", None)
+        )
+
+
+class SafeHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not newurl.lower().startswith(("http://", "https://")):
+            raise ValueError(f"Redirection to non-HTTP URL forbidden: {newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class BlockedFileHandler(urllib.request.FileHandler):
+
+    def file_open(self, req: urllib.request.Request) -> Any:
+        raise ValueError(
+            f"file:// scheme is blocked for SSRF protection: {req.full_url}"
+        )
+
+
+class BlockedFTPHandler(urllib.request.FTPHandler):
+
+    def ftp_open(self, req: urllib.request.Request) -> Any:
+        raise ValueError(
+            f"ftp:// scheme is blocked for SSRF protection: {req.full_url}"
+        )
+
+
+class BlockedDataHandler(urllib.request.DataHandler):
+
+    def data_open(self, req: urllib.request.Request) -> Any:
+        raise ValueError(
+            f"data: scheme is blocked for SSRF protection: {req.full_url}"
+        )
+
+
+_ssrf_safe_opener = urllib.request.build_opener(
+    SafeHTTPHandler,
+    SafeHTTPSHandler,
+    SafeHTTPRedirectHandler,
+    BlockedFileHandler,
+    BlockedFTPHandler,
+    BlockedDataHandler,
+)
+
+
+def validate_url_against_ssrf(url: str) -> None:
+    """
+    Validates an initial URL to prevent Server-Side Request Forgery (SSRF) attacks.
+    This provides a fast path failure before attempting a connection.
+    (Further validation occurs at connection time to prevent TOCTOU and redirect bypass).
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+
+    if not hostname:
+        raise ValueError("Invalid URL or missing hostname.")
+
+    try:
+        # Use getaddrinfo for IPv6 support
+        addr_info = socket.getaddrinfo(hostname, None)
+        for res in addr_info:
+            validate_ip_against_ssrf(str(res[4][0]))
+    except socket.gaierror as e:
+        raise ValueError(f"Could not resolve hostname: {hostname}") from e
+
+
 def fetch_and_extract_text(url: str) -> str | None:
     """
     Fetches the HTML content from a URL and extracts the core textual content,
     stripping away navigation, footers, and boilerplate.
     Returns the content formatted as Markdown.
     """
-    logger.info("Fetching content from: %s", url)
+    logger.info(f"Fetching content from: {url}")
+    validate_url_against_ssrf(url)
 
-    try:
+    @retry(
+        (urllib.error.HTTPError, urllib.error.URLError),
+        max_attempts=MAX_RETRIES,
+    )
+    def _fetch() -> str:
         # Set User-Agent to bypass generic bot filters and identify our crawler
         req = urllib.request.Request(
             url, headers={"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
         )
-        with urllib.request.urlopen(req) as response:
-            html = response.read().decode("utf-8")
+        with _ssrf_safe_opener.open(req, timeout=10) as response:
+            return str(response.read().decode("utf-8"))
+
+    try:
+        html = _fetch()
+    except ValueError as e:
+        # Rethrow SSRF validation errors that occur during redirects or connection
+        if "resolves to a restricted IP address" in str(e):
+            raise
+        logger.error(f"Failed to download HTML from {url}: {e}")
+        return None
     except Exception as e:
         logger.error("Failed to download HTML from %s: %s", url, e)
         return None

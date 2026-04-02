@@ -65,6 +65,7 @@ class BrowserType(str, Enum):
     CHROME = "chrome"
     FIREFOX = "firefox"
     SAFARI = "safari"
+    EDGE = "edge"
 
 
 class BrowserChannel(str, Enum):

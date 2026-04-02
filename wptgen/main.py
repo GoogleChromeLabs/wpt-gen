@@ -997,6 +997,19 @@ config_app = typer.Typer(
 app.add_typer(config_app, name="config")
 
 
+def _flatten_dict(
+    d: dict[str, Any], parent_key: str = "", sep: str = "."
+) -> dict[str, Any]:
+    items: list[tuple[str, Any]] = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(_flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
 def _display_config(config_path: str) -> None:
     """Displays the currently resolved configuration in the console.
 
@@ -1004,8 +1017,15 @@ def _display_config(config_path: str) -> None:
         config_path: Path to the configuration file to load.
     """
     try:
+        from rich.table import Table
+
         config = load_config(config_path=config_path, require_api_key=False)
+
+        # Instantiate a default config by passing None to skip loading any YAML config
+        default_config = load_config(config_path=None, require_api_key=False)
+
         config_dict = dataclasses.asdict(config)
+        default_dict = dataclasses.asdict(default_config)
 
         if config.loaded_from:
             console.print(
@@ -1020,18 +1040,41 @@ def _display_config(config_path: str) -> None:
         # Remove internal or sensitive fields from display
         config_dict.pop("loaded_from", None)
         config_dict.pop("api_key", None)
+        default_dict.pop("loaded_from", None)
+        default_dict.pop("api_key", None)
 
-        yaml_str = yaml.dump(
-            config_dict, sort_keys=False, default_flow_style=False
+        flat_config = _flatten_dict(config_dict)
+        flat_default = _flatten_dict(default_dict)
+
+        table = Table(
+            title="Resolved Configuration",
+            border_style="blue",
+            show_header=True,
         )
-        console.print(
-            Panel(
-                yaml_str,
-                title="Resolved Configuration",
-                border_style="blue",
-                expand=False,
+        table.add_column("Config Field", style="cyan", no_wrap=True)
+        table.add_column("Value", style="magenta")
+        table.add_column("Source", style="green")
+
+        for key, value in flat_config.items():
+            # Determine if the value is custom or default
+            default_val = flat_default.get(key)
+            source = "custom" if value != default_val else "default"
+
+            # Style the source column differently based on value
+            source_styled = (
+                f"[bold green]{source}[/bold green]"
+                if source == "custom"
+                else f"[dim white]{source}[/dim white]"
             )
-        )
+
+            # Convert None or other types to str for display
+            table.add_row(
+                key,
+                str(value) if value is not None else "[dim]None[/dim]",
+                source_styled,
+            )
+
+        console.print(table)
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1) from e

@@ -1,6 +1,6 @@
 ---
 name: wpt-gen-cli
-description: Best practices for CLI infrastructure, outputs, and templating in WPT-Gen.
+description: Best practices for CLI infrastructure, outputs, subprocess management, and templating in WPT-Gen.
 ---
 
 # WPT-Gen CLI Skills
@@ -20,18 +20,27 @@ WPT-Gen uses [Typer](https://typer.tiangolo.com/) for building its command-line 
     - `--show-responses` (`-s`): Display raw LLM-generated responses.
     - `--use-lightweight` / `--use-reasoning`: Force a specific model category.
 
-## 2. Rich Console Output
+## 2. Rich Console Output & Abstraction
 
 For displaying information to the user, WPT-Gen utilizes [Rich](https://rich.readthedocs.io/en/stable/).
 
-- **Styling:** Use `rich.print` (often imported as `from rich import print`) for colored and formatted output.
-- **Panels & Tables:** Use `Panel` to encapsulate related information (like summarizing the generated test plan) and `Table` for structured data.
-- **Progress Bars:** When iterating over long-running LLM calls out, use `rich.progress` to provide visual feedback to the user so they know the command has not hung.
+- **Strict UIProvider Abstraction:** Never use the native `print()` function. You must route all outputs through the injected `UIProvider` dependency (e.g. `ui.print`, `ui.warning`, `ui.error`).
+- **Styling:** Use `rich.print` (via `UIProvider`) for colored and formatted output.
+- **Panels & Tables:** Use `rich.panel.Panel` to encapsulate related information (like summarizing test plans) and `rich.table.Table` for structured data, rather than dumping raw JSON or concatenated strings to the CLI.
+- **Progress Bars:** When iterating over long-running LLM calls, use `ui.status()` wrappers to provide visual `rich.progress` spinners to the user so they know the command has not hung.
 
-## 3. Templating with Jinja2
+## 3. Subprocess execution & Wrappers
+
+WPT-Gen heavily relies on executing native binaries (`wpt lint`, `grep`) to empower LLM agents. 
+
+- **Subprocess Stability (Hung Agents):** Autonomous agents will hang indefinitely if tools don't return. When using `subprocess.run()`, you must **always** provide explicit `timeout=...` constraints, otherwise a rogue blocking command will freeze the AI forever.
+- **Environment Context Leaking:** Subprocess calls must construct and pass explicit `env={**os.environ, "CUSTOM": "VAL"}` mappings, rather than lazily mutating the global `os.environ` which bleeds state across Python threads. Reviewers must actively catch environment leaking.
+- **Shell Injection & Compat:** When wrapping native CLI execution tools (e.g., `git grep` or `grep`), scrutinize custom arguments for shell injection vulnerabilities. Force the use of the `--` argument separator to securely separate binary options from user-generated patterns.
+
+## 4. Templating with Jinja2
 
 WPT-Gen uses Jinja2 to template both prompts to the LLM and the final generated output (HTML/JS files).
 
 - **Location:** Templates are typically stored in the `wptgen/templates/` directory.
 - **Variable Injection:** Use standard Jinja2 syntax (`{{ variable_name }}`) to inject context retrieved via `trafilatura` or derived from local scans.
-- **Control Structures:** Utilize standard `{% if %}` and `{% for %}` loops to dynamically construct test structures based on the suggested test footprint.
+- **Control Structures:** Utilize standard `{% if %}` and `{% for %}` loops to dynamically construct test structures based on the suggested test footprint. Ensure large, nullable dependencies are robustly guarded behind `{% if %}` conditions to avoid causing context bloat.

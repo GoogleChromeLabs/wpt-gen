@@ -52,6 +52,14 @@ BINARY_EXTENSIONS = {
     ".sqlite3",
 }
 
+BANNED_PATH_COMPONENTS = {
+    ".git",
+    ".env",
+    ".gemini",
+    "__pycache__",
+    ".pytest_cache",
+}
+
 
 def _parse_test_results(log_path: str) -> dict[str, str]:
     """Parses the JSON log output to extract failing test IDs and error messages."""
@@ -110,6 +118,8 @@ def _parse_test_results(log_path: str) -> dict[str, str]:
 WPT_LINT_TIMEOUT_SECONDS = 15
 WPT_RUN_TIMEOUT_SECONDS = 60
 WPT_GREP_TIMEOUT_SECONDS = 15
+MAX_FILE_READ_BYTES = 5 * 1024 * 1024  # 5MB
+MAX_FILE_WRITE_BYTES = 5 * 1024 * 1024  # 5MB
 
 
 def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
@@ -132,11 +142,17 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
 
     # Try to calculate relative path. If it raises ValueError, it's outside.
     try:
-        resolved_target.relative_to(resolved_root)
+        rel_path = resolved_target.relative_to(resolved_root)
     except ValueError as e:
         raise ValueError(
             f"Path '{target_path}' is outside the designated WPT repository root."
         ) from e
+
+    # Enforce explicit deny-list for internal/sensitive files
+    if any(part in BANNED_PATH_COMPONENTS for part in rel_path.parts):
+        raise ValueError(
+            f"Access to internal or sensitive repository path '{target_path}' is strictly prohibited."
+        )
 
     return resolved_target
 
@@ -189,26 +205,41 @@ def create_agent_tools(
                     "status": "error",
                     "error": f"File not found: {file_path}",
                 }
-            content = target.read_text(encoding="utf-8")
 
             if start_line is not None or end_line is not None:
-                lines = content.splitlines(keepends=True)
                 start = max(0, start_line - 1) if start_line is not None else 0
-                end = (
-                    min(len(lines), end_line)
-                    if end_line is not None
-                    else len(lines)
-                )
-                if start >= len(lines):
+                stop = end_line if end_line is not None else None
+
+                sliced_lines = []
+                current_bytes = 0
+
+                with open(target, encoding="utf-8") as f:
+                    for line in itertools.islice(f, start, stop):
+                        sliced_lines.append(line)
+                        current_bytes += len(line.encode("utf-8"))
+                        if current_bytes > MAX_FILE_READ_BYTES:
+                            return {
+                                "status": "error",
+                                "error": f"Requested slice exceeds maximum allowed read size of {MAX_FILE_READ_BYTES} bytes.",
+                            }
+
+                if not sliced_lines and start > 0:
                     return {
                         "status": "error",
-                        "error": f"start_line ({start_line}) is beyond EOF ({len(lines)} lines).",
+                        "error": f"start_line ({start_line}) is beyond EOF.",
                     }
                 return {
                     "status": "success",
-                    "content": "".join(lines[start:end]),
+                    "content": "".join(sliced_lines),
                 }
 
+            if target.stat().st_size > MAX_FILE_READ_BYTES:
+                return {
+                    "status": "error",
+                    "error": f"File exceeds maximum allowed read size of {MAX_FILE_READ_BYTES} bytes.",
+                }
+
+            content = target.read_text(encoding="utf-8")
             return {"status": "success", "content": content}
         except (OSError, ValueError) as e:
             return {"status": "error", "error": str(e)}
@@ -225,6 +256,13 @@ def create_agent_tools(
         """
         try:
             target = _validate_safe_path(Path(file_path), wpt_path)
+
+            if len(content.encode("utf-8")) > MAX_FILE_WRITE_BYTES:
+                return {
+                    "status": "error",
+                    "error": f"Content exceeds maximum allowed write size of {MAX_FILE_WRITE_BYTES} bytes.",
+                }
+
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
             return {"status": "success"}
@@ -408,7 +446,7 @@ def create_agent_tools(
             # We use subprocess.run directly as these tools are executed synchronously by ADK currently
             try:
                 result = subprocess.run(
-                    ["./wpt", "lint", rel_path],
+                    ["./wpt", "lint", f"./{rel_path}"],
                     cwd=str(wpt_path),
                     capture_output=True,
                     text=True,
@@ -473,7 +511,7 @@ def create_agent_tools(
                         "--log-raw",
                         log_path,
                         browser,
-                        rel_path,
+                        f"./{rel_path}",
                     ]
                 )
 
