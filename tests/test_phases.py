@@ -495,7 +495,7 @@ async def test_run_requirements_extraction_success(
 async def test_run_context_assembly_explainer_fetch_warning(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that a warning is shown if an explainer fails to fetch during context assembly."""
+    """Test that a warning is shown if an explainer fails to fetch meaningful text."""
     mocker.patch(
         "wptgen.phases.context_assembly.fetch_feature_yaml",
         return_value={"name": "feat"},
@@ -509,7 +509,7 @@ async def test_run_context_assembly_explainer_fetch_warning(
     mock_fetch = mocker.patch(
         "wptgen.phases.context_assembly.fetch_and_extract_text"
     )
-    # First for spec (success), second for explainer (fail)
+    # First for spec (success), second for explainer (fail with None)
     mock_fetch.side_effect = ["Spec Content", None]
 
     mocker.patch(
@@ -523,8 +523,79 @@ async def test_run_context_assembly_explainer_fetch_warning(
     await run_context_assembly("feat-id", mock_config, mock_ui)
 
     mock_ui.warning.assert_any_call(
-        "Failed to fetch or extract content from explainer: http://explainer-fail"
+        "Failed to fetch or extract meaningful text from explainer: http://explainer-fail"
     )
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_explainer_fetch_exception(
+    mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+    """Test that a warning is shown if an explainer fetch raises an exception."""
+    mocker.patch(
+        "wptgen.phases.context_assembly.fetch_feature_yaml",
+        return_value={"name": "feat"},
+    )
+    metadata = FeatureMetadata("Feat", "Desc", ["http://spec"])
+    metadata.explainer_links = ["http://explainer-error"]
+    mocker.patch(
+        "wptgen.phases.context_assembly.extract_feature_metadata",
+        return_value=metadata,
+    )
+    mock_fetch = mocker.patch(
+        "wptgen.phases.context_assembly.fetch_and_extract_text"
+    )
+    # First for spec (success), second for explainer (exception)
+    mock_fetch.side_effect = ["Spec Content", Exception("Network error")]
+
+    mocker.patch(
+        "wptgen.phases.context_assembly.find_feature_tests", return_value=[]
+    )
+    mocker.patch(
+        "wptgen.phases.context_assembly.gather_local_test_context",
+        return_value=WPTContext(),
+    )
+
+    await run_context_assembly("feat-id", mock_config, mock_ui)
+
+    mock_ui.warning.assert_any_call(
+        "Failed to fetch or extract content from explainer (http://explainer-error): Network error"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_spec_fetch_exception(
+    mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+    """Test that a warning is shown if a spec fetch raises an exception."""
+    mocker.patch(
+        "wptgen.phases.context_assembly.fetch_feature_yaml",
+        return_value={"name": "feat"},
+    )
+    mocker.patch(
+        "wptgen.phases.context_assembly.extract_feature_metadata",
+        return_value=FeatureMetadata("Feat", "Desc", ["http://spec-error"]),
+    )
+    mock_fetch = mocker.patch(
+        "wptgen.phases.context_assembly.fetch_and_extract_text"
+    )
+    mock_fetch.side_effect = [Exception("404 Not Found")]
+
+    mocker.patch(
+        "wptgen.phases.context_assembly.find_feature_tests", return_value=[]
+    )
+    mocker.patch(
+        "wptgen.phases.context_assembly.gather_local_test_context",
+        return_value=WPTContext(),
+    )
+
+    context = await run_context_assembly("feat-id", mock_config, mock_ui)
+
+    assert context is None
+    mock_ui.warning.assert_any_call(
+        "Failed to fetch spec (http://spec-error): 404 Not Found"
+    )
+    mock_ui.error.assert_any_call("Failed to extract spec content.")
 
 
 @pytest.mark.asyncio

@@ -82,13 +82,15 @@ async def run_context_assembly(
             *[
                 asyncio.to_thread(fetch_and_extract_text, url)
                 for url in metadata.specs
-            ]
+            ],
+            return_exceptions=True,
         )
-        spec_contents = {
-            url: res
-            for url, res in zip(metadata.specs, results, strict=True)
-            if res
-        }
+        spec_contents: dict[str, str] = {}
+        for url, res in zip(metadata.specs, results, strict=True):
+            if isinstance(res, Exception):
+                ui.warning(f"Failed to fetch spec ({url}): {res}")
+            elif isinstance(res, str):
+                spec_contents[url] = res
 
     if not spec_contents:
         ui.error("Failed to extract spec content.")
@@ -99,25 +101,24 @@ async def run_context_assembly(
         ui.print("Fetching explainer content...")
         with ui.status("Fetching and extracting text from explainers..."):
             # Fetch all explainers concurrently using to_thread since fetch_and_extract_text is blocking
-            explainer_results = await asyncio.gather(
+            results = await asyncio.gather(
                 *[
                     asyncio.to_thread(fetch_and_extract_text, url)
                     for url in metadata.explainer_links
-                ]
+                ],
+                return_exceptions=True,
             )
-            explainer_contents = {
-                url: res
-                for url, res in zip(
-                    metadata.explainer_links, explainer_results, strict=True
-                )
-                if res
-            }
-
-            # Check for missing URLs to show warnings
-            for url in metadata.explainer_links:
-                if url not in explainer_contents:
+            explainer_contents = {}
+            for url, res in zip(metadata.explainer_links, results, strict=True):
+                if isinstance(res, Exception):
                     ui.warning(
-                        f"Failed to fetch or extract content from explainer: {url}"
+                        f"Failed to fetch or extract content from explainer ({url}): {res}"
+                    )
+                elif isinstance(res, str):
+                    explainer_contents[url] = res
+                else:
+                    ui.warning(
+                        f"Failed to fetch or extract meaningful text from explainer: {url}"
                     )
 
     ui.print(
@@ -160,13 +161,17 @@ async def run_context_assembly(
                     *[
                         asyncio.to_thread(fetch_and_extract_text, url)
                         for url in mdn_urls
-                    ]
+                    ],
+                    return_exceptions=True,
                 )
-                mdn_contents = [
-                    f"# Documentation from {url}\n\n{res}"
-                    for url, res in zip(mdn_urls, results, strict=True)
-                    if res
-                ]
+                mdn_contents = []
+                for url, res in zip(mdn_urls, results, strict=True):
+                    if isinstance(res, Exception):
+                        ui.warning(f"Failed to fetch MDN page ({url}): {res}")
+                    elif isinstance(res, str):
+                        mdn_contents.append(
+                            f"# Documentation from {url}\n\n{res}"
+                        )
     elif config.chromestatus and config.include_mdn_docs:
         ui.print("Skipping MDN documentation fetch for ChromeStatus feature.")
     else:
