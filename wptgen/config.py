@@ -347,11 +347,8 @@ def load_config(
 
     if timeout < MIN_LLM_TIMEOUT:
         logging.warning(
-            "Requested timeout %ds is less than the minimum allowed (%ds). "
-            "Setting timeout to %ds.",
-            timeout,
-            MIN_LLM_TIMEOUT,
-            MIN_LLM_TIMEOUT,
+            f"Requested timeout {timeout}s is less than the minimum allowed "
+            f"({MIN_LLM_TIMEOUT}s). Setting timeout to {MIN_LLM_TIMEOUT}s."
         )
         timeout = MIN_LLM_TIMEOUT
 

@@ -210,8 +210,8 @@ class GeminiClient(LLMClient):
             model_info.input_token_limit or 1_000_000
         )  # Fallback to 1M if not specified
 
-        logging.info("Prompt token count: %d", token_count)
-        logging.info("Model's context limit token count: %d", limit)
+        logging.info(f"Prompt token count: {token_count}")
+        logging.info(f"Model's context limit token count: {limit}")
 
         return token_count > limit
 
@@ -319,8 +319,8 @@ class OpenAIClient(LLMClient):
         # https://developers.openai.com/api/docs/models/gpt-5.2
         limit = 400_000
 
-        logging.info("Prompt token count (estimated): %d", token_count)
-        logging.info("Model's assumed context limit token count: %d", limit)
+        logging.info(f"Prompt token count (estimated): {token_count}")
+        logging.info(f"Model's assumed context limit token count: {limit}")
 
         return token_count > limit
 
@@ -441,8 +441,8 @@ class AnthropicClient(LLMClient):
         # Claude 4 models have a 200,000 token context limit.
         limit = 200_000
 
-        logging.info("Prompt token count: %d", token_count)
-        logging.info("Model's context limit token count: %d", limit)
+        logging.info(f"Prompt token count: {token_count}")
+        logging.info(f"Model's context limit token count: {limit}")
 
         return token_count > limit
 

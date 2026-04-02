@@ -153,7 +153,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
-        logger.warning("ChromeStatus API error for %s: %s", feature_id, e)
+        logger.warning(f"ChromeStatus API error for {feature_id}: {e}")
         return None
     except (
         urllib.error.URLError,
@@ -162,9 +162,8 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         IndexError,
     ) as e:
         logger.warning(
-            "Could not fetch or parse ChromeStatus metadata for %s: %s",
-            feature_id,
-            e,
+            f"Could not fetch or parse ChromeStatus metadata for "
+            f"{feature_id}: {e}"
         )
         return None
 
@@ -188,7 +187,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
             return [item["url"] for item in feature_mappings if "url" in item]
 
     except (urllib.error.HTTPError, json.JSONDecodeError, KeyError) as e:
-        logger.warning("Could not fetch or parse MDN mapping: %s", e)
+        logger.warning(f"Could not fetch or parse MDN mapping: {e}")
         return []
 
 
@@ -408,7 +407,7 @@ def fetch_and_extract_text(url: str) -> str | None:
         logger.error(f"Failed to download HTML from {url}: {e}")
         return None
     except Exception as e:
-        logger.error("Failed to download HTML from %s: %s", url, e)
+        logger.error(f"Failed to download HTML from {url}: {e}")
         return None
 
     soup = BeautifulSoup(html, "lxml")
@@ -428,7 +427,7 @@ def fetch_and_extract_text(url: str) -> str | None:
     )
 
     if not main_content:
-        logger.warning("Could not find main content block in %s", url)
+        logger.warning(f"Could not find main content block in {url}")
         return None
 
     # Pre-process <a> tags to preserve internal specification links (fragments)
@@ -447,7 +446,7 @@ def fetch_and_extract_text(url: str) -> str | None:
 
     content = content.strip()
     if not content:
-        logger.warning("Could not extract meaningful text from %s", url)
+        logger.warning(f"Could not extract meaningful text from {url}")
         return None
 
     return content
@@ -619,7 +618,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
         except yaml.YAMLError:
             continue
         except Exception as e:
-            logger.warning("Error processing %s: %s", yaml_path, e)
+            logger.warning(f"Error processing {yaml_path}: {e}")
 
     # Convert back to a sorted list of absolute string paths
     return sorted(relevant_files)
@@ -765,7 +764,7 @@ def gather_local_test_context(
                                 visited.add(resolved_str)
                                 queue.append((resolved_str, False))
         except Exception as e:
-            logger.warning("Error reading dependency %s: %s", curr_p_str, e)
+            logger.warning(f"Error reading dependency {curr_p_str}: {e}")
 
     # Build the reachability map
     for test_p_str in test_contents:
