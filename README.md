@@ -21,6 +21,7 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (test suggestions) that address identified gaps.
 *   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved test suggestions using an autonomous agent powered by `google-adk`.
+*   **ChromeStatus Integration:** Pulls feature data directly from the ChromeStatus API (`chromestatus.com`) to enable targeted test evaluation and generation for specific ChromeStatus features.
 *   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai` and thinking models), OpenAI, and Anthropic models.
 
 ## How it Works
@@ -30,17 +31,23 @@ WPT-Gen follows a structured, multi-phase agentic workflow. Each phase is design
 ```mermaid
 flowchart TD
     subgraph Phase1[Phase 1: Context Assembly]
-        A[Web Features] --> B[Scrape Specs/MDN]
-        C[Local WPT Repo] --> D[Index Existing Tests]
+        subgraph WF[Web Features Workflow]
+            A[Web Feature] --> B[Scrape Specs/MDN]
+            C[Local WPT Repo] --> D[Index Existing Tests]
+        end
+        subgraph CS[ChromeStatus Workflow]
+            I[ChromeStatus Feature] --> J[Specs/Explainers]
+            I --> K[Extract Existing Tests]
+        end
     end
 
-    subgraph Analysis[Requirement & Gap Analysis]
-        B & D --> E{{Requirements Extraction}}
-        E --> F{{Coverage Audit}}
+    subgraph Analysis[Phase 2: Requirement & Gap Analysis]
+        B & J --> E{{Requirements Extraction}}
+        E & D & K --> F{{Coverage Audit}}
         F --> G[test suggestions]
     end
 
-    subgraph Phase4[Phase 4: Test Generation]
+    subgraph Phase3[Phase 3: Test Generation]
         G --> H{{Generate WPT Tests}}
     end
 
@@ -52,7 +59,7 @@ flowchart TD
 
 For an in-depth explanation of the internal logic, inputs, outputs, and LLM integrations for each phase, see the [Workflow Phases Documentation](docs/workflow-phases.md).
 
-1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
+1.  **Phase 1: Context Assembly:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) or ChromeStatus feature entries, and identifies existing test coverage in the local WPT repository.
 2.  **Phase 2: Requirements Extraction:** Uses an LLM to synthesize specification text into structured, granular technical requirements. Supports parallel and iterative extraction modes for complex specs.
 3.  **Phase 3: Coverage Audit:** Performs a delta analysis by comparing the synthesized requirements against the local test suite. This phase outputs an audit worksheet and high-level test suggestions.
 4.  **Phase 4: Test Generation:** Translates user-selected test suggestions into functional WPT-compliant code (Testharness, Reftests, or Crashtests) using an autonomous agent powered by `google-adk`, which leverages specialized file-system tools and style guide instructions.
@@ -171,10 +178,30 @@ wpt-gen generate font-family
 
 **Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).
 
-### Other Commands
+## ChromeStatus Usage
+
+The `chromestatus` command allows for a more targeted workflow by leveraging ChromeStatus feature entries directly. This is useful for features that may not yet be fully represented in the `web-features` repository.
+
+### Basic Generation
+
+```bash
+wpt-gen chromestatus <feature_id>
+```
+
+### Common Options
+
+| Option | Shorthand | Description |
+| :--- | :--- | :--- |
+| `feature_id` | (Arg) | **Required.** The numeric ID of the ChromeStatus feature. |
+| `--provider` | `-p` | Override the default LLM provider. |
+| `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
+| `--config` | `-c` | Path to a custom `wpt-gen.yml` file. |
+
+**Note:** The `chromestatus` command fetches data from `chromestatus.com/api/v0/features/{feature_id}` and uses the feature's name and summary to drive the requirements extraction and coverage audit phases.
+
+## Other Commands
 
 *   `wpt-gen audit`: Perform a gap analysis and generate coverage blueprints without generating WPT files.
-*   `wpt-gen chromestatus`: Perform a coverage audit and generate a report for a ChromeStatus feature.
 *   `wpt-gen clear-cache`: Clear the existing cached data for wpt-gen.
 *   `wpt-gen config`: Manage WPT-Gen configuration.
 *   `wpt-gen doctor`: Verify that all system prerequisites are met.
