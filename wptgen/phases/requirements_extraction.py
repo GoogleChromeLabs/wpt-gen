@@ -64,6 +64,7 @@ async def run_requirements_extraction(
     ui.on_phase_start(2, "Requirements Extraction")
 
     assert context.metadata is not None
+    assert context.feature_id is not None
 
     web_feature_id = context.feature_id
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
@@ -137,6 +138,7 @@ async def run_requirements_extraction_categorized(
     ui.on_phase_start(2, "Requirements Extraction (Categorized)")
 
     assert context.metadata is not None
+    assert context.feature_id is not None
 
     web_feature_id = context.feature_id
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
@@ -309,6 +311,7 @@ async def run_requirements_extraction_iterative(
     ui.on_phase_start(2, "Requirements Extraction (Iterative)")
 
     assert context.metadata is not None
+    assert context.feature_id is not None
 
     web_feature_id = context.feature_id
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"

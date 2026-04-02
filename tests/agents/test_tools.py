@@ -275,3 +275,23 @@ def test_tool_path_traversal_prevention(
         )
         assert res["status"] == "error"
         assert "outside the designated WPT" in res["error"]
+
+
+def test_create_agent_tools_omit_search(
+    wpt_root: Path, mocker: MockerFixture
+) -> None:
+    # When omit_search_feature_tests is False (default)
+    tools = create_agent_tools(wpt_root, mocker.MagicMock(), "chrome", "canary")
+    tool_names = [t.name for t in tools]
+    assert "search_feature_tests" in tool_names
+
+    # When omit_search_feature_tests is True
+    tools_omitted = create_agent_tools(
+        wpt_root,
+        mocker.MagicMock(),
+        "chrome",
+        "canary",
+        omit_search_feature_tests=True,
+    )
+    tool_names_omitted = [t.name for t in tools_omitted]
+    assert "search_feature_tests" not in tool_names_omitted

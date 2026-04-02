@@ -75,6 +75,7 @@ class WPTGenEngine:
 
     def _save_resume_state(self, context: WorkflowContext) -> None:
         """Serializes and saves the current workflow context to the cache."""
+        assert context.feature_id is not None
         resume_file = self._get_resume_file_path(context.feature_id)
         with open(resume_file, "w", encoding="utf-8") as f:
             json.dump(context.to_dict(), f, indent=2)
