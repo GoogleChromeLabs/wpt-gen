@@ -14,6 +14,8 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 - **Ensuring High Coverage:** Identifying missing edge cases and suggesting specific test scenarios.
 - **Standardizing Compliance:** Generating tests that adhere to strict WPT style guides and directory structures.
 
+![wpt-gen](https://github.com/user-attachments/assets/9ef29fac-4e22-40ff-a3d1-ef27d18461e9)
+
 ## Key Features
 
 *   **Context Assembly:** Automatically resolves Web Feature IDs (via `web-features`) to fetch specification and MDN documentation (if available), using BeautifulSoup and Markdownify to preserve critical code blocks and semantic structure.
