@@ -1021,7 +1021,8 @@ def _display_config(config_path: str) -> None:
 
         config = load_config(config_path=config_path, require_api_key=False)
 
-        # Instantiate a default config by passing None to skip loading any YAML config
+        # Instantiate a default config by passing None to skip loading any
+        # YAML config.
         default_config = load_config(config_path=None, require_api_key=False)
 
         config_dict = dataclasses.asdict(config)

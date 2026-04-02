@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Phase 3: Coverage Audit - Identifying gaps in existing WPT coverage."""
+
 import asyncio
 import math
 import re
@@ -32,6 +34,15 @@ FILENAME_SANITIZATION_RE = re.compile(r"[^a-z0-9_\-]")
 def partition_requirements_xml(
     xml_string: str, max_threshold: int = 40
 ) -> list[str]:
+    """Splits a large requirements XML string into smaller partitions.
+
+    Args:
+      xml_string: The full XML string containing requirement tags.
+      max_threshold: The maximum number of requirements per partition.
+
+    Returns:
+      A list of XML strings, each wrapped in <requirements_list> tags.
+    """
     if not xml_string:
         return []
     matches = list(
@@ -61,6 +72,15 @@ def partition_requirements_xml(
 
 
 def combine_audit_responses(responses: list[str]) -> str:
+    """Merges multiple audit partition responses into a single XML response.
+
+    Args:
+      responses: A list of raw LLM responses for each partition.
+
+    Returns:
+      A single XML string containing the merged status, worksheet, and
+      suggestions.
+    """
     combined_worksheets = []
     combined_suggestions = []
 
@@ -97,6 +117,21 @@ async def run_coverage_audit(
     ui: UIProvider,
     jinja_env: Environment,
 ) -> str | None:
+    """Executes the Coverage Audit phase.
+
+    Partitions the requirements, prompts the LLM to audit existing WPT coverage
+    against them, and merges the results.
+
+    Args:
+      context: The current workflow context.
+      config: The tool configuration.
+      llm: The LLM client.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+
+    Returns:
+      The combined audit response XML string, or None on failure.
+    """
     ui.on_phase_start(3, "Coverage Audit")
 
     req_partitions = partition_requirements_xml(
@@ -119,11 +154,14 @@ async def run_coverage_audit(
             return None
 
         req_count = len(re.findall(r"<requirement\b[^>]*>", req_xml))
-        task_name = (
-            f"Coverage Audit (Partition {i + 1}/{len(req_partitions)}: {req_count} requirements)"
-            if len(req_partitions) > 1
-            else f"Coverage Audit ({req_count} requirements)"
-        )
+        if len(req_partitions) > 1:
+            task_name = (
+                f"Coverage Audit (Partition {i + 1}/{len(req_partitions)}: "
+                f"{req_count} requirements)"
+            )
+        else:
+            task_name = f"Coverage Audit ({req_count} requirements)"
+
         prompts.append((prompt, task_name))
 
     spec_urls = (

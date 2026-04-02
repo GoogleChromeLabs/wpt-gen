@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Semantic UI interface and Rich-based implementation for the WPT workflow."""
+
 from __future__ import annotations
 
 import difflib
@@ -167,6 +169,7 @@ class RichUIProvider:
     def progress_indicator(
         self, description: str, total: int
     ) -> Generator[ProgressIndicator, None, None]:
+        """Provides a context manager for a progress indicator."""
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -176,6 +179,7 @@ class RichUIProvider:
             task_id = progress.add_task(description, total=total)
 
             class _Indicator:
+                """Inner helper to advance and update the progress task."""
 
                 def advance(self, amount: float = 1) -> None:
                     progress.advance(task_id, advance=amount)
@@ -185,6 +189,7 @@ class RichUIProvider:
                     description: str | None = None,
                     outstanding: int | None = None,
                 ) -> None:
+                    """Updates the description and outstanding count."""
                     kwargs: dict[str, Any] = {}
                     if description is not None:
                         if outstanding is not None:
@@ -224,6 +229,7 @@ class RichUIProvider:
         self.console.print(f"[bold red]✘[/bold red] {message}")
 
     def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
+        """Displays a unified diff between two strings."""
         diff = list(
             difflib.unified_diff(
                 old_text.splitlines(),
@@ -248,6 +254,7 @@ class RichUIProvider:
         self.success(f"{phase_name} complete.")
 
     def report_metadata(self, metadata: FeatureMetadata) -> None:
+        """Displays a panel with feature metadata."""
         metadata_table = Table(show_header=False, box=None, padding=(0, 2))
         metadata_table.add_row(
             "[bold]Web Feature Name:[/bold]", f"[cyan]{metadata.name}[/cyan]"
@@ -283,6 +290,7 @@ class RichUIProvider:
         test_count: int | None = None,
         dep_count: int | None = None,
     ) -> None:
+        """Displays a summary of the gathered context."""
         parts = [f"{spec_len} chars of spec"]
         if explainer_count is not None:
             parts.append(f"{explainer_count} explainers")
@@ -303,6 +311,7 @@ class RichUIProvider:
         total_tokens: int,
         auto_confirmed: bool = False,
     ) -> None:
+        """Displays a summary of token usage for a phase."""
         table = Table(
             title=f"Token Usage Summary ({phase_name})",
             show_header=True,
@@ -324,12 +333,14 @@ class RichUIProvider:
         self.console.print(table)
         if len(results) > 1:
             self.console.print(
-                f"[bold]Total Estimated Tokens:[/bold] [cyan]{total_tokens}[/cyan]"
+                f"[bold]Total Estimated Tokens:[/bold] "
+                f"[cyan]{total_tokens}[/cyan]"
             )
 
         if any(limit_exceeded for _, limit_exceeded, _ in results):
             self.console.print(
-                "\n[bold red]Warning:[/bold red] One or more prompts exceed the model context limit!"
+                "\n[bold red]Warning:[/bold red] One or more prompts exceed "
+                "the model context limit!"
             )
 
         if auto_confirmed:
@@ -338,6 +349,7 @@ class RichUIProvider:
             )
 
     def report_llm_response(self, response: str, task_name: str) -> None:
+        """Displays the raw LLM response with syntax highlighting."""
         # Determine syntax highlighting based on content (defaulting to xml).
         syntax_lexer = "xml"
         parsed_files = parse_multi_file_response(response)
@@ -370,6 +382,7 @@ class RichUIProvider:
         )
 
     def report_coverage_audit(self, audit_response: str | None = None) -> None:
+        """Displays the coverage audit report."""
         self.console.print()
         self.console.rule("[bold cyan]Coverage Audit Report")
         self.console.print()
@@ -378,6 +391,7 @@ class RichUIProvider:
             self.console.print()
 
     def report_audit_worksheet(self, worksheet_text: str) -> None:
+        """Displays a table showing the coverage audit worksheet."""
         table = Table(
             title="Coverage Audit Worksheet",
             show_header=True,
@@ -387,7 +401,8 @@ class RichUIProvider:
         table.add_column("Requirement")
         table.add_column("Status", justify="center")
 
-        # Regex to parse lines like: R1: [Requirement Text] -> [COVERED by filename.html]
+        # Regex to parse lines like:
+        # R1: [Requirement Text] -> [COVERED by filename.html]
         # or R1: [Requirement Text] -> [UNCOVERED]
         pattern = re.compile(r"^(R\d+):\s*(.*)\s*->\s*\[(.*)\]", re.MULTILINE)
 
@@ -415,20 +430,26 @@ class RichUIProvider:
         description: str,
         test_type: str | None = None,
     ) -> None:
+        """Displays a panel with a single test suggestion."""
         content = f"[bold cyan]Description:[/bold cyan] {description}"
         if test_type:
             content += f"\n[bold cyan]Test Type:[/bold cyan] {test_type}"
 
+        title_str = (
+            f"[bold cyan] Test Suggestion #{suggestion_index}:[/bold cyan] "
+            f"[white]{title}[/white]"
+        )
         self.console.print(
             Panel(
                 content,
-                title=f"[bold cyan] Test Suggestion #{suggestion_index}:[/bold cyan] [white]{title}[/white]",
+                title=title_str,
                 border_style="blue",
                 expand=False,
             )
         )
 
     def report_generation_start(self, count: int) -> None:
+        """Displays the start of the test generation phase."""
         self.console.print(
             f"\nGenerating [bold]{count}[/bold] tests in parallel..."
         )
@@ -440,21 +461,22 @@ class RichUIProvider:
         path: Path | None = None,
         fallback: bool = False,
     ) -> None:
+        """Reports the successful or failed generation of a single test."""
         if success:
+            path_str = str(path.absolute()) if path else ""
             if fallback:
                 self.console.print(
-                    f'[green]✔ Saved (fallback):[/green] {path.absolute() if path else ""}'
+                    f"[green]✔ Saved (fallback):[/green] {path_str}"
                 )
             else:
-                self.console.print(
-                    f'[green]✔ Saved:[/green] {path.absolute() if path else ""}'
-                )
+                self.console.print(f"[green]✔ Saved:[/green] {path_str}")
         else:
             self.error(f"Failed to generate: {root_name}")
 
     def report_generation_summary(
         self, generated_tests: list[tuple[Path, str, str]]
     ) -> None:
+        """Displays a summary table of all generated tests and support files."""
         if generated_tests:
             summary_table = Table(
                 title="Generated Files Summary",

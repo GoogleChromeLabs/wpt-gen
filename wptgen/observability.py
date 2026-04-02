@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Observability and tracing utilities for LLM interactions."""
+
 import json
 import time
 from pathlib import Path

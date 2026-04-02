@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""UI streaming and formatting utilities for ADK events."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,7 +45,7 @@ def format_tool_call(
             pass
 
     content_renderable: str | Table
-    if args_dict is not None and len(args_dict) == 0:
+    if args_dict is not None and not args_dict:
         # Valid dict, but empty
         content_renderable = "[dim italic]No arguments[/dim italic]"
     elif not args_dict:
@@ -101,9 +103,13 @@ def format_tool_call(
             table.add_row(f"{k}:", val_str)
         content_renderable = table
 
+    title_str = (
+        f"[cyan]{agent_name} calling tool:[/cyan] "
+        f"[bold white]{tool_name}[/bold white]"
+    )
     return Panel(
         content_renderable,
-        title=f"[cyan]{agent_name} calling tool:[/cyan] [bold white]{tool_name}[/bold white]",
+        title=title_str,
         title_align="left",
         border_style="cyan",
         padding=(0, 1),
@@ -131,7 +137,7 @@ class ADKStreamManager:
         pass
 
     def process_event(self, event: Event) -> None:
-        """Takes an ADK Event object and streams its contents/actions to the UI.
+        """Takes an ADK Event object and streams its contents to the UI.
 
         Args:
             event: The incoming ADK Event yielded by the Runner.
@@ -145,7 +151,8 @@ class ADKStreamManager:
             if part.text:
                 if is_thought:
                     if self.config.include_thoughts:
-                        # Stream the agent's internal thought process directly to stdout in dim italic text
+                        # Stream the agent's internal thought process directly
+                        # to stdout in dim italic text
                         self.ui.stream_text(part.text)
                 else:
                     # Regular text, print normally

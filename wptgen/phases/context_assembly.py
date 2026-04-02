@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Phase 1: Context Assembly - Gathering specifications and existing tests."""
+
 import asyncio
 
 from wptgen.config import Config
@@ -34,6 +36,20 @@ from wptgen.ui import UIProvider
 async def run_context_assembly(
     web_feature_id: str, config: Config, ui: UIProvider
 ) -> WorkflowContext | None:
+    """Executes the Context Assembly phase.
+
+    Gathers feature metadata, specification contents, explainer documents, MDN
+    pages, and local WPT tests to build a comprehensive context for later
+    phases.
+
+    Args:
+      web_feature_id: The ID of the feature to gather context for.
+      config: The tool configuration.
+      ui: The UI provider for reporting progress.
+
+    Returns:
+      A WorkflowContext object containing all gathered data, or None on failure.
+    """
     ui.on_phase_start(1, "Context Assembly")
 
     if config.chromestatus:
@@ -48,7 +64,8 @@ async def run_context_assembly(
         if not feature_data:
             if config.spec_urls and config.feature_description:
                 ui.warning(
-                    f"Feature {web_feature_id} not found in the web-features repository."
+                    f"Feature {web_feature_id} not found in the "
+                    "web-features repository."
                 )
                 metadata = FeatureMetadata(
                     name=web_feature_id,
@@ -58,8 +75,9 @@ async def run_context_assembly(
             else:
                 ui.error(f"Feature {web_feature_id} not found.")
                 ui.print(
-                    "To generate tests for an unregistered feature, please provide both a spec URL using --spec-urls "
-                    "and a description using --description."
+                    "To generate tests for an unregistered feature, please "
+                    "provide both a spec URL using --spec-urls and a "
+                    "description using --description."
                 )
                 return None
         else:
@@ -100,7 +118,7 @@ async def run_context_assembly(
     if metadata.explainer_links:
         ui.print("Fetching explainer content...")
         with ui.status("Fetching and extracting text from explainers..."):
-            # Fetch all explainers concurrently using to_thread since fetch_and_extract_text is blocking
+            # Fetch all explainers concurrently using to_thread
             results = await asyncio.gather(
                 *[
                     asyncio.to_thread(fetch_and_extract_text, url)
@@ -112,13 +130,15 @@ async def run_context_assembly(
             for url, res in zip(metadata.explainer_links, results, strict=True):
                 if isinstance(res, Exception):
                     ui.warning(
-                        f"Failed to fetch or extract content from explainer ({url}): {res}"
+                        f"Failed to fetch or extract content from "
+                        f"explainer ({url}): {res}"
                     )
                 elif isinstance(res, str):
                     explainer_contents[url] = res
                 else:
                     ui.warning(
-                        f"Failed to fetch or extract meaningful text from explainer: {url}"
+                        "Failed to fetch or extract meaningful text from "
+                        f"explainer: {url}"
                     )
 
     ui.print(
@@ -127,7 +147,7 @@ async def run_context_assembly(
     test_paths = find_feature_tests(config.wpt_path, web_feature_id)
     extracted_wpt_urls: list[str] | None = None
 
-    # If ChromeStatus is enabled, also extract and validate tests from wpt_descr
+    # If ChromeStatus is enabled, extract and validate tests from wpt_descr
     if config.chromestatus and metadata.wpt_descr:
         with ui.status("Extracting tests from ChromeStatus..."):
             extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
@@ -138,7 +158,8 @@ async def run_context_assembly(
                     )
                     for invalid in invalid_paths:
                         ui.warning(
-                            f"Referenced WPT test file could not be found or read: {invalid}"
+                            "Referenced WPT test file could not be found or "
+                            f"read: {invalid}"
                         )
                     # Merge unique valid paths
                     test_paths = sorted(set(test_paths) | set(valid_paths))
@@ -156,7 +177,7 @@ async def run_context_assembly(
         mdn_urls = fetch_mdn_urls(web_feature_id)
         if mdn_urls:
             with ui.status(f"Fetching {len(mdn_urls)} MDN pages..."):
-                # Fetch all MDN pages asynchronously using to_thread for the synchronous fetch_and_extract_text
+                # Fetch all MDN pages asynchronously using to_thread
                 results = await asyncio.gather(
                     *[
                         asyncio.to_thread(fetch_and_extract_text, url)

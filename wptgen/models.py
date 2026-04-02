@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Data models and enums for the WPT generation workflow."""
+
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -19,6 +21,8 @@ from typing import Any
 
 
 class WorkflowPhase(str, Enum):
+    """Enumeration of the phases in the WPT generation workflow."""
+
     CONTEXT_ASSEMBLY = "context_assembly"
     REQUIREMENTS_EXTRACTION = "requirements_extraction"
     COVERAGE_AUDIT = "coverage_audit"
@@ -26,6 +30,8 @@ class WorkflowPhase(str, Enum):
 
 
 class TestType(Enum):
+    """Enumeration of WPT test types."""
+
     __test__ = False
     JAVASCRIPT = "JavaScript Test"
     REFTEST = "Reftest"
@@ -35,15 +41,18 @@ class TestType(Enum):
 REQUIREMENT_CATEGORIES = [
     (
         "Existence",
-        "Rules defining the feature's surface area (interfaces, methods, properties).",
+        "Rules defining the feature's surface area (interfaces, methods, "
+        "properties).",
     ),
     (
         "Common Use Cases",
-        'Rules defining successful behaviors, processing models, and realistic "happy paths."',
+        "Rules defining successful behaviors, processing models, and "
+        'realistic "happy paths."',
     ),
     (
         "Error Scenarios",
-        "Rules defining error conditions, thrown exceptions, and invalid states.",
+        "Rules defining error conditions, thrown exceptions, and invalid "
+        "states.",
     ),
     (
         "Invalidation",
@@ -51,17 +60,22 @@ REQUIREMENT_CATEGORIES = [
     ),
     (
         "Integration",
-        "Rules defining mandatory interactions with other platform features, if any.",
+        "Rules defining mandatory interactions with other platform features, "
+        "if any.",
     ),
 ]
 
 
 class DataSource(str, Enum):
+    """Source of web feature metadata."""
+
     WEB_FEATURES = "web-features"
     CHROMESTATUS = "chromestatus"
 
 
 class BrowserType(str, Enum):
+    """Supported browser engines."""
+
     CHROME = "chrome"
     FIREFOX = "firefox"
     SAFARI = "safari"
@@ -69,6 +83,8 @@ class BrowserType(str, Enum):
 
 
 class BrowserChannel(str, Enum):
+    """Browser release channels."""
+
     CANARY = "canary"
     NIGHTLY = "nightly"
     STABLE = "stable"
@@ -76,6 +92,8 @@ class BrowserChannel(str, Enum):
 
 
 class LLMProvider(str, Enum):
+    """Supported LLM providers."""
+
     GEMINI = "gemini"
     GOOGLE = "google"
     ANTHROPIC = "anthropic"
@@ -84,12 +102,16 @@ class LLMProvider(str, Enum):
 
 @dataclass(frozen=True)
 class ProviderDefaults:
+    """Default configuration for an LLM provider."""
+
     env_var: str
     default_model: str
 
 
 @dataclass
 class FeatureMetadata:
+    """Metadata for a web feature."""
+
     name: str
     description: str
     specs: list[str]
@@ -98,22 +120,25 @@ class FeatureMetadata:
     wpt_descr: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Converts the metadata to a dictionary."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FeatureMetadata":
+        """Creates a FeatureMetadata instance from a dictionary."""
         return cls(**data)
 
 
 @dataclass
 class WPTContext:
-    """Holds the results of a local WPT content and dependency fetch operation."""
+    """Holds results of local WPT content and dependency fetch operation."""
 
     test_contents: dict[str, str] = field(default_factory=dict)
     dependency_contents: dict[str, str] = field(default_factory=dict)
     test_to_deps: dict[str, set[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Converts the context to a dictionary, serializing sets as lists."""
         data = asdict(self)
         # Convert sets to lists for JSON serialization
         data["test_to_deps"] = {
@@ -123,6 +148,7 @@ class WPTContext:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WPTContext":
+        """Creates a WPTContext instance from a dictionary."""
         # Convert lists back to sets
         if "test_to_deps" in data:
             data["test_to_deps"] = {
@@ -149,6 +175,7 @@ class WorkflowContext:
     wpt_urls: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Converts the context to a dictionary."""
         data = {
             "feature_id": self.feature_id,
             "metadata": self.metadata.to_dict() if self.metadata else None,
@@ -173,6 +200,7 @@ class WorkflowContext:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WorkflowContext":
+        """Creates a WorkflowContext instance from a dictionary."""
         metadata = (
             FeatureMetadata.from_dict(data["metadata"])
             if data.get("metadata")

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Shared utilities and helpers for the WPT workflow phases."""
+
 import asyncio
 
 import typer
@@ -40,7 +42,19 @@ async def confirm_prompts(
     config: Config,
     model: str | None = None,
 ) -> None:
-    """Calculates tokens for a list of prompts and asks for a single user confirmation."""
+    """Calculates token usage and asks for user confirmation.
+
+    Args:
+      prompt_data: A list of (prompt_text, task_name) tuples.
+      phase_name: The name of the current workflow phase.
+      llm: The LLM client.
+      ui: The UI provider.
+      config: The tool configuration.
+      model: The specific model to use for counting.
+
+    Raises:
+      typer.Abort: If the user cancels the workflow.
+    """
     loop = asyncio.get_running_loop()
 
     total_tokens = 0
@@ -96,9 +110,23 @@ async def generate_safe(
     temperature: float | None = None,
     model: str | None = None,
 ) -> str:
-    """Helper to run LLM generation in a thread and handle errors gracefully."""
+    """Helper to run LLM generation in a thread and handle errors gracefully.
+
+    Args:
+      prompt: The user prompt.
+      task_name: A descriptive name for the task.
+      llm: The LLM client.
+      ui: The UI provider.
+      config: The tool configuration.
+      system_instruction: Optional system instructions.
+      temperature: Optional temperature override.
+      model: Optional model override.
+
+    Returns:
+      The generated text response, or an empty string on failure.
+    """
     target_model = model or llm.model
-    effective_temperature = (
+    effective_temp = (
         config.temperature if config.temperature is not None else temperature
     )
     try:
@@ -110,7 +138,7 @@ async def generate_safe(
                     llm.generate_content,
                     prompt,
                     system_instruction,
-                    effective_temperature,
+                    effective_temp,
                     model,
                 )
 

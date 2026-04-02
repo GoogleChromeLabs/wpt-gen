@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Provider setup and environment configuration for ADK agents."""
+
 import os
 
 from wptgen.config import Config
@@ -32,7 +34,8 @@ _PROVIDER_CONFIG: dict[LLMProvider, ProviderDefaults] = {
 
 
 def setup_adk_environment(config: Config) -> str:
-    """Configures the ADK environment with the appropriate API keys and returns the model string.
+    """Configures the ADK environment with the appropriate API keys
+    and returns the model string.
 
     Args:
       config: The WPT-Gen configuration object.

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tool suite for ADK agents to interact with the WPT repository."""
+
 import itertools
 import json
 import os
@@ -62,7 +64,7 @@ BANNED_PATH_COMPONENTS = {
 
 
 def _parse_test_results(log_path: str) -> dict[str, str]:
-    """Parses the JSON log output to extract failing test IDs and error messages."""
+    """Parses JSON log output to extract failing test IDs and error messages."""
     failing_tests: dict[str, str] = {}
     if not os.path.exists(log_path):
         return failing_tests
@@ -145,13 +147,15 @@ def _validate_safe_path(target_path: Path, wpt_root: Path) -> Path:
         rel_path = resolved_target.relative_to(resolved_root)
     except ValueError as e:
         raise ValueError(
-            f"Path '{target_path}' is outside the designated WPT repository root."
+            f"Path '{target_path}' is outside the designated WPT repository "
+            "root."
         ) from e
 
     # Enforce explicit deny-list for internal/sensitive files
     if any(part in BANNED_PATH_COMPONENTS for part in rel_path.parts):
         raise ValueError(
-            f"Access to internal or sensitive repository path '{target_path}' is strictly prohibited."
+            f"Access to internal or sensitive repository path '{target_path}' "
+            "is strictly prohibited."
         )
 
     return resolved_target
@@ -175,6 +179,7 @@ def create_agent_tools(
         ui: The UIProvider instance for printing output to the terminal.
         browser: The browser to use for testing.
         channel: The browser channel.
+        include_run_tool: Whether to include the run_wpt_test tool.
 
     Returns:
         A list of ADK `FunctionTool` objects.
@@ -187,16 +192,17 @@ def create_agent_tools(
     ) -> dict[str, Any]:
         """Reads the content of a file within the WPT repository.
 
-        Use 'start_line' and 'end_line' for targeted, surgical reads of specific sections
-        to maintain context efficiency.
+        Use 'start_line' and 'end_line' for targeted, surgical reads of specific
+        sections to maintain context efficiency.
 
         Args:
             file_path: The relative or absolute path to the file to read.
             start_line: Optional 1-based line number to start reading from.
-            end_line: Optional 1-based line number to end reading at (inclusive).
+            end_line: Optional 1-based line number to end reading at.
 
         Returns:
-            A dictionary containing the 'status' and the file 'content', or an 'error'.
+            A dictionary containing the 'status' and the file 'content', or an
+            'error'.
         """
         try:
             target = _validate_safe_path(Path(file_path), wpt_path)
@@ -220,7 +226,8 @@ def create_agent_tools(
                         if current_bytes > MAX_FILE_READ_BYTES:
                             return {
                                 "status": "error",
-                                "error": f"Requested slice exceeds maximum allowed read size of {MAX_FILE_READ_BYTES} bytes.",
+                                "error": "Requested slice exceeds maximum "
+                                f"size of {MAX_FILE_READ_BYTES} bytes.",
                             }
 
                 if not sliced_lines and start > 0:
@@ -236,7 +243,8 @@ def create_agent_tools(
             if target.stat().st_size > MAX_FILE_READ_BYTES:
                 return {
                     "status": "error",
-                    "error": f"File exceeds maximum allowed read size of {MAX_FILE_READ_BYTES} bytes.",
+                    "error": "File exceeds maximum allowed read size of "
+                    f"{MAX_FILE_READ_BYTES} bytes.",
                 }
 
             content = target.read_text(encoding="utf-8")
@@ -245,10 +253,10 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def write_file(file_path: str, content: str) -> dict[str, Any]:
-        """Writes content to a file within the WPT repository, creating parent directories if needed.
+        """Writes content to a file within the WPT repository.
 
         Args:
-            file_path: The relative or absolute path where the file should be written.
+            file_path: The relative or absolute path where the file is written.
             content: The text content to write.
 
         Returns:
@@ -260,7 +268,8 @@ def create_agent_tools(
             if len(content.encode("utf-8")) > MAX_FILE_WRITE_BYTES:
                 return {
                     "status": "error",
-                    "error": f"Content exceeds maximum allowed write size of {MAX_FILE_WRITE_BYTES} bytes.",
+                    "error": "Content exceeds maximum allowed write size of "
+                    f"{MAX_FILE_WRITE_BYTES} bytes.",
                 }
 
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -270,7 +279,7 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def search_files(directory: str, pattern: str) -> dict[str, Any]:
-        """Recursively searches for files matching a glob pattern within a directory.
+        """Recursively searches for files matching a glob pattern.
 
         Args:
             directory: The directory to search within.
@@ -287,18 +296,19 @@ def create_agent_tools(
                     "error": f"Directory not found: {directory}",
                 }
 
-            MAX_RESULTS = 100
+            max_results = 100
             iterator = (
                 p.relative_to(wpt_path).as_posix()
                 for p in target_dir.rglob(pattern)
                 if p.is_file()
             )
-            matches = list(itertools.islice(iterator, MAX_RESULTS + 1))
-            if len(matches) > MAX_RESULTS:
+            matches = list(itertools.islice(iterator, max_results + 1))
+            if len(matches) > max_results:
                 return {
                     "status": "success",
-                    "files": matches[:MAX_RESULTS],
-                    "warning": f"Results truncated to the first {MAX_RESULTS} matches. Please refine your search pattern.",
+                    "files": matches[:max_results],
+                    "warning": f"Results truncated to first {max_results} "
+                    "matches. Please refine your search pattern.",
                 }
             return {"status": "success", "files": matches}
         except (OSError, ValueError) as e:
@@ -311,7 +321,7 @@ def create_agent_tools(
             directory: The directory to list.
 
         Returns:
-            A dictionary containing the 'status' and a list of 'entries' (files and folders).
+            A dictionary with 'status' and a list of 'entries'.
         """
         try:
             target_dir = _validate_safe_path(Path(directory), wpt_path)
@@ -321,26 +331,28 @@ def create_agent_tools(
                     "error": f"Directory not found: {directory}",
                 }
 
-            MAX_RESULTS = 100
+            max_results = 100
             iterator = (
                 p.relative_to(wpt_path).as_posix() for p in target_dir.iterdir()
             )
-            entries = list(itertools.islice(iterator, MAX_RESULTS + 1))
-            if len(entries) > MAX_RESULTS:
+            entries = list(itertools.islice(iterator, max_results + 1))
+            if len(entries) > max_results:
                 return {
                     "status": "success",
-                    "entries": entries[:MAX_RESULTS],
-                    "warning": f"Results truncated to the first {MAX_RESULTS} matches. Please use search_files if you are looking for specific content.",
+                    "entries": entries[:max_results],
+                    "warning": f"Results truncated to first {max_results} "
+                    "matches. Please use search_files if you are looking for "
+                    "specific content.",
                 }
             return {"status": "success", "entries": entries}
         except (OSError, ValueError) as e:
             return {"status": "error", "error": str(e)}
 
     def create_directory(directory_path: str) -> dict[str, Any]:
-        """Creates a directory within the WPT repository, including any necessary parent directories.
+        """Creates a directory within the WPT repository.
 
         Args:
-            directory_path: The relative or absolute path of the directory to create.
+            directory_path: The relative or absolute path of the directory.
 
         Returns:
             A dictionary containing the 'status'.
@@ -425,13 +437,13 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def run_wpt_lint(file_path: str) -> dict[str, Any]:
-        """Runs the WPT linter on a specific file and returns any syntax or style errors.
+        """Runs the WPT linter on a specific file and returns any errors.
 
         Args:
             file_path: The path to the file to lint.
 
         Returns:
-            A dictionary containing the 'status' and the 'lint_output' if any errors exist.
+            A dictionary containing the 'status' and the 'lint_output'.
         """
         try:
             target = _validate_safe_path(Path(file_path), wpt_path)
@@ -443,7 +455,6 @@ def create_agent_tools(
 
             rel_path = target.relative_to(wpt_path).as_posix()
 
-            # We use subprocess.run directly as these tools are executed synchronously by ADK currently
             try:
                 result = subprocess.run(
                     ["./wpt", "lint", f"./{rel_path}"],
@@ -461,7 +472,7 @@ def create_agent_tools(
             if result.returncode == 0:
                 return {"status": "success", "message": "No lint errors found."}
             else:
-                # Provide the raw output which contains the linter error details
+                # Provide raw output with linter error details
                 return {
                     "status": "failed",
                     "lint_output": result.stdout.strip()
@@ -472,17 +483,14 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def run_wpt_test(file_path: str, headless: bool = True) -> dict[str, Any]:
-        """Executes a specific test file using the local WPT test runner infrastructure.
-
-        This command can take a while to complete (e.g. 10-20 seconds).
+        """Executes a test file using the local WPT test runner infrastructure.
 
         Args:
             file_path: The path to the test file to run.
-            headless: Set to False to run tests with a visible browser UI for debugging.
+            headless: Set False to run tests with a visible browser UI.
 
         Returns:
-            A dictionary containing the 'status', any 'failing_tests' messages,
-            and the full 'output' logs from the test runner.
+            A dictionary containing the 'status', failing tests, and logs.
         """
         try:
             target = _validate_safe_path(Path(file_path), wpt_path)
@@ -541,7 +549,7 @@ def create_agent_tools(
                     output_log = f"{partial_stdout}\n{partial_stderr}".strip()
                     return {
                         "status": "error",
-                        "error": f"Command timed out after {e.timeout} seconds.",
+                        "error": f"Command timed out after {e.timeout} s.",
                         "output": output_log,
                     }
 
@@ -581,15 +589,13 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def search_feature_tests(web_feature_id: str) -> dict[str, Any]:
-        """Searches the WPT repository for all test files associated with a specific web_feature_id.
-
-        This utilizes the WEB_FEATURES.yml definitions spread throughout the repository.
+        """Searches WPT for test files associated with a specific feature.
 
         Args:
             web_feature_id: The ID of the feature (e.g., 'popover').
 
         Returns:
-            A dictionary containing the 'status' and a list of 'test_files' mapped to that feature.
+            A dictionary with 'status' and matching 'test_files'.
         """
         try:
             matches = find_feature_tests(str(wpt_path), web_feature_id)
@@ -603,20 +609,20 @@ def create_agent_tools(
             return {
                 "status": "success",
                 "test_files": [],
-                "message": f"No existing tests found for feature {web_feature_id}",
+                "message": f"No existing tests found for {web_feature_id}",
             }
         except (OSError, ValueError) as e:
             return {"status": "error", "error": str(e)}
 
     def fetch_spec_content(url: str) -> dict[str, Any]:
-        """Fetches and extracts the text content from a specification URL.
+        """Fetches and extracts text content from a specification URL.
 
         Args:
             url: The URL of the specification to fetch.
 
         Returns:
-            A dictionary containing the 'status' and the 'content' of the specification,
-            or an 'error' message if the fetch fails.
+            A dictionary containing the 'status' and 'content' of the spec, or an
+            'error' message if the fetch fails.
         """
         try:
             content = fetch_and_extract_text(url)
@@ -630,11 +636,11 @@ def create_agent_tools(
             return {"status": "error", "error": str(e)}
 
     def search_file_contents(directory: str, pattern: str) -> dict[str, Any]:
-        """Searches for a string or regex pattern within the contents of files in a directory.
+        """Searches for regex patterns within files in a directory.
 
         Args:
             directory: The directory to search within.
-            pattern: The grep-compatible regular expression to search for.
+            pattern: The regex to search for.
 
         Returns:
             A dictionary containing the 'status' and the 'search_output'.
@@ -657,7 +663,7 @@ def create_agent_tools(
 
             start_time = time.time()
             matches: list[str] = []
-            MAX_MATCHES = 100
+            max_matches = 100
             has_more_matches = False
 
             for root, dirs, files in os.walk(target_dir):
@@ -694,13 +700,14 @@ def create_agent_tools(
                                     }
 
                                 if regex.search(line):
-                                    if len(matches) < MAX_MATCHES:
+                                    if len(matches) < max_matches:
                                         # Return path relative to wpt_root
                                         rel_path_str = file_path.relative_to(
                                             wpt_path
                                         ).as_posix()
                                         matches.append(
-                                            f"{rel_path_str}:{line_num}:{line.rstrip(chr(10))}"
+                                            f"{rel_path_str}:{line_num}:"
+                                            f"{line.rstrip(chr(10))}"
                                         )
                                     else:
                                         has_more_matches = True
@@ -729,7 +736,10 @@ def create_agent_tools(
 
             output = "\n".join(matches)
             if has_more_matches:
-                output += f"\n... (warning: more than {MAX_MATCHES} matches found; results truncated)"
+                output += (
+                    f"\n... (warning: more than {max_matches} matches found; "
+                    "results truncated)"
+                )
             return {"status": "success", "search_output": output}
         except (OSError, ValueError) as e:
             return {"status": "error", "error": str(e)}
@@ -737,7 +747,7 @@ def create_agent_tools(
     def replace_in_file(
         file_path: str, old_string: str, new_string: str
     ) -> dict[str, Any]:
-        """Replaces exactly one unique occurrence of a string in a file with a new string.
+        """Replaces one unique occurrence of a string in a file.
 
         Args:
             file_path: The path to the file to modify.
@@ -764,7 +774,8 @@ def create_agent_tools(
             if occurrences > 1:
                 return {
                     "status": "error",
-                    "error": "old_string found multiple times. Please provide more surrounding context to make it unique.",
+                    "error": "old_string found multiple times. Please provide "
+                    "more surrounding context to make it unique.",
                 }
             new_content = content.replace(old_string, new_string)
             target.write_text(new_content, encoding="utf-8")

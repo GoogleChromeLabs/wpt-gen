@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""General utility functions for the WPT-Gen project."""
+
+from __future__ import annotations
+
 import random
 import re
 import subprocess
@@ -50,7 +54,7 @@ MAX_RETRIES = 5
 
 
 def clean_file_content(content: str) -> str:
-    """Removes trailing whitespace from every line and ensures exactly one trailing newline."""
+    """Removes trailing whitespace and ensures exactly one trailing newline."""
     if not content:
         return "\n"
     content = re.sub(r"[ \t]+(\r?)$", r"\1", content, flags=re.MULTILINE)
@@ -78,8 +82,9 @@ def parse_multi_file_response(
     content
     [/FILE_1]
 
-    This function ensures the filename returned is a suffix (starting with a dot).
-    If the LLM provides a full filename, it shaves off the start until the first dot.
+    This function ensures the filename returned is a suffix (starting with a
+    dot). If the LLM provides a full filename, it shaves off the start until
+    the first dot.
     """
     files = []
     for match in MULTI_FILE_RE.finditer(raw_text):
@@ -107,10 +112,12 @@ def fix_reftest_link(test_content: str, ref_filename: str) -> str:
 
     Args:
       test_content: The HTML content of the test file.
-      ref_filename: The name of the reference file (e.g., 'counter-set-001-ref.html').
+      ref_filename: The name of the reference file (e.g.,
+        "counter-001-ref.html").
 
     Returns:
-      The updated HTML content with the correct <link rel="match" href="..."> tag.
+      The updated HTML content with the correct <link rel="match" href="...">
+      tag.
     """
     # Pattern to match the <link rel="match" href="..."> tag.
     # Flexible with single/double quotes, whitespace, and self-closing tags.
@@ -146,23 +153,23 @@ def get_next_available_root(
     used_names: set[str],
     max_len: int = 150,
 ) -> str:
-    """Finds the next available root filename using the {feature_id}-{num} convention.
+    """Finds the next available root filename using the feature-num style.
 
     Args:
       feature_id: The ID of the web feature.
       output_dir: The directory where tests are saved.
       used_names: A set of root names already planned to be used in this run.
-      max_len: The maximum allowed length for the filename (including potential suffixes).
+      max_len: The maximum allowed length for the filename.
 
     Returns:
-      The available root filename (e.g., 'feature-001').
+      The available root filename (e.g., "feature-001").
     """
     safe_feature_id = FILENAME_SANITIZATION_RE.sub("_", feature_id.lower())
 
-    # We reserve some space for suffixes like '.https.any.js' (~20 chars)
-    # and potentially '-ref' for reftests (4 chars).
+    # We reserve some space for suffixes like ".https.any.js" (~20 chars)
+    # and potentially "-ref" for reftests (4 chars).
     suffix_buffer = 25
-    allowed_feature_id_len = max_len - suffix_buffer - 4  # -4 for '-001'
+    allowed_feature_id_len = max_len - suffix_buffer - 4  # -4 for "-001"
 
     truncated_feature_id = safe_feature_id[:allowed_feature_id_len]
 
@@ -177,8 +184,9 @@ def get_next_available_root(
             n += 1
             continue
 
-        # 2. Check if any file in the output directory starts with this root name.
-        # This is conservative but ensures we don't collide regardless of extension/flags.
+        # 2. Check if any file in the output directory starts with this root.
+        # This is conservative but ensures we don't collide regardless of
+        # flags.
         collision = False
         if output_dir.exists():
             for path in output_dir.iterdir():
@@ -207,8 +215,8 @@ def retry(
     Args:
       exceptions: The exception(s) that should trigger a retry.
       max_attempts: Maximum number of attempts before giving up (static).
-      max_attempts_attr: If provided, look up this attribute on 'self' for the max attempts.
-        This takes precedence over 'max_attempts'.
+      max_attempts_attr: If provided, look up this attribute on "self" for the
+        max attempts. This takes precedence over "max_attempts".
       initial_delay: Initial delay between retries in seconds.
       backoff_factor: Multiplier for the delay after each attempt.
       jitter: Whether to add random jitter to the delay.
@@ -221,13 +229,15 @@ def retry(
             if max_attempts_attr is not None:
                 if not args:
                     raise ValueError(
-                        f"Cannot find attribute '{max_attempts_attr}' because 'self' is missing from arguments."
+                        f"Cannot find attribute '{max_attempts_attr}' "
+                        "because 'self' is missing from arguments."
                     )
                 try:
                     actual_max_attempts = getattr(args[0], max_attempts_attr)
                 except AttributeError as e:
                     raise ValueError(
-                        f"Argument 'self' (type {type(args[0]).__name__}) has no attribute '{max_attempts_attr}'."
+                        f"Argument 'self' (type {type(args[0]).__name__}) "
+                        f"has no attribute '{max_attempts_attr}'."
                     ) from e
             else:
                 actual_max_attempts = max_attempts
@@ -241,7 +251,8 @@ def retry(
                 or actual_max_attempts < 1
             ):
                 raise ValueError(
-                    f"max_attempts must be an integer >= 1, got {actual_max_attempts}"
+                    f"max_attempts must be an integer >= 1, got "
+                    f"{actual_max_attempts}"
                 )
 
             delay = initial_delay
@@ -250,8 +261,9 @@ def retry(
                 try:
                     return func(*args, **kwargs)
                 except exceptions:
-                    # If we've reached the maximum attempts, re-raise the caught exception natively
+                    # Re-raise the caught exception if we've reached the limit
                     if attempt == actual_max_attempts:
+
                         raise
 
                     sleep_time = min(delay, MAX_DELAY)
@@ -261,8 +273,7 @@ def retry(
                     time.sleep(sleep_time)
                     delay *= backoff_factor
 
-            # Satisfy the type checker. This code is mathematically unreachable at runtime
-            # because the loop will always either return or raise on its final iteration.
+            # Mathematically unreachable but satisfies static analysis.
             raise AssertionError("Unreachable code reached in retry decorator")
 
         return wrapper
@@ -271,7 +282,7 @@ def retry(
 
 
 def ensure_testharness_imports(content: str) -> str:
-    """Ensures testharness.js and testharnessreport.js are imported in HTML tests."""
+    """Ensures testharness.js and testharnessreport.js are imported in HTML."""
     th_js = '<script src="/resources/testharness.js"></script>'
     thr_js = '<script src="/resources/testharnessreport.js"></script>'
 
@@ -323,20 +334,20 @@ def get_recent_test_files(
     token_counter: Callable[[str], int] | None = None,
     allowed_files: list[str] | set[str] | None = None,
 ) -> list[tuple[str, str]]:
-    """Queries the local Git repository to find the most recently modified files.
+    """Queries the Git repo for the most recently modified files.
 
     Args:
       target_dir: The directory to search within.
-      file_extension: The required file extension (e.g., '.html', '-ref.html').
+      file_extension: The required file extension (e.g., ".html", "-ref.html").
       limit: The maximum number of files to return. Default is 3.
       max_tokens: The maximum allowed tokens for a file to be included.
       token_counter: An optional callable to count tokens. If None, uses a
         character-based heuristic (len(content) / 4).
       allowed_files: An optional list/set of absolute file paths to filter by.
-        If provided, only files that exactly match a path in this list will be included.
 
     Returns:
-      A list of tuples containing (filename, file_content) for the matched files.
+      A list of tuples containing (filename, file_content) for the matched
+      files.
     """
     target_path = Path(target_dir)
     if not target_path.exists() or not target_path.is_dir():
@@ -406,8 +417,9 @@ def get_recent_test_files(
 
 
 def determine_output_directory(
-    context: "WorkflowContext", config: "Config", ui: "UIProvider"
+    context: WorkflowContext, config: Config, ui: UIProvider
 ) -> str:
+    """Infers or prompts the user for the test output directory."""
     wpt_path = Path(config.wpt_path).resolve()
 
     # 1. Infer from existing tests
@@ -429,15 +441,17 @@ def determine_output_directory(
     # 2. Infer from Spec URLs
     if context.metadata and context.metadata.specs:
         for url in context.metadata.specs:
-            css_match = re.search(
-                r"(?:csswg\.org|csswg-drafts)/(css-[a-z0-9-]+?)(?:-\d+)?/?(?:#.*)?$",
-                url,
+            css_pattern = (
+                r"(?:csswg\.org|csswg-drafts)/"
+                r"(css-[a-z0-9-]+?)(?:-\d+)?/?(?:#.*)?$"
             )
+            css_match = re.search(css_pattern, url)
             if css_match:
                 candidate = wpt_path / "css" / css_match.group(1)
                 if candidate.exists():
                     ui.success(
-                        f"Inferred output directory from spec URL: css/{css_match.group(1)}"
+                        f"Inferred output directory from spec URL: "
+                        f"css/{css_match.group(1)}"
                     )
                     return str(candidate.resolve())
 
@@ -451,7 +465,8 @@ def determine_output_directory(
                     for cand in candidates:
                         if cand.exists() and cand.is_dir():
                             ui.success(
-                                f"Inferred output directory from spec URL: {cand.relative_to(wpt_path)}"
+                                "Inferred output directory from spec URL: "
+                                f"{cand.relative_to(wpt_path)}"
                             )
                             return str(cand.resolve())
 
@@ -463,12 +478,14 @@ def determine_output_directory(
 
     # 3. Prompt user / Fallback to landing zone
     ui.warning(
-        "Could not automatically determine a specific target directory for generated tests."
+        "Could not automatically determine a specific target directory for "
+        "generated tests."
     )
     choice = ""
     if not config.yes_tests:
         ui.print(
-            'Please specify a directory relative to the WPT root, or press Enter to use the "incubations" landing zone.'
+            "Please specify a directory relative to the WPT root, or press "
+            'Enter to use the "incubations" landing zone.'
         )
         choice = ui.prompt("Target directory", default="incubations")
 
