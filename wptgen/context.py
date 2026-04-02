@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Functions for assembly and management of web feature context."""
+
 import http.client
 import ipaddress
 import json
@@ -54,7 +56,10 @@ IGNORED_DEPENDENCIES = {
 MAXIMUM_TEST_SUITE_SIZE = 50
 MAXIMUM_FETCHED_DEPENDENCIES = 100
 
-MDN_MAPPINGS_URL = "https://raw.githubusercontent.com/web-platform-dx/web-features-mappings/main/mappings/mdn-docs.json"
+MDN_MAPPINGS_URL = (
+    "https://raw.githubusercontent.com/web-platform-dx/"
+    "web-features-mappings/main/mappings/mdn-docs.json"
+)
 
 
 def fetch_feature_yaml(
@@ -67,9 +72,15 @@ def fetch_feature_yaml(
     Returns the parsed YAML dictionary, or None if the feature ID is not found.
     """
     if draft:
-        url = f"https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/{web_feature_id}.yml"
+        url = (
+            "https://raw.githubusercontent.com/web-platform-dx/web-features/"
+            f"main/features/draft/spec/{web_feature_id}.yml"
+        )
     else:
-        url = f"https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/{web_feature_id}.yml"
+        url = (
+            "https://raw.githubusercontent.com/web-platform-dx/web-features/"
+            f"main/features/{web_feature_id}.yml"
+        )
 
     try:
         # Use standard library to avoid bloating dependencies
@@ -78,7 +89,7 @@ def fetch_feature_yaml(
         with _ssrf_safe_opener.open(req, timeout=10) as response:
             yaml_content = response.read().decode("utf-8")
 
-            # Use safe_load to securely parse the YAML string into a Python dictionary
+            # Use safe_load to securely parse the YAML string into a Python dict
             data = yaml.safe_load(yaml_content)
             if data is None or isinstance(data, dict):
                 return data
@@ -88,13 +99,15 @@ def fetch_feature_yaml(
         if e.code == 404:
             # Feature ID doesn't exist in the repository
             return None
-        # If it's a 500 error or rate limit, we want it to crash loudly so we know
+        # If it's a 500 error or rate limit, we want it to crash loudly so we
+        # know.
         raise e
 
 
 def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
     """
-    Fetches the metadata for a given feature ID from the ChromeStatus Features API.
+    Fetches the metadata for a given feature ID from the ChromeStatus
+    Features API.
 
     Returns a FeatureMetadata object, or None if the feature ID is not found.
     """
@@ -104,7 +117,8 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         req = urllib.request.Request(url, headers={"User-Agent": "WPT-Gen/1.0"})
         with _ssrf_safe_opener.open(req, timeout=10) as response:
             content = response.read().decode("utf-8")
-            # ChromeStatus API often prefixes JSON with a vulnerability protection string.
+            # ChromeStatus API often prefixes JSON with a vulnerability
+            # protection string.
             if content.startswith(")]}'\n"):
                 content = content[5:]
             elif content.startswith(")]}'"):
@@ -148,7 +162,8 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         IndexError,
     ) as e:
         logger.warning(
-            f"Could not fetch or parse ChromeStatus metadata for {feature_id}: {e}"
+            f"Could not fetch or parse ChromeStatus metadata for "
+            f"{feature_id}: {e}"
         )
         return None
 
@@ -177,8 +192,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
 
 
 def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
-    """
-    Extracts the high-level metadata (name and description) from the feature data.
+    """Extracts high-level metadata (name and description) from feature data.
 
     Returns:
       Dict containing important feature metadata.
@@ -404,7 +418,8 @@ def fetch_and_extract_text(url: str) -> str | None:
     ):
         element.extract()
 
-    # Find the main content area. Specs usually use <main>, <div class="main">, or just body
+    # Find the main content area. Specs usually use <main>, <div class="main">,
+    # or just body.
     main_content = (
         soup.find("main")
         or soup.find("div", class_="main")
@@ -422,7 +437,7 @@ def fetch_and_extract_text(url: str) -> str | None:
         if not isinstance(href, str) or not href.startswith("#"):
             a_tag.unwrap()
 
-    # Convert the HTML tree to markdown, omitting external link URLs to save token space
+    # Convert HTML tree to markdown, omitting external link URLs to save tokens.
     content = markdownify.markdownify(
         str(main_content),
         heading_style="ATX",
@@ -438,14 +453,14 @@ def fetch_and_extract_text(url: str) -> str | None:
 
 
 def extract_wpt_paths(wpt_descr: str) -> list[str]:
-    """
-    Extracts Web Platform Test paths from a ChromeStatus 'wpt_descr' string.
+    """Extracts WPT paths from a ChromeStatus 'wpt_descr' string.
+
     Exclusively handles URLs from wpt.fyi.
     """
     if not wpt_descr:
         return []
 
-    # Regular expression to match any URL-like structure starting with http/https
+    # Regex to match any URL-like structure starting with http/https
     url_pattern = r"https?://[^\s\n,]+"
     urls = re.findall(url_pattern, wpt_descr)
 
@@ -453,7 +468,7 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
 
     # Process each found URL
     for url in urls:
-        # Strip common punctuation that might be appended to URLs in descriptions
+        # Strip common punctuation that might be appended to URLs.
         clean_url = url.rstrip(".,;)]")
         try:
             parsed = urlparse(clean_url)
@@ -464,7 +479,7 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
                     path = parsed.path[len(path_prefix) :].strip("/")
                     if path:
                         extracted_paths.add(path)
-        except Exception:
+        except (ValueError, AttributeError):
             # If URL parsing fails for any reason, skip and continue
             continue
 
@@ -481,9 +496,9 @@ def normalize_wpt_path(path: str) -> str:
 
 
 def is_wpt_test_file(path: Path) -> bool:
-    """
-    Checks if the file name matches the conditions for the file to be a WPT test file.
-    Filters out non-test files like .yml, .md, .py, .ini, .headers, and hidden files.
+    """Checks if the file name matches conditions for a WPT test file.
+
+    Filters out non-test files like .yml, .md, .py, .ini, .headers, and hidden.
     """
     filename = path.name
     suffix = path.suffix.lower()
@@ -514,10 +529,10 @@ def is_wpt_test_file(path: Path) -> bool:
 def validate_wpt_paths(
     paths: list[str], wpt_root: str
 ) -> tuple[list[str], list[str]]:
-    """
-    Validates that the given WPT paths exist in the local WPT repository.
+    """Validates that WPT paths exist in the local repository.
+
     Returns a tuple of (valid_paths, invalid_paths).
-    If a path is a directory, it expands to all tests within that directory (top-level only).
+    If a path is a directory, it expands to tests within it (top-level only).
     Handles fallback from .html to .js if the file does not exist.
     Enforces MAXIMUM_TEST_SUITE_SIZE.
     """
@@ -565,16 +580,15 @@ def validate_wpt_paths(
     # CRITICAL: Safety limit check
     if len(valid_paths) > MAXIMUM_TEST_SUITE_SIZE:
         raise ValueError(
-            f"Too many tests found ({len(valid_paths)}). Max allowed is {MAXIMUM_TEST_SUITE_SIZE}."
+            f"Too many tests found ({len(valid_paths)}). "
+            f"Max allowed is {MAXIMUM_TEST_SUITE_SIZE}."
         )
 
     return sorted(valid_paths), invalid_paths
 
 
 def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
-    """
-    Scans a directory recursively for test files relevant to a specific feature ID.
-    """
+    """Scans a directory for test files relevant to a specific feature ID."""
     base_dir = Path(target_directory).resolve()
     if not base_dir.is_dir():
         raise ValueError(f"The directory provided does not exist: {base_dir}")
@@ -582,7 +596,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
     relevant_files: set[str] = set()
     target_metadata_file = "WEB_FEATURES.yml"
 
-    # rglob recursively finds all WEB_FEATURES.yml files in the entire repository
+    # rglob recursively finds all WEB_FEATURES.yml files in the repository
     for yaml_path in base_dir.rglob(target_metadata_file):
         try:
             with open(yaml_path, encoding="utf-8") as f:
@@ -611,9 +625,7 @@ def find_feature_tests(target_directory: str, feature_id: str) -> list[str]:
 
 
 def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
-    """
-    Helper function to match file patterns recursively against files in a directory.
-    """
+    """Helper to match file patterns recursively against files in directory."""
     all_files = [
         p
         for p in directory.rglob("*")
@@ -659,7 +671,7 @@ def extract_dependencies(content: str) -> list[str]:
     dependencies.update(re.findall(SCRIPT_DEPENDENCY_REGEX, clean_content))
     dependencies.update(re.findall(IMPORT_DEPENDENCY_REGEX, clean_content))
 
-    # Filter out common WPT infrastructure files that don't need to be aggregated
+    # Filter out common WPT infrastructure files
     return [d for d in dependencies if d not in IGNORED_DEPENDENCIES]
 
 
@@ -694,8 +706,8 @@ def resolve_dependency_path(
 def gather_local_test_context(
     test_paths: list[str], wpt_root: str
 ) -> WPTContext:
-    """
-    Recursively gathers the content of test files and all their dependencies from the local disk.
+    """Recursively gathers test files and dependencies from the local disk.
+
     Enforces MAXIMUM_FETCHED_DEPENDENCIES.
     """
     root = Path(wpt_root).resolve()
@@ -744,10 +756,11 @@ def gather_local_test_context(
                         dependency_graph[curr_p_str].add(resolved_str)
 
                         if resolved_str not in visited:
-                            if len(visited) < (
+                            limit = (
                                 initial_test_count
                                 + MAXIMUM_FETCHED_DEPENDENCIES
-                            ):
+                            )
+                            if len(visited) < limit:
                                 visited.add(resolved_str)
                                 queue.append((resolved_str, False))
         except Exception as e:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Main entry point for the WPT-Gen CLI."""
 
 import dataclasses
 import logging
@@ -106,6 +107,21 @@ def _check_workflow_flags(
     detailed_requirements: bool,
     single_prompt_requirements: bool,
 ) -> None:
+    """Validates conflicting or missing CLI flags for the workflow.
+
+    Args:
+        wf_yml_update: Whether to update WEB_FEATURES.yml.
+        output_dir: Target directory for generated tests.
+        use_lightweight: Whether lightweight model is requested.
+        use_reasoning: Whether reasoning model is requested.
+        yes_cache: Whether to force cache use.
+        no_cache: Whether to disable cache.
+        detailed_requirements: Whether iterative extraction is requested.
+        single_prompt_requirements: Whether legacy extraction is requested.
+
+    Raises:
+        typer.Exit: If flag combinations are invalid.
+    """
     if wf_yml_update and not output_dir:
         ui.error("--output-dir is required when using --wf-yml-update.")
         raise typer.Exit(code=1)
@@ -120,17 +136,25 @@ def _check_workflow_flags(
 
     if detailed_requirements and single_prompt_requirements:
         ui.error(
-            "Cannot use both --detailed-requirements and --single-prompt-requirements."
+            "Cannot use both --detailed-requirements and "
+            "--single-prompt-requirements."
         )
         raise typer.Exit(code=1)
 
 
 def _print_workflow_banner(web_feature_id: str) -> None:
+    """Prints a stylized banner and target feature info to the console.
+
+    Args:
+        web_feature_id: The ID of the feature being processed.
+    """
     banner = Panel(
         Align.center(
             Text.from_markup(
-                "[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n"
-                "[italic white]AI-Powered Web Platform Test Generation[/italic white]"
+                "[bold blue]WPT[/bold blue][bold white]-"
+                "[/bold white][bold green]Gen[/bold green]\n"
+                "[italic white]AI-Powered Web Platform "
+                "Test Generation[/italic white]"
             )
         ),
         border_style="bright_blue",
@@ -143,6 +167,11 @@ def _print_workflow_banner(web_feature_id: str) -> None:
 
 @contextmanager
 def _workflow_error_handler() -> Generator[None, None, None]:
+    """Context manager for handling top-level workflow exceptions.
+
+    Yields:
+        None
+    """
     try:
         yield
     except LLMTimeoutError as e:
@@ -175,6 +204,15 @@ def _execute_workflow(
     output_dir: Path | None,
     is_audit: bool = False,
 ) -> None:
+    """Instantiates the engine and runs the end-to-end workflow.
+
+    Args:
+        web_feature_id: The ID of the web feature.
+        config: Resolved configuration object.
+        wf_yml_update: Whether to update WEB_FEATURES.yml.
+        output_dir: Directory to save tests.
+        is_audit: Whether this is a suggestions-only audit run.
+    """
     config_info = Text.assemble(
         ("Provider: ", "bold"),
         (f"{config.provider}\n", "green"),
@@ -201,7 +239,8 @@ def _execute_workflow(
         console.print()
         console.print(
             Panel(
-                "[bold green]✔ Audit completed successfully! Test suggestions generated.[/bold green]",
+                "[bold green]✔ Audit completed successfully! "
+                "Test suggestions generated.[/bold green]",
                 border_style="green",
                 expand=False,
             )
@@ -216,7 +255,8 @@ def _execute_workflow(
             generated_paths = [path for path, _, _ in context.generated_tests]
             update_web_features_yml(target_dir, web_feature_id, generated_paths)
             console.print(
-                f"[bold green]✔ Updated WEB_FEATURES.yml for {web_feature_id}[/bold green]"
+                f"[bold green]✔ Updated WEB_FEATURES.yml for "
+                f"{web_feature_id}[/bold green]"
             )
 
         console.print()
@@ -234,7 +274,10 @@ def generate(
     web_feature_id: Annotated[
         str,
         typer.Argument(
-            help="The web feature ID to generate tests for (e.g., 'grid', 'popover')."
+            help=(
+                "The web feature ID to generate tests for "
+                "(e.g., 'grid', 'popover')."
+            )
         ),
     ],
     provider: Annotated[
@@ -242,7 +285,10 @@ def generate(
         typer.Option(
             "--provider",
             "-p",
-            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+            help=(
+                "Override the default LLM provider "
+                "(e.g., 'gemini', 'openai', 'anthropic')."
+            ),
         ),
     ] = None,
     wpt_dir: Annotated[
@@ -297,7 +343,10 @@ def generate(
         bool,
         typer.Option(
             "--yes-tests",
-            help="Automatically confirm and generate all proposed test suggestions without prompting.",
+            help=(
+                "Automatically confirm and generate all proposed test "
+                "suggestions without prompting."
+            ),
         ),
     ] = False,
     yes_cache: Annotated[
@@ -311,21 +360,29 @@ def generate(
         bool,
         typer.Option(
             "--no-cache",
-            help="Automatically ignore and overwrite the cache if it exists without prompting.",
+            help=(
+                "Automatically ignore and overwrite the cache if it exists "
+                "without prompting."
+            ),
         ),
     ] = False,
     suggestions_only: Annotated[
         bool,
         typer.Option(
             "--suggestions-only",
-            help="Only show test suggestions and skip the test generation step.",
+            help=(
+                "Only show test suggestions and skip the test generation step."
+            ),
         ),
     ] = False,
     brief_suggestions: Annotated[
         bool,
         typer.Option(
             "--brief-suggestions",
-            help="Only generate test titles and descriptions for suggestions (omits detailed test suggestions).",
+            help=(
+                "Only generate test titles and descriptions for suggestions "
+                "(omits detailed test suggestions)."
+            ),
         ),
     ] = False,
     skip_run: Annotated[
@@ -354,7 +411,10 @@ def generate(
         typer.Option(
             "--state-dir",
             "--tests-dir",
-            help="Directory containing the necessary artifacts to hydrate the requested phase.",
+            help=(
+                "Directory containing the necessary artifacts to hydrate "
+                "the requested phase."
+            ),
             dir_okay=True,
             exists=True,
         ),
@@ -378,7 +438,10 @@ def generate(
         typer.Option(
             "--spec-urls",
             "-u",
-            help="Comma-separated list of spec URLs to use, bypassing automatic fetching.",
+            help=(
+                "Comma-separated list of spec URLs to use, "
+                "bypassing automatic fetching."
+            ),
         ),
     ] = None,
     description: Annotated[
@@ -393,7 +456,10 @@ def generate(
         bool,
         typer.Option(
             "--detailed-requirements",
-            help="Use a more detailed, iterative requirements extraction process.",
+            help=(
+                "Use a more detailed, iterative requirements extraction "
+                "process."
+            ),
         ),
     ] = False,
     include_mdn_docs: Annotated[
@@ -414,14 +480,19 @@ def generate(
         bool,
         typer.Option(
             "--draft",
-            help="Enable fetching metadata from the draft features directory.",
+            help=(
+                "Enable fetching metadata from the draft features " "directory."
+            ),
         ),
     ] = False,
     single_prompt_requirements: Annotated[
         bool,
         typer.Option(
             "--single-prompt-requirements",
-            help="Use a single-prompt requirements extraction process (legacy).",
+            help=(
+                "Use a single-prompt requirements extraction process "
+                "(legacy)."
+            ),
         ),
     ] = False,
     use_lightweight: Annotated[
@@ -449,14 +520,20 @@ def generate(
         bool,
         typer.Option(
             "--save-traces",
-            help="Save LLM interaction traces to the .wptgen/traces/ directory.",
+            help=(
+                "Save LLM interaction traces to the .wptgen/traces/ "
+                "directory."
+            ),
         ),
     ] = False,
     audit_partition_size: Annotated[
         int | None,
         typer.Option(
             "--audit-partition-size",
-            help="Number of requirements to evaluate per coverage audit partition.",
+            help=(
+                "Number of requirements to evaluate per coverage audit "
+                "partition."
+            ),
         ),
     ] = None,
     max_parallel_requests: Annotated[
@@ -470,7 +547,10 @@ def generate(
         float | None,
         typer.Option(
             "--temperature",
-            help="Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.",
+            help=(
+                "Global temperature setting for all LLM requests (e.g., "
+                "0.01). Overrides phase-specific defaults."
+            ),
         ),
     ] = None,
     run_on_browser: Annotated[
@@ -569,7 +649,10 @@ def chromestatus_command(
         typer.Option(
             "--provider",
             "-p",
-            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+            help=(
+                "Override the default LLM provider "
+                "(e.g., 'gemini', 'openai', 'anthropic')."
+            ),
         ),
     ] = None,
     wpt_dir: Annotated[
@@ -624,7 +707,10 @@ def chromestatus_command(
         bool,
         typer.Option(
             "--no-cache",
-            help="Automatically ignore and overwrite the cache if it exists without prompting.",
+            help=(
+                "Automatically ignore and overwrite the cache if it exists "
+                "without prompting."
+            ),
         ),
     ] = False,
     resume: Annotated[
@@ -673,14 +759,20 @@ def chromestatus_command(
         bool,
         typer.Option(
             "--save-traces",
-            help="Save LLM interaction traces to the .wptgen/traces/ directory.",
+            help=(
+                "Save LLM interaction traces to the .wptgen/traces/ "
+                "directory."
+            ),
         ),
     ] = False,
     suggestions_only: Annotated[
         bool,
         typer.Option(
             "--suggestions-only",
-            help="Only generate the coverage audit report, skip test generation.",
+            help=(
+                "Only generate the coverage audit report, "
+                "skip test generation."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -690,15 +782,18 @@ def chromestatus_command(
     banner = Panel(
         Align.center(
             Text.from_markup(
-                "[bold blue]WPT[/bold blue][bold white]-[/bold white][bold green]Gen[/bold green]\n"
-                "[italic white]AI-Powered Web Platform Test Generation[/italic white]"
+                "[bold blue]WPT[/bold blue][bold white]-"
+                "[/bold white][bold green]Gen[/bold green]\n"
+                "[italic white]AI-Powered Web Platform "
+                "Test Generation[/italic white]"
             )
         ),
         border_style="bright_blue",
     )
     console.print(banner)
     console.print(
-        f"\n[bold]Target ChromeStatus Feature:[/bold] [cyan]{feature_id}[/cyan]\n"
+        f"\n[bold]Target ChromeStatus Feature:[/bold] "
+        f"[cyan]{feature_id}[/cyan]\n"
     )
 
     if use_lightweight and use_reasoning:
@@ -769,9 +864,15 @@ def chromestatus_command(
 
         console.print()
         if suggestions_only:
-            msg = "[bold green]✔ ChromeStatus Audit completed successfully! Blueprints generated.[/bold green]"
+            msg = (
+                "[bold green]✔ ChromeStatus Audit completed successfully! "
+                "Blueprints generated.[/bold green]"
+            )
         else:
-            msg = "[bold green]✔ ChromeStatus Workflow completed successfully![/bold green]"
+            msg = (
+                "[bold green]✔ ChromeStatus Workflow completed "
+                "successfully![/bold green]"
+            )
 
         console.print(
             Panel(
@@ -828,7 +929,8 @@ def doctor_command(
 
     if config.api_key:
         console.print(
-            f"[bold green]✔[/bold green] API key for {config.provider} is configured."
+            f"[bold green]✔[/bold green] API key for {config.provider} "
+            "is configured."
         )
     else:
         console.print(
@@ -843,7 +945,8 @@ def doctor_command(
         )
         if (wpt_path / ".git").exists():
             console.print(
-                "[bold green]✔[/bold green] WPT directory is a valid git repository."
+                "[bold green]✔[/bold green] WPT directory is a valid git "
+                "repository."
             )
         else:
             console.print(
@@ -858,7 +961,8 @@ def doctor_command(
             )
         else:
             console.print(
-                "[bold red]✘[/bold red] WPT executable (./wpt) is missing or not executable."
+                "[bold red]✘[/bold red] WPT executable (./wpt) is missing "
+                "or not executable."
             )
             success = False
     else:
@@ -878,7 +982,8 @@ def doctor_command(
     else:
         console.print(
             Panel(
-                "[bold red]Some checks failed. Please resolve the issues above.[/bold red]",
+                "[bold red]Some checks failed. Please resolve the issues "
+                "above.[/bold red]",
                 expand=False,
             )
         )
@@ -906,6 +1011,11 @@ def _flatten_dict(
 
 
 def _display_config(config_path: str) -> None:
+    """Displays the currently resolved configuration in the console.
+
+    Args:
+        config_path: Path to the configuration file to load.
+    """
     try:
         from rich.table import Table
 
@@ -923,7 +1033,8 @@ def _display_config(config_path: str) -> None:
             )
         else:
             console.print(
-                "Reading configuration from: [yellow]Defaults (no config file found)[/yellow]"
+                "Reading configuration from: [yellow]Defaults (no config "
+                "file found)[/yellow]"
             )
 
         # Remove internal or sensitive fields from display
@@ -979,8 +1090,9 @@ def config_callback(
         ),
     ] = DEFAULT_CONFIG_PATH,
 ) -> None:
-    """
-    Manage WPT-Gen configuration. Displays active configuration if no subcommand is provided.
+    """Manage WPT-Gen configuration.
+
+    Displays active configuration if no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
         _display_config(config_path)
@@ -1006,7 +1118,10 @@ def config_set(
     key: Annotated[
         str,
         typer.Argument(
-            help="Configuration key using dot-notation (e.g., default_provider)."
+            help=(
+                "Configuration key using dot-notation "
+                "(e.g., default_provider)."
+            )
         ),
     ],
     value: Annotated[
@@ -1068,7 +1183,9 @@ def config_set(
         with open(target_file, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, sort_keys=False, default_flow_style=False)
         console.print(
-            f"[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = [yellow]{typed_value}[/yellow] in [magenta]{target_file.resolve()}[/magenta]"
+            f"[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = "
+            f"[yellow]{typed_value}[/yellow] in "
+            f"[magenta]{target_file.resolve()}[/magenta]"
         )
     except Exception as e:
         console.print(f"[bold red]Error writing config file:[/bold red] {e}")
@@ -1082,7 +1199,10 @@ def list_models(
         typer.Option(
             "--provider",
             "-p",
-            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+            help=(
+                "Override the default LLM provider "
+                "(e.g., 'gemini', 'openai', 'anthropic')."
+            ),
         ),
     ] = None,
     config_path: Annotated[
@@ -1126,7 +1246,10 @@ def audit(
     web_feature_id: Annotated[
         str,
         typer.Argument(
-            help="The web feature ID to generate tests for (e.g., 'grid', 'popover')."
+            help=(
+                "The web feature ID to generate tests for "
+                "(e.g., 'grid', 'popover')."
+            )
         ),
     ],
     provider: Annotated[
@@ -1134,7 +1257,10 @@ def audit(
         typer.Option(
             "--provider",
             "-p",
-            help="Override the default LLM provider (e.g., 'gemini', 'openai', 'anthropic').",
+            help=(
+                "Override the default LLM provider "
+                "(e.g., 'gemini', 'openai', 'anthropic')."
+            ),
         ),
     ] = None,
     wpt_dir: Annotated[
@@ -1196,14 +1322,20 @@ def audit(
         bool,
         typer.Option(
             "--no-cache",
-            help="Automatically ignore and overwrite the cache if it exists without prompting.",
+            help=(
+                "Automatically ignore and overwrite the cache if it exists "
+                "without prompting."
+            ),
         ),
     ] = False,
     brief_suggestions: Annotated[
         bool,
         typer.Option(
             "--brief-suggestions",
-            help="Only generate test titles and descriptions for suggestions (omits detailed test suggestions).",
+            help=(
+                "Only generate test titles and descriptions for suggestions "
+                "(omits detailed test suggestions)."
+            ),
         ),
     ] = False,
     skip_run: Annotated[
@@ -1232,7 +1364,10 @@ def audit(
         typer.Option(
             "--state-dir",
             "--tests-dir",
-            help="Directory containing the necessary artifacts to hydrate the requested phase.",
+            help=(
+                "Directory containing the necessary artifacts to hydrate "
+                "the requested phase."
+            ),
             dir_okay=True,
             exists=True,
         ),
@@ -1256,7 +1391,10 @@ def audit(
         typer.Option(
             "--spec-urls",
             "-u",
-            help="Comma-separated list of spec URLs to use, bypassing automatic fetching.",
+            help=(
+                "Comma-separated list of spec URLs to use, "
+                "bypassing automatic fetching."
+            ),
         ),
     ] = None,
     description: Annotated[
@@ -1271,7 +1409,10 @@ def audit(
         bool,
         typer.Option(
             "--detailed-requirements",
-            help="Use a more detailed, iterative requirements extraction process.",
+            help=(
+                "Use a more detailed, iterative requirements extraction "
+                "process."
+            ),
         ),
     ] = False,
     include_mdn_docs: Annotated[
@@ -1299,7 +1440,10 @@ def audit(
         bool,
         typer.Option(
             "--single-prompt-requirements",
-            help="Use a single-prompt requirements extraction process (legacy).",
+            help=(
+                "Use a single-prompt requirements extraction process "
+                "(legacy)."
+            ),
         ),
     ] = False,
     use_lightweight: Annotated[
@@ -1320,14 +1464,20 @@ def audit(
         bool,
         typer.Option(
             "--save-traces",
-            help="Save LLM interaction traces to the .wptgen/traces/ directory.",
+            help=(
+                "Save LLM interaction traces to the .wptgen/traces/ "
+                "directory."
+            ),
         ),
     ] = False,
     audit_partition_size: Annotated[
         int | None,
         typer.Option(
             "--audit-partition-size",
-            help="Number of requirements to evaluate per coverage audit partition.",
+            help=(
+                "Number of requirements to evaluate per coverage audit "
+                "partition."
+            ),
         ),
     ] = None,
     max_parallel_requests: Annotated[
@@ -1341,7 +1491,10 @@ def audit(
         float | None,
         typer.Option(
             "--temperature",
-            help="Global temperature setting for all LLM requests (e.g., 0.01). Overrides phase-specific defaults.",
+            help=(
+                "Global temperature setting for all LLM requests (e.g., "
+                "0.01). Overrides phase-specific defaults."
+            ),
         ),
     ] = None,
     run_on_browser: Annotated[
@@ -1359,8 +1512,10 @@ def audit(
         ),
     ] = None,
 ) -> None:
-    """
-    Perform a gap analysis and generate coverage test suggestions without generating WPT files.
+    """Performs a gap analysis and generates coverage test suggestions.
+
+    This command performs a gap analysis and generates coverage test suggestions
+    without generating WPT files.
     """
     _print_workflow_banner(web_feature_id)
     _check_workflow_flags(
@@ -1456,7 +1611,8 @@ def clear_cache(
 
         if not cache_dir.exists():
             console.print(
-                f"Cache directory [cyan]{cache_dir}[/cyan] does not exist. Nothing to clear."
+                f"Cache directory [cyan]{cache_dir}[/cyan] does not exist. "
+                "Nothing to clear."
             )
             return
 
@@ -1468,7 +1624,8 @@ def clear_cache(
             return
 
         if force or ui.confirm(
-            f"Are you sure you want to clear the cache at [cyan]{cache_dir}[/cyan]?"
+            f"Are you sure you want to clear the cache at "
+            f"[cyan]{cache_dir}[/cyan]?"
         ):
             for item in files:
                 if item.is_file():
@@ -1530,7 +1687,8 @@ def init(
 
     if resolved_path.exists():
         overwrite = Confirm.ask(
-            f"[bold yellow]Warning:[/bold yellow] Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",
+            f"[bold yellow]Warning:[/bold yellow] Configuration file "
+            f"already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",
             default=False,
         )
         if not overwrite:
@@ -1578,7 +1736,8 @@ def init(
         with open(resolved_path, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
         console.print(
-            f"\n[bold green]✔ Configuration saved successfully to [cyan]{resolved_path}[/cyan][/bold green]"
+            f"\n[bold green]✔ Configuration saved successfully to "
+            f"[cyan]{resolved_path}[/cyan][/bold green]"
         )
     except Exception as e:
         console.print(
