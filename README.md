@@ -21,8 +21,9 @@ Browser interoperability is critical for the web. While the W3C and WHATWG write
 *   **Gap Analysis:** Compares technical requirements synthesized from specifications against current test coverage to pinpoint missing assertions.
 *   **Test Suggestions:** Brainstorms specific, actionable test scenarios (test suggestions) that address identified gaps.
 *   **Automated Generation:** Produces atomic, WPT-compliant HTML and JavaScript test files based on user-approved test suggestions using an autonomous agent powered by `google-adk`.
-*   **ChromeStatus Integration:** Pulls feature data directly from the ChromeStatus API (`chromestatus.com`) to enable targeted test evaluation and generation for specific ChromeStatus features.
 *   **Multi-Provider Support:** Built-in support for Google Gemini (via `google-genai` and thinking models), OpenAI, and Anthropic models.
+
+**Also for ChromeStatus Integration:** Optionally, you can provide a ChromeStatus feature ID instead of a Web Feature ID. This pulls data directly from the ChromeStatus API (`chromestatus.com`) to drive the requirements extraction and coverage audit phases.
 
 ## How it Works
 
@@ -31,23 +32,27 @@ WPT-Gen follows a structured, multi-phase agentic workflow. Each phase is design
 ```mermaid
 flowchart TD
     subgraph Phase1[Phase 1: Context Assembly]
-        subgraph WF[Web Features Workflow]
-            A[Web Feature] --> B[Scrape Specs/MDN]
-            C[Local WPT Repo] --> D[Index Existing Tests]
-        end
-        subgraph CS[ChromeStatus Workflow]
+    subgraph CS[Alternative ChromeStatus Workflow]
             I[ChromeStatus Feature] --> J[Specs/Explainers]
             I --> K[Extract Existing Tests]
         end
+        subgraph WF[Web Features Workflow]
+            C[Local WPT Repo] --> D[Index Existing Tests]
+            A[Web Feature] --> B[Scrape Specs/MDN]
+        end
+        
     end
 
-    subgraph Analysis[Phase 2: Requirement & Gap Analysis]
+    subgraph Phase2[Phase 2: Requirement Extraction]
         B & J --> E{{Requirements Extraction}}
+    end
+
+    subgraph Phase3[Phase 3: Coverage Audit]
         E & D & K --> F{{Coverage Audit}}
         F --> G[test suggestions]
     end
 
-    subgraph Phase3[Phase 3: Test Generation]
+    subgraph Phase4[Phase 4: Test Generation]
         G --> H{{Generate WPT Tests}}
     end
 
