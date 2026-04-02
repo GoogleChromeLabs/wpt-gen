@@ -165,6 +165,27 @@ class RichUIProvider:
     def status(self, message: str) -> AbstractContextManager[Any]:
         return self.console.status(message)
 
+    def report_configuration(self, config_data: dict[str, str]) -> None:
+        from rich.table import Table
+        from rich.panel import Panel
+
+        table = Table.grid(padding=(0, 2))  # Headless table for alignment
+        table.add_column(style="bold")
+        table.add_column(style="green")
+
+        for key, val in config_data.items():
+            table.add_row(f"{key}:", val)
+
+        self.console.print(
+            Panel(
+                table,
+                title="[bold]Configuration[/bold]",
+                title_align="left",
+                expand=False,
+                border_style="bright_black",
+            )
+        )
+
     @contextmanager
     def progress_indicator(
         self, description: str, total: int

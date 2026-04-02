@@ -18,11 +18,21 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from enum import Enum
 from typing import Any
 
 import yaml
 
 from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
+
+
+class ModelCategory(str, Enum):
+    """Categories of LLM models used in the workflow."""
+
+    DEFAULT = "default"
+    LIGHTWEIGHT = "lightweight"
+    REASONING = "reasoning"
+
 
 # The absolute path to the installed wptgen package root
 PACKAGE_ROOT = Path(str(importlib.resources.files("wptgen")))

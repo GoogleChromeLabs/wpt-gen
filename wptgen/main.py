@@ -169,43 +169,13 @@ def _workflow_error_handler() -> Generator[None, None, None]:
 
 
 def _print_run_config(config: Any) -> None:
-    parts = [
-        ("Provider: ", "bold"),
-        (f"{config.provider}\n", "green"),
-        ("Model:    ", "bold"),
-        (f"{config.default_model}\n", "green"),
-    ]
-
-    if "lightweight" in config.categories:
-        lightweight_model = config.categories["lightweight"]
-        parts.extend(
-            [
-                ("  lightweight: ", "bold dim"),
-                (f"{lightweight_model}\n", "green dim"),
-            ]
-        )
-    if "reasoning" in config.categories:
-        reasoning_model = config.categories["reasoning"]
-        parts.extend(
-            [
-                ("  reasoning:   ", "bold dim"),
-                (f"{reasoning_model}\n", "green dim"),
-            ]
-        )
-
-    # Strip trailing newline from the last tuple if any
-    if parts[-1][0].endswith("\n"):
-        parts[-1] = (parts[-1][0][:-1], parts[-1][1])
-
-    config_info = Text.assemble(*parts)
-    console.print(
-        Panel(
-            config_info,
-            title="[bold]Configuration[/bold]",
-            title_align="left",
-            expand=False,
-            border_style="bright_black",
-        )
+    ui.report_configuration(
+        {
+            "Provider": config.provider,
+            "Default": config.default_model,
+            "Lightweight": config.categories.get("lightweight", "N/A"),
+            "Reasoning": config.categories.get("reasoning", "N/A"),
+        }
     )
 
 
