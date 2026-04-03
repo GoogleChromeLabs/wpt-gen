@@ -621,8 +621,8 @@ def create_agent_tools(
             url: The URL of the specification to fetch.
 
         Returns:
-            A dictionary containing the 'status' and 'content' of the spec, or an
-            'error' message if the fetch fails.
+            A dictionary containing the 'status' and 'content' of the spec,
+            or an 'error' message if the fetch fails.
         """
         try:
             content = fetch_and_extract_text(url)
@@ -673,13 +673,19 @@ def create_agent_tools(
                 if time.time() - start_time > WPT_GREP_TIMEOUT_SECONDS:
                     return {
                         "status": "error",
-                        "error": f"Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.",
+                        "error": (
+                            f"Command timed out after "
+                            f"{WPT_GREP_TIMEOUT_SECONDS} seconds."
+                        ),
                     }
                 for file in files:
                     if time.time() - start_time > WPT_GREP_TIMEOUT_SECONDS:
                         return {
                             "status": "error",
-                            "error": f"Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.",
+                            "error": (
+                                f"Command timed out after "
+                                f"{WPT_GREP_TIMEOUT_SECONDS} seconds."
+                            ),
                         }
 
                     file_path = Path(root) / file
@@ -696,7 +702,11 @@ def create_agent_tools(
                                 ):
                                     return {
                                         "status": "error",
-                                        "error": f"Command timed out after {WPT_GREP_TIMEOUT_SECONDS} seconds.",
+                                        "error": (
+                                            f"Command timed out after "
+                                            f"{WPT_GREP_TIMEOUT_SECONDS} "
+                                            "seconds."
+                                        ),
                                     }
 
                                 if regex.search(line):
