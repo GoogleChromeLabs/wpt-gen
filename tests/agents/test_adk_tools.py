@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_adk_tools.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -22,7 +24,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _parse_test_results, _validate_safe_path, create_agent_tools
+from wptgen.agents.tools import _parse_test_results, _validate_safe_path, create_agent_tools  # pylint: disable=line-too-long
 from wptgen.config import Config
 from wptgen.ui import UIProvider
 
@@ -41,7 +43,7 @@ def _create_mock_config(
 
 
 def test_parse_test_results(tmp_path: Path) -> None:
-    assert _parse_test_results(str(tmp_path / "missing.json")) == {}
+    assert not _parse_test_results(str(tmp_path / "missing.json"))
 
     log_file = tmp_path / "test.json"
     events = [
@@ -643,6 +645,6 @@ def test_agent_tools_run_wpt_test_flag_injection(
     assert result["status"] == "success"
     mock_run.assert_called_once()
     args, kwargs = mock_run.call_args
-    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless', '--log-raw', ..., 'chrome', './--dummy-flag.html']
+    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless', '--log-raw', ..., 'chrome', './--dummy-flag.html']  # pylint: disable=line-too-long
     assert args[0][-1] == "./--dummy-flag.html"
     assert args[0][0:2] == ["./wpt", "run"]

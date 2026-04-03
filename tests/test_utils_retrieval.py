@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_utils_retrieval.py."""
+
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -40,9 +42,9 @@ def test_get_recent_test_files_success(
     mock_path_methods: None,
 ) -> None:
     mock_result = MagicMock()
-    # Note: the test simulates duplicate lines (different commits modifying the same file)
+    # Note: the test simulates duplicate lines (different commits modifying the same file)  # pylint: disable=line-too-long
     # and files that don't match the required extension.
-    mock_result.stdout = "dir/test1.html\ndir/test1.html\ndir/ignore.js\ndir/test2.html\ndir/test3.html\n"
+    mock_result.stdout = "dir/test1.html\ndir/test1.html\ndir/ignore.js\ndir/test2.html\ndir/test3.html\n"  # pylint: disable=line-too-long
     mock_subprocess_run.return_value = mock_result
 
     mocker.patch(

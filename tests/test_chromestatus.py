@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_chromestatus.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -81,8 +83,9 @@ def test_fetch_chromestatus_metadata_with_prefix(mocker: MockerFixture) -> None:
 
 
 def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
+    """Tests that 404 from ChromeStatus API returns None."""
     mocker.patch(
-        "urllib.request.urlopen",
+        "wptgen.context._ssrf_safe_opener.open",
         side_effect=urllib.error.HTTPError(
             "url", 404, "Not Found", hdrs=Message(), fp=None
         ),
@@ -94,8 +97,10 @@ def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
 
 
 def test_fetch_chromestatus_metadata_api_error(mocker: MockerFixture) -> None:
+    """Tests that other URL errors from ChromeStatus API return None."""
     mocker.patch(
-        "urllib.request.urlopen", side_effect=urllib.error.URLError("API Error")
+        "wptgen.context._ssrf_safe_opener.open",
+        side_effect=urllib.error.URLError("API Error"),
     )
 
     metadata = fetch_chromestatus_metadata("12345")

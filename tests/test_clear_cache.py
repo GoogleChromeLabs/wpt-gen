@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_clear_cache.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -28,7 +30,7 @@ runner = CliRunner()
 
 
 def normalize_ws(text: str) -> str:
-    """Normalizes whitespace by replacing any sequence of whitespace with a single space."""
+    """Normalizes whitespace.\n\n    Replaces any sequence of whitespace with a single space.\n"""  # pylint: disable=line-too-long
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -87,7 +89,7 @@ def test_clear_cache_success(
 def test_clear_cache_force(
     mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
-    """Test successful cache clearing when using the --force flag (bypasses confirmation)."""
+    """Test successful cache clearing when using the --force flag.\n\n    Bypasses confirmation.\n"""  # pylint: disable=line-too-long
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
 

@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_llm_coverage.py."""
+
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -18,7 +20,7 @@ import anthropic
 import httpx
 import pytest
 
-from wptgen.llm import AnthropicClient, GeminiClient, LLMTimeoutError, OpenAIClient
+from wptgen.llm import AnthropicClient, GeminiClient, LLMTimeoutError, OpenAIClient  # pylint: disable=line-too-long
 
 
 @patch.object(GeminiClient, "verify_model")

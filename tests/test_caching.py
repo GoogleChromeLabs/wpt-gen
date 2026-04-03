@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_caching.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -20,7 +22,7 @@ from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.models import FeatureMetadata, WorkflowContext
-from wptgen.phases.requirements_extraction import run_requirements_extraction_iterative
+from wptgen.phases.requirements_extraction import run_requirements_extraction_iterative  # pylint: disable=line-too-long
 
 
 @pytest.fixture
@@ -72,7 +74,7 @@ async def test_requirements_cache_miss(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Verify that requirements extraction generates and saves cache on a miss."""
+    """Verify that requirements extraction generates and saves cache on a miss."""  # pylint: disable=line-too-long
     metadata = FeatureMetadata(
         name="Feat", description="Desc", specs=["http://spec"]
     )
@@ -85,7 +87,7 @@ async def test_requirements_cache_miss(
     cache_dir.mkdir()
 
     mock_llm.generate_content.side_effect = [
-        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',  # pylint: disable=line-too-long
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
@@ -115,7 +117,7 @@ async def test_requirements_cache_miss(
 async def test_requirements_cache_hit_accept(
     mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-    """Verify that requirements extraction uses cached requirements when user accepts."""
+    """Verify that requirements extraction uses cached requirements when user accepts."""  # pylint: disable=line-too-long
     web_feature_id = "cached-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
@@ -153,7 +155,7 @@ async def test_requirements_cache_hit_reject(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Verify that requirements extraction regenerates requirements when user rejects cache."""
+    """Verify that requirements extraction regenerates requirements when user rejects cache."""  # pylint: disable=line-too-long
     web_feature_id = "rejected-cache-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
@@ -174,7 +176,7 @@ async def test_requirements_cache_hit_reject(
     # User rejects cache
     mock_ui.confirm.return_value = False
     mock_llm.generate_content.side_effect = [
-        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',  # pylint: disable=line-too-long
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()

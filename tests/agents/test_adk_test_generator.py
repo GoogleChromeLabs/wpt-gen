@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_adk_test_generator.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -27,7 +29,7 @@ from wptgen.models import WorkflowContext
 
 @pytest.fixture
 def mock_jinja_env() -> MagicMock:
-    """Fixture to provide a mocked Jinja environment that returns simple text strings."""
+    """Fixture to provide a mocked Jinja environment that returns simple text strings."""  # pylint: disable=line-too-long
     env = MagicMock()
     system_template = MagicMock()
     prompt_template = MagicMock()
@@ -66,7 +68,7 @@ async def test_generate_test_with_adk(
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
-        # In actual ADK, the tools are attached to the agent which is passed to Runner
+        # In actual ADK, the tools are attached to the agent which is passed to Runner  # pylint: disable=line-too-long
         agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
             t
@@ -90,7 +92,7 @@ async def test_generate_test_with_adk(
     )
     mocker.patch.dict(os.environ, {"GOOGLE_API_KEY": "fake"}, clear=True)
 
-    # Ensure skill directory doesn't exist to cover the "skill directory not found" UI warning path
+    # Ensure skill directory doesn't exist to cover the "skill directory not found" UI warning path  # pylint: disable=line-too-long
     mocker.patch(
         "wptgen.agents.adk_test_generator.Path.is_dir", return_value=False
     )
@@ -127,7 +129,7 @@ async def test_generate_test_with_adk(
     assert results[0][0] == test_file.resolve()
     assert "<!DOCTYPE html>" in results[0][1]
     mock_ui.warning.assert_called_with(
-        "wpt-generator skill directory not found. Agent will generate tests without skill guidance."
+        "wpt-generator skill directory not found. Agent will generate tests without skill guidance."  # pylint: disable=line-too-long
     )
 
 
@@ -138,13 +140,13 @@ async def test_generate_test_missing_output_dir_and_no_paths(
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
-    # Mock the ADK Runner to simulate an agent that finishes *without* calling the completion tool
+    # Mock the ADK Runner to simulate an agent that finishes *without* calling the completion tool  # pylint: disable=line-too-long
     mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
-        # Do not call the completion tool at all, simulating a lazy/failed agent execution
+        # Do not call the completion tool at all, simulating a lazy/failed agent execution  # pylint: disable=line-too-long
         yield MagicMock()
 
     mock_runner_instance.run_async = mock_run_async
@@ -155,7 +157,7 @@ async def test_generate_test_missing_output_dir_and_no_paths(
         return_value="gemini-mock",
     )
 
-    # Mock load_skill_from_dir to raise an exception, testing the error handling for malformed skills
+    # Mock load_skill_from_dir to raise an exception, testing the error handling for malformed skills  # pylint: disable=line-too-long
     mocker.patch(
         "wptgen.agents.adk_test_generator.Path.is_dir", return_value=True
     )
@@ -208,7 +210,7 @@ async def test_generate_test_invalid_path(
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
-    # Mock the ADK Runner to simulate an agent that tries to write maliciously outside the root
+    # Mock the ADK Runner to simulate an agent that tries to write maliciously outside the root  # pylint: disable=line-too-long
     mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
@@ -221,7 +223,7 @@ async def test_generate_test_invalid_path(
             if t.func.__name__ == "report_generation_complete"
         )
 
-        # Provide an invalid path outside wpt_root (simulating a path traversal attack / mistake)
+        # Provide an invalid path outside wpt_root (simulating a path traversal attack / mistake)  # pylint: disable=line-too-long
         completion_tool.func(["/etc/passwd"])
         yield MagicMock()
 

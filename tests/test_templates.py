@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_templates.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -20,7 +22,7 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "wptgen" / "templates"
 
 
 def test_coverage_audit_system_template_brief_rendering() -> None:
-    """Verifies that the coverage audit system templates correctly render brief vs. full suggestions."""
+    """Verifies that the coverage audit system templates correctly render brief vs. full suggestions."""  # pylint: disable=line-too-long
     template_path = _TEMPLATE_DIR
     env = Environment(loader=FileSystemLoader(str(template_path)))
     template = env.get_template("coverage_audit_system.jinja")

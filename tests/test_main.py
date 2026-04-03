@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_main.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -209,7 +211,7 @@ def test_generate_flags(
 
 
 def test_generate_config_error(mocker: MockerFixture) -> None:
-    """Test that configuration errors (like missing API keys) are caught and exit gracefully."""
+    """Test configuration errors are caught and exit gracefully.\n\n    Example: missing API keys.\n"""  # pylint: disable=line-too-long
     mock_error_message = "GEMINI_API_KEY environment variable is missing"
     mocker.patch(
         "wptgen.main.load_config", side_effect=ValueError(mock_error_message)
@@ -225,7 +227,7 @@ def test_generate_config_error(mocker: MockerFixture) -> None:
 def test_generate_unexpected_error(
     mock_load_config: Any, mock_engine_instance: Any
 ) -> None:
-    """Test that unexpected runtime errors inside the engine are caught and exit gracefully."""
+    """Test runtime errors in engine are caught and exit gracefully."""
     mock_engine_instance.run_workflow.side_effect = Exception(
         "Engine simulation failed"
     )
@@ -265,7 +267,7 @@ def test_generate_mutually_exclusive_requirements(
 
     assert result.exit_code == 1
     assert (
-        "Cannot use both --detailed-requirements and --single-prompt-requirements"
+        "Cannot use both --detailed-requirements and --single-prompt-requirements"  # pylint: disable=line-too-long
         in result.stdout
     )
 
@@ -352,7 +354,7 @@ def test_main_callback() -> None:
 
 
 def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
-    """Test the config command prints the resolved configuration and its path."""
+    """Test the config command prints the resolved configuration and its path."""  # pylint: disable=line-too-long
     mock_config.loaded_from = "/dummy/path/wpt-gen.yml"
 
     result = runner.invoke(app, ["config"])
@@ -378,7 +380,7 @@ def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
 def test_config_command_defaults(
     mock_config: Config, mock_load_config: Any
 ) -> None:
-    """Test the config command prints the defaults message when no file is loaded."""
+    """Test the config command prints the defaults message when no file is loaded."""  # pylint: disable=line-too-long
     mock_config.loaded_from = None
 
     result = runner.invoke(app, ["config"])
@@ -412,9 +414,9 @@ def test_config_command_error(mocker: MockerFixture) -> None:
 
 
 def test_init_command_global(mocker: MockerFixture) -> None:
-    """Test the init command successfully creates a global configuration file."""
+    """Test the init command successfully creates a global configuration file."""  # pylint: disable=line-too-long
     with runner.isolated_filesystem():
-        # Mock the global config path so it creates the file within the isolated filesystem
+        # Mock the global config path so it creates the file within the isolated filesystem  # pylint: disable=line-too-long
         global_config_path = str(Path(".config/wpt-gen/config.yml").resolve())
         mocker.patch(
             "wptgen.main._get_global_config_path",
@@ -520,7 +522,7 @@ def test_chromestatus_command(
     assert result.exit_code == 0
     assert "Target ChromeStatus Feature" in result.stdout
 
-    # Verify our logic called the underlying functions with the correct CLI arguments
+    # Verify our logic called the underlying functions with the correct CLI arguments  # pylint: disable=line-too-long
     mock_load_config.assert_called_once()
     kwargs = mock_load_config.call_args.kwargs
     assert kwargs["suggestions_only"] is suggestions_only

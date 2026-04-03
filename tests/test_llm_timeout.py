@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_llm_timeout.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -19,7 +21,7 @@ from google.genai import types
 from pytest_mock import MockerFixture
 
 from wptgen.config import DEFAULT_LLM_TIMEOUT, Config
-from wptgen.llm import GeminiClient, LLMTimeoutError, OpenAIClient, get_llm_client
+from wptgen.llm import GeminiClient, LLMTimeoutError, OpenAIClient, get_llm_client  # pylint: disable=line-too-long
 
 
 @pytest.fixture
@@ -88,7 +90,7 @@ def test_openai_client_timeout_passed(
 def test_gemini_timeout_handling(
     mocker: MockerFixture, base_config: Config
 ) -> None:
-    """Verify that GeminiClient catches httpx.TimeoutException and raises LLMTimeoutError."""
+    """Verify that GeminiClient catches httpx.TimeoutException and raises LLMTimeoutError."""  # pylint: disable=line-too-long
     mocker.patch("time.sleep")  # Speed up retries
     mock_genai_client_class = mocker.patch("wptgen.llm.genai.Client")
     mock_instance = mock_genai_client_class.return_value
@@ -114,13 +116,13 @@ def test_gemini_timeout_handling(
 def test_openai_timeout_handling(
     mocker: MockerFixture, base_config: Config
 ) -> None:
-    """Verify that OpenAIClient catches openai.APITimeoutError and raises LLMTimeoutError."""
+    """Verify that OpenAIClient catches openai.APITimeoutError and raises LLMTimeoutError."""  # pylint: disable=line-too-long
     mocker.patch("time.sleep")  # Speed up retries
     mock_openai_class = mocker.patch("wptgen.llm.OpenAI")
     mock_instance = mock_openai_class.return_value
 
     # Simulate an OpenAI timeout
-    # APITimeoutError requires a request object, but we can just mock the exception
+    # APITimeoutError requires a request object, but we can just mock the exception  # pylint: disable=line-too-long
     mock_instance.chat.completions.create.side_effect = openai.APITimeoutError(
         request=httpx.Request("POST", "https://api.openai.com")
     )
@@ -141,7 +143,7 @@ def test_openai_timeout_handling(
 def test_get_llm_client_passes_timeout(
     mocker: MockerFixture, base_config: Config
 ) -> None:
-    """Verify that get_llm_client passes the timeout from config to the client."""
+    """Verify that get_llm_client passes the timeout from config to the client."""  # pylint: disable=line-too-long
     mocker.patch("wptgen.llm.genai.Client")
     base_config.timeout = 999
     base_config.provider = "gemini"

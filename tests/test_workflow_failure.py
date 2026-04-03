@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_workflow_failure.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -65,7 +67,7 @@ def engine(mock_config: Config, mock_ui: MagicMock) -> WPTGenEngine:
 def test_workflow_error_display(
     mocker: MockerFixture, mock_config: Config
 ) -> None:
-    """Verify that a WorkflowError results in a red failure panel and exit code 1."""
+    """Verify that a WorkflowError results in a red failure panel and exit code 1."""  # pylint: disable=line-too-long
     mocker.patch("wptgen.main.load_config", return_value=mock_config)
 
     mock_engine_class = mocker.patch("wptgen.main.WPTGenEngine")
@@ -89,7 +91,7 @@ def test_workflow_error_display(
 async def test_engine_raises_workflow_error_on_phase_failure(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verify that the engine specifically raises WorkflowError when a phase returns None."""
+    """Verify that the engine specifically raises WorkflowError when a phase returns None."""  # pylint: disable=line-too-long
     # Mock run_context_assembly to return None (failure)
     mocker.patch("wptgen.engine.run_context_assembly", return_value=None)
 

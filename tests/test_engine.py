@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_engine.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -49,7 +51,7 @@ def mock_config(tmp_path: Path) -> Config:
 @pytest.fixture
 def mock_llm() -> MagicMock:
     """Provides a mocked LLM client using AsyncMock for async methods."""
-    # We use MagicMock for the container, but AsyncMock for the specific async method
+    # We use MagicMock for the container, but AsyncMock for the specific async method  # pylint: disable=line-too-long
     llm = MagicMock()
 
     # generate_content is presumably awaited in the underlying phases
@@ -79,7 +81,7 @@ def engine(
 async def test_run_async_workflow_full_path(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Full asynchronous workflow orchestration, ensuring each phase is called."""
+    """Full asynchronous workflow orchestration.\n\n    Ensures each phase is called.\n"""  # pylint: disable=line-too-long
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
     audit = "audit"
@@ -159,7 +161,7 @@ def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:
 async def test_run_async_workflow_suggestions_only(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies that the workflow short-circuits to provide_coverage_report when config.suggestions_only is True."""
+    """Verifies workflow short-circuits to provide_coverage_report.\n\n    Called when config.suggestions_only is True.\n"""  # pylint: disable=line-too-long
     engine.config.suggestions_only = True
     context = WorkflowContext(feature_id="test-feat", audit_response="audit")
 
@@ -186,7 +188,7 @@ async def test_run_async_workflow_suggestions_only(
 async def test_run_async_workflow_detailed_requirements(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies that run_requirements_extraction_iterative is called when config.detailed_requirements is True."""
+    """Verifies run_requirements_extraction_iterative is called.\n\n    Called when config.detailed_requirements is True.\n"""  # pylint: disable=line-too-long
     engine.config.detailed_requirements = True
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
@@ -210,7 +212,7 @@ async def test_run_async_workflow_detailed_requirements(
 
 
 def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
-    """Verifies that the engine initializes correctly with the given configuration."""
+    """Verifies engine initializes correctly with configuration."""
     assert engine.config == mock_config
     assert engine.llm is not None
     assert engine.jinja_env is not None
@@ -385,7 +387,7 @@ def test_engine_load_resume_state_success(
     engine = WPTGenEngine(mock_config, ui_mock)
     resume_file = tmp_path / "mock_feature_resume.json"
     resume_file.write_text(
-        '{"feature_id": "mock_feature", "metadata": null, "spec_contents": null, "wpt_context": null, "requirements_xml": null, "audit_response": null, "suggestions": [], "approved_suggestions_xml": [], "mdn_contents": null, "generated_tests": null}'
+        '{"feature_id": "mock_feature", "metadata": null, "spec_contents": null, "wpt_context": null, "requirements_xml": null, "audit_response": null, "suggestions": [], "approved_suggestions_xml": [], "mdn_contents": null, "generated_tests": null}'  # pylint: disable=line-too-long
     )
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
@@ -510,7 +512,7 @@ def test_engine_hydrate_context_exceptions(
     ui_mock.warning.assert_called_once()
     assert "Failed to load resume state" in ui_mock.warning.call_args[0][0]
 
-    # the other files silently pass exceptions, context should not have these fields populated
+    # the other files silently pass exceptions, context should not have these fields populated  # pylint: disable=line-too-long
     assert context.requirements_xml is None
     assert context.audit_response is None
     assert context.generated_tests is None

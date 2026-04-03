@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_coverage_audit.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -74,7 +76,7 @@ async def test_run_coverage_audit_token_limit_exceeded(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
         wpt_context=WPTContext(),
     )
 
@@ -104,13 +106,13 @@ def test_combine_audit_responses_all_satisfied() -> None:
 def test_combine_audit_responses_with_suggestions() -> None:
     responses = [
         "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
-        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>",
+        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>",  # pylint: disable=line-too-long
     ]
     result = combine_audit_responses(responses)
     assert "<status>TESTS_NEEDED</status>" in result
     assert "<audit_worksheet>\nW1\nW2\n</audit_worksheet>" in result
     assert (
-        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>"
+        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>"  # pylint: disable=line-too-long
         in result
     )
 
@@ -125,14 +127,14 @@ async def test_run_coverage_audit_single_partition(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
         wpt_context=WPTContext(),
     )
 
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
     )
 
     result = await run_coverage_audit(
@@ -163,7 +165,7 @@ async def test_run_coverage_audit_multiple_partitions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
     )
 
     result = await run_coverage_audit(
@@ -215,12 +217,12 @@ async def test_provide_coverage_report_save_success(
 
 
 def test_partition_requirements_xml_empty() -> None:
-    assert partition_requirements_xml("") == []
+    assert not partition_requirements_xml("")
 
 
 def test_partition_requirements_xml_no_matches() -> None:
     assert partition_requirements_xml("<foo></foo>") == ["<foo></foo>"]
-    assert partition_requirements_xml("   ") == []
+    assert not partition_requirements_xml("   ")
 
 
 @pytest.mark.asyncio
@@ -233,7 +235,7 @@ async def test_run_coverage_audit_always_brief_suggestions(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
         wpt_context=WPTContext(),
     )
 
@@ -257,7 +259,7 @@ async def test_run_coverage_audit_always_brief_suggestions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
     )
 
     await run_coverage_audit(

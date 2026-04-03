@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_ui.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -30,7 +32,7 @@ def mock_console() -> MagicMock:
 
 @pytest.fixture
 def ui(mock_console: MagicMock) -> RichUIProvider:
-    """Fixture that provides a RichUIProvider initialized with a mocked console."""
+    """Fixture that provides a RichUIProvider initialized with a mocked console."""  # pylint: disable=line-too-long
     return RichUIProvider(console=mock_console)
 
 
@@ -114,7 +116,7 @@ def test_report_token_usage(
 def test_report_llm_response_js_suffix(
     mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
-    """Test report_llm_response uses 'javascript' lexer when a .js file is generated."""
+    """Test report_llm_response uses 'javascript' lexer when a .js file is generated."""  # pylint: disable=line-too-long
     mock_syntax = mocker.patch("wptgen.ui.Syntax")
     response = "[FILE_1: test.any.js]\nconsole.log('test');\n[/FILE_1]"
     ui.report_llm_response(response, "Task")
@@ -128,7 +130,7 @@ def test_report_llm_response_js_suffix(
 def test_report_llm_response_html_suffix(
     mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
-    """Test report_llm_response uses 'html' lexer when a .html file is generated."""
+    """Test report_llm_response uses 'html' lexer when a .html file is generated."""  # pylint: disable=line-too-long
     mock_syntax = mocker.patch("wptgen.ui.Syntax")
     response = "[FILE_1: test.html]\n<div></div>\n[/FILE_1]"
     ui.report_llm_response(response, "Task")
@@ -140,7 +142,7 @@ def test_report_llm_response_html_suffix(
 def test_report_llm_response_fallback_gen(
     mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
-    """Test report_llm_response falls back to 'html' if task_name contains 'gen:' and no files are found."""
+    """Test report_llm_response falls back to 'html' if task_name contains 'gen:' and no files are found."""  # pylint: disable=line-too-long
     mock_syntax = mocker.patch("wptgen.ui.Syntax")
     response = "Some standard markdown response"
     ui.report_llm_response(response, "Gen: phase")
@@ -151,7 +153,7 @@ def test_report_llm_response_fallback_gen(
 def test_report_llm_response_fallback_eval(
     mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
-    """Test report_llm_response falls back to 'html' if task_name contains 'eval:' and no files are found."""
+    """Test report_llm_response falls back to 'html' if task_name contains 'eval:' and no files are found."""  # pylint: disable=line-too-long
     mock_syntax = mocker.patch("wptgen.ui.Syntax")
     response = "Some standard markdown response"
     ui.report_llm_response(response, "Eval: phase")
@@ -162,7 +164,7 @@ def test_report_llm_response_fallback_eval(
 def test_report_llm_response_fallback_default(
     mocker: MockerFixture, ui: RichUIProvider, mock_console: MagicMock
 ) -> None:
-    """Test report_llm_response falls back to 'xml' default if no files and not gen/eval task."""
+    """Test report_llm_response falls back to 'xml' default if no files and not gen/eval task."""  # pylint: disable=line-too-long
     mock_syntax = mocker.patch("wptgen.ui.Syntax")
     response = "Some standard markdown response"
     ui.report_llm_response(response, "Audit Phase")
@@ -259,7 +261,7 @@ def test_report_context_summary_chromestatus(
     """Test report_context_summary with arguments for ChromeStatus."""
     ui.report_context_summary(spec_len=1000, explainer_count=1, test_count=5)
     mock_console.print.assert_called_once_with(
-        "[bold green]✔[/bold green] Context gathered: 1000 chars of spec, 1 explainers, 5 tests."
+        "[bold green]✔[/bold green] Context gathered: 1000 chars of spec, 1 explainers, 5 tests."  # pylint: disable=line-too-long
     )
 
 
@@ -271,7 +273,7 @@ def test_report_context_summary_generate(
         spec_len=5000, mdn_count=2, test_count=10, dep_count=3
     )
     mock_console.print.assert_called_once_with(
-        "[bold green]✔[/bold green] Context gathered: 5000 chars of spec, 2 MDN pages, 10 tests, 3 dependency files."
+        "[bold green]✔[/bold green] Context gathered: 5000 chars of spec, 2 MDN pages, 10 tests, 3 dependency files."  # pylint: disable=line-too-long
     )
 
 

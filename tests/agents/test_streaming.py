@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_streaming.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -52,10 +54,10 @@ def test_adk_stream_manager_thought() -> None:
 
 
 def test_adk_stream_manager_function_call() -> None:
-    """Test streaming function calls stops the box and prints with formatted arguments."""
+    """Test streaming function calls stops the box and prints with formatted arguments."""  # pylint: disable=line-too-long
     ui_mock = MagicMock()
     args = {
-        "test_path": "/html/semantics/scripting-1/the-script-element/script-type-module.html"
+        "test_path": "/html/semantics/scripting-1/the-script-element/script-type-module.html"  # pylint: disable=line-too-long
     }
     part = types.Part(
         function_call=types.FunctionCall(name="run_wpt_test", args=args)

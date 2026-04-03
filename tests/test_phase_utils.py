@@ -4,6 +4,8 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
+"""Tests for test_phase_utils.py."""
+
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -25,7 +27,7 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
-    """Fixture that provides a mocked UI provider with a status context manager."""
+    """Fixture that provides a mocked UI provider with a status context manager."""  # pylint: disable=line-too-long
     ui = MagicMock()
     ui.status.return_value.__enter__.return_value = None
     return ui
@@ -136,7 +138,7 @@ async def test_generate_safe_show_responses_xml(
 async def test_generate_safe_exception(
     mock_ui: MagicMock, mock_llm: MagicMock, mock_config: Config
 ) -> None:
-    """Test that generate_safe handles exceptions gracefully and returns an empty string."""
+    """Test that generate_safe handles exceptions gracefully and returns an empty string."""  # pylint: disable=line-too-long
     mock_llm.generate_content.side_effect = Exception("test error")
     res = await generate_safe("prompt", "Task", mock_llm, mock_ui, mock_config)
     assert res == ""

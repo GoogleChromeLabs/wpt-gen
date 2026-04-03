@@ -1,3 +1,7 @@
+# This Pylint rcfile contains a best-effort configuration to uphold the
+# best-practices and style described in the Google Python style guide:
+#   https://google.github.io/styleguide/pyguide.html
+
 [MASTER]
 load-plugins=pylint.extensions.docparams
 
@@ -7,3 +11,45 @@ load-plugins=pylint.extensions.docparams
 disable=
     redefined-outer-name,
     unused-argument,
+    # The following are often okay in tests but we might want to keep some
+    protected-access,
+    import-outside-toplevel,
+    duplicate-code, # Common in test setups/fixtures
+    too-few-public-methods, # Common for mock classes or small containers in tests
+    reimported, # Often happens with complex mock setups
+    too-many-positional-arguments, # Tests often have many dependencies/params
+    stop-iteration-return, # Sometimes used in generators in tests
+    unspecified-encoding, # Tests often don't care about encoding for temp files
+    no-else-return, # Style preference, but okay to disable in tests
+    no-member, # Often fails with mocks
+    import-error, # Environment specific
+    no-name-in-module, # Environment specific
+
+[BASIC]
+# Good variable names which should always be accepted, separated by a comma
+good-names=main,_,fp,i,j,k,ex,Run,ui
+
+# Regular expression which should only match function or class names that do
+# not require a docstring.
+no-docstring-rgx=(__.*__|main|test.*|.*test|.*Test)$
+
+# Minimum line length for functions/classes that require docstrings, shorter
+# ones are exempt.
+docstring-min-length=12
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=80
+
+# Maximum number of lines in a module
+# Increased to accommodate test_phases.py (see issue #431 for refactor plan)
+max-module-lines=2000
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+[VARIABLES]
+# A regular expression matching the name of dummy variables (i.e. expectedly
+# not used).
+dummy-variables-rgx=^\*{0,2}(_$|unused_|dummy_|kwargs)
