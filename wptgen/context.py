@@ -275,8 +275,7 @@ class SafeHTTPSConnection(http.client.HTTPSConnection):
                     self._tunnel()  # type: ignore[attr-defined]
                 tunnel_host = getattr(self, "_tunnel_host", None)
                 server_hostname = tunnel_host if tunnel_host else self.host
-                # type: ignore[attr-defined]
-                self.sock = self._context.wrap_socket(
+                self.sock = self._context.wrap_socket(  # type: ignore[attr-defined]
                     self.sock, server_hostname=server_hostname
                 )
                 return
