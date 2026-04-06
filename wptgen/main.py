@@ -744,6 +744,11 @@ def generate_single(
 
         _print_config_panel(config)
 
+        ui.print()
+        ui.print(
+            "[yellow]WARNING: Running in direct generation mode. Context assembly and duplicate test detection are disabled. The generated test may be redundant or less accurate.[/yellow]"
+        )
+
         engine = WPTGenEngine(config=config, ui=ui)
 
         generated_tests = asyncio.run(
@@ -759,9 +764,9 @@ def generate_single(
             )
         )
 
-        console.print()
+        ui.print()
         if generated_tests:
-            console.print(
+            ui.print(
                 Panel(
                     "[bold green]✔ Test generation completed successfully![/bold green]",
                     border_style="green",
@@ -769,7 +774,7 @@ def generate_single(
                 )
             )
         else:
-            console.print(
+            ui.print(
                 Panel(
                     "[bold yellow]Test generation completed, but no tests were generated.[/bold yellow]",
                     border_style="yellow",
@@ -778,13 +783,13 @@ def generate_single(
             )
 
     except LLMTimeoutError as e:
-        console.print(f"[bold red]LLM Request Timeout:[/bold red] {str(e)}")
+        ui.error(f"LLM Request Timeout: {str(e)}")
         raise typer.Exit(code=1) from e
     except ValueError as e:
-        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
+        ui.error(f"Configuration Error: {str(e)}")
         raise typer.Exit(code=1) from e
     except Exception as e:
-        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
+        ui.error(f"Unexpected Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
