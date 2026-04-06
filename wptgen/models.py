@@ -82,6 +82,14 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
 
 
+class ModelCategory(str, Enum):
+    """Categories of LLM models used in the workflow."""
+
+    DEFAULT = "default"
+    LIGHTWEIGHT = "lightweight"
+    REASONING = "reasoning"
+
+
 @dataclass(frozen=True)
 class ProviderDefaults:
     env_var: str

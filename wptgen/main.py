@@ -43,7 +43,7 @@ from wptgen.config import (
 )
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
-from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
+from wptgen.models import BrowserChannel, BrowserType, ModelCategory, WorkflowPhase
 from wptgen.ui import RichUIProvider
 
 
@@ -197,6 +197,17 @@ def _workflow_error_handler() -> Generator[None, None, None]:
         raise typer.Exit(code=1) from e
 
 
+def _print_run_config(config: Any) -> None:
+    ui.report_configuration(
+        {
+            "Provider": config.provider,
+            "Default": config.default_model,
+            "Lightweight": config.categories.get("lightweight", "N/A"),
+            "Reasoning": config.categories.get("reasoning", "N/A"),
+        }
+    )
+
+
 def _execute_workflow(
     web_feature_id: str,
     config: Any,
@@ -213,21 +224,7 @@ def _execute_workflow(
         output_dir: Directory to save tests.
         is_audit: Whether this is a suggestions-only audit run.
     """
-    config_info = Text.assemble(
-        ("Provider: ", "bold"),
-        (f"{config.provider}\n", "green"),
-        ("Model:    ", "bold"),
-        (f"{config.default_model}", "green"),
-    )
-    console.print(
-        Panel(
-            config_info,
-            title="[bold]Configuration[/bold]",
-            title_align="left",
-            expand=False,
-            border_style="bright_black",
-        )
-    )
+    _print_run_config(config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -840,21 +837,7 @@ def chromestatus_command(
             temperature_override=None,
         )
 
-        config_info = Text.assemble(
-            ("Provider: ", "bold"),
-            (f"{config.provider}\n", "green"),
-            ("Model:    ", "bold"),
-            (f"{config.default_model}", "green"),
-        )
-        console.print(
-            Panel(
-                config_info,
-                title="[bold]Configuration[/bold]",
-                title_align="left",
-                expand=False,
-                border_style="bright_black",
-            )
-        )
+        _print_run_config(config)
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)
@@ -1725,8 +1708,8 @@ def init(
             provider: {
                 "default_model": default_model,
                 "categories": {
-                    "lightweight": lightweight_model,
-                    "reasoning": reasoning_model,
+                    ModelCategory.LIGHTWEIGHT.value: lightweight_model,
+                    ModelCategory.REASONING.value: reasoning_model,
                 },
             }
         },
