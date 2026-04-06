@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Configuration management for WPT-Gen."""
+
 import importlib.resources
 import logging
 import os
@@ -190,7 +192,8 @@ def validate_output_dir(output_dir: str) -> str:
         # Ensure the directory exists
         path.mkdir(parents=True, exist_ok=True)
 
-        # Verify write permissions by attempting to create and remove a temporary file
+        # Verify write permissions by attempting to create and remove
+        # a temporary file
         test_file = path / ".wpt-gen-write-test"
         test_file.touch()
         test_file.unlink()
@@ -216,7 +219,7 @@ def _deep_merge(
 
 
 def load_config(
-    config_path: str = DEFAULT_CONFIG_PATH,
+    config_path: str | None = DEFAULT_CONFIG_PATH,
     provider_override: str | None = None,
     wpt_dir_override: str | None = None,
     output_dir_override: str | None = None,
@@ -256,21 +259,22 @@ def load_config(
     Loads configuration from YAML and environment variables.
     Selects the active LLM provider and fetches the corresponding API key.
     """
-    path = Path(config_path)
     yaml_data: dict[str, Any] = {}
     loaded_from: str | None = None
 
-    if path.exists():
-        with open(path, encoding="utf-8") as f:
-            yaml_data = yaml.safe_load(f) or {}
-        loaded_from = str(path.resolve())
-    elif config_path == DEFAULT_CONFIG_PATH:
-        # Fallback to global config if the default local path does not exist
-        global_path = Path(_get_global_config_path())
-        if global_path.exists():
-            with open(global_path, encoding="utf-8") as f:
+    if config_path is not None:
+        path = Path(config_path)
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
                 yaml_data = yaml.safe_load(f) or {}
-            loaded_from = str(global_path.resolve())
+            loaded_from = str(path.resolve())
+        elif config_path == DEFAULT_CONFIG_PATH:
+            # Fallback to global config if the default local path does not exist
+            global_path = Path(_get_global_config_path())
+            if global_path.exists():
+                with open(global_path, encoding="utf-8") as f:
+                    yaml_data = yaml.safe_load(f) or {}
+                loaded_from = str(global_path.resolve())
 
     # Determine the active provider
     # CLI override takes precedence, then YAML default.
@@ -283,7 +287,8 @@ def load_config(
     providers_config = yaml_data.get("providers", {})
     provider_settings = providers_config.get(active_provider, {})
 
-    # Provide sensible defaults if the YAML is missing the specific provider block
+    # Provide sensible defaults if the YAML is missing the specific
+    # provider block
     if active_provider not in DEFAULT_PROVIDER_MODELS:
         raise ValueError(
             f"CRITICAL: Unsupported provider '{active_provider}' requested."
@@ -366,7 +371,8 @@ def load_config(
     )
     if audit_partition_size <= 0:
         raise ValueError(
-            f"CRITICAL: audit_partition_size must be strictly greater than 0. Got: {audit_partition_size}"
+            f"CRITICAL: audit_partition_size must be strictly greater than 0. "
+            f"Got: {audit_partition_size}"
         )
     max_parallel_requests = max_parallel_requests_override or yaml_data.get(
         "max_parallel_requests", 10
@@ -374,8 +380,8 @@ def load_config(
 
     if timeout < MIN_LLM_TIMEOUT:
         logging.warning(
-            f"Requested timeout {timeout}s is less than the minimum allowed ({MIN_LLM_TIMEOUT}s). "
-            f"Setting timeout to {MIN_LLM_TIMEOUT}s."
+            f"Requested timeout {timeout}s is less than the minimum allowed "
+            f"({MIN_LLM_TIMEOUT}s). Setting timeout to {MIN_LLM_TIMEOUT}s."
         )
         timeout = MIN_LLM_TIMEOUT
 

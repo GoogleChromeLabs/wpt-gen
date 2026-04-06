@@ -14,9 +14,9 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 from google.adk.tools.function_tool import FunctionTool
 
 from wptgen.agents.tools import (
@@ -35,9 +35,11 @@ def wpt_root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def agent_tools(wpt_root: Path) -> dict[str, FunctionTool]:
+def agent_tools(
+    wpt_root: Path, mocker: MockerFixture
+) -> dict[str, FunctionTool]:
     tools = create_agent_tools(
-        wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
+        wpt_root, mocker.MagicMock(spec=UIProvider), "chrome", "canary"
     )
     return {t.name: t for t in tools}
 
@@ -81,10 +83,22 @@ def test_validate_safe_path(wpt_root: Path) -> None:
     with pytest.raises(ValueError, match="outside the designated WPT"):
         _validate_safe_path(Path("/tmp/absolute.txt"), wpt_root)
 
+    # Test deny-list
+    with pytest.raises(ValueError, match="strictly prohibited"):
+        _validate_safe_path(Path(".git/config"), wpt_root)
 
-def test_create_agent_tools_initialization(wpt_root: Path) -> None:
+    with pytest.raises(ValueError, match="strictly prohibited"):
+        _validate_safe_path(Path("some_folder/../.git/config"), wpt_root)
+
+    with pytest.raises(ValueError, match="strictly prohibited"):
+        _validate_safe_path(Path(".env"), wpt_root)
+
+
+def test_create_agent_tools_initialization(
+    wpt_root: Path, mocker: MockerFixture
+) -> None:
     tools = create_agent_tools(
-        wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
+        wpt_root, mocker.MagicMock(spec=UIProvider), "chrome", "canary"
     )
     assert len(tools) == 14
     assert all(isinstance(t, FunctionTool) for t in tools)
@@ -104,6 +118,19 @@ def test_tool_read_file(
 
     res3 = read_file.func(file_path="not_found.txt")
     assert res3["status"] == "error"
+
+
+def test_tool_read_file_exceeds_limit(
+    wpt_root: Path, agent_tools: dict[str, FunctionTool], mocker: MockerFixture
+) -> None:
+    read_file = agent_tools["read_file"]
+    test_file = wpt_root / "large.txt"
+    test_file.write_text("this content is 28 bytes")
+
+    mocker.patch("wptgen.agents.tools.MAX_FILE_READ_BYTES", 5)
+    res = read_file.func(file_path="large.txt")
+    assert res["status"] == "error"
+    assert "exceeds maximum allowed read size" in res["error"]
 
 
 def test_tool_write_file(

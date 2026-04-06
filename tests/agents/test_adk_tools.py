@@ -592,3 +592,57 @@ def test_replace_in_file(tmp_path: Path) -> None:
 
     result = tool.func("/tmp/outside", "foo", "bar")
     assert result["status"] == "error"
+
+
+def test_agent_tools_run_wpt_lint_flag_injection(
+    tmp_path: Path, mocker: Any
+) -> None:
+    wpt_root = tmp_path / "wpt"
+    wpt_root.mkdir()
+    test_file = wpt_root / "--dummy-flag.html"
+    test_file.touch()
+
+    tools = create_agent_tools(
+        wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
+    )
+    tool = next(t for t in tools if t.name == "run_wpt_lint")
+
+    mock_run = mocker.patch("wptgen.agents.tools.subprocess.run")
+    mock_run.return_value.returncode = 0
+    mock_run.return_value.stdout = ""
+    mock_run.return_value.stderr = ""
+
+    result = tool.func(str(test_file))
+
+    assert result["status"] == "success"
+    mock_run.assert_called_once()
+    args, kwargs = mock_run.call_args
+    assert args[0] == ["./wpt", "lint", "./--dummy-flag.html"]
+
+
+def test_agent_tools_run_wpt_test_flag_injection(
+    tmp_path: Path, mocker: Any
+) -> None:
+    wpt_root = tmp_path / "wpt"
+    wpt_root.mkdir()
+    test_file = wpt_root / "--dummy-flag.html"
+    test_file.touch()
+
+    tools = create_agent_tools(
+        wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
+    )
+    tool = next(t for t in tools if t.name == "run_wpt_test")
+
+    mock_run = mocker.patch("wptgen.agents.tools.subprocess.run")
+    mock_run.return_value.returncode = 0
+    mock_run.return_value.stdout = ""
+    mock_run.return_value.stderr = ""
+
+    result = tool.func(str(test_file))
+
+    assert result["status"] == "success"
+    mock_run.assert_called_once()
+    args, kwargs = mock_run.call_args
+    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless', '--log-raw', ..., 'chrome', './--dummy-flag.html']
+    assert args[0][-1] == "./--dummy-flag.html"
+    assert args[0][0:2] == ["./wpt", "run"]
