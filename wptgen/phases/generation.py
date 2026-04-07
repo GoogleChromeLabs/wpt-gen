@@ -19,7 +19,7 @@ from rich.rule import Rule
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import FeatureMetadata, TestType, WorkflowContext
+from wptgen.models import FeatureMetadata, TestType, WorkflowContext, WorkflowPhase
 from wptgen.ui import UIProvider
 from wptgen.utils import (
     extract_xml_tag,
@@ -35,7 +35,11 @@ async def run_test_generation(
     ui: UIProvider,
     jinja_env: Environment,
 ) -> list[tuple[Path, str, str]]:
-    ui.on_phase_start(4, "User Selection & Generation")
+    ui.on_phase_start(
+        4,
+        "User Selection & Generation",
+        model_info=config.get_model_info_for_phase(WorkflowPhase.GENERATION),
+    )
 
     assert context.audit_response is not None
     assert context.metadata is not None

@@ -40,7 +40,6 @@ from wptgen.config import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_PROVIDER_MODELS,
-    Config,
     _get_global_config_path,
     load_config,
 )
@@ -50,6 +49,7 @@ from wptgen.metadata import update_web_features_yml
 from wptgen.models import (
     BrowserChannel,
     BrowserType,
+    ModelCategory,
     WorkflowPhase,
 )
 from wptgen.phases.generation import (
@@ -106,25 +106,6 @@ app = typer.Typer(
 )
 console = Console()
 ui = RichUIProvider(console)
-
-
-def _print_config_panel(config: Config) -> None:
-    """Displays the current configuration settings."""
-    config_info = Text.assemble(
-        ("Provider: ", "bold"),
-        (f"{config.provider}\n", "green"),
-        ("Model:    ", "bold"),
-        (f"{config.default_model}", "green"),
-    )
-    console.print(
-        Panel(
-            config_info,
-            title="[bold]Configuration[/bold]",
-            title_align="left",
-            expand=False,
-            border_style="bright_black",
-        )
-    )
 
 
 def _check_workflow_flags(
@@ -227,6 +208,17 @@ def _workflow_error_handler() -> Generator[None, None, None]:
         raise typer.Exit(code=1) from e
 
 
+def _print_run_config(config: Any) -> None:
+    ui.report_configuration(
+        {
+            "Provider": config.provider,
+            "Default": config.default_model,
+            "Lightweight": config.categories.get("lightweight", "N/A"),
+            "Reasoning": config.categories.get("reasoning", "N/A"),
+        }
+    )
+
+
 def _execute_workflow(
     web_feature_id: str,
     config: Any,
@@ -243,7 +235,7 @@ def _execute_workflow(
         output_dir: Directory to save tests.
         is_audit: Whether this is a suggestions-only audit run.
     """
-    _print_config_panel(config)
+    _print_run_config(config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -742,7 +734,7 @@ def generate_single(
         if output_dir:
             config.output_dir = str(output_dir)
 
-        _print_config_panel(config)
+        _print_run_config(config)
 
         ui.print()
         ui.print(
@@ -995,7 +987,7 @@ def chromestatus_command(
             temperature_override=None,
         )
 
-        _print_config_panel(config)
+        _print_run_config(config)
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)
@@ -1862,8 +1854,8 @@ def init(
             provider: {
                 "default_model": default_model,
                 "categories": {
-                    "lightweight": lightweight_model,
-                    "reasoning": reasoning_model,
+                    ModelCategory.LIGHTWEIGHT.value: lightweight_model,
+                    ModelCategory.REASONING.value: reasoning_model,
                 },
             }
         },

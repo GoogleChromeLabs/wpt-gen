@@ -308,7 +308,13 @@ async def run_requirements_extraction_iterative(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
-    ui.on_phase_start(2, "Requirements Extraction (Iterative)")
+    ui.on_phase_start(
+        2,
+        "Requirements Extraction (Iterative)",
+        model_info=config.get_model_info_for_phase(
+            WorkflowPhase.REQUIREMENTS_EXTRACTION
+        ),
+    )
 
     assert context.metadata is not None
     assert context.feature_id is not None
