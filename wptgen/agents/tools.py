@@ -163,6 +163,7 @@ def create_agent_tools(
     browser: str,
     channel: str,
     include_run_tool: bool = True,
+    omit_search_feature_tests: bool = False,
 ) -> list[FunctionTool]:
     """Creates a suite of strictly validated tools for the ADK agent.
 
@@ -782,11 +783,12 @@ def create_agent_tools(
         FunctionTool(func=delete_file),
         FunctionTool(func=move_file),
         FunctionTool(func=run_wpt_lint),
-        FunctionTool(func=search_feature_tests),
         FunctionTool(func=fetch_spec_content),
         FunctionTool(func=search_file_contents),
         FunctionTool(func=replace_in_file),
     ]
+    if not omit_search_feature_tests:
+        tools.append(FunctionTool(func=search_feature_tests))
     if include_run_tool:
         tools.append(FunctionTool(func=run_wpt_test))
     return tools

@@ -143,7 +143,7 @@ class WPTContext:
 class WorkflowContext:
     """Maintains the state of the WPT generation workflow."""
 
-    feature_id: str
+    feature_id: str | None = None
     metadata: FeatureMetadata | None = None
     spec_contents: dict[str, str] | None = None
     explainer_contents: dict[str, str] | None = None

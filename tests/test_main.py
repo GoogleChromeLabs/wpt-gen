@@ -652,3 +652,92 @@ def test_config_set_command_types() -> None:
         assert data["timeout"] == 120
         assert data["show_responses"] is True
         assert data["temperature"] == 0.5
+
+
+def test_generate_single_missing_spec_urls() -> None:
+    """Test that omitting both --spec-urls and --web-feature-id raises an error."""
+    result = runner.invoke(
+        app,
+        ["generate-single", "Test description"],
+        env={"NO_COLOR": "1", "TERM": "dumb"},
+    )
+    assert result.exit_code != 0
+    assert (
+        "Either --spec-urls or --web-feature-id must be provided."
+        in result.output
+    )
+
+
+def test_generate_single_success(
+    mocker: MockerFixture,
+    mock_config: Config,
+    mock_load_config: Any,
+    mock_engine_instance: Any,
+    default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
+    """Test the happy path of the generate-single command."""
+    mock_run_single = mocker.patch("wptgen.main.run_single_test_generation")
+    mock_run_single.return_value = [
+        (Path("test.html"), "content", "suggestion")
+    ]
+
+    result = runner.invoke(
+        app,
+        [
+            "generate-single",
+            "This is a custom test",
+            "--spec-urls",
+            "https://example.com/spec",
+            "--web-feature-id",
+            "popover",
+            "--title",
+            "My Custom Test",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "Test generation completed successfully!" in result.stdout
+
+    mock_load_config.assert_called_once_with(
+        config_path=default_load_config_kwargs["config_path"],
+        provider_override=None,
+        wpt_dir_override=None,
+        spec_urls_override=["https://example.com/spec"],
+        require_api_key=True,
+    )
+
+    mock_run_single.assert_called_once()
+    kwargs = mock_run_single.call_args.kwargs
+    assert kwargs["web_feature_id"] == "popover"
+    assert kwargs["spec_urls"] == ["https://example.com/spec"]
+    assert kwargs["description"] == "This is a custom test"
+    assert kwargs["title"] == "My Custom Test"
+
+
+def test_generate_single_no_feature_id(
+    mocker: MockerFixture,
+    mock_config: Config,
+    mock_load_config: Any,
+    mock_engine_instance: Any,
+    default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
+    """Test generate-single works without a feature ID."""
+    mock_run_single = mocker.patch("wptgen.main.run_single_test_generation")
+    mock_run_single.return_value = []
+
+    result = runner.invoke(
+        app,
+        [
+            "generate-single",
+            "This is a custom test",
+            "--spec-urls",
+            "https://example.com/spec",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "no tests were generated." in result.stdout
+
+    mock_run_single.assert_called_once()
+    kwargs = mock_run_single.call_args.kwargs
+    assert kwargs["web_feature_id"] is None

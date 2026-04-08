@@ -185,6 +185,26 @@ wpt-gen generate font-family
 
 **Note:** You can run `wpt-gen generate --help` to see a full list of all 20+ options (including manual overrides). For more detailed information, see the [CLI Command Reference](docs/cli.md).
 
+### Single Test Generation
+
+The `generate-single` command allows you to bypass the audit phases and directly generate a single WPT test from a behavior description.
+
+```bash
+wpt-gen generate-single "description of the behavior to test" --spec-urls https://example.com/spec
+```
+
+### Common Options
+
+| Option | Shorthand | Description |
+| :--- | :--- | :--- |
+| `description` | (Arg) | **Required.** The specific behavior description to test. |
+| `--spec-urls` | | Comma-separated list of specification URLs for the feature. **(Required if `--web-feature-id` is not provided)** |
+| `--web-feature-id` | `-f` | Optional web feature ID (e.g., `grid`, `popover`). **(Required if `--spec-urls` is not provided)** |
+| `--title` | `-t` | Optional title for the test suggestion. |
+| `--test-type` | | Optional test type (e.g., `testharness`, `wdspec`). |
+| `--provider` | `-p` | Override the default LLM provider. |
+| `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
+
 ## ChromeStatus Usage
 
 The `chromestatus` command allows for a more targeted workflow by leveraging ChromeStatus feature entries directly. This is useful for features that may not yet be fully represented in the `web-features` repository.

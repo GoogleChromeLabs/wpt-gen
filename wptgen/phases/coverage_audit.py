@@ -237,7 +237,8 @@ async def provide_coverage_report(
 
     if ui.confirm("\nSave report to a file?"):
         # Create a sanitized filename from the feature ID
-        safe_id = FILENAME_SANITIZATION_RE.sub("_", context.feature_id.lower())
+        feature_id_str = context.feature_id or "custom_feature"
+        safe_id = FILENAME_SANITIZATION_RE.sub("_", feature_id_str.lower())
         filename = f"{safe_id}_coverage_audit.md"
 
         output_path = Path(config.output_dir or ".") / filename

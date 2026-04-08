@@ -81,6 +81,7 @@ async def generate_test_with_adk(
             config.run_on_browser,
             config.run_on_channel,
             include_run_tool=not config.skip_run,
+            omit_search_feature_tests=(context.feature_id is None),
         )
     )
     tools.append(FunctionTool(func=report_generation_complete))
