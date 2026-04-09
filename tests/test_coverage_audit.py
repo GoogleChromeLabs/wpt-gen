@@ -78,7 +78,7 @@ async def test_run_coverage_audit_token_limit_exceeded(
         feature_id="test",
         requirements_xml=(
             '<requirements><requirement id="R1">Test</requirement>'
-            '</requirements>'
+            "</requirements>"
         ),
         wpt_context=WPTContext(),
     )
@@ -117,8 +117,7 @@ def test_combine_audit_responses_with_suggestions() -> None:
     assert "<audit_worksheet>\nW1\nW2\n</audit_worksheet>" in result
     assert (
         "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n"
-        "</test_suggestions>"
-        in result
+        "</test_suggestions>" in result
     )
 
 
@@ -134,7 +133,7 @@ async def test_run_coverage_audit_single_partition(
         feature_id="test",
         requirements_xml=(
             '<requirements><requirement id="R1">Test</requirement>'
-            '</requirements>'
+            "</requirements>"
         ),
         wpt_context=WPTContext(),
     )
@@ -249,7 +248,7 @@ async def test_run_coverage_audit_always_brief_suggestions(
         feature_id="test",
         requirements_xml=(
             '<requirements><requirement id="R1">Test</requirement>'
-            '</requirements>'
+            "</requirements>"
         ),
         wpt_context=WPTContext(),
     )

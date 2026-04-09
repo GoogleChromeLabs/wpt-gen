@@ -456,9 +456,8 @@ def test_fix_reftest_link_prepend() -> None:
     content = "<div>No head or html tags here</div>"
     result = fix_reftest_link(content, "ref.html")
     assert (
-        result
-        == '<link rel="match" href="ref.html">\n'
-        '<div>No head or html tags here</div>'
+        result == '<link rel="match" href="ref.html">\n'
+        "<div>No head or html tags here</div>"
     )
 
 
@@ -528,7 +527,7 @@ def test_ensure_testharness_imports_missing_both_no_html() -> None:
     assert result.startswith(
         '<script src="/resources/testharness.js"></script>\n'
         '<script src="/resources/testharnessreport.js"></script>\n'
-        '<body>'
+        "<body>"
     )
 
 

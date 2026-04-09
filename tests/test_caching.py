@@ -92,8 +92,8 @@ async def test_requirements_cache_miss(
 
     mock_llm.generate_content.side_effect = [
         '<requirements_list><requirement id="R_NEW_1">'
-        '<description>New Requirements</description></requirement>'
-        '</requirements_list>',
+        "<description>New Requirements</description></requirement>"
+        "</requirements_list>",
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
@@ -187,8 +187,8 @@ async def test_requirements_cache_hit_reject(
     mock_ui.confirm.return_value = False
     mock_llm.generate_content.side_effect = [
         '<requirements_list><requirement id="R_NEW_1">'
-        '<description>New Requirements</description></requirement>'
-        '</requirements_list>',
+        "<description>New Requirements</description></requirement>"
+        "</requirements_list>",
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()

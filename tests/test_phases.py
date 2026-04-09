@@ -42,8 +42,7 @@ from wptgen.phases.requirements_extraction import (
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
-    """Fixture that provides a mocked UI provider with a status context manager.
-    """
+    """Fixture that provides a mocked UI provider with a status context manager."""
     ui = MagicMock()
     ui.status.return_value.__enter__.return_value = None
     return ui
@@ -464,8 +463,8 @@ async def test_run_requirements_extraction_with_explainer(
 
     req_xml = (
         '<requirements_list><requirement id="R1">'
-        '<category>Existence</category><description>D1</description>'
-        '</requirement></requirements_list>'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
     )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
@@ -504,8 +503,8 @@ async def test_run_requirements_extraction_success(
 
     req_xml = (
         '<requirements_list><requirement id="R1">'
-        '<category>Existence</category><description>D1</description>'
-        '</requirement></requirements_list>'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
     )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
@@ -651,8 +650,8 @@ async def test_run_requirements_extraction_categorized_with_explainer(
 
     req_xml = (
         '<requirements_list><requirement id="R1">'
-        '<category>Existence</category><description>D1</description>'
-        '</requirement></requirements_list>'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
     )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
@@ -694,20 +693,20 @@ async def test_run_requirements_extraction_categorized(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
             '<requirements_list><requirement id="R1">'
-            '<category>Existence</category><description>D1</description>'
-            '</requirement></requirements_list>',
+            "<category>Existence</category><description>D1</description>"
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R1">'
-            '<category>Common Use Cases</category><description>D2</description>'
-            '</requirement></requirements_list>',
+            "<category>Common Use Cases</category><description>D2</description>"
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R1">'
-            '<category>Error Scenarios</category><description>D3</description>'
-            '</requirement></requirements_list>',
+            "<category>Error Scenarios</category><description>D3</description>"
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R1">'
-            '<category>Invalidation</category><description>D4</description>'
-            '</requirement></requirements_list>',
+            "<category>Invalidation</category><description>D4</description>"
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R1">'
-            '<category>Integration</category><description>D5</description>'
-            '</requirement></requirements_list>',
+            "<category>Integration</category><description>D5</description>"
+            "</requirement></requirements_list>",
         ],
     )
     res = await run_requirements_extraction_categorized(
@@ -747,12 +746,12 @@ async def test_run_requirements_extraction_categorized_partial_empty(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
             '<requirements_list><requirement id="R1">'
-            '<category>Existence</category><description>D1</description>'
-            '</requirement></requirements_list>',
+            "<category>Existence</category><description>D1</description>"
+            "</requirement></requirements_list>",
             "<requirements_list></requirements_list>",  # Empty
             '<requirements_list><requirement id="R1">'
-            '<category>Error Scenarios</category><description>D3</description>'
-            '</requirement></requirements_list>',
+            "<category>Error Scenarios</category><description>D3</description>"
+            "</requirement></requirements_list>",
             "<requirements_list></requirements_list>",  # Empty
             "<requirements_list></requirements_list>",  # Empty
         ],
@@ -792,11 +791,11 @@ async def test_run_requirements_extraction_categorized_with_rationale(
     # with a rationale
     req_xmls = [
         '<requirements_list><requirement id="R1">'
-        '<category>Existence</category><description>D1</description>'
-        '</requirement></requirements_list>',
-        '<requirements_list><rationale>This feature is a simple object and '
-        'has no complex invalidation rules.</rationale>'
-        '</requirements_list>',
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>",
+        "<requirements_list><rationale>This feature is a simple object and "
+        "has no complex invalidation rules.</rationale>"
+        "</requirements_list>",
         "<requirements_list></requirements_list>",  # Empty without rationale
         "<requirements_list></requirements_list>",
         "<requirements_list></requirements_list>",

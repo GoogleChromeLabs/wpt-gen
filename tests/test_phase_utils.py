@@ -27,8 +27,7 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 
 @pytest.fixture
 def mock_ui() -> MagicMock:
-    """Fixture that provides a mocked UI provider with a status context manager.
-    """
+    """Fixture that provides a mocked UI provider with a status context manager."""
     ui = MagicMock()
     ui.status.return_value.__enter__.return_value = None
     return ui

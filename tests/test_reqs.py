@@ -159,8 +159,7 @@ async def test_run_requirements_extraction_iterative_success_and_save(
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
     req_xml = (
-        "<requirements_list><requirement>"
-        "</requirement></requirements_list>"
+        "<requirements_list><requirement>" "</requirement></requirements_list>"
     )
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
@@ -223,15 +222,15 @@ async def test_run_requirements_extraction_categorized_success_and_save(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
             '```xml\n<requirements_list><requirement id="R1">'
-            '</requirement></requirements_list>\n```',
+            "</requirement></requirements_list>\n```",
             '<requirements_list><requirement id="R2">'
-            '</requirement></requirements_list>',
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R3">'
-            '</requirement></requirements_list>',
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R4">'
-            '</requirement></requirements_list>',
+            "</requirement></requirements_list>",
             '<requirements_list><requirement id="R5">'
-            '</requirement></requirements_list>',
+            "</requirement></requirements_list>",
         ],
     )
 
@@ -346,7 +345,7 @@ async def test_run_requirements_extraction_categorized_max_iter(
     # No, we can just pass side_effect.
     side_effects = [
         '<requirements_list><requirement id="R1"></requirement>'
-        '</requirements_list>'
+        "</requirements_list>"
     ] * 12
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
