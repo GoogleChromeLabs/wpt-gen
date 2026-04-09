@@ -151,7 +151,9 @@ def test_generate_success(
     mock_load_config.assert_called_once_with(**expected_kwargs)
 
     # Verify config was passed correctly
-    mock_engine_instance.run_workflow.assert_called_once_with("grid")
+    mock_engine_instance.run_workflow.assert_called_once_with(
+        "grid", disable_directory_inference=True
+    )
 
 
 @pytest.mark.parametrize(
@@ -545,7 +547,9 @@ def test_audit_success(
     assert kwargs["suggestions_only"] is True
     assert kwargs["provider_override"] == "gemini"
 
-    mock_engine_instance.run_workflow.assert_called_once_with("grid")
+    mock_engine_instance.run_workflow.assert_called_once_with(
+        "grid", disable_directory_inference=False
+    )
 
 
 def test_config_show_command(
