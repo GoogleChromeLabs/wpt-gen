@@ -68,7 +68,7 @@ Use these to test how a specified CSS value resolves in `getComputedStyle`.
 *   `test_computed_value(property, specified, computed)`: Tests that setting the property to `specified` results in a `getComputedStyle` value of `computed`. If `computed` is omitted, it defaults to `specified`.
 
 **CRITICAL WARNING: CSS Counters**
-Do NOT use `getComputedStyle` (or `test_computed_value`) to verify the mathematical evaluation or output of CSS counters (e.g., `counter-set`, `counter-increment`). The `getComputedStyle(element, '::before').content` API is unreliable for this purpose; many browser engines will return the raw functional value (e.g., `"counter(c)"`) instead of the computed integer string (e.g., `"1"`). **You MUST use Reftests to verify CSS counter outputs.** See `reftest_style_guide.md`.
+Do NOT use `getComputedStyle` (or `test_computed_value`) to verify the mathematical evaluation or output of CSS counters (e.g., `counter-set`, `counter-increment`). The `getComputedStyle(element, '::before').content` API is unreliable for this purpose; many browser engines will return the raw functional value (e.g., `"counter(c)"`) instead of the computed integer string (e.g., `"1"`). **You MUST use Reftests to verify CSS counter outputs.** See `../test_types/reftest_style_guide.md`.
 
 **Example:**
 ```javascript

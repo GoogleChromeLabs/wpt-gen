@@ -14,7 +14,7 @@ Flags are added to the filename to enable specific server features. These apply 
 *   `.h2`: Loads the test over HTTP/2.
 *   `.sub`: Enables [server-side substitution](https://web-platform-tests.org/writing-tests/server-pipes.html#sub), allowing placeholders like `{{host}}`.
 *   `.tentative`: Indicates the test is for a feature not yet fully standardized.
-*   `-manual`: Indicates the test requires a human operator and cannot be automated. (See [manual_test_style_guide.md](manual_test_style_guide.md)).
+*   `-manual`: Indicates the test requires a human operator and cannot be automated. (See [manual_test_style_guide.md](test_types/manual_test_style_guide.md)).
 
 ### 1.2 How to Choose WPT Test File Suffixes
 

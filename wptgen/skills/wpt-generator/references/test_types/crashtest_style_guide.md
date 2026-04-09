@@ -101,7 +101,7 @@ Execution of tests on a page is subject to a global timeout (defaulting to 10s).
 ```
 
 ### User Interactions (`testdriver.js`)
-If a crash is triggered by user interaction, you MUST automate the interaction using `testdriver.js`. See [automation_guide.md](automation_guide.md) for full instructions on setup and usage.
+If a crash is triggered by user interaction, you MUST automate the interaction using `testdriver.js`. See [automation_guide.md](../features/automation_guide.md) for full instructions on setup and usage.
 
 ### File Name Flags
 You can use standard WPT filename flags with crashtests:

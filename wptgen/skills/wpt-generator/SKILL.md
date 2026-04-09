@@ -58,14 +58,14 @@ Before creating a new file, rigorously check if the test logic belongs in existi
 ### 5. Load References & Generate the Test
 **Before writing any code**, you MUST read the appropriate style guides to ensure correct formatting and syntax:
 - For general guidelines (apply to all): See [wpt_style_guide.md](references/wpt_style_guide.md)
-- If Testharness: See [testharness_style_guide.md](references/testharness_style_guide.md)
-- If Reftest: See [reftest_style_guide.md](references/reftest_style_guide.md)
-- If Crashtest: See [crashtest_style_guide.md](references/crashtest_style_guide.md)
-- If the test requires simulated user interaction (clicks, typing, gestures) or tests hardware/device APIs (like Web MIDI, Web Bluetooth): See [automation_guide.md](references/automation_guide.md)
-- If the test is a wdspec test (testing the WebDriver protocol itself): See [wdspec_guide.md](references/wdspec_guide.md)
-- If the test strictly requires a human operator and cannot be automated: See [manual_test_style_guide.md](references/manual_test_style_guide.md)
-- If the test involves Web IDL interfaces (e.g., testing `[Exposed]` attributes, method existence, or interface exposure): See [idlharness_guide.md](references/idlharness_guide.md)
-- If the test requires cross-origin requests, custom HTTP headers, specific status codes, or dynamic server logic: See [server_features_guide.md](references/server_features_guide.md)
+- If Testharness: See [testharness_style_guide.md](references/test_types/testharness_style_guide.md)
+- If Reftest: See [reftest_style_guide.md](references/test_types/reftest_style_guide.md)
+- If Crashtest: See [crashtest_style_guide.md](references/test_types/crashtest_style_guide.md)
+- If the test requires simulated user interaction (clicks, typing, gestures) or tests hardware/device APIs (like Web MIDI, Web Bluetooth): See [automation_guide.md](references/features/automation_guide.md)
+- If the test is a wdspec test (testing the WebDriver protocol itself): See [wdspec_guide.md](references/test_types/wdspec_guide.md)
+- If the test strictly requires a human operator and cannot be automated: See [manual_test_style_guide.md](references/test_types/manual_test_style_guide.md)
+- If the test involves Web IDL interfaces (e.g., testing `[Exposed]` attributes, method existence, or interface exposure): See [idlharness_guide.md](references/features/idlharness_guide.md)
+- If the test requires cross-origin requests, custom HTTP headers, specific status codes, or dynamic server logic: See [server_features_guide.md](references/features/server_features_guide.md)
 
 Write the appropriate WPT test to strictly satisfy the `<description>` using the `write_file` tool:
 - **CRITICAL RULE: Style Guides > Golden Examples:** Existing tests ("Golden Examples") sometimes contain legacy code and violate current best practices. You should prioritize the explicit rules in the style guides over the paradigms found in surrounding files. Use existing files to understand the *domain logic*, but rely exclusively on the style guides for the *implementation syntax*.
@@ -112,4 +112,10 @@ Every generated test file MUST be explicitly mapped to the target `<web_feature_
 - Ensure standard WPT scripts are included properly (if applicable) using absolute paths from the root server.
 - Ensure crashtests end with `-crash.html` if creating a new crashtest file.
 - **Clean Up:** You MUST explicitly delete any temporary files you created in `.wpt-generator-tmp/` using the `delete_file` tool to ensure no temporary prototypes, scripts, or intermediate files are left behind in the repository.
-- Once the test is validated{% if has_web_feature_id %} and the `WEB_FEATURES.yml` file is mapped{% endif %}, your task is complete.
+- Once the test is validated{% if has_web_feature_id %} and the `WEB_FEATURES.yml` file is mapped{% endif %}, your implementation is complete.
+
+### {% if has_web_feature_id %}9{% else %}8{% endif %}. Feedback
+Before finishing your interaction, you MUST provide answers to the following questions in your final output:
+1. **Task Ambiguity:** Were you given any task or test suggestion that was ambiguous or lacked necessary detail?
+2. **Skill Information:** Was there any unnecessary information provided by the skill (or reference files) being followed that was not relevant to the task?
+3. **Tool Usage:** Did the skill's instructions state that you (the agent) should use the `search_feature_tests` tool? If the skill's instructions did state to use this tool, but you didn't use the tool, why did you not use the tool?

@@ -166,7 +166,7 @@ When testing multiple permutations of an API (e.g., testing different method sig
 
 Define an array of test cases (`const testCases = [...]`) and iterate over them using a loop (e.g., `for (const { ... } of testCases)`) to dynamically generate the `test()` or `promise_test()` blocks. This removes redundant JavaScript boilerplate, ensures consistent coverage across all permutations (e.g., testing both `AbortError` and a custom error for every scenario), and makes the test ecosystem scalable and maintainable. However, do not over-engineer loops for simple, one-off behaviors that don't share setup logic.
 
-*(Note: There is a strictly enforced exception to this rule for CSS parsing tests. See [css_testcommon.md](domain_helpers/css_testcommon.md) for details).*
+*(Note: There is a strictly enforced exception to this rule for CSS parsing tests. See [css_testcommon.md](../domain_helpers/css_testcommon.md) for details).*
 
 #### 4.5.1 Modifying Existing Files (Matrix Expansion)
 When adding a new test case to an *existing* file that already employs a data-driven loop, you **MUST NOT** append new standalone `test()` blocks or create a second loop at the bottom of the file. You must analyze the existing data structure (e.g., `const testCases = [...]`) and inject your new test case into that array. This prevents redundant setup/teardown execution and often provides "free" coverage by running your new input against multiple existing configurations (like different environments or states) established by the existing matrix.
@@ -357,7 +357,7 @@ Web platform features do not exist in isolation. Many directories contain canoni
 
 If your test requires user interaction (clicks, key presses, permission dialogs) or complex browser state manipulation (window resizing, cookies), you **MUST NOT** use manual tests simply because it's difficult. Instead, you must automate the interaction using `test_driver`.
 
-*   **For comprehensive instructions on setting up and configuring `testdriver.js`, you MUST refer to the [automation_guide.md](automation_guide.md).**
+*   **For comprehensive instructions on setting up and configuring `testdriver.js`, you MUST refer to the [automation_guide.md](../features/automation_guide.md).**
 *   If (and only if) the test strictly requires a human operator (e.g., unplugging a monitor), see **[manual_test_style_guide.md](manual_test_style_guide.md)**.
 
 ---
@@ -368,7 +368,7 @@ For testing Web IDL interfaces (e.g., interface exposure, presence of attributes
 
 Instead, you **MUST** use `idlharness.js`. This ensures that your implementation precisely matches the specification's IDL (attributes, methods, types, inheritance, etc.). Before writing an API exposure test, check the repository's `interfaces/` directory for a corresponding `.idl` file (e.g., `interfaces/my-spec.idl`).
 
-**For comprehensive instructions on setting up and configuring `idlharness.js`, you MUST refer to the [idlharness_guide.md](idlharness_guide.md).**
+**For comprehensive instructions on setting up and configuring `idlharness.js`, you MUST refer to the [idlharness_guide.md](../features/idlharness_guide.md).**
 
 **Brief Example (`idlharness.window.js`):**
 ```javascript
@@ -392,7 +392,7 @@ idl_test(
 
 WPT's server (`wptserve`) provides powerful features for tests that need more than static files (e.g., cross-origin requests, custom HTTP headers, specific status codes, or dynamic server logic via Python handlers).
 
-**For comprehensive instructions on setting up and configuring advanced server features, including `?pipe=` commands, `.sub` templates, and `.py` handlers, you MUST refer to the [server_features_guide.md](server_features_guide.md).**
+**For comprehensive instructions on setting up and configuring advanced server features, including `?pipe=` commands, `.sub` templates, and `.py` handlers, you MUST refer to the [server_features_guide.md](../features/server_features_guide.md).**
 
 ---
 
