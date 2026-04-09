@@ -30,7 +30,10 @@ runner = CliRunner()
 
 
 def normalize_ws(text: str) -> str:
-    """Normalizes whitespace.\n\n    Replaces any sequence of whitespace with a single space.\n"""  # pylint: disable=line-too-long
+    """Normalizes whitespace.
+
+    Replaces any sequence of whitespace with a single space.
+    """
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -89,7 +92,10 @@ def test_clear_cache_success(
 def test_clear_cache_force(
     mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
-    """Test successful cache clearing when using the --force flag.\n\n    Bypasses confirmation.\n"""  # pylint: disable=line-too-long
+    """Test successful cache clearing when using the --force flag.
+
+    Bypasses confirmation.
+    """
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
 

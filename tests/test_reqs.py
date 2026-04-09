@@ -65,7 +65,10 @@ async def test_run_requirements_extraction_no_cache(
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        return_value="<requirements_list><requirement></requirement></requirements_list>",  # pylint: disable=line-too-long
+        return_value=(
+            "<requirements_list><requirement>"
+            "</requirement></requirements_list>"
+        ),
     )
 
     result = await run_requirements_extraction(
@@ -155,11 +158,14 @@ async def test_run_requirements_extraction_iterative_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    # Returns initial requirements list
+    req_xml = (
+        "<requirements_list><requirement>"
+        "</requirement></requirements_list>"
+    )
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            "<requirements_list><requirement></requirement></requirements_list>",  # pylint: disable=line-too-long
+            req_xml,
             "<test_suggestion></test_suggestion>",
             "<test_suggestion></test_suggestion>",
             "<test_suggestion></test_suggestion>",
@@ -211,15 +217,21 @@ async def test_run_requirements_extraction_categorized_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    # Mocking standard successful categorizations, one with markdown formatting that we want to trigger  # pylint: disable=line-too-long
+    # Mocking standard successful categorizations, one with markdown
+    # formatting that we want to trigger
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            '```xml\n<requirements_list><requirement id="R1"></requirement></requirements_list>\n```',  # pylint: disable=line-too-long
-            '<requirements_list><requirement id="R2"></requirement></requirements_list>',  # pylint: disable=line-too-long
-            '<requirements_list><requirement id="R3"></requirement></requirements_list>',  # pylint: disable=line-too-long
-            '<requirements_list><requirement id="R4"></requirement></requirements_list>',  # pylint: disable=line-too-long
-            '<requirements_list><requirement id="R5"></requirement></requirements_list>',  # pylint: disable=line-too-long
+            '```xml\n<requirements_list><requirement id="R1">'
+            '</requirement></requirements_list>\n```',
+            '<requirements_list><requirement id="R2">'
+            '</requirement></requirements_list>',
+            '<requirements_list><requirement id="R3">'
+            '</requirement></requirements_list>',
+            '<requirements_list><requirement id="R4">'
+            '</requirement></requirements_list>',
+            '<requirements_list><requirement id="R5">'
+            '</requirement></requirements_list>',
         ],
     )
 
@@ -281,7 +293,8 @@ async def test_run_requirements_extraction_iterative_rationale(
     result = await run_requirements_extraction_iterative(
         base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
     )
-    # The first one is a rationale so it prints ui.info and continues. The loop will then hit an error if there are no requirements extracted.  # pylint: disable=line-too-long
+    # The first one is a rationale so it prints ui.info and continues. The
+    # loop will then hit an error if there are no requirements extracted.
     assert result is None
 
 
@@ -326,12 +339,14 @@ async def test_run_requirements_extraction_categorized_max_iter(
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
 
-    # Needs a lot of valid generations to hit max_iterations (which is 10 by default)  # pylint: disable=line-too-long
-    # But wait, max_iter logic is in iterative! Oh wait, `max_iterations = 10` is in `run_requirements_extraction_iterative`.  # pylint: disable=line-too-long
+    # Needs a lot of valid generations to hit max_iterations (which is 10 by
+    # default). But wait, max_iter logic is in iterative! Oh wait,
+    # `max_iterations = 10` is in `run_requirements_extraction_iterative`.
     # Let me mock max_iterations!
     # No, we can just pass side_effect.
     side_effects = [
-        '<requirements_list><requirement id="R1"></requirement></requirements_list>'  # pylint: disable=line-too-long
+        '<requirements_list><requirement id="R1"></requirement>'
+        '</requirements_list>'
     ] * 12
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",

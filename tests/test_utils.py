@@ -91,7 +91,9 @@ def test_retry_unhandled_exception(mocker: MockerFixture) -> None:
 
 
 def test_retry_max_attempts_attr(mocker: MockerFixture) -> None:
-    """Test that retry correctly looks up max attempts from an instance attribute."""  # pylint: disable=line-too-long
+    """Test that retry correctly looks up max attempts from an instance
+    attribute.
+    """
     mocker.patch("time.sleep")
 
     class TestClass:
@@ -455,7 +457,8 @@ def test_fix_reftest_link_prepend() -> None:
     result = fix_reftest_link(content, "ref.html")
     assert (
         result
-        == '<link rel="match" href="ref.html">\n<div>No head or html tags here</div>'  # pylint: disable=line-too-long
+        == '<link rel="match" href="ref.html">\n'
+        '<div>No head or html tags here</div>'
     )
 
 
@@ -523,7 +526,9 @@ def test_ensure_testharness_imports_missing_both_no_html() -> None:
     content = "<body>Just body</body>"
     result = ensure_testharness_imports(content)
     assert result.startswith(
-        '<script src="/resources/testharness.js"></script>\n<script src="/resources/testharnessreport.js"></script>\n<body>'  # pylint: disable=line-too-long
+        '<script src="/resources/testharness.js"></script>\n'
+        '<script src="/resources/testharnessreport.js"></script>\n'
+        '<body>'
     )
 
 

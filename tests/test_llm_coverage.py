@@ -20,7 +20,12 @@ import anthropic
 import httpx
 import pytest
 
-from wptgen.llm import AnthropicClient, GeminiClient, LLMTimeoutError, OpenAIClient  # pylint: disable=line-too-long
+from wptgen.llm import (
+    AnthropicClient,
+    GeminiClient,
+    LLMTimeoutError,
+    OpenAIClient,
+)
 
 
 @patch.object(GeminiClient, "verify_model")

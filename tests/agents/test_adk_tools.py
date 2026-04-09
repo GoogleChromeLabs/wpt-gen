@@ -24,7 +24,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _parse_test_results, _validate_safe_path, create_agent_tools  # pylint: disable=line-too-long
+from wptgen.agents.tools import (
+    _parse_test_results,
+    _validate_safe_path,
+    create_agent_tools,
+)
 from wptgen.config import Config
 from wptgen.ui import UIProvider
 
@@ -645,6 +649,7 @@ def test_agent_tools_run_wpt_test_flag_injection(
     assert result["status"] == "success"
     mock_run.assert_called_once()
     args, kwargs = mock_run.call_args
-    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless', '--log-raw', ..., 'chrome', './--dummy-flag.html']  # pylint: disable=line-too-long
+    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless',
+    # '--log-raw', ..., 'chrome', './--dummy-flag.html']
     assert args[0][-1] == "./--dummy-flag.html"
     assert args[0][0:2] == ["./wpt", "run"]

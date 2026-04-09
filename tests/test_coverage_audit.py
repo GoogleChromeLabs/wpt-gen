@@ -76,7 +76,10 @@ async def test_run_coverage_audit_token_limit_exceeded(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            '</requirements>'
+        ),
         wpt_context=WPTContext(),
     )
 
@@ -106,13 +109,15 @@ def test_combine_audit_responses_all_satisfied() -> None:
 def test_combine_audit_responses_with_suggestions() -> None:
     responses = [
         "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
-        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>",  # pylint: disable=line-too-long
+        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n"
+        "<test_suggestion>T1</test_suggestion>\n</test_suggestions>",
     ]
     result = combine_audit_responses(responses)
     assert "<status>TESTS_NEEDED</status>" in result
     assert "<audit_worksheet>\nW1\nW2\n</audit_worksheet>" in result
     assert (
-        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>"  # pylint: disable=line-too-long
+        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n"
+        "</test_suggestions>"
         in result
     )
 
@@ -127,14 +132,19 @@ async def test_run_coverage_audit_single_partition(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            '</requirements>'
+        ),
         wpt_context=WPTContext(),
     )
 
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     result = await run_coverage_audit(
@@ -165,7 +175,9 @@ async def test_run_coverage_audit_multiple_partitions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     result = await run_coverage_audit(
@@ -235,7 +247,10 @@ async def test_run_coverage_audit_always_brief_suggestions(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',  # pylint: disable=line-too-long
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            '</requirements>'
+        ),
         wpt_context=WPTContext(),
     )
 
@@ -259,7 +274,9 @@ async def test_run_coverage_audit_always_brief_suggestions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",  # pylint: disable=line-too-long
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     await run_coverage_audit(

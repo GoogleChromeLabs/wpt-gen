@@ -54,11 +54,15 @@ def test_adk_stream_manager_thought() -> None:
 
 
 def test_adk_stream_manager_function_call() -> None:
-    """Test streaming function calls stops the box and prints with formatted arguments."""  # pylint: disable=line-too-long
+    """Test streaming function calls stops the box and prints with formatted
+    arguments.
+    """
     ui_mock = MagicMock()
-    args = {
-        "test_path": "/html/semantics/scripting-1/the-script-element/script-type-module.html"  # pylint: disable=line-too-long
-    }
+    test_path = (
+        "/html/semantics/scripting-1/the-script-element/"
+        "script-type-module.html"
+    )
+    args = {"test_path": test_path}
     part = types.Part(
         function_call=types.FunctionCall(name="run_wpt_test", args=args)
     )

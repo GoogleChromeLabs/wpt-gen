@@ -46,7 +46,9 @@ def anthropic_config() -> Config:
 def test_get_llm_client_anthropic(
     mocker: MockerFixture, anthropic_config: Config
 ) -> None:
-    """Test that the factory returns an AnthropicClient when configured for Anthropic."""  # pylint: disable=line-too-long
+    """Test that the factory returns an AnthropicClient when configured for
+    Anthropic.
+    """
     # Prevent the actual SDK from initializing
     mocker.patch("wptgen.llm.anthropic.Anthropic")
 
@@ -86,7 +88,8 @@ def test_anthropic_generate_content(
         api_key="mock-anthropic-key", timeout=600.0
     )
 
-    # Verify the internal SDK method was called with the correct model and prompt  # pylint: disable=line-too-long
+    # Verify the internal SDK method was called with the correct model and
+    # prompt
     mock_instance.messages.create.assert_called_once_with(
         model="claude-3-7-sonnet-20250219",
         messages=[{"role": "user", "content": "Test prompt"}],
@@ -98,7 +101,9 @@ def test_anthropic_generate_content(
 def test_anthropic_generate_content_no_content(
     mocker: MockerFixture, anthropic_config: Config
 ) -> None:
-    """Test that AnthropicClient raises ValueError when API returns no content."""  # pylint: disable=line-too-long
+    """Test that AnthropicClient raises ValueError when API returns no
+    content.
+    """
     mocker.patch("time.sleep")  # Bypass retry backoff delay
     mock_anthropic_class = mocker.patch("wptgen.llm.anthropic.Anthropic")
     mock_instance = mock_anthropic_class.return_value

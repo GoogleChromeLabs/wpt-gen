@@ -51,7 +51,8 @@ def mock_config(tmp_path: Path) -> Config:
 @pytest.fixture
 def mock_llm() -> MagicMock:
     """Provides a mocked LLM client using AsyncMock for async methods."""
-    # We use MagicMock for the container, but AsyncMock for the specific async method  # pylint: disable=line-too-long
+    # We use MagicMock for the container, but AsyncMock for the specific async
+    # method
     llm = MagicMock()
 
     # generate_content is presumably awaited in the underlying phases
@@ -81,7 +82,10 @@ def engine(
 async def test_run_async_workflow_full_path(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Full asynchronous workflow orchestration.\n\n    Ensures each phase is called.\n"""  # pylint: disable=line-too-long
+    """Full asynchronous workflow orchestration.
+
+    Ensures each phase is called.
+    """
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
     audit = "audit"
@@ -161,7 +165,10 @@ def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:
 async def test_run_async_workflow_suggestions_only(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies workflow short-circuits to provide_coverage_report.\n\n    Called when config.suggestions_only is True.\n"""  # pylint: disable=line-too-long
+    """Verifies workflow short-circuits to provide_coverage_report.
+
+    Called when config.suggestions_only is True.
+    """
     engine.config.suggestions_only = True
     context = WorkflowContext(feature_id="test-feat", audit_response="audit")
 
@@ -188,7 +195,10 @@ async def test_run_async_workflow_suggestions_only(
 async def test_run_async_workflow_detailed_requirements(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies run_requirements_extraction_iterative is called.\n\n    Called when config.detailed_requirements is True.\n"""  # pylint: disable=line-too-long
+    """Verifies run_requirements_extraction_iterative is called.
+
+    Called when config.detailed_requirements is True.
+    """
     engine.config.detailed_requirements = True
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
@@ -386,9 +396,14 @@ def test_engine_load_resume_state_success(
     mocker.patch("wptgen.engine.get_llm_client")
     engine = WPTGenEngine(mock_config, ui_mock)
     resume_file = tmp_path / "mock_feature_resume.json"
-    resume_file.write_text(
-        '{"feature_id": "mock_feature", "metadata": null, "spec_contents": null, "wpt_context": null, "requirements_xml": null, "audit_response": null, "suggestions": [], "approved_suggestions_xml": [], "mdn_contents": null, "generated_tests": null}'  # pylint: disable=line-too-long
+    resume_json = (
+        '{"feature_id": "mock_feature", "metadata": null, '
+        '"spec_contents": null, "wpt_context": null, '
+        '"requirements_xml": null, "audit_response": null, '
+        '"suggestions": [], "approved_suggestions_xml": [], '
+        '"mdn_contents": null, "generated_tests": null}'
     )
+    resume_file.write_text(resume_json)
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
         return_value=resume_file,
@@ -512,7 +527,8 @@ def test_engine_hydrate_context_exceptions(
     ui_mock.warning.assert_called_once()
     assert "Failed to load resume state" in ui_mock.warning.call_args[0][0]
 
-    # the other files silently pass exceptions, context should not have these fields populated  # pylint: disable=line-too-long
+    # the other files silently pass exceptions, context should not have these
+    # fields populated
     assert context.requirements_xml is None
     assert context.audit_response is None
     assert context.generated_tests is None
