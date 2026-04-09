@@ -14,6 +14,7 @@
 
 """Main entry point for the WPT-Gen CLI."""
 
+import asyncio
 import dataclasses
 import logging
 import os
@@ -32,6 +33,7 @@ from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
+from rich.table import Table
 from rich.text import Text
 
 from wptgen.config import (
@@ -43,7 +45,16 @@ from wptgen.config import (
 )
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
-from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
+from wptgen.metadata import update_web_features_yml
+from wptgen.models import (
+    BrowserChannel,
+    BrowserType,
+    ModelCategory,
+    WorkflowPhase,
+)
+from wptgen.phases.generation import (
+    run_single_test_generation,
+)
 from wptgen.ui import RichUIProvider
 
 
@@ -197,6 +208,17 @@ def _workflow_error_handler() -> Generator[None, None, None]:
         raise typer.Exit(code=1) from e
 
 
+def _print_run_config(config: Any) -> None:
+    ui.report_configuration(
+        {
+            "Provider": config.provider,
+            "Default": config.default_model,
+            "Lightweight": config.categories.get("lightweight", "N/A"),
+            "Reasoning": config.categories.get("reasoning", "N/A"),
+        }
+    )
+
+
 def _execute_workflow(
     web_feature_id: str,
     config: Any,
@@ -213,21 +235,7 @@ def _execute_workflow(
         output_dir: Directory to save tests.
         is_audit: Whether this is a suggestions-only audit run.
     """
-    config_info = Text.assemble(
-        ("Provider: ", "bold"),
-        (f"{config.provider}\n", "green"),
-        ("Model:    ", "bold"),
-        (f"{config.default_model}", "green"),
-    )
-    console.print(
-        Panel(
-            config_info,
-            title="[bold]Configuration[/bold]",
-            title_align="left",
-            expand=False,
-            border_style="bright_black",
-        )
-    )
+    _print_run_config(config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -250,8 +258,6 @@ def _execute_workflow(
             Path(config.output_dir) if config.output_dir else None
         )
         if wf_yml_update and target_dir and context and context.generated_tests:
-            from wptgen.metadata import update_web_features_yml
-
             generated_paths = [path for path, _, _ in context.generated_tests]
             update_web_features_yml(target_dir, web_feature_id, generated_paths)
             console.print(
@@ -638,6 +644,159 @@ def generate(
         )
 
 
+@app.command(name="generate-single")
+def generate_single(
+    description: Annotated[
+        str,
+        typer.Argument(help="The specific behavior description to test."),
+    ],
+    spec_urls: Annotated[
+        str | None,
+        typer.Option(
+            "--spec-urls",
+            help="Comma-separated list of specification URLs for the feature.",
+        ),
+    ] = None,
+    web_feature_id: Annotated[
+        str | None,
+        typer.Option(
+            "--web-feature-id",
+            "-f",
+            help="Optional web feature ID (e.g., 'grid', 'popover').",
+        ),
+    ] = None,
+    title: Annotated[
+        str | None,
+        typer.Option(
+            "--title",
+            "-t",
+            help="Optional title for the test suggestion.",
+        ),
+    ] = None,
+    test_type: Annotated[
+        str | None,
+        typer.Option(
+            "--test-type",
+            help="Optional test type (e.g., 'testharness', 'wdspec').",
+        ),
+    ] = None,
+    provider: Annotated[
+        str | None,
+        typer.Option(
+            "--provider",
+            "-p",
+            help="Override the default LLM provider.",
+        ),
+    ] = None,
+    wpt_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--wpt-dir",
+            "-w",
+            help="Path to the local web-platform-tests repository.",
+            exists=True,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = None,
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--output-dir",
+            "-o",
+            help="Directory where generated tests will be saved.",
+            dir_okay=True,
+        ),
+    ] = None,
+    config_path: Annotated[
+        str,
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+) -> None:
+    """
+    Generate a single test directly from a user description, bypassing earlier
+    phases.
+    """
+    if not spec_urls and not web_feature_id:
+        ui.print(
+            "[red]Error: Either --spec-urls or --web-feature-id must be "
+            "provided.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        spec_urls_list = (
+            [u.strip() for u in spec_urls.split(",")] if spec_urls else []
+        )
+
+        config = load_config(
+            config_path=config_path,
+            provider_override=provider,
+            wpt_dir_override=str(wpt_dir) if wpt_dir else None,
+            spec_urls_override=spec_urls_list,
+            require_api_key=True,
+        )
+
+        if output_dir:
+            config.output_dir = str(output_dir)
+
+        _print_run_config(config)
+
+        ui.print()
+        ui.print(
+            "[yellow]WARNING: Running in direct generation mode. Context "
+            "assembly and duplicate test detection are disabled. The "
+            "generated test may be redundant or less accurate.[/yellow]"
+        )
+
+        engine = WPTGenEngine(config=config, ui=ui)
+
+        generated_tests = asyncio.run(
+            run_single_test_generation(
+                web_feature_id=web_feature_id,
+                spec_urls=spec_urls_list,
+                description=description,
+                title=title,
+                test_type=test_type,
+                config=config,
+                ui=engine.ui,
+                jinja_env=engine.jinja_env,
+            )
+        )
+
+        ui.print()
+        if generated_tests:
+            ui.print(
+                Panel(
+                    "[bold green]✔ Test generation completed "
+                    "successfully![/bold green]",
+                    border_style="green",
+                    expand=False,
+                )
+            )
+        else:
+            ui.print(
+                Panel(
+                    "[bold yellow]Test generation completed, but no tests "
+                    "were generated.[/bold yellow]",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
+
+    except LLMTimeoutError as e:
+        ui.error(f"LLM Request Timeout: {str(e)}")
+        raise typer.Exit(code=1) from e
+    except ValueError as e:
+        ui.error(f"Configuration Error: {str(e)}")
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        ui.error(f"Unexpected Error: {str(e)}")
+        raise typer.Exit(code=1) from e
+
+
 @app.command(name="chromestatus")
 def chromestatus_command(
     feature_id: Annotated[
@@ -840,21 +999,7 @@ def chromestatus_command(
             temperature_override=None,
         )
 
-        config_info = Text.assemble(
-            ("Provider: ", "bold"),
-            (f"{config.provider}\n", "green"),
-            ("Model:    ", "bold"),
-            (f"{config.default_model}", "green"),
-        )
-        console.print(
-            Panel(
-                config_info,
-                title="[bold]Configuration[/bold]",
-                title_align="left",
-                expand=False,
-                border_style="bright_black",
-            )
-        )
+        _print_run_config(config)
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)
@@ -1017,8 +1162,6 @@ def _display_config(config_path: str) -> None:
         config_path: Path to the configuration file to load.
     """
     try:
-        from rich.table import Table
-
         config = load_config(config_path=config_path, require_api_key=False)
 
         # Instantiate a default config by passing None to skip loading any
@@ -1217,8 +1360,6 @@ def list_models(
     Display the configured LLM models for the active provider.
     """
     try:
-        from rich.table import Table
-
         config = load_config(
             config_path=config_path,
             provider_override=provider,
@@ -1726,8 +1867,8 @@ def init(
             provider: {
                 "default_model": default_model,
                 "categories": {
-                    "lightweight": lightweight_model,
-                    "reasoning": reasoning_model,
+                    ModelCategory.LIGHTWEIGHT.value: lightweight_model,
+                    ModelCategory.REASONING.value: reasoning_model,
                 },
             }
         },

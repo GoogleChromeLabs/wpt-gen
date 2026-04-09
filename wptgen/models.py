@@ -100,6 +100,14 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
 
 
+class ModelCategory(str, Enum):
+    """Categories of LLM models used in the workflow."""
+
+    DEFAULT = "default"
+    LIGHTWEIGHT = "lightweight"
+    REASONING = "reasoning"
+
+
 @dataclass(frozen=True)
 class ProviderDefaults:
     """Default configuration for an LLM provider."""
@@ -161,7 +169,7 @@ class WPTContext:
 class WorkflowContext:
     """Maintains the state of the WPT generation workflow."""
 
-    feature_id: str
+    feature_id: str | None = None
     metadata: FeatureMetadata | None = None
     spec_contents: dict[str, str] | None = None
     explainer_contents: dict[str, str] | None = None

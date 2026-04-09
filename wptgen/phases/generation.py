@@ -21,7 +21,7 @@ from rich.rule import Rule
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import TestType, WorkflowContext
+from wptgen.models import FeatureMetadata, TestType, WorkflowContext, WorkflowPhase
 from wptgen.ui import UIProvider
 from wptgen.utils import (
     extract_xml_tag,
@@ -52,7 +52,11 @@ async def run_test_generation(
     Returns:
       A list of (path, content, suggestion_xml) tuples for generated tests.
     """
-    ui.on_phase_start(4, "User Selection & Generation")
+    ui.on_phase_start(
+        4,
+        "User Selection & Generation",
+        model_info=config.get_model_info_for_phase(WorkflowPhase.GENERATION),
+    )
 
     assert context.audit_response is not None
     assert context.metadata is not None
@@ -104,9 +108,39 @@ async def run_test_generation(
     )
 
 
+async def run_single_test_generation(
+    web_feature_id: str | None,
+    spec_urls: list[str],
+    description: str,
+    title: str | None,
+    test_type: str | None,
+    config: Config,
+    ui: UIProvider,
+    jinja_env: Environment,
+) -> list[tuple[Path, str, str]]:
+    """Generates a single test directly from a user description."""
+    ui.on_phase_start(4, "Single Test Generation")
+
+    context = WorkflowContext(feature_id=web_feature_id)
+    context.metadata = FeatureMetadata(
+        name=web_feature_id or "custom_feature", description="", specs=spec_urls
+    )
+
+    title_xml = f"  <title>{title}</title>\n" if title else ""
+    type_xml = f"  <test_type>{test_type}</test_type>\n" if test_type else ""
+
+    suggestion_xml = f"""<test_suggestion>
+{title_xml}  <description>{description}</description>
+{type_xml}</test_suggestion>"""
+
+    return await _generate_adk_loop(
+        [suggestion_xml], context, config, ui, jinja_env
+    )
+
+
 def _format_test_suggestion(
     suggestion_xml: str,
-    feature_id: str,
+    feature_id: str | None,
     spec_urls: list[str],
     sanitize: bool = False,
 ) -> str:
@@ -130,7 +164,8 @@ def _format_test_suggestion(
         lines.append(f"  <description>{description}</description>")
         for url in spec_urls:
             lines.append(f"  <spec_url>{url}</spec_url>")
-        lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
+        if feature_id:
+            lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
         lines.append("</test_suggestion>")
         return "\n".join(lines)
     else:
@@ -138,11 +173,14 @@ def _format_test_suggestion(
         lines = []
         for url in spec_urls:
             lines.append(f"  <spec_url>{url}</spec_url>")
-        lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
+        if feature_id:
+            lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
         additions = "\n".join(lines)
-        return suggestion_xml.replace(
-            "</test_suggestion>", f"{additions}\n</test_suggestion>"
-        )
+        if additions:
+            return suggestion_xml.replace(
+                "</test_suggestion>", f"{additions}\n</test_suggestion>"
+            )
+        return suggestion_xml
 
 
 async def _generate_adk_loop(
@@ -196,7 +234,7 @@ async def _generate_adk_loop(
                 break
 
         root_name = get_next_available_root(
-            context.feature_id, output_dir, used_names
+            context.feature_id or "custom_feature", output_dir, used_names
         )
         used_names.add(root_name)
 

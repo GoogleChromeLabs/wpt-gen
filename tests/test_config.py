@@ -449,3 +449,59 @@ def test_load_config_audit_partition_size_validation(
             config_path="non_existent_dummy.yaml",
             audit_partition_size_override=-5,
         )
+
+
+def test_get_model_info_for_phase() -> None:
+    """Test get_model_info_for_phase override text formatting."""
+    from wptgen.config import Config
+
+    config = Config(
+        provider="gemini",
+        default_model="default",
+        api_key="key",
+        wpt_path=".",
+        categories={"lightweight": "light-model", "reasoning": "heavy-model"},
+        phase_model_mapping={"phase1": "lightweight", "phase2": "reasoning"},
+    )
+
+    # Base case - no overrides
+    assert (
+        config.get_model_info_for_phase("phase1") == "lightweight [light-model]"
+    )
+    assert (
+        config.get_model_info_for_phase("phase2") == "reasoning [heavy-model]"
+    )
+
+    # Default fallback
+    assert (
+        config.get_model_info_for_phase("phase_unknown") == "default [default]"
+    )
+
+    # Lightweight override
+    config.use_lightweight = True
+    assert (
+        config.get_model_info_for_phase("phase1") == "lightweight [light-model]"
+    )
+    assert (
+        config.get_model_info_for_phase("phase2")
+        == "lightweight [light-model] (Overridden by --use-lightweight)"
+    )
+    assert (
+        config.get_model_info_for_phase("phase_unknown")
+        == "lightweight [light-model] (Overridden by --use-lightweight)"
+    )
+
+    # Reasoning override
+    config.use_lightweight = False
+    config.use_reasoning = True
+    assert (
+        config.get_model_info_for_phase("phase1")
+        == "reasoning [heavy-model] (Overridden by --use-reasoning)"
+    )
+    assert (
+        config.get_model_info_for_phase("phase2") == "reasoning [heavy-model]"
+    )
+    assert (
+        config.get_model_info_for_phase("phase_unknown")
+        == "reasoning [heavy-model] (Overridden by --use-reasoning)"
+    )

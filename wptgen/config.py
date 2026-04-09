@@ -24,7 +24,12 @@ from typing import Any
 
 import yaml
 
-from wptgen.models import BrowserChannel, BrowserType, WorkflowPhase
+from wptgen.models import (
+    BrowserChannel,
+    BrowserType,
+    ModelCategory,
+    WorkflowPhase,
+)
 
 # The absolute path to the installed wptgen package root
 PACKAGE_ROOT = Path(str(importlib.resources.files("wptgen")))
@@ -112,6 +117,31 @@ class Config:
         if not category:
             return None
         return self.categories.get(category)
+
+    def get_model_info_for_phase(self, phase: WorkflowPhase | str) -> str:
+        """Returns a formatted string describing the model category being used
+        for a phase."""
+        phase_name = phase.value if isinstance(phase, WorkflowPhase) else phase
+
+        category = self.phase_model_mapping.get(phase_name, "default")
+        override_text = ""
+
+        if self.use_lightweight:
+            if category != "lightweight":
+                override_text = " (Overridden by --use-lightweight)"
+            category = "lightweight"
+        elif self.use_reasoning:
+            if category != "reasoning":
+                override_text = " (Overridden by --use-reasoning)"
+            category = "reasoning"
+
+        model_name = (
+            self.categories.get(category, self.default_model)
+            if category != "default"
+            else self.default_model
+        )
+
+        return f"{category} [{model_name}]{override_text}"
 
 
 def _get_default_cache_path() -> str:
@@ -266,10 +296,14 @@ def load_config(
         )
 
     provider_defaults = DEFAULT_PROVIDER_MODELS[active_provider]
-    default_model_name = provider_defaults["default"]
+    default_model_name = provider_defaults[ModelCategory.DEFAULT.value]
     default_categories = {
-        "lightweight": provider_defaults["lightweight"],
-        "reasoning": provider_defaults["reasoning"],
+        ModelCategory.LIGHTWEIGHT.value: provider_defaults[
+            ModelCategory.LIGHTWEIGHT.value
+        ],
+        ModelCategory.REASONING.value: provider_defaults[
+            ModelCategory.REASONING.value
+        ],
     }
 
     env_var_map = {
@@ -366,15 +400,21 @@ def load_config(
     )
 
     if use_lightweight_override:
-        default_model = categories.get("lightweight", default_model)
+        default_model = categories.get(
+            ModelCategory.LIGHTWEIGHT.value, default_model
+        )
     elif use_reasoning_override:
-        default_model = categories.get("reasoning", default_model)
+        default_model = categories.get(
+            ModelCategory.REASONING.value, default_model
+        )
 
     # Ensure default mapping if missing in YAML
     default_phase_mapping = {
-        WorkflowPhase.REQUIREMENTS_EXTRACTION.value: "reasoning",
-        WorkflowPhase.COVERAGE_AUDIT.value: "reasoning",
-        WorkflowPhase.GENERATION.value: "lightweight",
+        WorkflowPhase.REQUIREMENTS_EXTRACTION.value: (
+            ModelCategory.REASONING.value
+        ),
+        WorkflowPhase.COVERAGE_AUDIT.value: ModelCategory.REASONING.value,
+        WorkflowPhase.GENERATION.value: ModelCategory.LIGHTWEIGHT.value,
     }
     phase_model_mapping = _deep_merge(
         default_phase_mapping, yaml_data.get("phase_model_mapping", {})

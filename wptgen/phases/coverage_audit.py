@@ -132,7 +132,13 @@ async def run_coverage_audit(
     Returns:
       The combined audit response XML string, or None on failure.
     """
-    ui.on_phase_start(3, "Coverage Audit")
+    ui.on_phase_start(
+        3,
+        "Coverage Audit",
+        model_info=config.get_model_info_for_phase(
+            WorkflowPhase.COVERAGE_AUDIT
+        ),
+    )
 
     req_partitions = partition_requirements_xml(
         context.requirements_xml or "",
@@ -269,7 +275,8 @@ async def provide_coverage_report(
 
     if ui.confirm("\nSave report to a file?"):
         # Create a sanitized filename from the feature ID
-        safe_id = FILENAME_SANITIZATION_RE.sub("_", context.feature_id.lower())
+        feature_id_str = context.feature_id or "custom_feature"
+        safe_id = FILENAME_SANITIZATION_RE.sub("_", feature_id_str.lower())
         filename = f"{safe_id}_coverage_audit.md"
 
         output_path = Path(config.output_dir or ".") / filename
