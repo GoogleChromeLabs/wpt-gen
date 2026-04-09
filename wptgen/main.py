@@ -716,11 +716,13 @@ def generate_single(
     ] = DEFAULT_CONFIG_PATH,
 ) -> None:
     """
-    Generate a single test directly from a user description, bypassing earlier phases.
+    Generate a single test directly from a user description, bypassing earlier
+    phases.
     """
     if not spec_urls and not web_feature_id:
         ui.print(
-            "[red]Error: Either --spec-urls or --web-feature-id must be provided.[/red]"
+            "[red]Error: Either --spec-urls or --web-feature-id must be "
+            "provided.[/red]"
         )
         raise typer.Exit(code=1)
 
@@ -744,7 +746,9 @@ def generate_single(
 
         ui.print()
         ui.print(
-            "[yellow]WARNING: Running in direct generation mode. Context assembly and duplicate test detection are disabled. The generated test may be redundant or less accurate.[/yellow]"
+            "[yellow]WARNING: Running in direct generation mode. Context "
+            "assembly and duplicate test detection are disabled. The "
+            "generated test may be redundant or less accurate.[/yellow]"
         )
 
         engine = WPTGenEngine(config=config, ui=ui)
@@ -766,7 +770,8 @@ def generate_single(
         if generated_tests:
             ui.print(
                 Panel(
-                    "[bold green]✔ Test generation completed successfully![/bold green]",
+                    "[bold green]✔ Test generation completed "
+                    "successfully![/bold green]",
                     border_style="green",
                     expand=False,
                 )
@@ -774,7 +779,8 @@ def generate_single(
         else:
             ui.print(
                 Panel(
-                    "[bold yellow]Test generation completed, but no tests were generated.[/bold yellow]",
+                    "[bold yellow]Test generation completed, but no tests "
+                    "were generated.[/bold yellow]",
                     border_style="yellow",
                     expand=False,
                 )
@@ -1158,7 +1164,8 @@ def _display_config(config_path: str) -> None:
     try:
         config = load_config(config_path=config_path, require_api_key=False)
 
-        # Instantiate a default config by passing None to skip loading any YAML config
+        # Instantiate a default config by passing None to skip loading any
+        # YAML config.
         default_config = load_config(config_path=None, require_api_key=False)
 
         config_dict = dataclasses.asdict(config)

@@ -12,4 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""WPT-Gen: An agentic tool for automating Web Platform Tests."""
+
 __version__ = "0.4.0"

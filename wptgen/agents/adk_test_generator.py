@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Agentic test generation using the Google ADK framework."""
+
 import re
 from pathlib import Path
 from typing import Any
@@ -63,10 +65,10 @@ async def generate_test_with_adk(
     generated_paths: list[str] = []
 
     def report_generation_complete(file_paths: list[str]) -> dict[str, Any]:
-        """Call this tool ONLY when you have successfully written all necessary test files to disk.
+        """Tool to call ONLY when all test files are written to disk.
 
         Args:
-            file_paths: A list of the absolute or relative file paths you generated.
+            file_paths: A list of the absolute or relative file paths generated.
 
         Returns:
             A dictionary confirming completion.
@@ -91,8 +93,8 @@ async def generate_test_with_adk(
         try:
             wpt_generator_skill = load_skill_from_dir(skill_dir)
 
-            # Conditionally template the skill instructions to avoid confusing the agent
-            # when no web_feature_id is provided.
+            # Conditionally template the skill instructions to avoid confusing
+            # the agent when no web_feature_id is provided.
             has_feature_id = bool(
                 re.search(r"<web_feature_id>\s*[^<\s]", suggestion_xml)
             )
@@ -107,7 +109,8 @@ async def generate_test_with_adk(
             ui.error(f"Failed to load wpt-generator skill: {e}")
     else:
         ui.warning(
-            "wpt-generator skill directory not found. Agent will generate tests without skill guidance."
+            "wpt-generator skill directory not found. Agent will generate "
+            "tests without skill guidance."
         )
 
     system_template = jinja_env.get_template("adk_test_generator_system.jinja")
@@ -116,14 +119,14 @@ async def generate_test_with_adk(
     )
 
     # Prevent ADK's internal template parser from crashing when it encounters
-    # WPT syntax like `{{host}}` or `{{variable}}` by mapping them to themselves.
+    # WPT syntax like `{{host}}` or `{{variable}}` by mapping them to itself.
     adk_state: dict[str, Any] = {}
     for match in re.finditer(r"\{+([^{}]+)\}+", instruction):
         var_name = match.group(1).strip()
         if var_name.isidentifier():
             adk_state[var_name] = match.group(0)
 
-    # Ensure the agent name is a valid Python identifier to avoid validation errors.
+    # Ensure the agent name is a valid Python identifier.
     safe_root_name = root_name.replace("-", "_").replace(".", "_")
     agent_kwargs: dict[str, Any] = {
         "name": f"wpt_generator_{safe_root_name}",
@@ -193,7 +196,7 @@ async def generate_test_with_adk(
         if not generated_paths:
             ui.warning("Agent finished but did not report any generated paths.")
 
-        # If the agent correctly called the completion tool, we read those files back
+        # If the agent correctly called the completion tool, we read the files
         for path_str in generated_paths:
             try:
                 target_path = Path(path_str)

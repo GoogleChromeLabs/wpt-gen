@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Phase 4: Generation - Interactive test selection and agentic generation."""
+
 from pathlib import Path
 
 from jinja2 import Environment
@@ -35,6 +37,21 @@ async def run_test_generation(
     ui: UIProvider,
     jinja_env: Environment,
 ) -> list[tuple[Path, str, str]]:
+    """Executes the Generation phase.
+
+    Displays test suggestions to the user, gathers approvals, and launches
+    the ADK generation agent for each selected test.
+
+    Args:
+      context: The current workflow context.
+      config: The tool configuration.
+      llm: The LLM client.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+
+    Returns:
+      A list of (path, content, suggestion_xml) tuples for generated tests.
+    """
     ui.on_phase_start(
         4,
         "User Selection & Generation",
@@ -49,7 +66,8 @@ async def run_test_generation(
     if status and status.strip() == "SATISFIED":
         ui.success("All identified test requirements have been satisfied.")
         ui.info(
-            "No new test suggestions were generated because existing coverage is sufficient."
+            "No new test suggestions were generated because existing coverage "
+            "is sufficient."
         )
         return []
 
@@ -126,6 +144,17 @@ def _format_test_suggestion(
     spec_urls: list[str],
     sanitize: bool = False,
 ) -> str:
+    """Helper to inject required metadata into a test suggestion XML block.
+
+    Args:
+      suggestion_xml: The raw suggestion XML from the audit response.
+      feature_id: The ID of the web feature.
+      spec_urls: A list of specification URLs.
+      sanitize: Whether to strip extra tags and return a brief version.
+
+    Returns:
+      A modified XML string with enriched metadata.
+    """
     if sanitize:
         description = (
             extract_xml_tag(suggestion_xml, "description")
@@ -161,6 +190,18 @@ async def _generate_adk_loop(
     ui: UIProvider,
     jinja_env: Environment,
 ) -> list[tuple[Path, str, str]]:
+    """Internal loop that launches ADK agents sequentially for each test.
+
+    Args:
+      approved_suggestions_xml: List of approved suggestion XML blocks.
+      context: The current workflow context.
+      config: The tool configuration.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+
+    Returns:
+      A flat list of all generated test files.
+    """
     from wptgen.agents.adk_test_generator import generate_test_with_adk
 
     ui.report_generation_start(len(approved_suggestions_xml))
@@ -211,14 +252,13 @@ async def _generate_adk_loop(
 
     results = []
 
-    # Unlike standard generation, ADK streams its events to the UI directly.
-    # So we await them sequentially here so the streaming output doesn't garble together.
+    # ADK streams events to the UI directly. We await sequentially to avoid
+    # output corruption.
     ui.print("\n[bold cyan]Starting ADK Test Generation...[/bold cyan]")
 
     for i, task in enumerate(tasks):
-        ui.print(
-            f"\n[bold yellow]--- Generating Test {i + 1} of {len(tasks)} ---[/bold yellow]"
-        )
+        msg = f"\n[bold yellow]--- Generating Test {i+1} of {len(tasks)} ---"
+        ui.print(f"{msg}[/bold yellow]")
         ui.print(
             Rule(
                 "[bold cyan]🤖 WPT-Gen Agent[/bold cyan]",

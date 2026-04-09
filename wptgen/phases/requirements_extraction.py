@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Phase 2: Requirements Extraction - Identifying normative requirements."""
+
 import asyncio
 import re
 from pathlib import Path
@@ -31,6 +33,17 @@ def _load_cached_requirements(
     config: Config,
     ui: UIProvider,
 ) -> str | None:
+    """Helper to check for and load cached requirements if requested.
+
+    Args:
+      web_feature_id: The ID of the feature.
+      cache_file: The path to the potential cache file.
+      config: The tool configuration.
+      ui: The UI provider.
+
+    Returns:
+      The cached XML string if loaded, otherwise None.
+    """
     if not cache_file.exists():
         return None
 
@@ -61,6 +74,22 @@ async def run_requirements_extraction(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
+    """Executes the standard Requirements Extraction phase.
+
+    Prompts the LLM to identify all normative requirements from the gathered
+    specifications in a single request.
+
+    Args:
+      context: The current workflow context.
+      config: The tool configuration.
+      llm: The LLM client.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+      cache_dir: The directory for requirement caches.
+
+    Returns:
+      The extracted requirements XML string, or None on failure.
+    """
     ui.on_phase_start(2, "Requirements Extraction")
 
     assert context.metadata is not None
@@ -135,6 +164,22 @@ async def run_requirements_extraction_categorized(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
+    """Executes the Categorized Requirements Extraction phase.
+
+    Runs parallel LLM requests for each category (Existence, Errors, etc.) to
+    ensure better depth of coverage.
+
+    Args:
+      context: The current workflow context.
+      config: The tool configuration.
+      llm: The LLM client.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+      cache_dir: The directory for requirement caches.
+
+    Returns:
+      The extracted requirements XML string, or None on failure.
+    """
     ui.on_phase_start(2, "Requirements Extraction (Categorized)")
 
     assert context.metadata is not None
@@ -208,9 +253,7 @@ async def run_requirements_extraction_categorized(
                 ),
             )
 
-        ui.info(
-            f"Launching {len(REQUIREMENT_CATEGORIES)} parallel extraction requests..."
-        )
+        ui.info(f"Launching {len(REQUIREMENT_CATEGORIES)} parallel requests...")
         total_tasks = len(REQUIREMENT_CATEGORIES)
         completed_count = 0
 
@@ -267,7 +310,8 @@ async def run_requirements_extraction_categorized(
                 )
                 if rationale_match:
                     ui.info(
-                        f"No requirements found for category [{name}] {rationale_match.group(1).strip()}"
+                        f"No requirements found for category [{name}] "
+                        f"{rationale_match.group(1).strip()}"
                     )
                 continue
 
@@ -308,6 +352,23 @@ async def run_requirements_extraction_iterative(
     jinja_env: Environment,
     cache_dir: Path,
 ) -> str | None:
+    """Executes the Iterative Requirements Extraction phase.
+
+    Continuously prompts the LLM to find NEW requirements not previously
+    identified, until the LLM signals exhaustion or the iteration limit is
+    reached.
+
+    Args:
+      context: The current workflow context.
+      config: The tool configuration.
+      llm: The LLM client.
+      ui: The UI provider.
+      jinja_env: The Jinja2 environment.
+      cache_dir: The directory for requirement caches.
+
+    Returns:
+      The extracted requirements XML string, or None on failure.
+    """
     ui.on_phase_start(
         2,
         "Requirements Extraction (Iterative)",
@@ -387,7 +448,8 @@ async def run_requirements_extraction_iterative(
 
             if "<status>EXHAUSTED</status>" in response:
                 ui.success(
-                    f"Extraction complete: LLM signaled exhaustion at iteration {iteration}."
+                    "Extraction complete: LLM signaled exhaustion at "
+                    f"iteration {iteration}."
                 )
                 break
 

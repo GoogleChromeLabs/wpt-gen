@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Utilities for handling web-features metadata."""
+
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +21,7 @@ import yaml
 
 
 def is_path_covered(rel_path: Path, patterns: list[str]) -> bool:
-    """
-    Checks if a relative file path is covered by a list of glob patterns.
-    """
+    """Checks if a relative file path is covered by a list of glob patterns."""
     is_covered = False
     for pattern in patterns:
         is_negative = pattern.startswith("!")
@@ -40,9 +40,10 @@ def is_path_covered(rel_path: Path, patterns: list[str]) -> bool:
 def update_web_features_yml(
     output_dir: Path, web_feature_id: str, generated_paths: list[Path]
 ) -> None:
-    """
-    Updates or creates a WEB_FEATURES.yml file at the root of output_dir, linking
-    generated tests to the given web_feature_id.
+    """Updates or creates a WEB_FEATURES.yml file linking tests to a feature.
+
+    Updates or creates a WEB_FEATURES.yml file at the root of output_dir,
+    linking generated tests to the given web_feature_id.
     """
     yml_path = output_dir / "WEB_FEATURES.yml"
     yaml_data: dict[str, Any] = {}

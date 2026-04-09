@@ -161,10 +161,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         KeyError,
         IndexError,
     ) as e:
-        logger.warning(
-            f"Could not fetch or parse ChromeStatus metadata for "
-            f"{feature_id}: {e}"
-        )
+        logger.warning(f"ChromeStatus metadata error for {feature_id}: {e}")
         return None
 
 
@@ -212,6 +209,7 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
 
 
 def validate_ip_against_ssrf(ip: str) -> None:
+    """Validates that an IP address is not a restricted internal address."""
     ip_obj = ipaddress.ip_address(ip)
     if (
         ip_obj.is_loopback
@@ -225,6 +223,7 @@ def validate_ip_against_ssrf(ip: str) -> None:
 
 
 class SafeHTTPConnection(http.client.HTTPConnection):
+    """A version of HTTPConnection that validates IPs before connecting."""
 
     def connect(self) -> None:
         err = None
@@ -255,6 +254,7 @@ class SafeHTTPConnection(http.client.HTTPConnection):
 
 
 class SafeHTTPSConnection(http.client.HTTPSConnection):
+    """A version of HTTPSConnection that validates IPs before connecting."""
 
     def connect(self) -> None:
         err = None
@@ -275,7 +275,8 @@ class SafeHTTPSConnection(http.client.HTTPSConnection):
                     self._tunnel()  # type: ignore[attr-defined]
                 tunnel_host = getattr(self, "_tunnel_host", None)
                 server_hostname = tunnel_host if tunnel_host else self.host
-                self.sock = self._context.wrap_socket(  # type: ignore[attr-defined]
+                ctx = self._context  # type: ignore[attr-defined]
+                self.sock = ctx.wrap_socket(
                     self.sock, server_hostname=server_hostname
                 )
                 return
@@ -290,12 +291,14 @@ class SafeHTTPSConnection(http.client.HTTPSConnection):
 
 
 class SafeHTTPHandler(urllib.request.HTTPHandler):
+    """HTTP handler that uses SafeHTTPConnection."""
 
     def http_open(self, req: urllib.request.Request) -> Any:
         return self.do_open(SafeHTTPConnection, req)
 
 
 class SafeHTTPSHandler(urllib.request.HTTPSHandler):
+    """HTTPS handler that uses SafeHTTPSConnection."""
 
     def https_open(self, req: urllib.request.Request) -> Any:
         return self.do_open(
@@ -304,6 +307,7 @@ class SafeHTTPSHandler(urllib.request.HTTPSHandler):
 
 
 class SafeHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Redirect handler that prevents redirects to non-HTTP(S) schemes."""
 
     def redirect_request(
         self,
@@ -320,6 +324,7 @@ class SafeHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 class BlockedFileHandler(urllib.request.FileHandler):
+    """Handler that explicitly blocks the file:// scheme."""
 
     def file_open(self, req: urllib.request.Request) -> Any:
         raise ValueError(
@@ -328,6 +333,7 @@ class BlockedFileHandler(urllib.request.FileHandler):
 
 
 class BlockedFTPHandler(urllib.request.FTPHandler):
+    """Handler that explicitly blocks the ftp:// scheme."""
 
     def ftp_open(self, req: urllib.request.Request) -> Any:
         raise ValueError(
@@ -336,6 +342,7 @@ class BlockedFTPHandler(urllib.request.FTPHandler):
 
 
 class BlockedDataHandler(urllib.request.DataHandler):
+    """Handler that explicitly blocks the data: scheme."""
 
     def data_open(self, req: urllib.request.Request) -> Any:
         raise ValueError(
@@ -354,10 +361,11 @@ _ssrf_safe_opener = urllib.request.build_opener(
 
 
 def validate_url_against_ssrf(url: str) -> None:
-    """
-    Validates an initial URL to prevent Server-Side Request Forgery (SSRF) attacks.
+    """Validates an initial URL to prevent SSRF attacks.
+
     This provides a fast path failure before attempting a connection.
-    (Further validation occurs at connection time to prevent TOCTOU and redirect bypass).
+    (Further validation occurs at connection time to prevent TOCTOU and
+    redirect bypass).
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
@@ -392,16 +400,15 @@ def fetch_and_extract_text(url: str) -> str | None:
     )
     def _fetch() -> str:
         # Set User-Agent to bypass generic bot filters and identify our crawler
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
-        )
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
+        req = urllib.request.Request(url, headers=headers)
         with _ssrf_safe_opener.open(req, timeout=10) as response:
             return str(response.read().decode("utf-8"))
 
     try:
         html = _fetch()
     except ValueError as e:
-        # Rethrow SSRF validation errors that occur during redirects or connection
+        # Rethrow SSRF validation errors during redirects or connection
         if "resolves to a restricted IP address" in str(e):
             raise
         logger.error(f"Failed to download HTML from {url}: {e}")
@@ -437,7 +444,7 @@ def fetch_and_extract_text(url: str) -> str | None:
         if not isinstance(href, str) or not href.startswith("#"):
             a_tag.unwrap()
 
-    # Convert HTML tree to markdown, omitting external link URLs to save tokens.
+    # Convert HTML tree to markdown, omitting external URLs to save tokens.
     content = markdownify.markdownify(
         str(main_content),
         heading_style="ATX",
@@ -661,9 +668,7 @@ def _resolve_patterns(directory: Path, patterns: list[str]) -> set[str]:
 
 
 def extract_dependencies(content: str) -> list[str]:
-    """
-    Scans file content for references to other files.
-    """
+    """Scans file content for references to other files."""
     # Strip HTML comments to avoid picking up commented-out dependencies
     clean_content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
 
@@ -678,9 +683,7 @@ def extract_dependencies(content: str) -> list[str]:
 def resolve_dependency_path(
     current_file_path: Path, dep_ref: str, wpt_root: Path
 ) -> Path | None:
-    """
-    Resolves a dependency reference to a concrete local WPT repository path.
-    """
+    """Resolves a dependency ref to a concrete local repository path."""
     if dep_ref.startswith(("http", "//", "https")):
         return None
 

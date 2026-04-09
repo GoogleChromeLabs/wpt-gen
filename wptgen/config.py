@@ -119,7 +119,8 @@ class Config:
         return self.categories.get(category)
 
     def get_model_info_for_phase(self, phase: WorkflowPhase | str) -> str:
-        """Returns a formatted string describing the model category being used for a phase."""
+        """Returns a formatted string describing the model category being used
+        for a phase."""
         phase_name = phase.value if isinstance(phase, WorkflowPhase) else phase
 
         category = self.phase_model_mapping.get(phase_name, "default")
@@ -409,7 +410,9 @@ def load_config(
 
     # Ensure default mapping if missing in YAML
     default_phase_mapping = {
-        WorkflowPhase.REQUIREMENTS_EXTRACTION.value: ModelCategory.REASONING.value,
+        WorkflowPhase.REQUIREMENTS_EXTRACTION.value: (
+            ModelCategory.REASONING.value
+        ),
         WorkflowPhase.COVERAGE_AUDIT.value: ModelCategory.REASONING.value,
         WorkflowPhase.GENERATION.value: ModelCategory.LIGHTWEIGHT.value,
     }
