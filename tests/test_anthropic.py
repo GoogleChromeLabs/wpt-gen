@@ -87,6 +87,7 @@ def test_anthropic_generate_content(
     # Verify the internal SDK method was called with the correct model and prompt
     mock_instance.messages.create.assert_called_once_with(
         model="claude-3-7-sonnet-20250219",
+        max_tokens=AnthropicClient.DEFAULT_MAX_TOKENS,
         messages=[{"role": "user", "content": "Test prompt"}],
         system="Test instruction",
         temperature=0.7,

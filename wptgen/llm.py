@@ -328,6 +328,8 @@ class OpenAIClient(LLMClient):
 class AnthropicClient(LLMClient):
     """Client for interacting with Anthropic's API."""
 
+    DEFAULT_MAX_TOKENS = 8192
+
     def __init__(
         self,
         api_key: str,
@@ -378,6 +380,7 @@ class AnthropicClient(LLMClient):
         target_model = model or self.model
         kwargs: dict[str, Any] = {
             "model": target_model,
+            "max_tokens": self.DEFAULT_MAX_TOKENS,
             "messages": [{"role": "user", "content": prompt}],
         }
 
