@@ -247,7 +247,6 @@ async def run_requirements_extraction_categorized(
                 ui,
                 config,
                 system_instruction=extraction_system_prompt,
-                temperature=0.01,
                 model=config.get_model_for_phase(
                     WorkflowPhase.REQUIREMENTS_EXTRACTION
                 ),
@@ -437,7 +436,6 @@ async def run_requirements_extraction_iterative(
                 ui,
                 config,
                 system_instruction=extraction_system_prompt,
-                temperature=0.01,
                 model=config.get_model_for_phase(
                     WorkflowPhase.REQUIREMENTS_EXTRACTION
                 ),
