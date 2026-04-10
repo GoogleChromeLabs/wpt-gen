@@ -152,7 +152,7 @@ def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:
     """Tests the synchronous wrapper."""
     mock_async_workflow = mocker.patch.object(engine, "_run_async_workflow")
     engine.run_workflow("feat-id")
-    mock_async_workflow.assert_called_once_with("feat-id")
+    mock_async_workflow.assert_called_once_with("feat-id", False)
 
 
 @pytest.mark.asyncio

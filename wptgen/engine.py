@@ -65,9 +65,15 @@ class WPTGenEngine:
         self.cache_dir = Path(self.config.cache_path)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def run_workflow(self, web_feature_id: str) -> WorkflowContext:
+    def run_workflow(
+        self, web_feature_id: str, disable_directory_inference: bool = False
+    ) -> WorkflowContext:
         """Entry point for the synchronous CLI to launch the async workflow."""
-        return asyncio.run(self._run_async_workflow(web_feature_id))
+        return asyncio.run(
+            self._run_async_workflow(
+                web_feature_id, disable_directory_inference
+            )
+        )
 
     def _get_resume_file_path(self, web_feature_id: str) -> Path:
         """Returns the path to the resume file for a given web feature ID."""
@@ -215,7 +221,9 @@ class WPTGenEngine:
             with open(tests_json, "w", encoding="utf-8") as f:
                 json.dump(tests_data, f, indent=2)
 
-    async def _run_async_workflow(self, web_feature_id: str) -> WorkflowContext:
+    async def _run_async_workflow(
+        self, web_feature_id: str, disable_directory_inference: bool = False
+    ) -> WorkflowContext:
         """Orchestrates the end-to-end WPT generation workflow."""
         context = None
 
@@ -256,7 +264,7 @@ class WPTGenEngine:
 
             self._save_resume_state(context)
 
-        if not self.config.output_dir:
+        if not self.config.output_dir and not disable_directory_inference:
             from wptgen.utils import determine_output_directory
 
             self.config.output_dir = determine_output_directory(

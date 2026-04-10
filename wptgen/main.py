@@ -225,6 +225,7 @@ def _execute_workflow(
     wf_yml_update: bool,
     output_dir: Path | None,
     is_audit: bool = False,
+    disable_directory_inference: bool = False,
 ) -> None:
     """Instantiates the engine and runs the end-to-end workflow.
 
@@ -241,7 +242,9 @@ def _execute_workflow(
     engine = WPTGenEngine(config=config, ui=ui)
 
     # Execute the workflow
-    context = engine.run_workflow(web_feature_id)
+    context = engine.run_workflow(
+        web_feature_id, disable_directory_inference=disable_directory_inference
+    )
 
     if is_audit:
         console.print()
@@ -641,6 +644,7 @@ def generate(
             wf_yml_update=wf_yml_update,
             output_dir=output_dir,
             is_audit=False,
+            disable_directory_inference=True,
         )
 
 
