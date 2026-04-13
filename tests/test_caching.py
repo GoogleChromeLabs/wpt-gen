@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_caching.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the caching mechanism."""
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -114,7 +113,7 @@ async def test_requirements_cache_miss(
     # Verify cache file was created
     cache_file = cache_dir / "test-feat__requirements.xml"
     assert cache_file.exists()
-    cache_content = cache_file.read_text()
+    cache_content = cache_file.read_text(encoding="utf-8")
     assert '<requirement id="R1">' in cache_content
     assert "New Requirements" in cache_content
 
@@ -132,7 +131,7 @@ async def test_requirements_cache_hit_accept(
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
         "<requirements_list>Cached Requirements</requirements_list>"
-    )
+    , encoding="utf-8")
 
     context = WorkflowContext(
         feature_id=web_feature_id,
@@ -172,7 +171,7 @@ async def test_requirements_cache_hit_reject(
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
         "<requirements_list>Old Cached Requirements</requirements_list>"
-    )
+    , encoding="utf-8")
 
     metadata = FeatureMetadata(
         name="Feat", description="Desc", specs=["http://spec"]
@@ -210,6 +209,6 @@ async def test_requirements_cache_hit_reject(
     assert mock_llm.generate_content.call_count == 2
 
     # Cache file should be updated.
-    cache_content = cache_file.read_text()
+    cache_content = cache_file.read_text(encoding="utf-8")
     assert '<requirement id="R1">' in cache_content
     assert "New Requirements" in cache_content

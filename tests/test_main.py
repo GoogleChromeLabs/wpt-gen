@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_main.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the CLI entry point."""
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -578,7 +577,7 @@ def test_config_set_command_flat() -> None:
     """Test setting a flat configuration value."""
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
-        config_file.write_text("default_provider: openai\n")
+        config_file.write_text("default_provider: openai\n", encoding="utf-8")
 
         result = runner.invoke(
             app,
@@ -595,7 +594,7 @@ def test_config_set_command_flat() -> None:
         assert result.exit_code == 0
         assert "Set default_provider = gemini" in result.stdout
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         assert data["default_provider"] == "gemini"
 
@@ -606,7 +605,7 @@ def test_config_set_command_nested() -> None:
         config_file = Path("wpt-gen.yml")
         config_file.write_text(
             "providers:\n  gemini:\n    default_model: old-model\n"
-        )
+        , encoding="utf-8")
 
         result = runner.invoke(
             app,
@@ -622,7 +621,7 @@ def test_config_set_command_nested() -> None:
 
         assert result.exit_code == 0
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         assert data["providers"]["gemini"]["default_model"] == "new-model"
 
@@ -631,7 +630,7 @@ def test_config_set_command_types() -> None:
     """Test type conversion for config set."""
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
-        config_file.write_text("")
+        config_file.write_text("", encoding="utf-8")
 
         runner.invoke(
             app,
@@ -660,7 +659,7 @@ def test_config_set_command_types() -> None:
             ],
         )
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         assert data["timeout"] == 120

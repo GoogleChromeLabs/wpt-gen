@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_clear_cache.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the clear-cache command."""
 import re
 import shutil
 from pathlib import Path
@@ -76,9 +75,9 @@ def test_clear_cache_success(
     cache_dir = Path(mock_config.cache_path)
 
     # Populate cache
-    (cache_dir / "file1.txt").write_text("content1")
+    (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2")
+    (cache_dir / "subdir" / "file2.txt").write_text("content2", encoding="utf-8")
 
     result = runner.invoke(app, ["clear-cache"])
 
@@ -100,9 +99,9 @@ def test_clear_cache_force(
     cache_dir = Path(mock_config.cache_path)
 
     # Populate cache
-    (cache_dir / "file1.txt").write_text("content1")
+    (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2")
+    (cache_dir / "subdir" / "file2.txt").write_text("content2", encoding="utf-8")
 
     result = runner.invoke(app, ["clear-cache", "--force"])
 
@@ -123,7 +122,7 @@ def test_clear_cache_aborted(
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
     cache_file = cache_dir / "file1.txt"
-    cache_file.write_text("content1")
+    cache_file.write_text("content1", encoding="utf-8")
 
     result = runner.invoke(app, ["clear-cache"])
 

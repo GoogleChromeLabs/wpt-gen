@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_reqs.py."""
-
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the requirements extraction phase."""
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -111,7 +110,7 @@ async def test_run_requirements_extraction_iterative_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached iterative")
+    (tmp_path / "test__requirements.xml").write_text("cached iterative", encoding="utf-8")
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_iterative(
@@ -158,9 +157,7 @@ async def test_run_requirements_extraction_iterative_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    req_xml = (
-        "<requirements_list><requirement>" "</requirement></requirements_list>"
-    )
+    req_xml = "<requirements_list><requirement></requirement></requirements_list>"
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
@@ -253,7 +250,7 @@ async def test_run_requirements_extraction_cache_success(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached basic")
+    (tmp_path / "test__requirements.xml").write_text("cached basic", encoding="utf-8")
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction(
@@ -368,7 +365,7 @@ async def test_run_requirements_extraction_categorized_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached categorized")
+    (tmp_path / "test__requirements.xml").write_text("cached categorized", encoding="utf-8")
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_categorized(

@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_coverage_audit.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the coverage audit phase."""
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -260,11 +259,10 @@ async def test_run_coverage_audit_always_brief_suggestions(
 
     system_template_mock = mocker.MagicMock()
     system_template_mock.render.return_value = "System Prompt"
-
     def mock_get_template(name: str) -> Any:
         if name == "coverage_audit.jinja":
             return audit_template_mock
-        elif name == "coverage_audit_system.jinja":
+        if name == "coverage_audit_system.jinja":
             return system_template_mock
         return mocker.MagicMock()
 

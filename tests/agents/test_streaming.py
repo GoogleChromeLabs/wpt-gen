@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_streaming.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for LLM response streaming."""
 from unittest.mock import MagicMock
 
 import pytest
@@ -120,8 +119,6 @@ def test_format_tool_call_model_dump() -> None:
     panel = format_tool_call("tool", MockArgs())
     from typing import cast
 
-    from rich.table import Table
-
     table = cast(Table, panel.renderable)
     assert "test_path:" in list(table.columns[0].cells)
 
@@ -136,8 +133,6 @@ def test_format_tool_call_dict() -> None:
 
     panel = format_tool_call("tool", MockArgs())
     from typing import cast
-
-    from rich.table import Table
 
     table = cast(Table, panel.renderable)
     assert "test_path:" in list(table.columns[0].cells)
@@ -186,8 +181,6 @@ def test_format_tool_call_sort_key_not_in_priority() -> None:
     panel = format_tool_call("tool", {"test_path": "a", "unknown_key": "b"})
     # Both should be present, unknown_key should be sorted later
     from typing import cast
-
-    from rich.table import Table
 
     table = cast(Table, panel.renderable)
     cells = list(table.columns[0].cells)

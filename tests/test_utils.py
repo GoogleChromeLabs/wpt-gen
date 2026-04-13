@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for test_utils.py."""
-
+"""Tests for the general utility functions."""
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -544,8 +543,6 @@ def test_ensure_testharness_imports_partial() -> None:
 
 @pytest.fixture
 def mock_config(tmp_path: Path) -> "MagicMock":
-    from unittest.mock import MagicMock
-
     config = MagicMock()
     wpt_dir = tmp_path / "wpt"
     config.wpt_path = str(wpt_dir)
@@ -555,8 +552,6 @@ def mock_config(tmp_path: Path) -> "MagicMock":
 
 @pytest.fixture
 def mock_ui() -> "MagicMock":
-    from unittest.mock import MagicMock
-
     ui = MagicMock()
     ui.prompt.return_value = "incubations"
     return ui
@@ -564,8 +559,6 @@ def mock_ui() -> "MagicMock":
 
 @pytest.fixture
 def mock_context() -> "MagicMock":
-    from unittest.mock import MagicMock
-
     context = MagicMock()
     context.wpt_context.test_contents = {}
     context.metadata.specs = []

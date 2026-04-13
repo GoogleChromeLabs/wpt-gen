@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_observability.py."""
-
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the observability and logging module."""
 import json
 from pathlib import Path
 
@@ -57,7 +56,7 @@ def test_tracer_save(tmp_path: Path) -> None:
 
     assert len(tracer.traces) == 1
 
-    with open(tracer.trace_file) as f:
+    with open(tracer.trace_file, encoding="utf-8") as f:
         data = json.loads(f.read())
         assert data["prompt"] == "hello"
         assert data["latency"] == 0.5

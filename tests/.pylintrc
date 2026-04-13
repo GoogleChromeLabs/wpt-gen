@@ -16,11 +16,7 @@ disable=
     import-outside-toplevel,
     duplicate-code, # Common in test setups/fixtures
     too-few-public-methods, # Common for mock classes or small containers in tests
-    reimported, # Often happens with complex mock setups
     too-many-positional-arguments, # Tests often have many dependencies/params
-    stop-iteration-return, # Sometimes used in generators in tests
-    unspecified-encoding, # Tests often don't care about encoding for temp files
-    no-else-return, # Style preference, but okay to disable in tests
     no-member, # Often fails with mocks
     import-error, # Environment specific
     no-name-in-module, # Environment specific

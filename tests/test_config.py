@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for test_config.py."""
-
+"""Tests for the configuration module."""
 import sys
 from pathlib import Path
 
@@ -463,8 +462,6 @@ def test_load_config_audit_partition_size_validation(
 
 def test_get_model_info_for_phase() -> None:
     """Test get_model_info_for_phase override text formatting."""
-    from wptgen.config import Config
-
     config = Config(
         provider="gemini",
         default_model="default",

@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_engine.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the orchestration engine."""
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -235,7 +234,7 @@ def test_engine_load_resume_state_invalid_json(
     mocker.patch("wptgen.engine.get_llm_client")
     engine = WPTGenEngine(mock_config, ui_mock)
     resume_file = tmp_path / "mock_feature_resume.json"
-    resume_file.write_text("invalid json")
+    resume_file.write_text("invalid json", encoding="utf-8")
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
         return_value=resume_file,
@@ -403,7 +402,7 @@ def test_engine_load_resume_state_success(
         '"suggestions": [], "approved_suggestions_xml": [], '
         '"mdn_contents": null, "generated_tests": null}'
     )
-    resume_file.write_text(resume_json)
+    resume_file.write_text(resume_json, encoding="utf-8")
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
         return_value=resume_file,
@@ -423,10 +422,10 @@ def test_engine_hydrate_context(
 
     (Path(mock_config.state_dir) / "requirements.json").write_text(
         '{"requirements_xml": "<test-reqs/>"}'
-    )
+    , encoding="utf-8")
     (Path(mock_config.state_dir) / "test_suggestions.json").write_text(
         '{"audit_response": "<test-audit/>"}'
-    )
+    , encoding="utf-8")
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")
@@ -511,14 +510,14 @@ def test_engine_hydrate_context_exceptions(
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Write valid JSON but wrong types to trigger exceptions after load
-    (state_dir / "resume_mock_feature.json").write_text("null")
-    (state_dir / "requirements.json").write_text("null")
-    (state_dir / "test_suggestions.json").write_text("null")
+    (state_dir / "resume_mock_feature.json").write_text("null", encoding="utf-8")
+    (state_dir / "requirements.json").write_text("null", encoding="utf-8")
+    (state_dir / "test_suggestions.json").write_text("null", encoding="utf-8")
 
     # create generated_tests dir and tests json
     tests_dir = state_dir / "generated_tests"
     tests_dir.mkdir()
-    (tests_dir / "generated_tests.json").write_text('[{"invalid": "data"}]')
+    (tests_dir / "generated_tests.json").write_text('[{"invalid": "data"}]', encoding="utf-8")
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")
@@ -549,9 +548,9 @@ def test_engine_hydrate_context_html_files(
 
     # Create html files
     html_file_1 = tests_dir / "test1.html"
-    html_file_1.write_text("<html>test1</html>")
+    html_file_1.write_text("<html>test1</html>", encoding="utf-8")
     html_file_2 = tests_dir / "test2.html"
-    html_file_2.write_text("<html>test2</html>")
+    html_file_2.write_text("<html>test2</html>", encoding="utf-8")
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")

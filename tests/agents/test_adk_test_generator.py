@@ -4,8 +4,6 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-"""Tests for test_adk_test_generator.py."""
-
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
@@ -14,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the ADK test generator agent."""
 import os
 from pathlib import Path
 from typing import Any
@@ -74,10 +73,14 @@ async def test_generate_test_with_adk(
         # Runner
         agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t
-            for t in agent.tools
-            if t.func.__name__ == "report_generation_complete"
+            (
+                t
+                for t in agent.tools
+                if t.func.__name__ == "report_generation_complete"
+            ),
+            None,
         )
+        assert completion_tool is not None
 
         # Simulate the LLM calling the tool with the generated path
         completion_tool.func([str(test_file)])
@@ -228,10 +231,14 @@ async def test_generate_test_invalid_path(
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
         agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t
-            for t in agent.tools
-            if t.func.__name__ == "report_generation_complete"
+            (
+                t
+                for t in agent.tools
+                if t.func.__name__ == "report_generation_complete"
+            ),
+            None,
         )
+        assert completion_tool is not None
 
         # Provide an invalid path outside wpt_root (simulating a path traversal
         # attack / mistake)
