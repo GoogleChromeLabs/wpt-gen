@@ -259,6 +259,7 @@ async def test_run_coverage_audit_always_brief_suggestions(
 
     system_template_mock = mocker.MagicMock()
     system_template_mock.render.return_value = "System Prompt"
+
     def mock_get_template(name: str) -> Any:
         if name == "coverage_audit.jinja":
             return audit_template_mock

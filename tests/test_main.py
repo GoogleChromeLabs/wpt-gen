@@ -604,8 +604,9 @@ def test_config_set_command_nested() -> None:
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
         config_file.write_text(
-            "providers:\n  gemini:\n    default_model: old-model\n"
-        , encoding="utf-8")
+            "providers:\n  gemini:\n    default_model: old-model\n",
+            encoding="utf-8",
+        )
 
         result = runner.invoke(
             app,

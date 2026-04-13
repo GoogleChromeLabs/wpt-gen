@@ -421,11 +421,11 @@ def test_engine_hydrate_context(
     Path(mock_config.state_dir).mkdir(parents=True, exist_ok=True)
 
     (Path(mock_config.state_dir) / "requirements.json").write_text(
-        '{"requirements_xml": "<test-reqs/>"}'
-    , encoding="utf-8")
+        '{"requirements_xml": "<test-reqs/>"}', encoding="utf-8"
+    )
     (Path(mock_config.state_dir) / "test_suggestions.json").write_text(
-        '{"audit_response": "<test-audit/>"}'
-    , encoding="utf-8")
+        '{"audit_response": "<test-audit/>"}', encoding="utf-8"
+    )
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")
@@ -510,14 +510,18 @@ def test_engine_hydrate_context_exceptions(
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Write valid JSON but wrong types to trigger exceptions after load
-    (state_dir / "resume_mock_feature.json").write_text("null", encoding="utf-8")
+    (state_dir / "resume_mock_feature.json").write_text(
+        "null", encoding="utf-8"
+    )
     (state_dir / "requirements.json").write_text("null", encoding="utf-8")
     (state_dir / "test_suggestions.json").write_text("null", encoding="utf-8")
 
     # create generated_tests dir and tests json
     tests_dir = state_dir / "generated_tests"
     tests_dir.mkdir()
-    (tests_dir / "generated_tests.json").write_text('[{"invalid": "data"}]', encoding="utf-8")
+    (tests_dir / "generated_tests.json").write_text(
+        '[{"invalid": "data"}]', encoding="utf-8"
+    )
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")

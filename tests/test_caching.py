@@ -130,8 +130,9 @@ async def test_requirements_cache_hit_accept(
     cache_dir.mkdir()
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        "<requirements_list>Cached Requirements</requirements_list>"
-    , encoding="utf-8")
+        "<requirements_list>Cached Requirements</requirements_list>",
+        encoding="utf-8",
+    )
 
     context = WorkflowContext(
         feature_id=web_feature_id,
@@ -170,8 +171,9 @@ async def test_requirements_cache_hit_reject(
     cache_dir.mkdir()
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        "<requirements_list>Old Cached Requirements</requirements_list>"
-    , encoding="utf-8")
+        "<requirements_list>Old Cached Requirements</requirements_list>",
+        encoding="utf-8",
+    )
 
     metadata = FeatureMetadata(
         name="Feat", description="Desc", specs=["http://spec"]

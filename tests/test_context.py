@@ -602,15 +602,16 @@ def test_find_feature_tests_malformed_yaml(tmp_path: Path) -> None:
     feat_dir = tmp_path / "broken-feature"
     feat_dir.mkdir()
     (feat_dir / "WEB_FEATURES.yml").write_text(
-        "features:\n - name: oops\n  bad_indent: true"
-    , encoding="utf-8")
+        "features:\n - name: oops\n  bad_indent: true", encoding="utf-8"
+    )
 
     # Create a valid one to ensure the loop continues after the error
     valid_dir = tmp_path / "valid-feature"
     valid_dir.mkdir()
     (valid_dir / "WEB_FEATURES.yml").write_text(
-        "features:\n  - name: works\n    files:\n      - 'test.html'"
-    , encoding="utf-8")
+        "features:\n  - name: works\n    files:\n      - 'test.html'",
+        encoding="utf-8",
+    )
     (valid_dir / "test.html").touch()
 
     results = find_feature_tests(str(tmp_path), "works")
@@ -624,8 +625,9 @@ def test_find_feature_tests_feature_not_found(tmp_path: Path) -> None:
     list.
     """
     (tmp_path / "WEB_FEATURES.yml").write_text(
-        "features:\n  - name: grid\n    files:\n      - '*.html'"
-    , encoding="utf-8")
+        "features:\n  - name: grid\n    files:\n      - '*.html'",
+        encoding="utf-8",
+    )
 
     results = find_feature_tests(str(tmp_path), "non-existent-feature")
 

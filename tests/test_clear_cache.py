@@ -77,7 +77,9 @@ def test_clear_cache_success(
     # Populate cache
     (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2", encoding="utf-8")
+    (cache_dir / "subdir" / "file2.txt").write_text(
+        "content2", encoding="utf-8"
+    )
 
     result = runner.invoke(app, ["clear-cache"])
 
@@ -101,7 +103,9 @@ def test_clear_cache_force(
     # Populate cache
     (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2", encoding="utf-8")
+    (cache_dir / "subdir" / "file2.txt").write_text(
+        "content2", encoding="utf-8"
+    )
 
     result = runner.invoke(app, ["clear-cache", "--force"])
 

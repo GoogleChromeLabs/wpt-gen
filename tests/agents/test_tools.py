@@ -65,7 +65,9 @@ def test_parse_test_results(tmp_path: Path) -> None:
         },
         {"action": "test_end", "test": "test2", "status": "PASS"},
     ]
-    log_file.write_text("\n".join(json.dumps(log) for log in logs) + "\n", encoding="utf-8")
+    log_file.write_text(
+        "\n".join(json.dumps(log) for log in logs) + "\n", encoding="utf-8"
+    )
 
     results = _parse_test_results(str(log_file))
     assert "test1" in results
@@ -109,7 +111,9 @@ def test_tool_read_file(
     wpt_root: Path, agent_tools: dict[str, FunctionTool]
 ) -> None:
     read_file = agent_tools["read_file"]
-    (wpt_root / "test.txt").write_text("line1\nline2\nline3\n", encoding="utf-8")
+    (wpt_root / "test.txt").write_text(
+        "line1\nline2\nline3\n", encoding="utf-8"
+    )
 
     res = read_file.func(file_path="test.txt")
     assert res == {"status": "success", "content": "line1\nline2\nline3\n"}
@@ -193,8 +197,12 @@ def test_tool_search_file_contents(
 ) -> None:
     search_file_contents = agent_tools["search_file_contents"]
     (wpt_root / "dir1").mkdir()
-    (wpt_root / "dir1" / "file1.txt").write_text("hello world\nfoo bar\n", encoding="utf-8")
-    (wpt_root / "dir1" / "file2.txt").write_text("test foo\nbar baz\n", encoding="utf-8")
+    (wpt_root / "dir1" / "file1.txt").write_text(
+        "hello world\nfoo bar\n", encoding="utf-8"
+    )
+    (wpt_root / "dir1" / "file2.txt").write_text(
+        "test foo\nbar baz\n", encoding="utf-8"
+    )
 
     res = search_file_contents.func(directory="dir1", pattern="foo")
     assert res["status"] == "success"

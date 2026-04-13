@@ -110,7 +110,9 @@ async def test_run_requirements_extraction_iterative_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached iterative", encoding="utf-8")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached iterative", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_iterative(
@@ -157,7 +159,9 @@ async def test_run_requirements_extraction_iterative_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    req_xml = "<requirements_list><requirement></requirement></requirements_list>"
+    req_xml = (
+        "<requirements_list><requirement></requirement></requirements_list>"
+    )
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
@@ -250,7 +254,9 @@ async def test_run_requirements_extraction_cache_success(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached basic", encoding="utf-8")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached basic", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction(
@@ -365,7 +371,9 @@ async def test_run_requirements_extraction_categorized_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached categorized", encoding="utf-8")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached categorized", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_categorized(
