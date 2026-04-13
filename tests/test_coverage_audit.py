@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the coverage audit phase."""
+"""Tests for coverage_audit.py."""
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock

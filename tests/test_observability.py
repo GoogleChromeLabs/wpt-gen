@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the observability and logging module."""
+"""Tests for observability.py."""
 import json
 from pathlib import Path
 

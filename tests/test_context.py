@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the context assembly phase."""
+"""Tests for context.py."""
 import urllib.error
 from email.message import Message
 from pathlib import Path

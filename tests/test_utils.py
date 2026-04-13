@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the general utility functions."""
+"""Tests for utils.py."""
 from pathlib import Path
 from unittest.mock import MagicMock
 

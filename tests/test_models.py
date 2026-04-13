@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the data models."""
+"""Tests for models.py."""
 from typing import Any
 
 from wptgen.models import WorkflowContext
