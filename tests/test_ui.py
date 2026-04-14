@@ -303,7 +303,7 @@ def test_report_generation_start(
 ) -> None:
     ui.report_generation_start(5)
     mock_console.print.assert_called_once_with(
-        "\nGenerating [bold]5[/bold] tests in parallel..."
+        "\nGenerating [bold]5[/bold] tests..."
     )
 
 

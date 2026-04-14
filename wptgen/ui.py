@@ -477,9 +477,7 @@ class RichUIProvider:
 
     def report_generation_start(self, count: int) -> None:
         """Displays the start of the test generation phase."""
-        self.console.print(
-            f"\nGenerating [bold]{count}[/bold] tests in parallel..."
-        )
+        self.console.print(f"\nGenerating [bold]{count}[/bold] tests...")
 
     def report_test_generated(
         self,
