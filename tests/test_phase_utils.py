@@ -13,7 +13,6 @@
 # limitations under the License.
 
 """Tests for the phase utility functions."""
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -22,46 +21,6 @@ import typer
 
 from wptgen.config import Config
 from wptgen.phases.utils import confirm_prompts, generate_safe
-
-
-@pytest.fixture
-def mock_ui() -> MagicMock:
-    """Fixture that provides a mocked UI provider with a status context manager."""
-    ui = MagicMock()
-    ui.status.return_value.__enter__.return_value = None
-    return ui
-
-
-@pytest.fixture
-def mock_llm() -> MagicMock:
-    """Fixture that provides a mocked LLM client."""
-    llm = MagicMock()
-    llm.model = "test-model"
-    llm.count_tokens.return_value = 100
-    llm.prompt_exceeds_input_token_limit.return_value = False
-    llm.generate_content.return_value = "response"
-    return llm
-
-
-@pytest.fixture
-def mock_config(tmp_path: Path) -> Config:
-    """Fixture that provides a basic test configuration."""
-    return Config(
-        provider="test",
-        default_model="test-model",
-        api_key="key",
-        categories={"reasoning": "test-model", "lightweight": "test-model"},
-        phase_model_mapping={
-            "requirements_extraction": "reasoning",
-            "coverage_audit": "reasoning",
-            "generation": "lightweight",
-        },
-        wpt_path=str(tmp_path / "wpt"),
-        cache_path=str(tmp_path / "cache"),
-        output_dir=str(tmp_path / "output"),
-        yes_tokens=False,
-        show_responses=False,
-    )
 
 
 @pytest.mark.asyncio
@@ -75,7 +34,7 @@ async def test_confirm_prompts_multiple(
     mock_ui.report_token_usage.assert_called_once()
     args, kwargs = mock_ui.report_token_usage.call_args
     assert args[0] == "Phase"
-    assert args[3] == 200
+    assert args[3] == 20
 
 
 @pytest.mark.asyncio
@@ -129,8 +88,8 @@ async def test_generate_safe_show_responses_xml(
     """Test that generate_safe displays response as XML when configured."""
     mock_config.show_responses = True
     res = await generate_safe("prompt", "Task", mock_llm, mock_ui, mock_config)
-    assert res == "response"
-    mock_ui.report_llm_response.assert_called_once_with("response", "Task")
+    assert res == "Mock Response"
+    mock_ui.report_llm_response.assert_called_once_with("Mock Response", "Task")
 
 
 @pytest.mark.asyncio
@@ -144,7 +103,7 @@ async def test_generate_safe_exception(
     res = await generate_safe("prompt", "Task", mock_llm, mock_ui, mock_config)
     assert res == ""
     mock_ui.error.assert_called_once_with(
-        "Task failed (test-model): test error"
+        "Task failed (mock-model): test error"
     )
 
 
@@ -175,7 +134,7 @@ async def test_generate_safe_parallelism_limit(
         max_seen_parallel = max(max_seen_parallel, active_requests)
         time.sleep(0.1)
         active_requests -= 1
-        return "response"
+        return "Mock Response"
 
     mock_llm.generate_content.side_effect = slow_sync_generate
 

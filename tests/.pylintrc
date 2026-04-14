@@ -38,8 +38,7 @@ docstring-min-length=12
 max-line-length=80
 
 # Maximum number of lines in a module
-# Increased to accommodate test_phases.py (see issue #431 for refactor plan)
-max-module-lines=2000
+max-module-lines=1000
 
 [DESIGN]
 # Maximum number of arguments for function / method
