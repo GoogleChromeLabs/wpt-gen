@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for engine.py."""
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -49,7 +50,8 @@ def mock_config(tmp_path: Path) -> Config:
 @pytest.fixture
 def mock_llm() -> MagicMock:
     """Provides a mocked LLM client using AsyncMock for async methods."""
-    # We use MagicMock for the container, but AsyncMock for the specific async method
+    # We use MagicMock for the container, but AsyncMock for the specific async
+    # method
     llm = MagicMock()
 
     # generate_content is presumably awaited in the underlying phases
@@ -79,7 +81,10 @@ def engine(
 async def test_run_async_workflow_full_path(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Full asynchronous workflow orchestration, ensuring each phase is called."""
+    """Full asynchronous workflow orchestration.
+
+    Ensures each phase is called.
+    """
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
     audit = "audit"
@@ -159,7 +164,10 @@ def test_run_workflow_sync(engine: WPTGenEngine, mocker: MockerFixture) -> None:
 async def test_run_async_workflow_suggestions_only(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies that the workflow short-circuits to provide_coverage_report when config.suggestions_only is True."""
+    """Verifies workflow short-circuits to provide_coverage_report.
+
+    Called when config.suggestions_only is True.
+    """
     engine.config.suggestions_only = True
     context = WorkflowContext(feature_id="test-feat", audit_response="audit")
 
@@ -186,7 +194,10 @@ async def test_run_async_workflow_suggestions_only(
 async def test_run_async_workflow_detailed_requirements(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verifies that run_requirements_extraction_iterative is called when config.detailed_requirements is True."""
+    """Verifies run_requirements_extraction_iterative is called.
+
+    Called when config.detailed_requirements is True.
+    """
     engine.config.detailed_requirements = True
     context = WorkflowContext(feature_id="feat-id")
     requirements = "reqs"
@@ -210,7 +221,7 @@ async def test_run_async_workflow_detailed_requirements(
 
 
 def test_engine_init(engine: WPTGenEngine, mock_config: Config) -> None:
-    """Verifies that the engine initializes correctly with the given configuration."""
+    """Verifies engine initializes correctly with configuration."""
     assert engine.config == mock_config
     assert engine.llm is not None
     assert engine.jinja_env is not None
@@ -223,7 +234,7 @@ def test_engine_load_resume_state_invalid_json(
     mocker.patch("wptgen.engine.get_llm_client")
     engine = WPTGenEngine(mock_config, ui_mock)
     resume_file = tmp_path / "mock_feature_resume.json"
-    resume_file.write_text("invalid json")
+    resume_file.write_text("invalid json", encoding="utf-8")
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
         return_value=resume_file,
@@ -384,9 +395,14 @@ def test_engine_load_resume_state_success(
     mocker.patch("wptgen.engine.get_llm_client")
     engine = WPTGenEngine(mock_config, ui_mock)
     resume_file = tmp_path / "mock_feature_resume.json"
-    resume_file.write_text(
-        '{"feature_id": "mock_feature", "metadata": null, "spec_contents": null, "wpt_context": null, "requirements_xml": null, "audit_response": null, "suggestions": [], "approved_suggestions_xml": [], "mdn_contents": null, "generated_tests": null}'
+    resume_json = (
+        '{"feature_id": "mock_feature", "metadata": null, '
+        '"spec_contents": null, "wpt_context": null, '
+        '"requirements_xml": null, "audit_response": null, '
+        '"suggestions": [], "approved_suggestions_xml": [], '
+        '"mdn_contents": null, "generated_tests": null}'
     )
+    resume_file.write_text(resume_json, encoding="utf-8")
     mocker.patch(
         "wptgen.engine.WPTGenEngine._get_resume_file_path",
         return_value=resume_file,
@@ -405,10 +421,10 @@ def test_engine_hydrate_context(
     Path(mock_config.state_dir).mkdir(parents=True, exist_ok=True)
 
     (Path(mock_config.state_dir) / "requirements.json").write_text(
-        '{"requirements_xml": "<test-reqs/>"}'
+        '{"requirements_xml": "<test-reqs/>"}', encoding="utf-8"
     )
     (Path(mock_config.state_dir) / "test_suggestions.json").write_text(
-        '{"audit_response": "<test-audit/>"}'
+        '{"audit_response": "<test-audit/>"}', encoding="utf-8"
     )
 
     engine = WPTGenEngine(mock_config, ui_mock)
@@ -494,14 +510,18 @@ def test_engine_hydrate_context_exceptions(
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Write valid JSON but wrong types to trigger exceptions after load
-    (state_dir / "resume_mock_feature.json").write_text("null")
-    (state_dir / "requirements.json").write_text("null")
-    (state_dir / "test_suggestions.json").write_text("null")
+    (state_dir / "resume_mock_feature.json").write_text(
+        "null", encoding="utf-8"
+    )
+    (state_dir / "requirements.json").write_text("null", encoding="utf-8")
+    (state_dir / "test_suggestions.json").write_text("null", encoding="utf-8")
 
     # create generated_tests dir and tests json
     tests_dir = state_dir / "generated_tests"
     tests_dir.mkdir()
-    (tests_dir / "generated_tests.json").write_text('[{"invalid": "data"}]')
+    (tests_dir / "generated_tests.json").write_text(
+        '[{"invalid": "data"}]', encoding="utf-8"
+    )
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")
@@ -510,7 +530,8 @@ def test_engine_hydrate_context_exceptions(
     ui_mock.warning.assert_called_once()
     assert "Failed to load resume state" in ui_mock.warning.call_args[0][0]
 
-    # the other files silently pass exceptions, context should not have these fields populated
+    # the other files silently pass exceptions, context should not have these
+    # fields populated
     assert context.requirements_xml is None
     assert context.audit_response is None
     assert context.generated_tests is None
@@ -531,9 +552,9 @@ def test_engine_hydrate_context_html_files(
 
     # Create html files
     html_file_1 = tests_dir / "test1.html"
-    html_file_1.write_text("<html>test1</html>")
+    html_file_1.write_text("<html>test1</html>", encoding="utf-8")
     html_file_2 = tests_dir / "test2.html"
-    html_file_2.write_text("<html>test2</html>")
+    html_file_2.write_text("<html>test2</html>", encoding="utf-8")
 
     engine = WPTGenEngine(mock_config, ui_mock)
     context = engine._hydrate_context("mock_feature")

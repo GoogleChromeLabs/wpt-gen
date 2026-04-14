@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for retrieval utility functions."""
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -40,9 +41,13 @@ def test_get_recent_test_files_success(
     mock_path_methods: None,
 ) -> None:
     mock_result = MagicMock()
-    # Note: the test simulates duplicate lines (different commits modifying the same file)
-    # and files that don't match the required extension.
-    mock_result.stdout = "dir/test1.html\ndir/test1.html\ndir/ignore.js\ndir/test2.html\ndir/test3.html\n"
+    # Note: the test simulates duplicate lines (different commits modifying the
+    # same file) and files that don't match the required extension.
+    files_stdout = (
+        "dir/test1.html\ndir/test1.html\ndir/ignore.js\n"
+        "dir/test2.html\ndir/test3.html\n"
+    )
+    mock_result.stdout = files_stdout
     mock_subprocess_run.return_value = mock_result
 
     mocker.patch(

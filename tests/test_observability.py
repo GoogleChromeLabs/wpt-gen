@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for observability.py."""
 import json
 from pathlib import Path
 
@@ -55,7 +56,7 @@ def test_tracer_save(tmp_path: Path) -> None:
 
     assert len(tracer.traces) == 1
 
-    with open(tracer.trace_file) as f:
+    with open(tracer.trace_file, encoding="utf-8") as f:
         data = json.loads(f.read())
         assert data["prompt"] == "hello"
         assert data["latency"] == 0.5

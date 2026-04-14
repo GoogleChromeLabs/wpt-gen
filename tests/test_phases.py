@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the workflow phases."""
 import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -163,7 +164,9 @@ async def test_run_context_assembly_with_mdn(
 async def test_run_context_assembly_without_mdn(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test context assembly skips MDN fetching when include_mdn_docs is False."""
+    """Test context assembly skips MDN fetching when include_mdn_docs is
+    False.
+    """
     mock_config.include_mdn_docs = False
     mocker.patch(
         "wptgen.phases.context_assembly.fetch_feature_yaml",
@@ -203,7 +206,9 @@ async def test_run_context_assembly_without_mdn(
 async def test_run_context_assembly_chromestatus_skips_mdn(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that context assembly skips MDN fetching for ChromeStatus features."""
+    """Test that context assembly skips MDN fetching for ChromeStatus
+    features.
+    """
     mock_config.chromestatus = True
     mock_config.include_mdn_docs = True
     mocker.patch(
@@ -239,7 +244,9 @@ async def test_run_context_assembly_chromestatus_skips_mdn(
 async def test_run_context_assembly_unregistered_with_params(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test context assembly for an unregistered feature with manual parameters."""
+    """Test context assembly for an unregistered feature with manual
+    parameters.
+    """
     mock_config.spec_urls = ["http://manual-spec"]
     mock_config.feature_description = "Manual Description"
 
@@ -279,7 +286,9 @@ async def test_run_context_assembly_unregistered_with_params(
 async def test_run_context_assembly_not_found(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test context assembly when feature is not found and no manual params provided."""
+    """Test context assembly when feature is not found and no manual params
+    provided.
+    """
     mocker.patch(
         "wptgen.phases.context_assembly.fetch_feature_yaml", return_value=None
     )
@@ -362,7 +371,9 @@ async def test_run_context_assembly_chromestatus_with_wpt_descr(
 async def test_run_context_assembly_chromestatus_too_many_tests(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that context assembly warns but proceeds if too many tests are found."""
+    """Test that context assembly warns but proceeds if too many tests are
+    found.
+    """
     mock_config.chromestatus = True
     metadata = FeatureMetadata(
         "Feat", "Desc", ["http://spec"], wpt_descr="css/"
@@ -396,9 +407,10 @@ async def test_run_context_assembly_chromestatus_too_many_tests(
 
     # Should have warned about skipping ChromeStatus tests
     mock_ui.warning.assert_any_call(
-        "Skipping ChromeStatus tests: Too many tests found (60). Max allowed is 50."
+        "Skipping ChromeStatus tests: Too many tests found (60). "
+        "Max allowed is 50."
     )
-    # Should also have warned that no tests were loaded (since find_feature_tests returned [])
+    # Should also have warned that no tests were loaded
     mock_ui.warning.assert_any_call(
         "No existing Web Platform Tests were successfully loaded."
     )
@@ -416,7 +428,7 @@ async def test_run_requirements_extraction_cached(
     )
     cache_dir = tmp_path
     cache_file = cache_dir / "feat__requirements.xml"
-    cache_file.write_text("<reqs>cached</reqs>")
+    cache_file.write_text("<reqs>cached</reqs>", encoding="utf-8")
 
     mock_ui.confirm.return_value = True
 
@@ -448,9 +460,14 @@ async def test_run_requirements_extraction_with_explainer(
     template_mock = MagicMock()
     jinja_env.get_template.return_value = template_mock
 
+    req_xml = (
+        '<requirements_list><requirement id="R1">'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
+    )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+        return_value=req_xml,
     ):
         await run_requirements_extraction(
             context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
@@ -483,9 +500,14 @@ async def test_run_requirements_extraction_success(
     template_mock = MagicMock()
     jinja_env.get_template.return_value = template_mock
 
+    req_xml = (
+        '<requirements_list><requirement id="R1">'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
+    )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+        return_value=req_xml,
     ):
         await run_requirements_extraction(
             context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
@@ -499,7 +521,9 @@ async def test_run_requirements_extraction_success(
 async def test_run_context_assembly_explainer_fetch_warning(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that a warning is shown if an explainer fails to fetch meaningful text."""
+    """Test that a warning is shown if an explainer fails to fetch meaningful
+    text.
+    """
     mocker.patch(
         "wptgen.phases.context_assembly.fetch_feature_yaml",
         return_value={"name": "feat"},
@@ -527,7 +551,8 @@ async def test_run_context_assembly_explainer_fetch_warning(
     await run_context_assembly("feat-id", mock_config, mock_ui)
 
     mock_ui.warning.assert_any_call(
-        "Failed to fetch or extract meaningful text from explainer: http://explainer-fail"
+        "Failed to fetch or extract meaningful text from explainer: "
+        "http://explainer-fail"
     )
 
 
@@ -535,7 +560,9 @@ async def test_run_context_assembly_explainer_fetch_warning(
 async def test_run_context_assembly_explainer_fetch_exception(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that a warning is shown if an explainer fetch raises an exception."""
+    """Test that a warning is shown if an explainer fetch raises an
+    exception.
+    """
     mocker.patch(
         "wptgen.phases.context_assembly.fetch_feature_yaml",
         return_value={"name": "feat"},
@@ -563,7 +590,8 @@ async def test_run_context_assembly_explainer_fetch_exception(
     await run_context_assembly("feat-id", mock_config, mock_ui)
 
     mock_ui.warning.assert_any_call(
-        "Failed to fetch or extract content from explainer (http://explainer-error): Network error"
+        "Failed to fetch or extract content from explainer "
+        "(http://explainer-error): Network error"
     )
 
 
@@ -606,7 +634,9 @@ async def test_run_context_assembly_spec_fetch_exception(
 async def test_run_requirements_extraction_categorized_with_explainer(
     mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:
-    """Test categorized requirements extraction when explainer contents are present."""
+    """Test categorized requirements extraction when explainer contents are
+    present.
+    """
     context = WorkflowContext(
         feature_id="feat-explainer-cat",
         metadata=FeatureMetadata("Feat", "Desc", ["http://spec"]),
@@ -617,9 +647,14 @@ async def test_run_requirements_extraction_categorized_with_explainer(
     template_mock = MagicMock()
     jinja_env.get_template.return_value = template_mock
 
+    req_xml = (
+        '<requirements_list><requirement id="R1">'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
+    )
     with patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        return_value='<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+        return_value=req_xml,
     ):
         await run_requirements_extraction_categorized(
             context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
@@ -656,11 +691,21 @@ async def test_run_requirements_extraction_categorized(
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
-            '<requirements_list><requirement id="R1"><category>Common Use Cases</category><description>D2</description></requirement></requirements_list>',
-            '<requirements_list><requirement id="R1"><category>Error Scenarios</category><description>D3</description></requirement></requirements_list>',
-            '<requirements_list><requirement id="R1"><category>Invalidation</category><description>D4</description></requirement></requirements_list>',
-            '<requirements_list><requirement id="R1"><category>Integration</category><description>D5</description></requirement></requirements_list>',
+            '<requirements_list><requirement id="R1">'
+            "<category>Existence</category><description>D1</description>"
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R1">'
+            "<category>Common Use Cases</category><description>D2</description>"
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R1">'
+            "<category>Error Scenarios</category><description>D3</description>"
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R1">'
+            "<category>Invalidation</category><description>D4</description>"
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R1">'
+            "<category>Integration</category><description>D5</description>"
+            "</requirement></requirements_list>",
         ],
     )
     res = await run_requirements_extraction_categorized(
@@ -699,9 +744,13 @@ async def test_run_requirements_extraction_categorized_partial_empty(
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
+            '<requirements_list><requirement id="R1">'
+            "<category>Existence</category><description>D1</description>"
+            "</requirement></requirements_list>",
             "<requirements_list></requirements_list>",  # Empty
-            '<requirements_list><requirement id="R1"><category>Error Scenarios</category><description>D3</description></requirement></requirements_list>',
+            '<requirements_list><requirement id="R1">'
+            "<category>Error Scenarios</category><description>D3</description>"
+            "</requirement></requirements_list>",
             "<requirements_list></requirements_list>",  # Empty
             "<requirements_list></requirements_list>",  # Empty
         ],
@@ -726,7 +775,9 @@ async def test_run_requirements_extraction_categorized_with_rationale(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Test categorized requirements extraction with a rationale for an empty category."""
+    """Test categorized requirements extraction with a rationale for an empty
+    category.
+    """
     context = WorkflowContext(
         feature_id="feat-rationale",
         metadata=FeatureMetadata("Feat", "Desc", ["http://spec"]),
@@ -735,16 +786,22 @@ async def test_run_requirements_extraction_categorized_with_rationale(
     jinja_env = MagicMock()
     jinja_env.get_template.return_value.render.return_value = "Mock Template"
 
-    # Mock generate_safe to return one category with a requirement and one with a rationale
+    # Mock generate_safe to return one category with a requirement and one
+    # with a rationale
+    req_xmls = [
+        '<requirements_list><requirement id="R1">'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>",
+        "<requirements_list><rationale>This feature is a simple object and "
+        "has no complex invalidation rules.</rationale>"
+        "</requirements_list>",
+        "<requirements_list></requirements_list>",  # Empty without rationale
+        "<requirements_list></requirements_list>",
+        "<requirements_list></requirements_list>",
+    ]
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        side_effect=[
-            '<requirements_list><requirement id="R1"><category>Existence</category><description>D1</description></requirement></requirements_list>',
-            "<requirements_list><rationale>This feature is a simple object and has no complex invalidation rules.</rationale></requirements_list>",
-            "<requirements_list></requirements_list>",  # Empty without rationale
-            "<requirements_list></requirements_list>",
-            "<requirements_list></requirements_list>",
-        ],
+        side_effect=req_xmls,
     )
     res = await run_requirements_extraction_categorized(
         context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
@@ -756,7 +813,9 @@ async def test_run_requirements_extraction_categorized_with_rationale(
 
     # Verify ui.info was called with the rationale
     mock_ui.info.assert_any_call(
-        "No requirements found for category [Common Use Cases] This feature is a simple object and has no complex invalidation rules."
+        "No requirements found for category [Common Use Cases] "
+        "This feature is a simple object and has no complex "
+        "invalidation rules."
     )
 
 
@@ -796,7 +855,7 @@ async def test_run_test_generation_satisfied(
         context, mock_config, mock_llm, mock_ui, jinja_env
     )
 
-    assert res == []
+    assert not res
     mock_ui.success.assert_called_once_with(
         "All identified test requirements have been satisfied."
     )
@@ -819,7 +878,7 @@ async def test_run_test_generation_no_suggestions(
         context, mock_config, mock_llm, mock_ui, jinja_env
     )
 
-    assert res == []
+    assert not res
     mock_ui.warning.assert_called_once_with(
         "No valid <test_suggestion> blocks found in the LLM response."
     )
@@ -830,7 +889,10 @@ async def test_run_test_generation_none_selected(
     mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock
 ) -> None:
     """Test test generation when user rejects all suggestions."""
-    suggestion_xml = "<test_suggestion><title>T1</title><description>D1</description></test_suggestion>"
+    suggestion_xml = (
+        "<test_suggestion><title>T1</title>"
+        "<description>D1</description></test_suggestion>"
+    )
     context = WorkflowContext(
         feature_id="feat",
         metadata=FeatureMetadata("Feat", "Desc", ["http://spec"]),
@@ -844,18 +906,21 @@ async def test_run_test_generation_none_selected(
         context, mock_config, mock_llm, mock_ui, jinja_env
     )
 
-    assert res == []
+    assert not res
     mock_ui.warning.assert_any_call("No tests selected. Exiting.")
 
 
 def test_partition_requirements_xml() -> None:
     """Test partition logic."""
     # Empty or no tags
-    assert partition_requirements_xml("") == []
+    assert not partition_requirements_xml("")
     assert partition_requirements_xml("just text") == ["just text"]
 
     # Less than threshold
-    reqs = '<requirement id="1">A</requirement>\n<requirement id="2">B</requirement>'
+    reqs = (
+        '<requirement id="1">A</requirement>\n'
+        '<requirement id="2">B</requirement>'
+    )
     assert partition_requirements_xml(reqs, max_threshold=2) == [reqs]
 
     # Even split (4 total, max 2)
@@ -926,8 +991,13 @@ async def test_run_test_generation_adk(
     mock_llm: MagicMock,
     mocker: MockerFixture,
 ) -> None:
-    """Test that ADK generation branches correctly and calls _generate_adk_loop."""
-    suggestion_xml = "<test_suggestion><title>T1</title><description>D1</description></test_suggestion>"
+    """Test that ADK generation branches correctly and calls
+    _generate_adk_loop.
+    """
+    suggestion_xml = (
+        "<test_suggestion><title>T1</title>"
+        "<description>D1</description></test_suggestion>"
+    )
     context = WorkflowContext(
         feature_id="feat",
         metadata=FeatureMetadata("Feat", "D", ["url"]),
@@ -945,18 +1015,24 @@ async def test_run_test_generation_adk(
     )
 
     assert mock_adk.called
-    assert results == []
+    assert not results
 
 
 @pytest.mark.asyncio
 async def test_generate_adk_loop(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test that _generate_adk_loop properly maps the suggestions and triggers tasks."""
+    """Test that _generate_adk_loop properly maps the suggestions and triggers
+    tasks.
+    """
     mock_config.output_dir = "test_dir"
     mock_config.brief_suggestions = False
 
-    suggestion_xml = "<test_suggestion><title>T1</title><test_type>JavaScript Test</test_type><description>D1</description></test_suggestion>"
+    suggestion_xml = (
+        "<test_suggestion><title>T1</title>"
+        "<test_type>JavaScript Test</test_type>"
+        "<description>D1</description></test_suggestion>"
+    )
     context = WorkflowContext(
         feature_id="feat",
         metadata=FeatureMetadata("Feat", "D", ["url"]),

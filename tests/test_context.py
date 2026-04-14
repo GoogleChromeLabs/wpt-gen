@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for context.py."""
 import urllib.error
 from email.message import Message
 from pathlib import Path
@@ -58,8 +59,8 @@ def test_is_wpt_test_file() -> None:
 
 def test_extract_wpt_paths_empty() -> None:
     """Test extraction with empty description."""
-    assert extract_wpt_paths("") == []
-    assert extract_wpt_paths(None) == []  # type: ignore
+    assert not extract_wpt_paths("")
+    assert not extract_wpt_paths(None)  # type: ignore
 
 
 def test_extract_wpt_paths_urls() -> None:
@@ -79,11 +80,12 @@ def test_extract_wpt_paths_urls() -> None:
 def test_extract_wpt_paths_none() -> None:
     """Test extraction of raw file paths from text should be empty now."""
     wpt_descr = """
-  Look at css/css-grid/alignment/grid-item-alignment-001.html and dom/nodes/Element-getAttribute.html.
+  Look at css/css-grid/alignment/grid-item-alignment-001.html and
+  dom/nodes/Element-getAttribute.html.
   Also html/canvas (a directory).
   """
     paths = extract_wpt_paths(wpt_descr)
-    assert paths == []
+    assert not paths
 
 
 def test_normalize_wpt_path() -> None:
@@ -211,7 +213,7 @@ def test_validate_wpt_paths_outside_root(tmp_path: Path) -> None:
     paths = ["../outside.html", "/etc/passwd"]
     valid, invalid = validate_wpt_paths(paths, str(wpt_root))
 
-    assert valid == []
+    assert not valid
     assert len(invalid) == 2
 
 
@@ -219,7 +221,10 @@ def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
     """Test successfully fetching MDN URLs from the mapping JSON."""
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
-    mock_response.read.return_value = b'{"fetch": [{"url": "https://developer.mozilla.org/en-US/docs/Web/API/fetch"}]}'
+    mock_response.read.return_value = (
+        b'{"fetch": [{"url": "https://developer.mozilla.org/'
+        b'en-US/docs/Web/API/fetch"}]}'
+    )
     mock_urlopen.return_value.__enter__.return_value = mock_response
 
     result = fetch_mdn_urls("fetch")
@@ -231,7 +236,9 @@ def test_fetch_mdn_urls_success(mocker: MockerFixture) -> None:
 
 
 def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
-    """Test that if a feature ID is not in the mapping, it returns an empty list."""
+    """Test that if a feature ID is not in the mapping, it returns an empty
+    list.
+    """
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
@@ -241,7 +248,7 @@ def test_fetch_mdn_urls_not_found(mocker: MockerFixture) -> None:
 
     result = fetch_mdn_urls("unknown")
 
-    assert result == []
+    assert not result
 
 
 def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
@@ -253,14 +260,17 @@ def test_fetch_mdn_urls_error(mocker: MockerFixture) -> None:
 
     result = fetch_mdn_urls("fetch")
 
-    assert result == []
+    assert not result
 
 
 def test_fetch_feature_yaml_success(mocker: MockerFixture) -> None:
-    """Test the happy path where the YAML file is successfully fetched and parsed."""
+    """Test the happy path where the YAML file is successfully fetched and
+    parsed.
+    """
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
-    # Setup the context manager mock so it returns a byte string when .read() is called
+    # Setup the context manager mock so it returns a byte string when .read()
+    # is called
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = b"spec: 'https://example.com/spec'"
     mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -341,7 +351,7 @@ def test_extract_feature_metadata_defaults() -> None:
 
     assert result.name == "Unknown Feature"
     assert result.description == ""
-    assert result.specs == []
+    assert not result.specs
 
 
 def test_fetch_and_extract_text_ssrf_validation_blocks_localhost() -> None:
@@ -353,7 +363,9 @@ def test_fetch_and_extract_text_ssrf_validation_blocks_localhost() -> None:
 
 
 def test_fetch_and_extract_text_ssrf_validation_blocks_private_ip() -> None:
-    """Test that fetching from a private IP is blocked by the SSRF validation."""
+    """Test that fetching from a private IP is blocked by the SSRF
+    validation.
+    """
     with pytest.raises(
         ValueError, match="URL resolves to a restricted IP address"
     ):
@@ -361,7 +373,9 @@ def test_fetch_and_extract_text_ssrf_validation_blocks_private_ip() -> None:
 
 
 def test_fetch_and_extract_text_ssrf_validation_blocks_metadata() -> None:
-    """Test that fetching from a cloud metadata IP is blocked by the SSRF validation."""
+    """Test that fetching from a cloud metadata IP is blocked by the SSRF
+    validation.
+    """
     with pytest.raises(
         ValueError, match="URL resolves to a restricted IP address"
     ):
@@ -375,7 +389,9 @@ def test_fetch_and_extract_text_ssrf_validation_invalid_url() -> None:
 
 
 def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
-    """Test the happy path where HTML is downloaded and successfully converted to Markdown."""
+    """Test the happy path where HTML is downloaded and successfully
+    converted to Markdown.
+    """
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
@@ -391,7 +407,9 @@ def test_fetch_and_extract_text_success(mocker: MockerFixture) -> None:
 
 
 def test_fetch_and_extract_text_retry_success(mocker: MockerFixture) -> None:
-    """Test that fetch_and_extract_text retries on transient errors and eventually succeeds."""
+    """Test that fetch_and_extract_text retries on transient errors and
+    eventually succeeds.
+    """
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
 
     mock_response = mocker.MagicMock()
@@ -424,7 +442,9 @@ def test_fetch_and_extract_text_retry_success(mocker: MockerFixture) -> None:
 def test_fetch_and_extract_text_retry_max_reached(
     mocker: MockerFixture,
 ) -> None:
-    """Test that fetch_and_extract_text eventually gives up after MAX_RETRIES."""
+    """Test that fetch_and_extract_text eventually gives up after
+    MAX_RETRIES.
+    """
     from wptgen.utils import MAX_RETRIES
 
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
@@ -474,7 +494,9 @@ def test_fetch_and_extract_text_extract_fails(mocker: MockerFixture) -> None:
 def test_fetch_and_extract_text_preserves_internal_links(
     mocker: MockerFixture,
 ) -> None:
-    """Test that internal spec links are preserved while external links are stripped."""
+    """Test that internal spec links are preserved while external links are
+    stripped.
+    """
     mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
     mock_response = mocker.MagicMock()
     mock_response.read.return_value = (
@@ -494,7 +516,9 @@ def test_fetch_and_extract_text_preserves_internal_links(
 
 
 def test_resolve_patterns_basic_and_recursive(tmp_path: Path) -> None:
-    """Test that _resolve_patterns correctly handles standard and recursive globs."""
+    """Test that _resolve_patterns correctly handles standard and recursive
+    globs.
+    """
     # Create a mock directory structure
     (tmp_path / "test1.html").touch()
     (tmp_path / "test2.txt").touch()
@@ -518,7 +542,9 @@ def test_resolve_patterns_basic_and_recursive(tmp_path: Path) -> None:
 
 
 def test_resolve_patterns_negative_exclusion(tmp_path: Path) -> None:
-    """Test that negative patterns (!pattern) successfully remove files from the set."""
+    """Test that negative patterns (!pattern) successfully remove files from
+    the set.
+    """
     (tmp_path / "include_me.html").touch()
     (tmp_path / "exclude_me.html").touch()
 
@@ -569,19 +595,22 @@ def test_find_feature_tests_missing_directory() -> None:
 
 
 def test_find_feature_tests_malformed_yaml(tmp_path: Path) -> None:
-    """Test that malformed YAML files are gracefully skipped without crashing the loop."""
+    """Test that malformed YAML files are gracefully skipped without crashing
+    the loop.
+    """
     # Create a broken YAML file
     feat_dir = tmp_path / "broken-feature"
     feat_dir.mkdir()
     (feat_dir / "WEB_FEATURES.yml").write_text(
-        "features:\n - name: oops\n  bad_indent: true"
+        "features:\n - name: oops\n  bad_indent: true", encoding="utf-8"
     )
 
     # Create a valid one to ensure the loop continues after the error
     valid_dir = tmp_path / "valid-feature"
     valid_dir.mkdir()
     (valid_dir / "WEB_FEATURES.yml").write_text(
-        "features:\n  - name: works\n    files:\n      - 'test.html'"
+        "features:\n  - name: works\n    files:\n      - 'test.html'",
+        encoding="utf-8",
     )
     (valid_dir / "test.html").touch()
 
@@ -592,18 +621,23 @@ def test_find_feature_tests_malformed_yaml(tmp_path: Path) -> None:
 
 
 def test_find_feature_tests_feature_not_found(tmp_path: Path) -> None:
-    """Test that if a feature ID is not in any YAML, it returns an empty list."""
+    """Test that if a feature ID is not in any YAML, it returns an empty
+    list.
+    """
     (tmp_path / "WEB_FEATURES.yml").write_text(
-        "features:\n  - name: grid\n    files:\n      - '*.html'"
+        "features:\n  - name: grid\n    files:\n      - '*.html'",
+        encoding="utf-8",
     )
 
     results = find_feature_tests(str(tmp_path), "non-existent-feature")
 
-    assert results == []
+    assert not results
 
 
 def test_extract_dependencies() -> None:
-    """Test that dependencies are correctly extracted from HTML and JS content."""
+    """Test that dependencies are correctly extracted from HTML and JS
+    content.
+    """
     content = """
   <script src="a.js"></script>
   <script src='/b.js'></script>
@@ -630,7 +664,9 @@ def test_extract_dependencies() -> None:
 
 
 def test_resolve_dependency_path(tmp_path: Path) -> None:
-    """Test that dependency references are correctly resolved to local absolute paths."""
+    """Test that dependency references are correctly resolved to local
+    absolute paths.
+    """
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     (wpt_root / "resources").mkdir()
@@ -666,7 +702,9 @@ def test_resolve_dependency_path(tmp_path: Path) -> None:
 
 
 def test_gather_local_test_context(tmp_path: Path) -> None:
-    """Test recursive gathering of tests and dependencies from the local disk."""
+    """Test recursive gathering of tests and dependencies from the local
+    disk.
+    """
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
@@ -712,7 +750,7 @@ def test_find_feature_tests_yaml_missing_features(tmp_path: Path) -> None:
         "something: else", encoding="utf-8"
     )
 
-    assert find_feature_tests(str(tmp_path), "grid") == []
+    assert not find_feature_tests(str(tmp_path), "grid")
 
 
 def test_find_feature_tests_exception(
@@ -725,7 +763,7 @@ def test_find_feature_tests_exception(
 
     # Mock open to raise an exception for this specific file
     mocker.patch("builtins.open", side_effect=Exception("IO Error"))
-    assert find_feature_tests(str(tmp_path), "grid") == []
+    assert not find_feature_tests(str(tmp_path), "grid")
 
 
 def test_resolve_dependency_path_invalid(tmp_path: Path) -> None:
@@ -744,7 +782,9 @@ def test_resolve_dependency_path_invalid(tmp_path: Path) -> None:
 def test_gather_local_test_context_exception(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
-    """Test that exceptions during file reading in gather_local_test_context are caught."""
+    """Test that exceptions during file reading in gather_local_test_context
+    are caught.
+    """
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     test_html = wpt_root / "test.html"
@@ -754,7 +794,7 @@ def test_gather_local_test_context_exception(
     mocker.patch("pathlib.Path.read_text", side_effect=Exception("Read Error"))
 
     context = gather_local_test_context([str(test_html)], str(wpt_root))
-    assert context.test_contents == {}
+    assert not context.test_contents
 
 
 def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
@@ -773,5 +813,6 @@ def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
     request_obj = mock_urlopen.call_args[0][0]
     assert (
         request_obj.full_url
-        == "https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/draft/spec/draft-feature.yml"
+        == "https://raw.githubusercontent.com/web-platform-dx/"
+        "web-features/main/features/draft/spec/draft-feature.yml"
     )

@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for LLM coverage analysis."""
 from unittest.mock import MagicMock, patch
 
 import anthropic
 import httpx
 import pytest
 
-from wptgen.llm import AnthropicClient, GeminiClient, LLMTimeoutError, OpenAIClient
+from wptgen.llm import (
+    AnthropicClient,
+    GeminiClient,
+    LLMTimeoutError,
+    OpenAIClient,
+)
 
 
 @patch.object(GeminiClient, "verify_model")

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the ADK agent tools."""
 import json
 import os
 import subprocess
@@ -22,7 +23,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.tools import _parse_test_results, _validate_safe_path, create_agent_tools
+from wptgen.agents.tools import (
+    _parse_test_results,
+    _validate_safe_path,
+    create_agent_tools,
+)
 from wptgen.config import Config
 from wptgen.ui import UIProvider
 
@@ -41,7 +46,7 @@ def _create_mock_config(
 
 
 def test_parse_test_results(tmp_path: Path) -> None:
-    assert _parse_test_results(str(tmp_path / "missing.json")) == {}
+    assert not _parse_test_results(str(tmp_path / "missing.json"))
 
     log_file = tmp_path / "test.json"
     events = [
@@ -70,7 +75,7 @@ def test_parse_test_results(tmp_path: Path) -> None:
         {"action": "suite_start"},
     ]
 
-    with open(log_file, "w") as f:
+    with open(log_file, "w", encoding="utf-8") as f:
         for event in events:
             if isinstance(event, dict):
                 f.write(json.dumps(event) + "\n")
@@ -196,7 +201,7 @@ def test_file_tools_write_file(tmp_path: Path) -> None:
 
     result = write_file_tool.func(str(test_file), "new content")
     assert result["status"] == "success"
-    assert test_file.read_text() == "new content"
+    assert test_file.read_text(encoding="utf-8") == "new content"
 
     result = write_file_tool.func("/tmp/outside", "new content")
     assert result["status"] == "error"
@@ -293,7 +298,7 @@ def test_file_tools_move_file(tmp_path: Path) -> None:
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     source_file = wpt_root / "to_move.txt"
-    source_file.write_text("content")
+    source_file.write_text("content", encoding="utf-8")
     dest_file = wpt_root / "moved.txt"
 
     tools = create_agent_tools(
@@ -305,7 +310,7 @@ def test_file_tools_move_file(tmp_path: Path) -> None:
     assert result["status"] == "success"
     assert not source_file.exists()
     assert dest_file.exists()
-    assert dest_file.read_text() == "content"
+    assert dest_file.read_text(encoding="utf-8") == "content"
 
     result = move_file_tool.func(str(wpt_root / "missing.txt"), str(dest_file))
     assert result["status"] == "error"
@@ -319,7 +324,7 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
     wpt_root.mkdir()
 
     outside_file = tmp_path / "secret.txt"
-    outside_file.write_text("secret")
+    outside_file.write_text("secret", encoding="utf-8")
 
     tools = create_agent_tools(
         wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
@@ -330,7 +335,7 @@ def test_file_tools_security_rejection(tmp_path: Path) -> None:
     assert result["status"] == "error"
 
     inside_file = wpt_root / "inside.txt"
-    inside_file.write_text("inside")
+    inside_file.write_text("inside", encoding="utf-8")
     move_file_tool = next(t for t in tools if t.name == "move_file")
     result = move_file_tool.func(str(inside_file), str(outside_file))
     assert result["status"] == "error"
@@ -483,7 +488,7 @@ def test_file_tools_search_file_contents_truncation(tmp_path: Path) -> None:
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     large_file = wpt_root / "large.txt"
-    large_file.write_text("hello\n" * 150)
+    large_file.write_text("hello\n" * 150, encoding="utf-8")
 
     tools = create_agent_tools(
         wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
@@ -568,7 +573,7 @@ def test_replace_in_file(tmp_path: Path) -> None:
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
     test_file = wpt_root / "file.txt"
-    test_file.write_text("foo bar baz\nfoo bar qux")
+    test_file.write_text("foo bar baz\nfoo bar qux", encoding="utf-8")
 
     tools = create_agent_tools(
         wpt_root, MagicMock(spec=UIProvider), "chrome", "canary"
@@ -643,6 +648,7 @@ def test_agent_tools_run_wpt_test_flag_injection(
     assert result["status"] == "success"
     mock_run.assert_called_once()
     args, kwargs = mock_run.call_args
-    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless', '--log-raw', ..., 'chrome', './--dummy-flag.html']
+    # cmd looks like: ['./wpt', 'run', '--channel', 'canary', '--headless',
+    # '--log-raw', ..., 'chrome', './--dummy-flag.html']
     assert args[0][-1] == "./--dummy-flag.html"
     assert args[0][0:2] == ["./wpt", "run"]

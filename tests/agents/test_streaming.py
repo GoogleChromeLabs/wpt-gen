@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for streaming.py."""
 from unittest.mock import MagicMock
 
 import pytest
@@ -52,11 +53,15 @@ def test_adk_stream_manager_thought() -> None:
 
 
 def test_adk_stream_manager_function_call() -> None:
-    """Test streaming function calls stops the box and prints with formatted arguments."""
+    """Test streaming function calls stops the box and prints with formatted
+    arguments.
+    """
     ui_mock = MagicMock()
-    args = {
-        "test_path": "/html/semantics/scripting-1/the-script-element/script-type-module.html"
-    }
+    test_path = (
+        "/html/semantics/scripting-1/the-script-element/"
+        "script-type-module.html"
+    )
+    args = {"test_path": test_path}
     part = types.Part(
         function_call=types.FunctionCall(name="run_wpt_test", args=args)
     )
@@ -114,8 +119,6 @@ def test_format_tool_call_model_dump() -> None:
     panel = format_tool_call("tool", MockArgs())
     from typing import cast
 
-    from rich.table import Table
-
     table = cast(Table, panel.renderable)
     assert "test_path:" in list(table.columns[0].cells)
 
@@ -130,8 +133,6 @@ def test_format_tool_call_dict() -> None:
 
     panel = format_tool_call("tool", MockArgs())
     from typing import cast
-
-    from rich.table import Table
 
     table = cast(Table, panel.renderable)
     assert "test_path:" in list(table.columns[0].cells)
@@ -180,8 +181,6 @@ def test_format_tool_call_sort_key_not_in_priority() -> None:
     panel = format_tool_call("tool", {"test_path": "a", "unknown_key": "b"})
     # Both should be present, unknown_key should be sorted later
     from typing import cast
-
-    from rich.table import Table
 
     table = cast(Table, panel.renderable)
     cells = list(table.columns[0].cells)

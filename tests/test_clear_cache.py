@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the clear-cache command."""
 import re
 import shutil
 from pathlib import Path
@@ -28,7 +29,10 @@ runner = CliRunner()
 
 
 def normalize_ws(text: str) -> str:
-    """Normalizes whitespace by replacing any sequence of whitespace with a single space."""
+    """Normalizes whitespace.
+
+    Replaces any sequence of whitespace with a single space.
+    """
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -71,9 +75,11 @@ def test_clear_cache_success(
     cache_dir = Path(mock_config.cache_path)
 
     # Populate cache
-    (cache_dir / "file1.txt").write_text("content1")
+    (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2")
+    (cache_dir / "subdir" / "file2.txt").write_text(
+        "content2", encoding="utf-8"
+    )
 
     result = runner.invoke(app, ["clear-cache"])
 
@@ -87,14 +93,19 @@ def test_clear_cache_success(
 def test_clear_cache_force(
     mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
-    """Test successful cache clearing when using the --force flag (bypasses confirmation)."""
+    """Test successful cache clearing when using the --force flag.
+
+    Bypasses confirmation.
+    """
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
 
     # Populate cache
-    (cache_dir / "file1.txt").write_text("content1")
+    (cache_dir / "file1.txt").write_text("content1", encoding="utf-8")
     (cache_dir / "subdir").mkdir()
-    (cache_dir / "subdir" / "file2.txt").write_text("content2")
+    (cache_dir / "subdir" / "file2.txt").write_text(
+        "content2", encoding="utf-8"
+    )
 
     result = runner.invoke(app, ["clear-cache", "--force"])
 
@@ -115,7 +126,7 @@ def test_clear_cache_aborted(
     assert mock_config.cache_path is not None
     cache_dir = Path(mock_config.cache_path)
     cache_file = cache_dir / "file1.txt"
-    cache_file.write_text("content1")
+    cache_file.write_text("content1", encoding="utf-8")
 
     result = runner.invoke(app, ["clear-cache"])
 

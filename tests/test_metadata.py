@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for metadata.py."""
 from pathlib import Path
 
 import yaml
@@ -53,7 +54,9 @@ def test_update_web_features_yml_create_new(tmp_path: Path) -> None:
 
 
 def test_update_web_features_yml_append_existing(tmp_path: Path) -> None:
-    """Test appending to an existing WEB_FEATURES.yml file without duplicating covered files."""
+    """Test appending to an existing WEB_FEATURES.yml file without
+    duplicating covered files.
+    """
     output_dir = tmp_path
     yml_file = output_dir / "WEB_FEATURES.yml"
 

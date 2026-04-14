@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for adk_test_generator.py."""
 import os
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,9 @@ from wptgen.models import WorkflowContext
 
 @pytest.fixture
 def mock_jinja_env() -> MagicMock:
-    """Fixture to provide a mocked Jinja environment that returns simple text strings."""
+    """Fixture to provide a mocked Jinja environment that returns simple text
+    strings.
+    """
     env = MagicMock()
     system_template = MagicMock()
     prompt_template = MagicMock()
@@ -66,13 +69,18 @@ async def test_generate_test_with_adk(
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
-        # In actual ADK, the tools are attached to the agent which is passed to Runner
+        # In actual ADK, the tools are attached to the agent which is passed to
+        # Runner
         agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t
-            for t in agent.tools
-            if t.func.__name__ == "report_generation_complete"
+            (
+                t
+                for t in agent.tools
+                if t.func.__name__ == "report_generation_complete"
+            ),
+            None,
         )
+        assert completion_tool is not None
 
         # Simulate the LLM calling the tool with the generated path
         completion_tool.func([str(test_file)])
@@ -90,7 +98,8 @@ async def test_generate_test_with_adk(
     )
     mocker.patch.dict(os.environ, {"GOOGLE_API_KEY": "fake"}, clear=True)
 
-    # Ensure skill directory doesn't exist to cover the "skill directory not found" UI warning path
+    # Ensure skill directory doesn't exist to cover the "skill directory not
+    # found" UI warning path
     mocker.patch(
         "wptgen.agents.adk_test_generator.Path.is_dir", return_value=False
     )
@@ -126,9 +135,11 @@ async def test_generate_test_with_adk(
     assert len(results) == 1
     assert results[0][0] == test_file.resolve()
     assert "<!DOCTYPE html>" in results[0][1]
-    mock_ui.warning.assert_called_with(
-        "wpt-generator skill directory not found. Agent will generate tests without skill guidance."
+    msg = (
+        "wpt-generator skill directory not found. Agent will generate tests "
+        "without skill guidance."
     )
+    mock_ui.warning.assert_called_with(msg)
 
 
 @pytest.mark.asyncio
@@ -138,13 +149,15 @@ async def test_generate_test_missing_output_dir_and_no_paths(
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
-    # Mock the ADK Runner to simulate an agent that finishes *without* calling the completion tool
+    # Mock the ADK Runner to simulate an agent that finishes *without* calling
+    # the completion tool
     mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
 
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
-        # Do not call the completion tool at all, simulating a lazy/failed agent execution
+        # Do not call the completion tool at all, simulating a lazy/failed agent
+        # execution
         yield MagicMock()
 
     mock_runner_instance.run_async = mock_run_async
@@ -155,7 +168,8 @@ async def test_generate_test_missing_output_dir_and_no_paths(
         return_value="gemini-mock",
     )
 
-    # Mock load_skill_from_dir to raise an exception, testing the error handling for malformed skills
+    # Mock load_skill_from_dir to raise an exception, testing the error
+    # handling for malformed skills
     mocker.patch(
         "wptgen.agents.adk_test_generator.Path.is_dir", return_value=True
     )
@@ -208,7 +222,8 @@ async def test_generate_test_invalid_path(
     wpt_root = tmp_path / "wpt"
     wpt_root.mkdir()
 
-    # Mock the ADK Runner to simulate an agent that tries to write maliciously outside the root
+    # Mock the ADK Runner to simulate an agent that tries to write maliciously
+    # outside the root
     mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
     mock_runner_instance = mock_runner_cls.return_value
     mock_runner_instance.close = mocker.AsyncMock()
@@ -216,12 +231,17 @@ async def test_generate_test_invalid_path(
     async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
         agent = mock_runner_cls.call_args.kwargs["agent"]
         completion_tool = next(
-            t
-            for t in agent.tools
-            if t.func.__name__ == "report_generation_complete"
+            (
+                t
+                for t in agent.tools
+                if t.func.__name__ == "report_generation_complete"
+            ),
+            None,
         )
+        assert completion_tool is not None
 
-        # Provide an invalid path outside wpt_root (simulating a path traversal attack / mistake)
+        # Provide an invalid path outside wpt_root (simulating a path traversal
+        # attack / mistake)
         completion_tool.func(["/etc/passwd"])
         yield MagicMock()
 

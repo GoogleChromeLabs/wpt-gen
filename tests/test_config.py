@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for config.py."""
 import sys
 from pathlib import Path
 
@@ -69,7 +70,9 @@ def test_load_config_provider_override_openai(
 def test_load_config_missing_api_key_raises_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that missing the required environment variable raises a ValueError."""
+    """Test that missing the required environment variable raises a
+    ValueError.
+    """
     # Ensure the environment variable is explicitly removed for this test
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
@@ -184,7 +187,9 @@ def test_load_config_detailed_requirements(
 
 
 def test_config_get_model_for_phase_overrides() -> None:
-    """Test that use_lightweight and use_reasoning override phase-specific models."""
+    """Test that use_lightweight and use_reasoning override phase-specific
+    models.
+    """
     config = Config(
         provider="gemini",
         default_model="default",
@@ -203,7 +208,8 @@ def test_config_get_model_for_phase_overrides() -> None:
     assert config.get_model_for_phase("phase1") == "light-model"
     assert config.get_model_for_phase("phase2") == "light-model"
 
-    # Reasoning override (takes precedence if we set it, but we should test independently)
+    # Reasoning override (takes precedence if we set it, but we should test
+    # independently)
     config.use_lightweight = False
     config.use_reasoning = True
     assert config.get_model_for_phase("phase1") == "heavy-model"
@@ -369,7 +375,8 @@ def test_load_config_deep_merges_phase_mapping(
     monkeypatch.setenv("GEMINI_API_KEY", "mock-key")
 
     config_file = tmp_path / "wpt-gen.yml"
-    # Simulate the YAML created by `config set phase_model_mapping.generation reasoning`
+    # Simulate the YAML created by
+    # `config set phase_model_mapping.generation reasoning`
     # when no other config exists.
     config_file.write_text(
         "phase_model_mapping:\n  generation: reasoning\n", encoding="utf-8"
@@ -387,7 +394,9 @@ def test_load_config_deep_merges_phase_mapping(
 def test_load_config_deep_merges_categories(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Test that overriding a single category preserves other default categories."""
+    """Test that overriding a single category preserves other default
+    categories.
+    """
     monkeypatch.setenv("GEMINI_API_KEY", "mock-key")
 
     config_file = tmp_path / "wpt-gen.yml"
@@ -453,8 +462,6 @@ def test_load_config_audit_partition_size_validation(
 
 def test_get_model_info_for_phase() -> None:
     """Test get_model_info_for_phase override text formatting."""
-    from wptgen.config import Config
-
     config = Config(
         provider="gemini",
         default_model="default",

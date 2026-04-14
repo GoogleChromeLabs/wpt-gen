@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the caching mechanism."""
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -20,7 +21,9 @@ from pytest_mock import MockerFixture
 
 from wptgen.config import Config
 from wptgen.models import FeatureMetadata, WorkflowContext
-from wptgen.phases.requirements_extraction import run_requirements_extraction_iterative
+from wptgen.phases.requirements_extraction import (
+    run_requirements_extraction_iterative,
+)
 
 
 @pytest.fixture
@@ -72,7 +75,9 @@ async def test_requirements_cache_miss(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Verify that requirements extraction generates and saves cache on a miss."""
+    """Verify that requirements extraction generates and saves cache on a
+    miss.
+    """
     metadata = FeatureMetadata(
         name="Feat", description="Desc", specs=["http://spec"]
     )
@@ -85,7 +90,9 @@ async def test_requirements_cache_miss(
     cache_dir.mkdir()
 
     mock_llm.generate_content.side_effect = [
-        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+        '<requirements_list><requirement id="R_NEW_1">'
+        "<description>New Requirements</description></requirement>"
+        "</requirements_list>",
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
@@ -106,7 +113,7 @@ async def test_requirements_cache_miss(
     # Verify cache file was created
     cache_file = cache_dir / "test-feat__requirements.xml"
     assert cache_file.exists()
-    cache_content = cache_file.read_text()
+    cache_content = cache_file.read_text(encoding="utf-8")
     assert '<requirement id="R1">' in cache_content
     assert "New Requirements" in cache_content
 
@@ -115,13 +122,16 @@ async def test_requirements_cache_miss(
 async def test_requirements_cache_hit_accept(
     mock_config: Config, mock_llm: MagicMock, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-    """Verify that requirements extraction uses cached requirements when user accepts."""
+    """Verify that requirements extraction uses cached requirements when
+    user accepts.
+    """
     web_feature_id = "cached-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        "<requirements_list>Cached Requirements</requirements_list>"
+        "<requirements_list>Cached Requirements</requirements_list>",
+        encoding="utf-8",
     )
 
     context = WorkflowContext(
@@ -153,13 +163,16 @@ async def test_requirements_cache_hit_reject(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Verify that requirements extraction regenerates requirements when user rejects cache."""
+    """Verify that requirements extraction regenerates requirements when
+    user rejects cache.
+    """
     web_feature_id = "rejected-cache-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
     cache_file.write_text(
-        "<requirements_list>Old Cached Requirements</requirements_list>"
+        "<requirements_list>Old Cached Requirements</requirements_list>",
+        encoding="utf-8",
     )
 
     metadata = FeatureMetadata(
@@ -174,7 +187,9 @@ async def test_requirements_cache_hit_reject(
     # User rejects cache
     mock_ui.confirm.return_value = False
     mock_llm.generate_content.side_effect = [
-        '<requirements_list><requirement id="R_NEW_1"><description>New Requirements</description></requirement></requirements_list>',
+        '<requirements_list><requirement id="R_NEW_1">'
+        "<description>New Requirements</description></requirement>"
+        "</requirements_list>",
         "<requirements_list><status>EXHAUSTED</status></requirements_list>",
     ]
     jinja_env = MagicMock()
@@ -196,6 +211,6 @@ async def test_requirements_cache_hit_reject(
     assert mock_llm.generate_content.call_count == 2
 
     # Cache file should be updated.
-    cache_content = cache_file.read_text()
+    cache_content = cache_file.read_text(encoding="utf-8")
     assert '<requirement id="R1">' in cache_content
     assert "New Requirements" in cache_content

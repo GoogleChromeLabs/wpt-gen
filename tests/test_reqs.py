@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the requirements extraction phase."""
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -63,7 +64,10 @@ async def test_run_requirements_extraction_no_cache(
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
-        return_value="<requirements_list><requirement></requirement></requirements_list>",
+        return_value=(
+            "<requirements_list><requirement>"
+            "</requirement></requirements_list>"
+        ),
     )
 
     result = await run_requirements_extraction(
@@ -106,7 +110,9 @@ async def test_run_requirements_extraction_iterative_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached iterative")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached iterative", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_iterative(
@@ -153,11 +159,13 @@ async def test_run_requirements_extraction_iterative_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    # Returns initial requirements list
+    req_xml = (
+        "<requirements_list><requirement></requirement></requirements_list>"
+    )
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            "<requirements_list><requirement></requirement></requirements_list>",
+            req_xml,
             "<test_suggestion></test_suggestion>",
             "<test_suggestion></test_suggestion>",
             "<test_suggestion></test_suggestion>",
@@ -209,15 +217,21 @@ async def test_run_requirements_extraction_categorized_success_and_save(
     jinja_env.get_template.return_value.render.return_value = "Mock"
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    # Mocking standard successful categorizations, one with markdown formatting that we want to trigger
+    # Mocking standard successful categorizations, one with markdown
+    # formatting that we want to trigger
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
         side_effect=[
-            '```xml\n<requirements_list><requirement id="R1"></requirement></requirements_list>\n```',
-            '<requirements_list><requirement id="R2"></requirement></requirements_list>',
-            '<requirements_list><requirement id="R3"></requirement></requirements_list>',
-            '<requirements_list><requirement id="R4"></requirement></requirements_list>',
-            '<requirements_list><requirement id="R5"></requirement></requirements_list>',
+            '```xml\n<requirements_list><requirement id="R1">'
+            "</requirement></requirements_list>\n```",
+            '<requirements_list><requirement id="R2">'
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R3">'
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R4">'
+            "</requirement></requirements_list>",
+            '<requirements_list><requirement id="R5">'
+            "</requirement></requirements_list>",
         ],
     )
 
@@ -240,7 +254,9 @@ async def test_run_requirements_extraction_cache_success(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached basic")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached basic", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction(
@@ -279,7 +295,8 @@ async def test_run_requirements_extraction_iterative_rationale(
     result = await run_requirements_extraction_iterative(
         base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
     )
-    # The first one is a rationale so it prints ui.info and continues. The loop will then hit an error if there are no requirements extracted.
+    # The first one is a rationale so it prints ui.info and continues. The
+    # loop will then hit an error if there are no requirements extracted.
     assert result is None
 
 
@@ -324,12 +341,14 @@ async def test_run_requirements_extraction_categorized_max_iter(
 
     mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
 
-    # Needs a lot of valid generations to hit max_iterations (which is 10 by default)
-    # But wait, max_iter logic is in iterative! Oh wait, `max_iterations = 10` is in `run_requirements_extraction_iterative`.
+    # Needs a lot of valid generations to hit max_iterations (which is 10 by
+    # default). But wait, max_iter logic is in iterative! Oh wait,
+    # `max_iterations = 10` is in `run_requirements_extraction_iterative`.
     # Let me mock max_iterations!
     # No, we can just pass side_effect.
     side_effects = [
-        '<requirements_list><requirement id="R1"></requirement></requirements_list>'
+        '<requirements_list><requirement id="R1"></requirement>'
+        "</requirements_list>"
     ] * 12
     mocker.patch(
         "wptgen.phases.requirements_extraction.generate_safe",
@@ -352,7 +371,9 @@ async def test_run_requirements_extraction_categorized_cache(
 ) -> None:
     mock_ui = MagicMock()
     mock_ui.confirm.return_value = True
-    (tmp_path / "test__requirements.xml").write_text("cached categorized")
+    (tmp_path / "test__requirements.xml").write_text(
+        "cached categorized", encoding="utf-8"
+    )
     mock_llm = MagicMock()
 
     result = await run_requirements_extraction_categorized(

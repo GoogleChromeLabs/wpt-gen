@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for workflow failure handling."""
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -65,7 +66,9 @@ def engine(mock_config: Config, mock_ui: MagicMock) -> WPTGenEngine:
 def test_workflow_error_display(
     mocker: MockerFixture, mock_config: Config
 ) -> None:
-    """Verify that a WorkflowError results in a red failure panel and exit code 1."""
+    """Verify that a WorkflowError results in a red failure panel and exit
+    code 1.
+    """
     mocker.patch("wptgen.main.load_config", return_value=mock_config)
 
     mock_engine_class = mocker.patch("wptgen.main.WPTGenEngine")
@@ -89,7 +92,9 @@ def test_workflow_error_display(
 async def test_engine_raises_workflow_error_on_phase_failure(
     engine: WPTGenEngine, mocker: MockerFixture
 ) -> None:
-    """Verify that the engine specifically raises WorkflowError when a phase returns None."""
+    """Verify that the engine specifically raises WorkflowError when a phase
+    returns None.
+    """
     # Mock run_context_assembly to return None (failure)
     mocker.patch("wptgen.engine.run_context_assembly", return_value=None)
 

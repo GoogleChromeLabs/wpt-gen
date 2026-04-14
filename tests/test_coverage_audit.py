@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for coverage_audit.py."""
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -74,7 +75,10 @@ async def test_run_coverage_audit_token_limit_exceeded(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            "</requirements>"
+        ),
         wpt_context=WPTContext(),
     )
 
@@ -104,14 +108,15 @@ def test_combine_audit_responses_all_satisfied() -> None:
 def test_combine_audit_responses_with_suggestions() -> None:
     responses = [
         "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
-        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>",
+        "<audit_worksheet>W2</audit_worksheet>\n<test_suggestions>\n"
+        "<test_suggestion>T1</test_suggestion>\n</test_suggestions>",
     ]
     result = combine_audit_responses(responses)
     assert "<status>TESTS_NEEDED</status>" in result
     assert "<audit_worksheet>\nW1\nW2\n</audit_worksheet>" in result
     assert (
-        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n</test_suggestions>"
-        in result
+        "<test_suggestions>\n<test_suggestion>T1</test_suggestion>\n"
+        "</test_suggestions>" in result
     )
 
 
@@ -125,14 +130,19 @@ async def test_run_coverage_audit_single_partition(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            "</requirements>"
+        ),
         wpt_context=WPTContext(),
     )
 
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     result = await run_coverage_audit(
@@ -163,7 +173,9 @@ async def test_run_coverage_audit_multiple_partitions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     result = await run_coverage_audit(
@@ -215,12 +227,12 @@ async def test_provide_coverage_report_save_success(
 
 
 def test_partition_requirements_xml_empty() -> None:
-    assert partition_requirements_xml("") == []
+    assert not partition_requirements_xml("")
 
 
 def test_partition_requirements_xml_no_matches() -> None:
     assert partition_requirements_xml("<foo></foo>") == ["<foo></foo>"]
-    assert partition_requirements_xml("   ") == []
+    assert not partition_requirements_xml("   ")
 
 
 @pytest.mark.asyncio
@@ -233,7 +245,10 @@ async def test_run_coverage_audit_always_brief_suggestions(
 ) -> None:
     context = WorkflowContext(
         feature_id="test",
-        requirements_xml='<requirements><requirement id="R1">Test</requirement></requirements>',
+        requirements_xml=(
+            '<requirements><requirement id="R1">Test</requirement>'
+            "</requirements>"
+        ),
         wpt_context=WPTContext(),
     )
 
@@ -248,7 +263,7 @@ async def test_run_coverage_audit_always_brief_suggestions(
     def mock_get_template(name: str) -> Any:
         if name == "coverage_audit.jinja":
             return audit_template_mock
-        elif name == "coverage_audit_system.jinja":
+        if name == "coverage_audit_system.jinja":
             return system_template_mock
         return mocker.MagicMock()
 
@@ -257,7 +272,9 @@ async def test_run_coverage_audit_always_brief_suggestions(
     mocker.patch("wptgen.phases.coverage_audit.confirm_prompts")
     mocker.patch(
         "wptgen.phases.coverage_audit.generate_safe",
-        return_value="<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>",
+        return_value=(
+            "<status>SATISFIED</status>\n<audit_worksheet>W1</audit_worksheet>"
+        ),
     )
 
     await run_coverage_audit(

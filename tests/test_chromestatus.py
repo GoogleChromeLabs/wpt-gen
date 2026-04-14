@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the ChromeStatus metadata provider."""
 import json
 import urllib.error
 from email.message import Message
@@ -81,8 +82,9 @@ def test_fetch_chromestatus_metadata_with_prefix(mocker: MockerFixture) -> None:
 
 
 def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
+    """Tests that 404 from ChromeStatus API returns None."""
     mocker.patch(
-        "urllib.request.urlopen",
+        "wptgen.context._ssrf_safe_opener.open",
         side_effect=urllib.error.HTTPError(
             "url", 404, "Not Found", hdrs=Message(), fp=None
         ),
@@ -94,8 +96,10 @@ def test_fetch_chromestatus_metadata_not_found(mocker: MockerFixture) -> None:
 
 
 def test_fetch_chromestatus_metadata_api_error(mocker: MockerFixture) -> None:
+    """Tests that other URL errors from ChromeStatus API return None."""
     mocker.patch(
-        "urllib.request.urlopen", side_effect=urllib.error.URLError("API Error")
+        "wptgen.context._ssrf_safe_opener.open",
+        side_effect=urllib.error.URLError("API Error"),
     )
 
     metadata = fetch_chromestatus_metadata("12345")

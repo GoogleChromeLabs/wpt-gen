@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for main.py."""
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -211,7 +212,10 @@ def test_generate_flags(
 
 
 def test_generate_config_error(mocker: MockerFixture) -> None:
-    """Test that configuration errors (like missing API keys) are caught and exit gracefully."""
+    """Test configuration errors are caught and exit gracefully.
+
+    Example: missing API keys.
+    """
     mock_error_message = "GEMINI_API_KEY environment variable is missing"
     mocker.patch(
         "wptgen.main.load_config", side_effect=ValueError(mock_error_message)
@@ -227,7 +231,7 @@ def test_generate_config_error(mocker: MockerFixture) -> None:
 def test_generate_unexpected_error(
     mock_load_config: Any, mock_engine_instance: Any
 ) -> None:
-    """Test that unexpected runtime errors inside the engine are caught and exit gracefully."""
+    """Test runtime errors in engine are caught and exit gracefully."""
     mock_engine_instance.run_workflow.side_effect = Exception(
         "Engine simulation failed"
     )
@@ -266,10 +270,11 @@ def test_generate_mutually_exclusive_requirements(
     )
 
     assert result.exit_code == 1
-    assert (
-        "Cannot use both --detailed-requirements and --single-prompt-requirements"
-        in result.stdout
+    msg = (
+        "Cannot use both --detailed-requirements and "
+        "--single-prompt-requirements"
     )
+    assert msg in result.stdout
 
 
 def test_generate_wf_yml_update_validation() -> None:
@@ -354,7 +359,9 @@ def test_main_callback() -> None:
 
 
 def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
-    """Test the config command prints the resolved configuration and its path."""
+    """Test the config command prints the resolved configuration and its
+    path.
+    """
     mock_config.loaded_from = "/dummy/path/wpt-gen.yml"
 
     result = runner.invoke(app, ["config"])
@@ -380,7 +387,9 @@ def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
 def test_config_command_defaults(
     mock_config: Config, mock_load_config: Any
 ) -> None:
-    """Test the config command prints the defaults message when no file is loaded."""
+    """Test the config command prints the defaults message when no file is
+    loaded.
+    """
     mock_config.loaded_from = None
 
     result = runner.invoke(app, ["config"])
@@ -414,9 +423,12 @@ def test_config_command_error(mocker: MockerFixture) -> None:
 
 
 def test_init_command_global(mocker: MockerFixture) -> None:
-    """Test the init command successfully creates a global configuration file."""
+    """Test the init command successfully creates a global configuration
+    file.
+    """
     with runner.isolated_filesystem():
-        # Mock the global config path so it creates the file within the isolated filesystem
+        # Mock the global config path so it creates the file within the
+        # isolated filesystem
         global_config_path = str(Path(".config/wpt-gen/config.yml").resolve())
         mocker.patch(
             "wptgen.main._get_global_config_path",
@@ -522,7 +534,8 @@ def test_chromestatus_command(
     assert result.exit_code == 0
     assert "Target ChromeStatus Feature" in result.stdout
 
-    # Verify our logic called the underlying functions with the correct CLI arguments
+    # Verify our logic called the underlying functions with the correct CLI
+    # arguments
     mock_load_config.assert_called_once()
     kwargs = mock_load_config.call_args.kwargs
     assert kwargs["suggestions_only"] is suggestions_only
@@ -568,7 +581,7 @@ def test_config_set_command_flat() -> None:
     """Test setting a flat configuration value."""
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
-        config_file.write_text("default_provider: openai\n")
+        config_file.write_text("default_provider: openai\n", encoding="utf-8")
 
         result = runner.invoke(
             app,
@@ -585,7 +598,7 @@ def test_config_set_command_flat() -> None:
         assert result.exit_code == 0
         assert "Set default_provider = gemini" in result.stdout
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         assert data["default_provider"] == "gemini"
 
@@ -595,7 +608,8 @@ def test_config_set_command_nested() -> None:
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
         config_file.write_text(
-            "providers:\n  gemini:\n    default_model: old-model\n"
+            "providers:\n  gemini:\n    default_model: old-model\n",
+            encoding="utf-8",
         )
 
         result = runner.invoke(
@@ -612,7 +626,7 @@ def test_config_set_command_nested() -> None:
 
         assert result.exit_code == 0
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         assert data["providers"]["gemini"]["default_model"] == "new-model"
 
@@ -621,7 +635,7 @@ def test_config_set_command_types() -> None:
     """Test type conversion for config set."""
     with runner.isolated_filesystem():
         config_file = Path("wpt-gen.yml")
-        config_file.write_text("")
+        config_file.write_text("", encoding="utf-8")
 
         runner.invoke(
             app,
@@ -650,7 +664,7 @@ def test_config_set_command_types() -> None:
             ],
         )
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         assert data["timeout"] == 120

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the phase utility functions."""
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -136,7 +137,9 @@ async def test_generate_safe_show_responses_xml(
 async def test_generate_safe_exception(
     mock_ui: MagicMock, mock_llm: MagicMock, mock_config: Config
 ) -> None:
-    """Test that generate_safe handles exceptions gracefully and returns an empty string."""
+    """Test that generate_safe handles exceptions gracefully and returns an
+    empty string.
+    """
     mock_llm.generate_content.side_effect = Exception("test error")
     res = await generate_safe("prompt", "Task", mock_llm, mock_ui, mock_config)
     assert res == ""

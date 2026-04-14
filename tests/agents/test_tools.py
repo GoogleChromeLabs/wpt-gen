@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for tools.py."""
 import json
 from pathlib import Path
 
@@ -64,7 +65,9 @@ def test_parse_test_results(tmp_path: Path) -> None:
         },
         {"action": "test_end", "test": "test2", "status": "PASS"},
     ]
-    log_file.write_text("\n".join(json.dumps(log) for log in logs) + "\n")
+    log_file.write_text(
+        "\n".join(json.dumps(log) for log in logs) + "\n", encoding="utf-8"
+    )
 
     results = _parse_test_results(str(log_file))
     assert "test1" in results
@@ -108,7 +111,9 @@ def test_tool_read_file(
     wpt_root: Path, agent_tools: dict[str, FunctionTool]
 ) -> None:
     read_file = agent_tools["read_file"]
-    (wpt_root / "test.txt").write_text("line1\nline2\nline3\n")
+    (wpt_root / "test.txt").write_text(
+        "line1\nline2\nline3\n", encoding="utf-8"
+    )
 
     res = read_file.func(file_path="test.txt")
     assert res == {"status": "success", "content": "line1\nline2\nline3\n"}
@@ -125,7 +130,7 @@ def test_tool_read_file_exceeds_limit(
 ) -> None:
     read_file = agent_tools["read_file"]
     test_file = wpt_root / "large.txt"
-    test_file.write_text("this content is 28 bytes")
+    test_file.write_text("this content is 28 bytes", encoding="utf-8")
 
     mocker.patch("wptgen.agents.tools.MAX_FILE_READ_BYTES", 5)
     res = read_file.func(file_path="large.txt")
@@ -140,7 +145,7 @@ def test_tool_write_file(
 
     res = write_file.func(file_path="new.txt", content="content")
     assert res == {"status": "success"}
-    assert (wpt_root / "new.txt").read_text() == "content"
+    assert (wpt_root / "new.txt").read_text(encoding="utf-8") == "content"
 
 
 def test_tool_search_files(
@@ -172,13 +177,13 @@ def test_tool_replace_in_file(
 ) -> None:
     replace_in_file = agent_tools["replace_in_file"]
     test_file = wpt_root / "test.txt"
-    test_file.write_text("line1\nline2\nline3\n")
+    test_file.write_text("line1\nline2\nline3\n", encoding="utf-8")
 
     res = replace_in_file.func(
         file_path="test.txt", old_string="line2", new_string="new_line2"
     )
     assert res == {"status": "success"}
-    assert "new_line2" in test_file.read_text()
+    assert "new_line2" in test_file.read_text(encoding="utf-8")
 
     res2 = replace_in_file.func(
         file_path="test.txt", old_string="line", new_string="x"
@@ -192,8 +197,12 @@ def test_tool_search_file_contents(
 ) -> None:
     search_file_contents = agent_tools["search_file_contents"]
     (wpt_root / "dir1").mkdir()
-    (wpt_root / "dir1" / "file1.txt").write_text("hello world\nfoo bar\n")
-    (wpt_root / "dir1" / "file2.txt").write_text("test foo\nbar baz\n")
+    (wpt_root / "dir1" / "file1.txt").write_text(
+        "hello world\nfoo bar\n", encoding="utf-8"
+    )
+    (wpt_root / "dir1" / "file2.txt").write_text(
+        "test foo\nbar baz\n", encoding="utf-8"
+    )
 
     res = search_file_contents.func(directory="dir1", pattern="foo")
     assert res["status"] == "success"
