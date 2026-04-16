@@ -13,7 +13,7 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools>=82.0.0", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -45,10 +45,11 @@ dependencies = [
     "openai>=2.20.0",
     "anthropic>=0.84.0",
     "tiktoken>=0.12.0",
+    "litellm>=1.83.8",
 
     # Context & Scraping
     "beautifulsoup4>=4.12.0",
-    "lxml>=5.2.0",
+    "lxml>=6.0.4",
     "markdownify>=0.14.0",
 
     # Prompt Templating
@@ -56,7 +57,7 @@ dependencies = [
 
     # CLI Infrastructure
     "typer>=0.23.0",
-    "rich>=14.3.2",
+    "rich>=15.0.0",
     "pyyaml>=6.0.3",
 ]
 
@@ -72,12 +73,12 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
     "ruff>=0.15.0",
-    "mypy>=1.19.1",
+    "mypy>=1.20.1",
     "types-PyYAML>=6.0.12.20250915",
     "build>=1.4.0",
     "twine>=6.2.0",
     "pyink>=24.10.0",
-    "pylint>=3.3.4",
+    "pylint>=4.0.5",
     "pip-tools>=7.4.0",
 ]
 
