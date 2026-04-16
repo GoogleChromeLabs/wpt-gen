@@ -77,7 +77,7 @@ dev = [
     "build>=1.4.0",
     "twine>=6.2.0",
     "pyink>=24.10.0",
-    "pylint>=3.3.4",
+    "pylint>=4.0.5",
 ]
 
 [project.scripts]
