@@ -41,12 +41,12 @@ class ProgressIndicator(Protocol):
     """Interface for updating a progress indicator."""
 
     def advance(self, amount: float = 1) -> None:
-        ...
+        pass
 
     def update(
         self, description: str | None = None, outstanding: int | None = None
     ) -> None:
-        ...
+        pass
 
 
 class UIProvider(Protocol):
@@ -54,57 +54,57 @@ class UIProvider(Protocol):
 
     # Core interaction
     def status(self, message: str) -> AbstractContextManager[Any]:
-        ...
+        pass
 
     def progress_indicator(
         self, description: str, total: int
     ) -> AbstractContextManager[ProgressIndicator]:
-        ...
+        pass
 
     def confirm(self, question: str, default: bool = True) -> bool:
-        ...
+        pass
 
     def prompt(self, question: str, default: str = "") -> str:
-        ...
+        pass
 
     # Generic semantic messaging
     def print(self, message: Any = "", style: str | None = None) -> None:
-        ...
+        pass
 
     def stream_text(self, text: str) -> None:
-        ...
+        pass
 
     def info(self, message: str) -> None:
-        ...
+        pass
 
     def success(self, message: str) -> None:
-        ...
+        pass
 
     def warning(self, message: str) -> None:
-        ...
+        pass
 
     def error(self, message: str) -> None:
-        ...
+        pass
 
     def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
-        ...
+        pass
 
     # Phase and lifecycle events
     def on_phase_start(
         self, phase_num: int, phase_name: str, model_info: str | None = None
     ) -> None:
-        ...
+        pass
 
     def on_phase_complete(self, phase_name: str) -> None:
-        ...
+        pass
 
     # Domain-specific reporting
     def report_metadata(self, metadata: FeatureMetadata) -> None:
-        ...
+        pass
 
     def report_configuration(self, config_data: dict[str, str]) -> None:
         """TODO: Implement for vendoring service logging support."""
-        ...
+        pass
 
     def report_context_summary(
         self,
@@ -114,7 +114,7 @@ class UIProvider(Protocol):
         test_count: int | None = None,
         dep_count: int | None = None,
     ) -> None:
-        ...
+        pass
 
     def report_token_usage(
         self,
@@ -124,16 +124,16 @@ class UIProvider(Protocol):
         total_tokens: int,
         auto_confirmed: bool = False,
     ) -> None:
-        ...
+        pass
 
     def report_llm_response(self, response: str, task_name: str) -> None:
-        ...
+        pass
 
     def report_coverage_audit(self, audit_response: str | None = None) -> None:
-        ...
+        pass
 
     def report_audit_worksheet(self, worksheet_text: str) -> None:
-        ...
+        pass
 
     def report_test_suggestion(
         self,
@@ -142,10 +142,10 @@ class UIProvider(Protocol):
         description: str,
         test_type: str | None = None,
     ) -> None:
-        ...
+        pass
 
     def report_generation_start(self, count: int) -> None:
-        ...
+        pass
 
     def report_test_generated(
         self,
@@ -154,12 +154,12 @@ class UIProvider(Protocol):
         path: Path | None = None,
         fallback: bool = False,
     ) -> None:
-        ...
+        pass
 
     def report_generation_summary(
         self, generated_tests: list[tuple[Path, str, str]]
     ) -> None:
-        ...
+        pass
 
 
 class RichUIProvider:
