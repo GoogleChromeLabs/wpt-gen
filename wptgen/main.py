@@ -1043,10 +1043,11 @@ def chromestatus_command(
         ui.print()
         if suggestions_only:
             ui.success(
-                "ChromeStatus Audit completed successfully! Blueprints generated."
+                "ChromeStatus Audit completed successfully! "
+                "Blueprints generated."
             )
         else:
-            ui.success("ChromeStatus Workflow completed successfully!")
+            ui.success("ChromeStatus Workflow completed " "successfully!")
 
     except LLMTimeoutError as e:
         ui.error(f"LLM Request Timeout: {str(e)}")
@@ -1847,7 +1848,10 @@ def init(
 
     if resolved_path.exists():
         overwrite = ui.confirm(
-            f"Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",
+            (
+                f"Configuration file already exists at [cyan]{resolved_path}[/cyan]."
+                " Overwrite?"
+            ),
             default=False,
         )
         if not overwrite:
