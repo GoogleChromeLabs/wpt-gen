@@ -59,6 +59,10 @@ async def generate_test_with_adk(
         A list of tuples containing (file_path, file_content, suggestion_xml).
     """
     model_string = setup_adk_environment(config)
+    if config.provider.lower() == "anthropic" and not model_string.startswith(
+        "anthropic/"
+    ):
+        model_string = f"anthropic/{model_string}"
     wpt_root = Path(config.wpt_path)
 
     # We need to extract the paths from the agent's final tool call.

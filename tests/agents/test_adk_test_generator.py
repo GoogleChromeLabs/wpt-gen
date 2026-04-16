@@ -296,3 +296,63 @@ async def test_generate_test_invalid_path(
         "Failed to read securely generated file '/etc/passwd'"
         in mock_ui.error.call_args[0][0]
     )
+
+
+@pytest.mark.asyncio
+async def test_generate_test_with_anthropic_provider(
+    tmp_path: Path, mocker: MagicMock, mock_jinja_env: MagicMock
+) -> None:
+    wpt_root = tmp_path / "wpt"
+    wpt_root.mkdir()
+
+    # Mock Runner to assert agent configuration
+    mock_runner_cls = mocker.patch("wptgen.agents.adk_test_generator.Runner")
+    mock_runner_instance = mock_runner_cls.return_value
+    mock_runner_instance.close = mocker.AsyncMock()
+
+    async def mock_run_async(*args: Any, **kwargs: Any) -> Any:
+        yield MagicMock()
+
+    mock_runner_instance.run_async = mock_run_async
+
+    # Mock environment setup
+    mocker.patch(
+        "wptgen.agents.adk_test_generator.setup_adk_environment",
+        return_value="claude-3-5-sonnet-20240620",
+    )
+
+    mocker.patch(
+        "wptgen.agents.adk_test_generator.Path.is_dir", return_value=False
+    )
+
+    config = Config(
+        provider="anthropic",
+        default_model="claude-3-5-sonnet-20240620",
+        api_key="fake",
+        wpt_path=str(wpt_root),
+        output_dir="",
+        categories={},
+        phase_model_mapping={},
+    )
+
+    context = WorkflowContext(
+        feature_id="my-feature",
+        spec_contents={"spec1": "fake spec"},
+        metadata=None,
+        audit_response="fake audit",
+    )
+
+    mock_ui = MagicMock()
+    await generate_test_with_adk(
+        suggestion_xml="<test_suggestion></test_suggestion>",
+        root_name="my-feature-1",
+        test_type_enum=WPTTestType.JAVASCRIPT,
+        context=context,
+        config=config,
+        jinja_env=mock_jinja_env,
+        ui=mock_ui,
+    )
+
+    # Assert that the 'anthropic/' prefix was added to the model string
+    agent = mock_runner_cls.call_args.kwargs["agent"]
+    assert agent.model == "anthropic/claude-3-5-sonnet-20240620"
