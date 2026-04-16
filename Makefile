@@ -1,6 +1,6 @@
 # Makefile for wpt-gen
 
-.PHONY: help install lint lint-fix format typecheck test check presubmit clean build publish license-check license-fix
+.PHONY: help install lock lint lint-fix format typecheck test check presubmit clean build publish license-check license-fix
 
 # Variables
 PYTHON := python3
@@ -16,7 +16,8 @@ ADDLICENSE_IGNORE := -ignore '.venv/**' -ignore 'venv/**' -ignore 'build/**' -ig
 
 help:
 	@echo "Available commands:"
-	@echo "  make install       - Install dependencies in editable mode"
+	@echo "  make install       - Install dependencies using the dev lockfile and local package"
+	@echo "  make lock          - Generate requirements.txt and requirements-dev.txt lockfiles"
 	@echo "  make lint          - Check code style and formatting (includes license check)"
 	@echo "  make lint-fix      - Fix code style and formatting issues (includes license fix)"
 	@echo "  make format        - Alias for lint-fix"
@@ -32,8 +33,13 @@ help:
 	@echo "  make license-fix   - Add missing license headers"
 
 install:
-	$(PIP) install -e ".[dev]"
+	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -e .
 
+lock:
+	$(PIP) install pip-tools
+	pip-compile pyproject.toml -o requirements.txt
+	pip-compile --extra dev pyproject.toml -o requirements-dev.txt
 license-check:
 	$(ADDLICENSE) -check -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
 
