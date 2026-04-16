@@ -190,6 +190,17 @@ def _print_workflow_banner(ui: UIProvider, web_feature_id: str) -> None:
     ui.print(f"\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n")
 
 
+def _print_run_config(ui: UIProvider, config: Any) -> None:
+    ui.report_configuration(
+        {
+            "Provider": config.provider,
+            "Default": config.default_model,
+            "Lightweight": config.categories.get("lightweight", "N/A"),
+            "Reasoning": config.categories.get("reasoning", "N/A"),
+        }
+    )
+
+
 @contextmanager
 def _workflow_error_handler(ui: UIProvider) -> Generator[None, None, None]:
     """Context manager for handling top-level workflow exceptions.
@@ -219,17 +230,6 @@ def _workflow_error_handler(ui: UIProvider) -> Generator[None, None, None]:
         raise typer.Exit(code=1) from e
 
 
-def _print_run_config(ui: UIProvider, config: Any) -> None:
-    ui.report_configuration(
-        {
-            "Provider": config.provider,
-            "Default": config.default_model,
-            "Lightweight": config.categories.get("lightweight", "N/A"),
-            "Reasoning": config.categories.get("reasoning", "N/A"),
-        }
-    )
-
-
 def _execute_workflow(
     ui: UIProvider,
     web_feature_id: str,
@@ -250,7 +250,6 @@ def _execute_workflow(
         is_audit: Whether this is a suggestions-only audit run.
         disable_directory_inference: Whether to skip directory inference.
     """
-    _print_run_config(ui, config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -278,6 +277,7 @@ def _execute_workflow(
 
 @app.command()
 def generate(
+    ctx: typer.Context,
     web_feature_id: Annotated[
         str,
         typer.Argument(
@@ -585,8 +585,7 @@ def generate(
     """
     Generate Web Platform Tests for a specific web feature.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     _print_workflow_banner(ui, web_feature_id)
     _check_workflow_flags(
@@ -669,6 +668,7 @@ def generate(
 
 @app.command(name="generate-single")
 def generate_single(
+    ctx: typer.Context,
     description: Annotated[
         str,
         typer.Argument(help="The specific behavior description to test."),
@@ -749,8 +749,7 @@ def generate_single(
     Generate a single test directly from a user description, bypassing earlier
     phases.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     if spec_urls and spec_url:
         ui.error(
@@ -1903,11 +1902,14 @@ def init(
 
 
 @app.callback()
-def main_callback() -> None:
+def main_callback(
+    ctx: typer.Context,
+) -> None:
     """
     AI-Powered Web Platform Test Generation CLI
     """
-    pass
+    console = Console()
+    ctx.obj = {"ui": RichUIProvider(console)}
 
 
 if __name__ == "__main__":

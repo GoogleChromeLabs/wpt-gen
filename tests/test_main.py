@@ -19,6 +19,7 @@ from typing import Any
 from unittest.mock import call
 
 import pytest
+import typer
 import yaml
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
@@ -357,11 +358,12 @@ def test_list_models_command_error(mocker: MockerFixture) -> None:
     assert "Invalid provider" in result.stdout
 
 
-def test_main_callback() -> None:
+def test_main_callback(mocker: MockerFixture) -> None:
     """Test the main callback."""
     from wptgen.main import main_callback
 
-    main_callback()  # Should just pass
+    mock_ctx = mocker.Mock(spec=typer.Context)
+    main_callback(mock_ctx)  # Should just pass
 
 
 def test_config_command(mock_config: Config, mock_load_config: Any) -> None:
