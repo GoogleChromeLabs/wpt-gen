@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Semantic UI interface and Rich-based implementation for the WPT workflow."""
+"""Semantic UI interface and implementations for the WPT workflow."""
 
 from __future__ import annotations
 
@@ -100,6 +100,10 @@ class UIProvider(Protocol):
 
     # Domain-specific reporting
     def report_metadata(self, metadata: FeatureMetadata) -> None:
+        ...
+
+    def report_configuration(self, config_data: dict[str, str]) -> None:
+        """TODO: Implement for vendoring service logging support."""
         ...
 
     def report_context_summary(

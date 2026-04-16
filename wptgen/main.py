@@ -32,7 +32,6 @@ import yaml
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
@@ -55,7 +54,7 @@ from wptgen.models import (
 from wptgen.phases.generation import (
     run_single_test_generation,
 )
-from wptgen.ui import RichUIProvider
+from wptgen.ui import RichUIProvider, UIProvider
 
 
 class DimYellowWarningFormatter(logging.Formatter):
@@ -114,17 +113,16 @@ logging.getLogger("google_genai.types").addFilter(
     SuppressNonTextWarningFilter()
 )
 
-# Initialize Typer app and Rich console
+# Initialize Typer app
 app = typer.Typer(
     name="wpt-gen",
     help="AI-Powered Web Platform Test Generation CLI",
     add_completion=False,
 )
-console = Console()
-ui = RichUIProvider(console)
 
 
 def _check_workflow_flags(
+    ui: UIProvider,
     wf_yml_update: bool,
     output_dir: Path | None,
     use_lightweight: bool,
@@ -137,6 +135,7 @@ def _check_workflow_flags(
     """Validates conflicting or missing CLI flags for the workflow.
 
     Args:
+        ui: The UI provider for reporting errors.
         wf_yml_update: Whether to update WEB_FEATURES.yml.
         output_dir: Target directory for generated tests.
         use_lightweight: Whether lightweight model is requested.
@@ -169,10 +168,11 @@ def _check_workflow_flags(
         raise typer.Exit(code=1)
 
 
-def _print_workflow_banner(web_feature_id: str) -> None:
+def _print_workflow_banner(ui: UIProvider, web_feature_id: str) -> None:
     """Prints a stylized banner and target feature info to the console.
 
     Args:
+        ui: The UI provider for the workflow.
         web_feature_id: The ID of the feature being processed.
     """
     banner = Panel(
@@ -186,15 +186,16 @@ def _print_workflow_banner(web_feature_id: str) -> None:
         ),
         border_style="bright_blue",
     )
-    console.print(banner)
-    console.print(
-        f"\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n"
-    )
+    ui.print(banner)
+    ui.print(f"\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n")
 
 
 @contextmanager
-def _workflow_error_handler() -> Generator[None, None, None]:
+def _workflow_error_handler(ui: UIProvider) -> Generator[None, None, None]:
     """Context manager for handling top-level workflow exceptions.
+
+    Args:
+        ui: The UI provider for reporting errors.
 
     Yields:
         None
@@ -202,29 +203,23 @@ def _workflow_error_handler() -> Generator[None, None, None]:
     try:
         yield
     except LLMTimeoutError as e:
-        console.print(f"[bold red]LLM Request Timeout:[/bold red] {str(e)}")
+        ui.error(f"LLM Request Timeout: {str(e)}")
         raise typer.Exit(code=1) from e
     except ValueError as e:
         # Catch configuration errors (like missing API keys) and exit gracefully
-        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
+        ui.error(f"Configuration Error: {str(e)}")
         raise typer.Exit(code=1) from e
     except WorkflowError:
-        console.print()
-        console.print(
-            Panel(
-                "[bold red]✘ Workflow completed with errors.[/bold red]",
-                border_style="red",
-                expand=False,
-            )
-        )
+        ui.print()
+        ui.error("Workflow completed with errors.")
         raise typer.Exit(code=1) from None
     except Exception as e:
         # Catch unexpected runtime errors
-        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
+        ui.error(f"Unexpected Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
-def _print_run_config(config: Any) -> None:
+def _print_run_config(ui: UIProvider, config: Any) -> None:
     ui.report_configuration(
         {
             "Provider": config.provider,
@@ -236,6 +231,7 @@ def _print_run_config(config: Any) -> None:
 
 
 def _execute_workflow(
+    ui: UIProvider,
     web_feature_id: str,
     config: Any,
     wf_yml_update: bool,
@@ -246,13 +242,15 @@ def _execute_workflow(
     """Instantiates the engine and runs the end-to-end workflow.
 
     Args:
+        ui: The UI provider for the workflow.
         web_feature_id: The ID of the web feature.
         config: Resolved configuration object.
         wf_yml_update: Whether to update WEB_FEATURES.yml.
         output_dir: Directory to save tests.
         is_audit: Whether this is a suggestions-only audit run.
+        disable_directory_inference: Whether to skip directory inference.
     """
-    _print_run_config(config)
+    _print_run_config(ui, config)
 
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
@@ -263,15 +261,8 @@ def _execute_workflow(
     )
 
     if is_audit:
-        console.print()
-        console.print(
-            Panel(
-                "[bold green]✔ Audit completed successfully! "
-                "Test suggestions generated.[/bold green]",
-                border_style="green",
-                expand=False,
-            )
-        )
+        ui.print()
+        ui.success("Audit completed successfully! Test suggestions generated.")
     else:
         target_dir = output_dir or (
             Path(config.output_dir) if config.output_dir else None
@@ -279,19 +270,10 @@ def _execute_workflow(
         if wf_yml_update and target_dir and context and context.generated_tests:
             generated_paths = [path for path, _, _ in context.generated_tests]
             update_web_features_yml(target_dir, web_feature_id, generated_paths)
-            console.print(
-                f"[bold green]✔ Updated WEB_FEATURES.yml for "
-                f"{web_feature_id}[/bold green]"
-            )
+            ui.success(f"Updated WEB_FEATURES.yml for {web_feature_id}")
 
-        console.print()
-        console.print(
-            Panel(
-                "[bold green]✔ Workflow completed successfully![/bold green]",
-                border_style="green",
-                expand=False,
-            )
-        )
+        ui.print()
+        ui.success("Workflow completed successfully!")
 
 
 @app.command()
@@ -513,7 +495,7 @@ def generate(
         typer.Option(
             "--draft",
             help=(
-                "Enable fetching metadata from the draft features " "directory."
+                "Enable fetching metadata from the draft features directory."
             ),
         ),
     ] = False,
@@ -603,8 +585,12 @@ def generate(
     """
     Generate Web Platform Tests for a specific web feature.
     """
-    _print_workflow_banner(web_feature_id)
+    console = Console()
+    ui = RichUIProvider(console)
+
+    _print_workflow_banner(ui, web_feature_id)
     _check_workflow_flags(
+        ui=ui,
         wf_yml_update=wf_yml_update,
         output_dir=output_dir,
         use_lightweight=use_lightweight,
@@ -615,7 +601,7 @@ def generate(
         single_prompt_requirements=single_prompt_requirements,
     )
 
-    with _workflow_error_handler():
+    with _workflow_error_handler(ui):
         # Convert Path object back to string if it was provided, else pass None
         wpt_dir_str = str(wpt_dir) if wpt_dir else None
         output_dir_str = str(output_dir) if output_dir else None
@@ -671,6 +657,7 @@ def generate(
         )
 
         _execute_workflow(
+            ui=ui,
             web_feature_id=web_feature_id,
             config=config,
             wf_yml_update=wf_yml_update,
@@ -762,17 +749,20 @@ def generate_single(
     Generate a single test directly from a user description, bypassing earlier
     phases.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     if spec_urls and spec_url:
-        ui.print(
-            "[red]Error: Cannot provide both --spec-urls and --spec-url. "
-            "Please use only one.[/red]"
+        ui.error(
+            "Error: Cannot provide both --spec-urls and --spec-url. "
+            "Please use only one."
         )
         raise typer.Exit(code=1)
 
     if not spec_urls and not spec_url and not web_feature_id:
-        ui.print(
-            "[red]Error: Either --spec-url, --spec-urls, or "
-            "--web-feature-id must be provided.[/red]"
+        ui.error(
+            "Error: Either --spec-url, --spec-urls, or "
+            "--web-feature-id must be provided."
         )
         raise typer.Exit(code=1)
 
@@ -795,13 +785,13 @@ def generate_single(
         if output_dir:
             config.output_dir = str(output_dir)
 
-        _print_run_config(config)
+        _print_run_config(ui, config)
 
         ui.print()
-        ui.print(
-            "[yellow]WARNING: Running in direct generation mode. Context "
+        ui.warning(
+            "Running in direct generation mode. Context "
             "assembly and duplicate test detection are disabled. The "
-            "generated test may be redundant or less accurate.[/yellow]"
+            "generated test may be redundant or less accurate."
         )
 
         engine = WPTGenEngine(config=config, ui=ui)
@@ -821,22 +811,10 @@ def generate_single(
 
         ui.print()
         if generated_tests:
-            ui.print(
-                Panel(
-                    "[bold green]✔ Test generation completed "
-                    "successfully![/bold green]",
-                    border_style="green",
-                    expand=False,
-                )
-            )
+            ui.success("Test generation completed successfully!")
         else:
-            ui.print(
-                Panel(
-                    "[bold yellow]Test generation completed, but no tests "
-                    "were generated.[/bold yellow]",
-                    border_style="yellow",
-                    expand=False,
-                )
+            ui.warning(
+                "Test generation completed, but no tests were generated."
             )
 
     except LLMTimeoutError as e:
@@ -991,6 +969,9 @@ def chromestatus_command(
     """
     Perform a coverage audit and generate a report for a ChromeStatus feature.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     banner = Panel(
         Align.center(
             Text.from_markup(
@@ -1002,8 +983,8 @@ def chromestatus_command(
         ),
         border_style="bright_blue",
     )
-    console.print(banner)
-    console.print(
+    ui.print(banner)
+    ui.print(
         f"\n[bold]Target ChromeStatus Feature:[/bold] "
         f"[cyan]{feature_id}[/cyan]\n"
     )
@@ -1052,7 +1033,7 @@ def chromestatus_command(
             temperature_override=None,
         )
 
-        _print_run_config(config)
+        _print_run_config(ui, config)
 
         # 2. Instantiate the core engine
         engine = WPTGenEngine(config=config, ui=ui)
@@ -1060,44 +1041,26 @@ def chromestatus_command(
         # 3. Execute the workflow
         engine.run_workflow(feature_id)
 
-        console.print()
+        ui.print()
         if suggestions_only:
-            msg = (
-                "[bold green]✔ ChromeStatus Audit completed successfully! "
-                "Blueprints generated.[/bold green]"
+            ui.success(
+                "ChromeStatus Audit completed successfully! Blueprints generated."
             )
         else:
-            msg = (
-                "[bold green]✔ ChromeStatus Workflow completed "
-                "successfully![/bold green]"
-            )
-
-        console.print(
-            Panel(
-                msg,
-                border_style="green",
-                expand=False,
-            )
-        )
+            ui.success("ChromeStatus Workflow completed successfully!")
 
     except LLMTimeoutError as e:
-        console.print(f"[bold red]LLM Request Timeout:[/bold red] {str(e)}")
+        ui.error(f"LLM Request Timeout: {str(e)}")
         raise typer.Exit(code=1) from e
     except ValueError as e:
-        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
+        ui.error(f"Configuration Error: {str(e)}")
         raise typer.Exit(code=1) from e
     except WorkflowError:
-        console.print()
-        console.print(
-            Panel(
-                "[bold red]✘ Workflow completed with errors.[/bold red]",
-                border_style="red",
-                expand=False,
-            )
-        )
+        ui.print()
+        ui.error("Workflow completed with errors.")
         raise typer.Exit(code=1) from None
     except Exception as e:
-        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
+        ui.error(f"Unexpected Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -1113,78 +1076,49 @@ def doctor_command(
     """
     Verify that all system prerequisites are met.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     success = True
-    console.print("[bold]WPT-Gen System Check[/bold]\n")
+    ui.print("[bold]WPT-Gen System Check[/bold]\n")
 
     try:
         config = load_config(config_path=config_path, require_api_key=False)
-        console.print(
-            "[bold green]✔[/bold green] Configuration loaded successfully."
-        )
+        ui.success("Configuration loaded successfully.")
     except Exception as e:
-        console.print(f"[bold red]✘[/bold red] Configuration error: {str(e)}")
+        ui.error(f"Configuration error: {str(e)}")
         raise typer.Exit(code=1) from e
 
     if config.api_key:
-        console.print(
-            f"[bold green]✔[/bold green] API key for {config.provider} "
-            "is configured."
-        )
+        ui.success(f"API key for {config.provider} is configured.")
     else:
-        console.print(
-            f"[bold red]✘[/bold red] API key for {config.provider} is missing."
-        )
+        ui.error(f"API key for {config.provider} is missing.")
         success = False
 
     wpt_path = Path(config.wpt_path)
     if wpt_path.is_dir():
-        console.print(
-            f"[bold green]✔[/bold green] WPT directory found: {wpt_path}"
-        )
+        ui.success(f"WPT directory found: {wpt_path}")
         if (wpt_path / ".git").exists():
-            console.print(
-                "[bold green]✔[/bold green] WPT directory is a valid git "
-                "repository."
-            )
+            ui.success("WPT directory is a valid git repository.")
         else:
-            console.print(
-                "[bold red]✘[/bold red] WPT directory is not a git repository."
-            )
+            ui.error("WPT directory is not a git repository.")
             success = False
 
         wpt_exec = wpt_path / "wpt"
         if wpt_exec.exists() and os.access(wpt_exec, os.X_OK):
-            console.print(
-                "[bold green]✔[/bold green] WPT executable (./wpt) is runnable."
-            )
+            ui.success("WPT executable (./wpt) is runnable.")
         else:
-            console.print(
-                "[bold red]✘[/bold red] WPT executable (./wpt) is missing "
-                "or not executable."
-            )
+            ui.error("WPT executable (./wpt) is missing or not executable.")
             success = False
     else:
-        console.print(
-            f"[bold red]✘[/bold red] WPT directory not found: {wpt_path}"
-        )
+        ui.error(f"WPT directory not found: {wpt_path}")
         success = False
 
-    console.print()
+    ui.print()
     if success:
-        console.print(
-            Panel(
-                "[bold green]All checks passed! System is ready.[/bold green]",
-                expand=False,
-            )
-        )
+        ui.success("All checks passed! System is ready.")
     else:
-        console.print(
-            Panel(
-                "[bold red]Some checks failed. Please resolve the issues "
-                "above.[/bold red]",
-                expand=False,
-            )
-        )
+        ui.error("Some checks failed. Please resolve the issues above.")
         raise typer.Exit(code=1)
 
 
@@ -1208,10 +1142,11 @@ def _flatten_dict(
     return dict(items)
 
 
-def _display_config(config_path: str) -> None:
+def _display_config(ui: UIProvider, config_path: str) -> None:
     """Displays the currently resolved configuration in the console.
 
     Args:
+        ui: The UI provider for reporting errors and results.
         config_path: Path to the configuration file to load.
     """
     try:
@@ -1225,11 +1160,11 @@ def _display_config(config_path: str) -> None:
         default_dict = dataclasses.asdict(default_config)
 
         if config.loaded_from:
-            console.print(
+            ui.print(
                 f"Reading configuration from: [cyan]{config.loaded_from}[/cyan]"
             )
         else:
-            console.print(
+            ui.print(
                 "Reading configuration from: [yellow]Defaults (no config "
                 "file found)[/yellow]"
             )
@@ -1271,9 +1206,9 @@ def _display_config(config_path: str) -> None:
                 source_styled,
             )
 
-        console.print(table)
+        ui.print(table)
     except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        ui.error(f"Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -1292,7 +1227,9 @@ def config_callback(
     Displays active configuration if no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        _display_config(config_path)
+        console = Console()
+        ui = RichUIProvider(console)
+        _display_config(ui, config_path)
 
 
 @config_app.command(name="show")
@@ -1307,7 +1244,9 @@ def config_show(
     """
     Display the currently active, fully resolved configuration.
     """
-    _display_config(config_path)
+    console = Console()
+    ui = RichUIProvider(console)
+    _display_config(ui, config_path)
 
 
 @config_app.command(name="set")
@@ -1334,6 +1273,9 @@ def config_set(
     """
     Update an individual configuration setting using dot-notation.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     path = Path(config_path)
     target_file = path
 
@@ -1348,9 +1290,7 @@ def config_set(
             with open(target_file, encoding="utf-8") as f:
                 yaml_data = yaml.safe_load(f) or {}
         except Exception as e:
-            console.print(
-                f"[bold red]Error reading config file:[/bold red] {e}"
-            )
+            ui.error(f"Error reading config file: {e}")
             raise typer.Exit(code=1) from e
 
     keys = key.split(".")
@@ -1379,13 +1319,12 @@ def config_set(
     try:
         with open(target_file, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, sort_keys=False, default_flow_style=False)
-        console.print(
-            f"[bold green]✔[/bold green] Set [cyan]{key}[/cyan] = "
-            f"[yellow]{typed_value}[/yellow] in "
+        ui.success(
+            f"Set [cyan]{key}[/cyan] = [yellow]{typed_value}[/yellow] in "
             f"[magenta]{target_file.resolve()}[/magenta]"
         )
     except Exception as e:
-        console.print(f"[bold red]Error writing config file:[/bold red] {e}")
+        ui.error(f"Error writing config file: {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -1412,6 +1351,9 @@ def list_models(
     """
     Display the configured LLM models for the active provider.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     try:
         config = load_config(
             config_path=config_path,
@@ -1429,10 +1371,10 @@ def list_models(
         for cat_name, mod_name in config.categories.items():
             table.add_row(cat_name, mod_name)
 
-        console.print()
-        console.print(table)
+        ui.print()
+        ui.print(table)
     except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        ui.error(f"Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -1719,8 +1661,12 @@ def audit(
     This command performs a gap analysis and generates coverage test suggestions
     without generating WPT files.
     """
-    _print_workflow_banner(web_feature_id)
+    console = Console()
+    ui = RichUIProvider(console)
+
+    _print_workflow_banner(ui, web_feature_id)
     _check_workflow_flags(
+        ui=ui,
         wf_yml_update=wf_yml_update,
         output_dir=output_dir,
         use_lightweight=use_lightweight,
@@ -1731,7 +1677,7 @@ def audit(
         single_prompt_requirements=single_prompt_requirements,
     )
 
-    with _workflow_error_handler():
+    with _workflow_error_handler(ui):
         # Convert Path object back to string if it was provided, else pass None
         wpt_dir_str = str(wpt_dir) if wpt_dir else None
         output_dir_str = str(output_dir) if output_dir else None
@@ -1787,6 +1733,7 @@ def audit(
         )
 
         _execute_workflow(
+            ui=ui,
             web_feature_id=web_feature_id,
             config=config,
             wf_yml_update=wf_yml_update,
@@ -1810,18 +1757,18 @@ def clear_cache(
     """
     Clear the existing cached data for wpt-gen.
     """
+    console = Console()
+    ui = RichUIProvider(console)
     try:
         config = load_config(config_path=config_path, require_api_key=False)
         if not config.cache_path:
-            console.print(
-                "[bold red]Error:[/bold red] Cache path not configured."
-            )
+            ui.error("Cache path not configured.")
             return
 
         cache_dir = Path(config.cache_path)
 
         if not cache_dir.exists():
-            console.print(
+            ui.info(
                 f"Cache directory [cyan]{cache_dir}[/cyan] does not exist. "
                 "Nothing to clear."
             )
@@ -1829,7 +1776,7 @@ def clear_cache(
 
         files = list(cache_dir.iterdir())
         if not files:
-            console.print(
+            ui.info(
                 f"Cache directory [cyan]{cache_dir}[/cyan] is already empty."
             )
             return
@@ -1843,17 +1790,15 @@ def clear_cache(
                     item.unlink()
                 elif item.is_dir():
                     shutil.rmtree(item)
-            console.print(
-                "[bold green]✔ Cache cleared successfully![/bold green]"
-            )
+            ui.success("Cache cleared successfully!")
         else:
-            console.print("Aborted.")
+            ui.print("Aborted.")
 
     except ValueError as e:
-        console.print(f"[bold red]Configuration Error:[/bold red] {str(e)}")
+        ui.error(f"Configuration Error: {str(e)}")
         raise typer.Exit(code=1) from e
     except Exception as e:
-        console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
+        ui.error(f"Unexpected Error: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
@@ -1862,11 +1807,13 @@ def version() -> None:
     """
     Print the version of wpt-gen.
     """
+    console = Console()
+    ui = RichUIProvider(console)
     try:
         # Replace 'your-package-name' with the name defined in pyproject.toml
-        console.print(f'wpt-gen version {app_version("wpt-gen")}')
+        ui.print(f'wpt-gen version {app_version("wpt-gen")}')
     except PackageNotFoundError:
-        console.print("unknown")
+        ui.print("unknown")
 
 
 @app.command(name="init")
@@ -1888,6 +1835,9 @@ def init(
     """
     Initialize a new wpt-gen configuration file interactively.
     """
+    console = Console()
+    ui = RichUIProvider(console)
+
     if config_path:
         resolved_path = Path(config_path)
     else:
@@ -1897,34 +1847,32 @@ def init(
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
 
     if resolved_path.exists():
-        overwrite = Confirm.ask(
-            f"[bold yellow]Warning:[/bold yellow] Configuration file "
-            f"already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",
+        overwrite = ui.confirm(
+            f"Configuration file already exists at [cyan]{resolved_path}[/cyan]. Overwrite?",
             default=False,
         )
         if not overwrite:
-            console.print("Aborted.")
+            ui.print("Aborted.")
             return
 
-    provider = Prompt.ask(
+    provider = ui.prompt(
         "Preferred LLM Provider",
-        choices=["gemini", "openai", "anthropic"],
         default="gemini",
     )
 
     defaults = DEFAULT_PROVIDER_MODELS[provider]
 
-    console.print(f"\n[cyan]Configuring models for {provider}[/cyan]")
-    default_model = Prompt.ask("Default model", default=defaults["default"])
-    lightweight_model = Prompt.ask(
+    ui.print(f"\n[cyan]Configuring models for {provider}[/cyan]")
+    default_model = ui.prompt("Default model", default=defaults["default"])
+    lightweight_model = ui.prompt(
         "Lightweight model", default=defaults["lightweight"]
     )
-    reasoning_model = Prompt.ask(
+    reasoning_model = ui.prompt(
         "Reasoning model", default=defaults["reasoning"]
     )
 
     if wpt_path is None:
-        wpt_path = Prompt.ask(
+        wpt_path = ui.prompt(
             "\nAbsolute path to local web-platform-tests directory",
             default=str(Path.home() / "wpt"),
         )
@@ -1946,14 +1894,11 @@ def init(
     try:
         with open(resolved_path, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-        console.print(
-            f"\n[bold green]✔ Configuration saved successfully to "
-            f"[cyan]{resolved_path}[/cyan][/bold green]"
+        ui.success(
+            f"Configuration saved successfully to [cyan]{resolved_path}[/cyan]"
         )
     except Exception as e:
-        console.print(
-            f"[bold red]Failed to save configuration:[/bold red] {str(e)}"
-        )
+        ui.error(f"Failed to save configuration: {str(e)}")
         raise typer.Exit(code=1) from e
 
 
