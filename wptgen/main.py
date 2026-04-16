@@ -1849,8 +1849,8 @@ def init(
     if resolved_path.exists():
         overwrite = ui.confirm(
             (
-                f"Configuration file already exists at [cyan]{resolved_path}[/cyan]."
-                " Overwrite?"
+                "Configuration file already exists at "
+                f"[cyan]{resolved_path}[/cyan]. Overwrite?"
             ),
             default=False,
         )
