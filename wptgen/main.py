@@ -87,6 +87,19 @@ class SuppressDuplicateWarningFilter(logging.Filter):
         return True
 
 
+class SuppressNonTextWarningFilter(logging.Filter):
+    """Filters out noisy non-text parts warnings from google-genai."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if (
+            record.levelno == logging.WARNING
+            and "there are non-text parts in the response"
+            in record.getMessage()
+        ):
+            return False
+        return True
+
+
 # Apply the custom warning formatter globally
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(
@@ -96,6 +109,9 @@ logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
 
 logging.getLogger("google_genai._api_client").addFilter(
     SuppressDuplicateWarningFilter()
+)
+logging.getLogger("google_genai.types").addFilter(
+    SuppressNonTextWarningFilter()
 )
 
 # Initialize Typer app and Rich console
