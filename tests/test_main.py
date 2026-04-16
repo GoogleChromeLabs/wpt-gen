@@ -172,6 +172,12 @@ def test_generate_success(
             ["https://url1.com, https://url2.com"],
         ),
         (
+            "--spec-url",
+            "spec_urls_override",
+            ["https://url1.com"],
+            ["https://url1.com"],
+        ),
+        (
             "--description",
             "feature_description_override",
             "Test Description",
@@ -673,7 +679,7 @@ def test_config_set_command_types() -> None:
 
 
 def test_generate_single_missing_spec_urls() -> None:
-    """Test that omitting both --spec-urls and --web-feature-id raises an error."""
+    """Test that omitting both spec flags and --web-feature-id raises an error."""
     result = runner.invoke(
         app,
         ["generate-single", "Test description"],
@@ -681,7 +687,7 @@ def test_generate_single_missing_spec_urls() -> None:
     )
     assert result.exit_code != 0
     assert (
-        "Either --spec-urls or --web-feature-id must be provided."
+        "Either --spec-url, --spec-urls, or --web-feature-id must be provided."
         in result.output
     )
 

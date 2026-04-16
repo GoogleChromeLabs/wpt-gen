@@ -453,6 +453,13 @@ def generate(
             ),
         ),
     ] = None,
+    spec_url: Annotated[
+        str | None,
+        typer.Option(
+            "--spec-url",
+            help="A single specification URL for convenience.",
+        ),
+    ] = None,
     description: Annotated[
         str | None,
         typer.Option(
@@ -597,9 +604,18 @@ def generate(
         wpt_dir_str = str(wpt_dir) if wpt_dir else None
         output_dir_str = str(output_dir) if output_dir else None
 
+        if spec_urls and spec_url:
+            ui.print(
+                "[red]Error: Cannot provide both --spec-urls and --spec-url. "
+                "Please use only one.[/red]"
+            )
+            raise typer.Exit(code=1)
+
         # Parse spec_urls if provided
         spec_urls_list = None
-        if spec_urls:
+        if spec_url:
+            spec_urls_list = [spec_url.strip()]
+        elif spec_urls:
             spec_urls_list = [u.strip() for u in spec_urls.split(",")]
 
         config = load_config(
@@ -659,6 +675,13 @@ def generate_single(
         typer.Option(
             "--spec-urls",
             help="Comma-separated list of specification URLs for the feature.",
+        ),
+    ] = None,
+    spec_url: Annotated[
+        str | None,
+        typer.Option(
+            "--spec-url",
+            help="A single specification URL for convenience.",
         ),
     ] = None,
     web_feature_id: Annotated[
@@ -723,17 +746,27 @@ def generate_single(
     Generate a single test directly from a user description, bypassing earlier
     phases.
     """
-    if not spec_urls and not web_feature_id:
+    if spec_urls and spec_url:
         ui.print(
-            "[red]Error: Either --spec-urls or --web-feature-id must be "
-            "provided.[/red]"
+            "[red]Error: Cannot provide both --spec-urls and --spec-url. "
+            "Please use only one.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    if not spec_urls and not spec_url and not web_feature_id:
+        ui.print(
+            "[red]Error: Either --spec-url, --spec-urls, or "
+            "--web-feature-id must be provided.[/red]"
         )
         raise typer.Exit(code=1)
 
     try:
-        spec_urls_list = (
-            [u.strip() for u in spec_urls.split(",")] if spec_urls else []
-        )
+        if spec_url:
+            spec_urls_list = [spec_url.strip()]
+        else:
+            spec_urls_list = (
+                [u.strip() for u in spec_urls.split(",")] if spec_urls else []
+            )
 
         config = load_config(
             config_path=config_path,
@@ -1543,6 +1576,13 @@ def audit(
             ),
         ),
     ] = None,
+    spec_url: Annotated[
+        str | None,
+        typer.Option(
+            "--spec-url",
+            help="A single specification URL for convenience.",
+        ),
+    ] = None,
     description: Annotated[
         str | None,
         typer.Option(
@@ -1680,9 +1720,18 @@ def audit(
         wpt_dir_str = str(wpt_dir) if wpt_dir else None
         output_dir_str = str(output_dir) if output_dir else None
 
+        if spec_urls and spec_url:
+            ui.print(
+                "[red]Error: Cannot provide both --spec-urls and --spec-url. "
+                "Please use only one.[/red]"
+            )
+            raise typer.Exit(code=1)
+
         # Parse spec_urls if provided
         spec_urls_list = None
-        if spec_urls:
+        if spec_url:
+            spec_urls_list = [spec_url.strip()]
+        elif spec_urls:
             spec_urls_list = [u.strip() for u in spec_urls.split(",")]
 
         config = load_config(
