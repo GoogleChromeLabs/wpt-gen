@@ -43,6 +43,10 @@ from wptgen.config import (
     _get_global_config_path,
     load_config,
 )
+from wptgen.context import (
+    extract_feature_metadata,
+    fetch_feature_yaml,
+)
 from wptgen.engine import WorkflowError, WPTGenEngine
 from wptgen.llm import LLMTimeoutError
 from wptgen.metadata import update_web_features_yml
@@ -783,6 +787,13 @@ def generate_single(
             spec_urls_list = (
                 [u.strip() for u in spec_urls.split(",")] if spec_urls else []
             )
+
+        if not spec_urls_list and web_feature_id:
+            feature_data = fetch_feature_yaml(web_feature_id)
+            if feature_data:
+                metadata = extract_feature_metadata(feature_data)
+                if metadata.specs:
+                    spec_urls_list = metadata.specs
 
         config = load_config(
             config_path=config_path,
