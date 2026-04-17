@@ -14,4 +14,4 @@
 
 """WPT-Gen: An agentic tool for automating Web Platform Tests."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
