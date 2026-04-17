@@ -765,3 +765,38 @@ def test_generate_single_no_feature_id(
     mock_run_single.assert_called_once()
     kwargs = mock_run_single.call_args.kwargs
     assert kwargs["web_feature_id"] is None
+
+
+def test_generate_single_with_fetched_specs(
+    mocker: MockerFixture,
+    mock_config: Config,
+    mock_load_config: Any,
+    mock_engine_instance: Any,
+    default_load_config_kwargs: dict[str, bool | str | int | None | list[str]],
+) -> None:
+    """Test generate-single fetches spec URLs automatically."""
+    mock_run_single = mocker.patch("wptgen.main.run_single_test_generation")
+    mock_run_single.return_value = []
+
+    mock_fetch_yaml = mocker.patch("wptgen.main.fetch_feature_yaml")
+    mock_fetch_yaml.return_value = {
+        "name": "popover",
+        "spec": "https://example.com/popover",
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            "generate-single",
+            "This is a custom test",
+            "--web-feature-id",
+            "popover",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    mock_run_single.assert_called_once()
+    kwargs = mock_run_single.call_args.kwargs
+    assert kwargs["web_feature_id"] == "popover"
+    assert kwargs["spec_urls"] == ["https://example.com/popover"]
