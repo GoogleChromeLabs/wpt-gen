@@ -38,8 +38,8 @@ install:
 
 lock:
 	$(PIP) install pip-tools
-	pip-compile --no-emit-index-url pyproject.toml -o requirements.txt
-	pip-compile --no-emit-index-url --extra dev pyproject.toml -o requirements-dev.txt
+	pip-compile --no-emit-index-url --upgrade pyproject.toml -o requirements.txt
+	pip-compile --no-emit-index-url --upgrade --extra dev -c requirements.txt pyproject.toml -o requirements-dev.txt
 license-check:
 	$(ADDLICENSE) -check -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
 

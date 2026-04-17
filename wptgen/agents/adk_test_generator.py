@@ -63,6 +63,10 @@ async def generate_test_with_adk(
         "anthropic/"
     ):
         model_string = f"anthropic/{model_string}"
+    elif config.provider.lower() == "openai" and not model_string.startswith(
+        "openai/"
+    ):
+        model_string = f"openai/{model_string}"
     wpt_root = Path(config.wpt_path)
 
     # We need to extract the paths from the agent's final tool call.
