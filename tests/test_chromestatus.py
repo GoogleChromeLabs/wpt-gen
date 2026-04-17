@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the ChromeStatus metadata provider."""
+
 import json
 import urllib.error
 from email.message import Message

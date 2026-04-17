@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for observability.py."""
+
 import json
 from pathlib import Path
 

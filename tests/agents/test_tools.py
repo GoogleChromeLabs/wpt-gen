@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for tools.py."""
+
 import json
 from pathlib import Path
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for models.py."""
+
 from typing import Any
 
 from wptgen.models import WorkflowContext

@@ -201,9 +201,9 @@ async def run_context_assembly(
     if config.chromestatus:
         ui.report_context_summary(
             spec_len=sum(len(content) for content in spec_contents.values()),
-            explainer_count=len(explainer_contents)
-            if explainer_contents
-            else 0,
+            explainer_count=(
+                len(explainer_contents) if explainer_contents else 0
+            ),
             test_count=len(wpt_context.test_contents),
         )
     else:

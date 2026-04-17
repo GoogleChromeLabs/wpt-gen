@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for LLM coverage analysis."""
+
 from unittest.mock import MagicMock, patch
 
 import anthropic

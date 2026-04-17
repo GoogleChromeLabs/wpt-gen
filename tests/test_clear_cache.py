@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the clear-cache command."""
+
 import re
 import shutil
 from pathlib import Path

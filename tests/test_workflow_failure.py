@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for workflow failure handling."""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

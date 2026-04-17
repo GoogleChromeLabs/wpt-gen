@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for ui.py."""
+
 from pathlib import Path
 from unittest.mock import MagicMock
 

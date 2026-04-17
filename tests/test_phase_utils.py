@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the phase utility functions."""
+
 from typing import Any
 from unittest.mock import MagicMock
 

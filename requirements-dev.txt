@@ -4,7 +4,7 @@
 #
 #    pip-compile --constraint=requirements.txt --extra=dev --output-file=requirements-dev.txt pyproject.toml
 #
---index-url https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/
+
 
 aiohappyeyeballs==2.6.1
     # via
@@ -69,7 +69,7 @@ beautifulsoup4==4.14.3
     #   markdownify
     #   wpt-gen (pyproject.toml)
 black==25.12.0
-    # via pyink
+    # via black
 build==1.4.3
     # via
     #   pip-tools
@@ -95,7 +95,7 @@ click==8.1.8
     #   google-adk
     #   litellm
     #   pip-tools
-    #   pyink
+    #   black
     #   typer
     #   uvicorn
 cloudpickle==3.1.2
@@ -507,7 +507,7 @@ mypy-extensions==1.1.0
     # via
     #   black
     #   mypy
-    #   pyink
+    #   black
 nh3==0.3.4
     # via readme-renderer
 openai==2.24.0
@@ -589,8 +589,8 @@ packaging==26.1
     #   build
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
+    #   black
     #   huggingface-hub
-    #   pyink
     #   pytest
     #   twine
     #   wheel
@@ -598,13 +598,13 @@ pathspec==1.0.4
     # via
     #   black
     #   mypy
-    #   pyink
+    #   black
 pip-tools==7.5.3
     # via wpt-gen (pyproject.toml)
 platformdirs==4.9.6
     # via
     #   black
-    #   pyink
+    #   black
     #   pylint
 pluggy==1.6.0
     # via
@@ -701,7 +701,7 @@ pygments==2.20.0
     #   pytest
     #   readme-renderer
     #   rich
-pyink==25.12.0
+black==25.12.0
     # via wpt-gen (pyproject.toml)
 pyjwt[crypto]==2.12.1
     # via
@@ -751,7 +751,7 @@ python-multipart==0.0.26
 pytokens==0.4.1
     # via
     #   black
-    #   pyink
+    #   black
 pyyaml==6.0.3
     # via
     #   -c requirements.txt

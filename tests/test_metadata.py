@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for metadata.py."""
+
 from pathlib import Path
 
 import yaml

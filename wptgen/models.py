@@ -189,9 +189,9 @@ class WorkflowContext:
             "metadata": self.metadata.to_dict() if self.metadata else None,
             "spec_contents": self.spec_contents,
             "explainer_contents": self.explainer_contents,
-            "wpt_context": self.wpt_context.to_dict()
-            if self.wpt_context
-            else None,
+            "wpt_context": (
+                self.wpt_context.to_dict() if self.wpt_context else None
+            ),
             "requirements_xml": self.requirements_xml,
             "audit_response": self.audit_response,
             "suggestions": self.suggestions,

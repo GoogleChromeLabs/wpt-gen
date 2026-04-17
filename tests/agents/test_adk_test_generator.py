@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for adk_test_generator.py."""
+
 import os
 from pathlib import Path
 from typing import Any

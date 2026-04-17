@@ -440,12 +440,16 @@ def load_config(
         max_retries=max_retries,
         timeout=timeout,
         cache_path=cache_path,
-        run_on_browser=run_on_browser_override
-        if run_on_browser_override
-        else BrowserType(yaml_data.get("run_on_browser", "chrome")),
-        run_on_channel=run_on_channel_override
-        if run_on_channel_override
-        else BrowserChannel(yaml_data.get("run_on_channel", "canary")),
+        run_on_browser=(
+            run_on_browser_override
+            if run_on_browser_override
+            else BrowserType(yaml_data.get("run_on_browser", "chrome"))
+        ),
+        run_on_channel=(
+            run_on_channel_override
+            if run_on_channel_override
+            else BrowserChannel(yaml_data.get("run_on_channel", "canary"))
+        ),
         spec_urls=spec_urls_override,
         feature_description=feature_description_override,
         detailed_requirements=detailed_requirements,
@@ -462,8 +466,10 @@ def load_config(
         state_dir=state_dir,
         audit_partition_size=audit_partition_size,
         max_parallel_requests=max_parallel_requests,
-        temperature=temperature_override
-        if temperature_override is not None
-        else yaml_data.get("temperature"),
+        temperature=(
+            temperature_override
+            if temperature_override is not None
+            else yaml_data.get("temperature")
+        ),
         loaded_from=loaded_from,
     )

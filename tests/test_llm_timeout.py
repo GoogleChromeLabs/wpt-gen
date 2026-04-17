@@ -21,7 +21,12 @@ from google.genai import types
 from pytest_mock import MockerFixture
 
 from wptgen.config import DEFAULT_LLM_TIMEOUT, Config
-from wptgen.llm import GeminiClient, LLMTimeoutError, OpenAIClient, get_llm_client  # pylint: disable=line-too-long
+from wptgen.llm import (
+    GeminiClient,
+    LLMTimeoutError,
+    OpenAIClient,
+    get_llm_client,
+)
 
 
 @pytest.fixture

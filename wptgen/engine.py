@@ -24,7 +24,10 @@ from wptgen.config import TEMPLATE_DIR, Config
 from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext, WorkflowPhase
 from wptgen.phases.context_assembly import run_context_assembly
-from wptgen.phases.coverage_audit import provide_coverage_report, run_coverage_audit
+from wptgen.phases.coverage_audit import (
+    provide_coverage_report,
+    run_coverage_audit,
+)
 from wptgen.phases.generation import run_test_generation
 from wptgen.phases.requirements_extraction import (
     run_requirements_extraction,
