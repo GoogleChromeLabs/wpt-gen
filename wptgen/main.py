@@ -765,7 +765,7 @@ def generate_single(
         )
         raise typer.Exit(code=1)
 
-    try:
+    with _workflow_error_handler(ui):
         if spec_url:
             spec_urls_list = [spec_url.strip()]
         else:
@@ -816,19 +816,10 @@ def generate_single(
                 "Test generation completed, but no tests were generated."
             )
 
-    except LLMTimeoutError as e:
-        ui.error(f"LLM Request Timeout: {str(e)}")
-        raise typer.Exit(code=1) from e
-    except ValueError as e:
-        ui.error(f"Configuration Error: {str(e)}")
-        raise typer.Exit(code=1) from e
-    except Exception as e:
-        ui.error(f"Unexpected Error: {str(e)}")
-        raise typer.Exit(code=1) from e
-
 
 @app.command(name="chromestatus")
 def chromestatus_command(
+    ctx: typer.Context,
     feature_id: Annotated[
         str,
         typer.Argument(help='The ChromeStatus feature ID (e.g., "12345").'),
@@ -968,8 +959,7 @@ def chromestatus_command(
     """
     Perform a coverage audit and generate a report for a ChromeStatus feature.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     banner = Panel(
         Align.center(
@@ -992,7 +982,7 @@ def chromestatus_command(
         ui.error("Cannot use both --use-lightweight and --use-reasoning.")
         raise typer.Exit(code=1)
 
-    try:
+    with _workflow_error_handler(ui):
         # 1. Load configuration (merging YAML, env vars, and CLI overrides)
         wpt_dir_str = str(wpt_dir) if wpt_dir else None
         output_dir_str = str(output_dir) if output_dir else None
@@ -1047,25 +1037,12 @@ def chromestatus_command(
                 "Blueprints generated."
             )
         else:
-            ui.success("ChromeStatus Workflow completed " "successfully!")
-
-    except LLMTimeoutError as e:
-        ui.error(f"LLM Request Timeout: {str(e)}")
-        raise typer.Exit(code=1) from e
-    except ValueError as e:
-        ui.error(f"Configuration Error: {str(e)}")
-        raise typer.Exit(code=1) from e
-    except WorkflowError:
-        ui.print()
-        ui.error("Workflow completed with errors.")
-        raise typer.Exit(code=1) from None
-    except Exception as e:
-        ui.error(f"Unexpected Error: {str(e)}")
-        raise typer.Exit(code=1) from e
+            ui.success("ChromeStatus Workflow completed successfully!")
 
 
 @app.command(name="doctor")
 def doctor_command(
+    ctx: typer.Context,
     config_path: Annotated[
         str,
         typer.Option(
@@ -1076,8 +1053,7 @@ def doctor_command(
     """
     Verify that all system prerequisites are met.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     success = True
     ui.print("[bold]WPT-Gen System Check[/bold]\n")
@@ -1227,13 +1203,13 @@ def config_callback(
     Displays active configuration if no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        console = Console()
-        ui = RichUIProvider(console)
+        ui = ctx.obj["ui"]
         _display_config(ui, config_path)
 
 
 @config_app.command(name="show")
 def config_show(
+    ctx: typer.Context,
     config_path: Annotated[
         str,
         typer.Option(
@@ -1244,13 +1220,13 @@ def config_show(
     """
     Display the currently active, fully resolved configuration.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
     _display_config(ui, config_path)
 
 
 @config_app.command(name="set")
 def config_set(
+    ctx: typer.Context,
     key: Annotated[
         str,
         typer.Argument(
@@ -1273,8 +1249,7 @@ def config_set(
     """
     Update an individual configuration setting using dot-notation.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     path = Path(config_path)
     target_file = path
@@ -1330,6 +1305,7 @@ def config_set(
 
 @app.command(name="list-models")
 def list_models(
+    ctx: typer.Context,
     provider: Annotated[
         str | None,
         typer.Option(
@@ -1351,8 +1327,7 @@ def list_models(
     """
     Display the configured LLM models for the active provider.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     try:
         config = load_config(
@@ -1380,6 +1355,7 @@ def list_models(
 
 @app.command(name="audit")
 def audit(
+    ctx: typer.Context,
     web_feature_id: Annotated[
         str,
         typer.Argument(
@@ -1661,8 +1637,7 @@ def audit(
     This command performs a gap analysis and generates coverage test suggestions
     without generating WPT files.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     _print_workflow_banner(ui, web_feature_id)
     _check_workflow_flags(
@@ -1744,6 +1719,7 @@ def audit(
 
 @app.command(name="clear-cache")
 def clear_cache(
+    ctx: typer.Context,
     config_path: Annotated[
         str,
         typer.Option(
@@ -1757,8 +1733,7 @@ def clear_cache(
     """
     Clear the existing cached data for wpt-gen.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
     try:
         config = load_config(config_path=config_path, require_api_key=False)
         if not config.cache_path:
@@ -1803,12 +1778,11 @@ def clear_cache(
 
 
 @app.command()
-def version() -> None:
+def version(ctx: typer.Context) -> None:
     """
     Print the version of wpt-gen.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
     try:
         # Replace 'your-package-name' with the name defined in pyproject.toml
         ui.print(f'wpt-gen version {app_version("wpt-gen")}')
@@ -1818,6 +1792,7 @@ def version() -> None:
 
 @app.command(name="init")
 def init(
+    ctx: typer.Context,
     config_path: Annotated[
         str | None,
         typer.Option(
@@ -1835,8 +1810,7 @@ def init(
     """
     Initialize a new wpt-gen configuration file interactively.
     """
-    console = Console()
-    ui = RichUIProvider(console)
+    ui = ctx.obj["ui"]
 
     if config_path:
         resolved_path = Path(config_path)
