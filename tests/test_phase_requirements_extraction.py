@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the requirements extraction phase."""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

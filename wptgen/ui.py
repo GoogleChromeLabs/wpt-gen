@@ -40,71 +40,55 @@ if TYPE_CHECKING:
 class ProgressIndicator(Protocol):
     """Interface for updating a progress indicator."""
 
-    def advance(self, amount: float = 1) -> None:
-        pass
+    def advance(self, amount: float = 1) -> None: ...
 
     def update(
         self, description: str | None = None, outstanding: int | None = None
-    ) -> None:
-        pass
+    ) -> None: ...
 
 
 class UIProvider(Protocol):
     """Semantic UI interface for the WPT generation workflow."""
 
     # Core interaction
-    def status(self, message: str) -> AbstractContextManager[Any]:
-        pass
+    def status(self, message: str) -> AbstractContextManager[Any]: ...
 
     def progress_indicator(
         self, description: str, total: int
-    ) -> AbstractContextManager[ProgressIndicator]:
-        pass
+    ) -> AbstractContextManager[ProgressIndicator]: ...
 
-    def confirm(self, question: str, default: bool = True) -> bool:
-        pass
+    def confirm(self, question: str, default: bool = True) -> bool: ...
 
-    def prompt(self, question: str, default: str = "") -> str:
-        pass
+    def prompt(self, question: str, default: str = "") -> str: ...
 
     # Generic semantic messaging
-    def print(self, message: Any = "", style: str | None = None) -> None:
-        pass
+    def print(self, message: Any = "", style: str | None = None) -> None: ...
 
-    def stream_text(self, text: str) -> None:
-        pass
+    def stream_text(self, text: str) -> None: ...
 
-    def info(self, message: str) -> None:
-        pass
+    def info(self, message: str) -> None: ...
 
-    def success(self, message: str) -> None:
-        pass
+    def success(self, message: str) -> None: ...
 
-    def warning(self, message: str) -> None:
-        pass
+    def warning(self, message: str) -> None: ...
 
-    def error(self, message: str) -> None:
-        pass
+    def error(self, message: str) -> None: ...
 
-    def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
-        pass
+    def print_diff(
+        self, old_text: str, new_text: str, file_path: str
+    ) -> None: ...
 
     # Phase and lifecycle events
     def on_phase_start(
         self, phase_num: int, phase_name: str, model_info: str | None = None
-    ) -> None:
-        pass
+    ) -> None: ...
 
-    def on_phase_complete(self, phase_name: str) -> None:
-        pass
+    def on_phase_complete(self, phase_name: str) -> None: ...
 
     # Domain-specific reporting
-    def report_metadata(self, metadata: FeatureMetadata) -> None:
-        pass
+    def report_metadata(self, metadata: FeatureMetadata) -> None: ...
 
-    def report_configuration(self, config_data: dict[str, str]) -> None:
-        """TODO: Implement for vendoring service logging support."""
-        pass
+    def report_configuration(self, config_data: dict[str, str]) -> None: ...
 
     def report_context_summary(
         self,
@@ -113,8 +97,7 @@ class UIProvider(Protocol):
         mdn_count: int | None = None,
         test_count: int | None = None,
         dep_count: int | None = None,
-    ) -> None:
-        pass
+    ) -> None: ...
 
     def report_token_usage(
         self,
@@ -123,17 +106,15 @@ class UIProvider(Protocol):
         results: list[tuple[int, bool, str]],
         total_tokens: int,
         auto_confirmed: bool = False,
-    ) -> None:
-        pass
+    ) -> None: ...
 
-    def report_llm_response(self, response: str, task_name: str) -> None:
-        pass
+    def report_llm_response(self, response: str, task_name: str) -> None: ...
 
-    def report_coverage_audit(self, audit_response: str | None = None) -> None:
-        pass
+    def report_coverage_audit(
+        self, audit_response: str | None = None
+    ) -> None: ...
 
-    def report_audit_worksheet(self, worksheet_text: str) -> None:
-        pass
+    def report_audit_worksheet(self, worksheet_text: str) -> None: ...
 
     def report_test_suggestion(
         self,
@@ -141,11 +122,9 @@ class UIProvider(Protocol):
         title: str,
         description: str,
         test_type: str | None = None,
-    ) -> None:
-        pass
+    ) -> None: ...
 
-    def report_generation_start(self, count: int) -> None:
-        pass
+    def report_generation_start(self, count: int) -> None: ...
 
     def report_test_generated(
         self,
@@ -153,13 +132,11 @@ class UIProvider(Protocol):
         success: bool,
         path: Path | None = None,
         fallback: bool = False,
-    ) -> None:
-        pass
+    ) -> None: ...
 
     def report_generation_summary(
         self, generated_tests: list[tuple[Path, str, str]]
-    ) -> None:
-        pass
+    ) -> None: ...
 
 
 class RichUIProvider:

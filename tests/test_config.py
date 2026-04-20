@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for config.py."""
+
 import sys
 from pathlib import Path
 

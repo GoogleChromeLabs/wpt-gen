@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for coverage_audit.py."""
+
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock

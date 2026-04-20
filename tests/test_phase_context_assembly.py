@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the context assembly phase."""
+
 from unittest.mock import MagicMock
 
 import pytest

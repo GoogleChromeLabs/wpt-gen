@@ -21,7 +21,12 @@ from rich.rule import Rule
 
 from wptgen.config import Config
 from wptgen.llm import LLMClient
-from wptgen.models import FeatureMetadata, TestType, WorkflowContext, WorkflowPhase
+from wptgen.models import (
+    FeatureMetadata,
+    TestType,
+    WorkflowContext,
+    WorkflowPhase,
+)
 from wptgen.ui import UIProvider
 from wptgen.utils import (
     extract_xml_tag,

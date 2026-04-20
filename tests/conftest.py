@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Shared fixtures for tests."""
+
 from pathlib import Path
 from unittest.mock import MagicMock
 

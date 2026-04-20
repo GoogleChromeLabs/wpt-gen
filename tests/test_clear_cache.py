@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the clear-cache command."""
+
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock

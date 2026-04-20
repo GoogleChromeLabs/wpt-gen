@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the prompt templating system."""
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader

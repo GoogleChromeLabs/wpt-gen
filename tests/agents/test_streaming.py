@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for streaming.py."""
+
 from unittest.mock import MagicMock
 
 import pytest

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the generation phase."""
+
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 

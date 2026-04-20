@@ -6,7 +6,7 @@
 PYTHON := python3
 PIP := $(PYTHON) -m pip
 RUFF := ruff
-PYINK := pyink
+BLACK := black
 PYLINT := pylint
 MYPY := mypy
 PYTEST := pytest
@@ -38,8 +38,8 @@ install:
 
 lock:
 	$(PIP) install pip-tools
-	pip-compile pyproject.toml -o requirements.txt
-	pip-compile --extra dev pyproject.toml -o requirements-dev.txt
+	pip-compile --no-emit-index-url --upgrade pyproject.toml -o requirements.txt
+	pip-compile --no-emit-index-url --upgrade --extra dev -c requirements.txt pyproject.toml -o requirements-dev.txt
 license-check:
 	$(ADDLICENSE) -check -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
 
@@ -48,11 +48,11 @@ license-fix:
 
 lint: license-check
 	$(RUFF) check .
-	$(PYINK) --check .
+	$(BLACK) --check .
 	$(PYLINT) $(PACKAGE_NAME) tests
 
 lint-fix: license-fix
-	$(PYINK) .
+	$(BLACK) .
 	$(RUFF) check . --fix
 
 format: lint-fix

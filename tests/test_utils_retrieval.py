@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for retrieval utility functions."""
+
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock

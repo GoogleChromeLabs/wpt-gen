@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for metadata coverage analysis."""
+
 from pathlib import Path
 
 import yaml
