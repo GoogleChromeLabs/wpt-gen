@@ -374,7 +374,7 @@ opentelemetry-resourcedetector-gcp==1.11.0a0
     #   opentelemetry-exporter-gcp-logging
     #   opentelemetry-exporter-gcp-monitoring
     #   opentelemetry-exporter-gcp-trace
-opentelemetry-sdk==1.38.0
+opentelemetry-sdk==1.41.0
     # via
     #   google-adk
     #   google-cloud-aiplatform
