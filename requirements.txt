@@ -142,7 +142,7 @@ google-auth[pyopenssl,requests]==2.49.2
     #   google-genai
 google-auth-httplib2==0.3.1
     # via google-api-python-client
-google-cloud-aiplatform[agent-engines]==1.148.0
+google-cloud-aiplatform[agent-engines]==1.148.1
     # via google-adk
 google-cloud-appengine-logging==1.9.0
     # via google-cloud-logging
