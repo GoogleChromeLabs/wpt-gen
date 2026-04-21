@@ -457,7 +457,7 @@ litellm==1.83.9
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
-lxml==6.0.4
+lxml==6.1.0
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
