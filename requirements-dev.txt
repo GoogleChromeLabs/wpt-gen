@@ -839,7 +839,7 @@ sse-starlette==3.3.4
     # via
     #   -c requirements.txt
     #   mcp
-starlette==0.52.1
+starlette==1.0.0
     # via
     #   -c requirements.txt
     #   fastapi
