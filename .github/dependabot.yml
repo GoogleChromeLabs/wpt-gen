@@ -19,6 +19,10 @@ updates:
     schedule:
       interval: "weekly"
     versioning-strategy: "increase-if-necessary"
+    groups:
+      all-pip-dependencies:
+        patterns:
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
