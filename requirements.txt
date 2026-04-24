@@ -8,7 +8,7 @@
 
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via
     #   google-cloud-aiplatform
     #   litellm
@@ -24,7 +24,7 @@ annotated-doc==0.0.4
     #   typer
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.96.0
+anthropic==0.97.0
     # via wpt-gen (pyproject.toml)
 anyio==4.13.0
     # via
@@ -41,13 +41,13 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-authlib==1.6.11
+authlib==1.7.0
     # via google-adk
 beautifulsoup4==4.14.3
     # via
     #   markdownify
     #   wpt-gen (pyproject.toml)
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   httpcore
     #   httpx
@@ -56,7 +56,7 @@ cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.1.8
+click==8.3.3
     # via
     #   google-adk
     #   litellm
@@ -64,7 +64,7 @@ click==8.1.8
     #   uvicorn
 cloudpickle==3.1.2
     # via google-cloud-aiplatform
-cryptography==46.0.7
+cryptography==47.0.0
     # via
     #   authlib
     #   google-auth
@@ -79,11 +79,11 @@ docstring-parser==0.18.0
     # via
     #   anthropic
     #   google-cloud-aiplatform
-fastapi==0.136.0
+fastapi==0.136.1
     # via google-adk
 fastuuid==0.14.0
     # via litellm
-filelock==3.28.0
+filelock==3.29.0
     # via huggingface-hub
 frozenlist==1.8.0
     # via
@@ -91,7 +91,7 @@ frozenlist==1.8.0
     #   aiosignal
 fsspec==2026.3.0
     # via huggingface-hub
-google-adk==1.31.0
+google-adk==1.31.1
     # via wpt-gen (pyproject.toml)
 google-api-core[grpc]==2.30.3
     # via
@@ -142,7 +142,7 @@ google-auth[pyopenssl,requests]==2.49.2
     #   google-genai
 google-auth-httplib2==0.3.1
     # via google-api-python-client
-google-cloud-aiplatform[agent-engines]==1.148.0
+google-cloud-aiplatform[agent-engines]==1.148.1
     # via google-adk
 google-cloud-appengine-logging==1.9.0
     # via google-cloud-logging
@@ -165,7 +165,7 @@ google-cloud-core==2.5.1
     #   google-cloud-storage
 google-cloud-dataplex==2.18.0
     # via google-adk
-google-cloud-discoveryengine==0.13.12
+google-cloud-discoveryengine==0.18.0
     # via google-adk
 google-cloud-iam==2.22.0
     # via google-cloud-aiplatform
@@ -279,15 +279,15 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via mcp
-huggingface-hub==1.11.0
+huggingface-hub==1.12.0
     # via tokenizers
-idna==3.11
+idna==3.13
     # via
     #   anyio
     #   httpx
     #   requests
     #   yarl
-importlib-metadata==8.5.0
+importlib-metadata==9.0.0
     # via
     #   litellm
     #   opentelemetry-api
@@ -299,16 +299,16 @@ jiter==0.14.0
     # via
     #   anthropic
     #   openai
-jsonschema==4.23.0
+jsonschema==4.26.0
     # via
     #   google-adk
     #   litellm
     #   mcp
 jsonschema-specifications==2025.9.1
     # via jsonschema
-litellm==1.83.9
+litellm==1.83.13
     # via wpt-gen (pyproject.toml)
-lxml==6.0.4
+lxml==6.1.0
     # via wpt-gen (pyproject.toml)
 mako==1.3.11
     # via alembic
@@ -330,11 +330,11 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-openai==2.24.0
+openai==2.32.0
     # via
     #   litellm
     #   wpt-gen (pyproject.toml)
-opentelemetry-api==1.38.0
+opentelemetry-api==1.41.1
     # via
     #   google-adk
     #   google-cloud-logging
@@ -357,13 +357,13 @@ opentelemetry-exporter-gcp-trace==1.11.0
     # via
     #   google-adk
     #   google-cloud-aiplatform
-opentelemetry-exporter-otlp-proto-common==1.38.0
+opentelemetry-exporter-otlp-proto-common==1.41.1
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.38.0
+opentelemetry-exporter-otlp-proto-http==1.41.1
     # via
     #   google-adk
     #   google-cloud-aiplatform
-opentelemetry-proto==1.38.0
+opentelemetry-proto==1.41.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
@@ -374,7 +374,7 @@ opentelemetry-resourcedetector-gcp==1.11.0a0
     #   opentelemetry-exporter-gcp-logging
     #   opentelemetry-exporter-gcp-monitoring
     #   opentelemetry-exporter-gcp-trace
-opentelemetry-sdk==1.38.0
+opentelemetry-sdk==1.41.1
     # via
     #   google-adk
     #   google-cloud-aiplatform
@@ -385,11 +385,11 @@ opentelemetry-sdk==1.38.0
     #   opentelemetry-exporter-gcp-trace
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-resourcedetector-gcp
-opentelemetry-semantic-conventions==0.59b0
+opentelemetry-semantic-conventions==0.62b1
     # via
     #   google-cloud-spanner
     #   opentelemetry-sdk
-packaging==26.1
+packaging==26.2
     # via
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
@@ -416,7 +416,7 @@ proto-plus==1.27.2
     #   google-cloud-spanner
     #   google-cloud-speech
     #   google-cloud-trace
-protobuf==6.33.6
+protobuf==7.34.1
     # via
     #   google-api-core
     #   google-cloud-aiplatform
@@ -440,7 +440,7 @@ protobuf==6.33.6
     #   grpcio-status
     #   opentelemetry-proto
     #   proto-plus
-pyarrow==23.0.1
+pyarrow==24.0.0
     # via google-adk
 pyasn1==0.6.3
     # via pyasn1-modules
@@ -448,7 +448,7 @@ pyasn1-modules==0.4.2
     # via google-auth
 pycparser==3.0
     # via cffi
-pydantic==2.12.5
+pydantic==2.13.3
     # via
     #   anthropic
     #   fastapi
@@ -459,15 +459,15 @@ pydantic==2.12.5
     #   mcp
     #   openai
     #   pydantic-settings
-pydantic-core==2.41.5
+pydantic-core==2.46.3
     # via pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via mcp
 pygments==2.20.0
     # via rich
 pyjwt[crypto]==2.12.1
     # via mcp
-pyopenssl==26.0.0
+pyopenssl==26.1.0
     # via google-auth
 pyparsing==3.3.2
     # via httplib2
@@ -475,7 +475,7 @@ python-dateutil==2.9.0.post0
     # via
     #   google-adk
     #   google-cloud-bigquery
-python-dotenv==1.0.1
+python-dotenv==1.2.2
     # via
     #   google-adk
     #   litellm
@@ -536,7 +536,7 @@ sqlparse==0.5.5
     # via google-cloud-spanner
 sse-starlette==3.3.4
     # via mcp
-starlette==0.52.1
+starlette==1.0.0
     # via
     #   fastapi
     #   google-adk
@@ -556,7 +556,7 @@ tqdm==4.67.3
     # via
     #   huggingface-hub
     #   openai
-typer==0.23.1
+typer==0.24.2
     # via
     #   huggingface-hub
     #   wpt-gen (pyproject.toml)
@@ -594,13 +594,13 @@ uritemplate==4.2.0
     # via google-api-python-client
 urllib3==2.6.3
     # via requests
-uvicorn==0.44.0
+uvicorn==0.46.0
     # via
     #   google-adk
     #   mcp
 watchdog==6.0.0
     # via google-adk
-websockets==15.0.1
+websockets==16.0
     # via
     #   google-adk
     #   google-genai
