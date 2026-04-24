@@ -27,7 +27,9 @@ from wptgen.config import Config
 from wptgen.models import WorkflowContext, WorkflowPhase
 
 
-def create_requirements_generator_agent(config: Config, instruction: str) -> Agent:
+def create_requirements_generator_agent(
+    config: Config, instruction: str
+) -> Agent:
     """Creates the Generator agent for requirements extraction."""
     model_string = setup_adk_environment(config)
     reasoning_model = config.get_model_for_phase(
@@ -65,6 +67,8 @@ async def run_generator_turn(
     feedback: str | None = None,
 ) -> str | None:
     """Runs the Generator agent to extract requirements."""
+    assert context.metadata is not None
+
     system_template = jinja_env.get_template(
         "adk_requirements_generator_system.jinja"
     )
@@ -72,9 +76,7 @@ async def run_generator_turn(
 
     agent = create_requirements_generator_agent(config, instruction)
 
-    prompt_template = jinja_env.get_template(
-        "adk_requirements_generator.jinja"
-    )
+    prompt_template = jinja_env.get_template("adk_requirements_generator.jinja")
     prompt = prompt_template.render(
         feature_name=context.metadata.name,
         feature_description=context.metadata.description,
@@ -82,7 +84,7 @@ async def run_generator_turn(
         feedback=feedback,
     )
 
-    session_service = InMemorySessionService()
+    session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
     session = await session_service.create_session(
         app_name="wpt-gen",
         user_id="cli_user",
@@ -113,7 +115,7 @@ async def run_generator_turn(
         return full_response
 
     finally:
-        await runner.close()
+        await runner.close()  # type: ignore[no-untyped-call]
         await session_service.delete_session(
             app_name="wpt-gen", user_id="cli_user", session_id=session.id
         )
@@ -127,6 +129,8 @@ async def run_critic_turn(
     generated_requirements: str,
 ) -> str | None:
     """Runs the Critic agent to review requirements."""
+    assert context.metadata is not None
+
     system_template = jinja_env.get_template(
         "adk_requirements_critic_system.jinja"
     )
@@ -141,7 +145,7 @@ async def run_critic_turn(
         generated_requirements=generated_requirements,
     )
 
-    session_service = InMemorySessionService()
+    session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
     session = await session_service.create_session(
         app_name="wpt-gen",
         user_id="cli_user",
@@ -172,7 +176,7 @@ async def run_critic_turn(
         return full_response
 
     finally:
-        await runner.close()
+        await runner.close()  # type: ignore[no-untyped-call]
         await session_service.delete_session(
             app_name="wpt-gen", user_id="cli_user", session_id=session.id
         )
