@@ -1,12 +1,19 @@
-Review the following generated requirements for the feature "{{ feature_name }}" against the specifications.
+Review the following generated requirements against the specifications.
 
-Generated Requirements:
+<feature_definition>
+  <feature_name>{{feature_name}}</feature_name>
+</feature_definition>
+
+<generated_requirements>
 {{ generated_requirements }}
+</generated_requirements>
 
-Specifications:
+<specifications>
 {% for url, content in specs.items() %}
---- Spec: {{ url }} ---
+<spec_document url="{{url}}">
 {{ content }}
+</spec_document>
 {% endfor %}
+</specifications>
 
 Please provide your review in the requested XML format.

@@ -1,15 +1,38 @@
-Extract normative requirements for the feature "{{ feature_name }}".
-Description: {{ feature_description }}
+Extract the core normative test requirements for the following feature and specification.
 
-Specifications:
-{% for url, content in specs.items() %}
---- Spec: {{ url }} ---
-{{ content }}
-{% endfor %}
+<feature_definition>
+  <feature_name>{{feature_name}}</feature_name>
+  <feature_description>{{feature_description}}</feature_description>
+</feature_definition>
+
+{% if specs -%}
+{% for url, content in specs.items() -%}
+<spec_document url="{{url}}">
+{{content}}
+</spec_document>
+{%- endfor %}
+{%- endif %}
+
+{% if mdn_contents -%}
+{% for content in mdn_contents -%}
+<mdn_document>
+{{content}}
+</mdn_document>
+{% endfor -%}
+{%- endif %}
+
+{% if explainer_contents -%}
+{% for url, content in explainer_contents.items() -%}
+<explainer url="{{url}}">
+{{content}}
+</explainer>
+{% endfor -%}
+{%- endif %}
 
 {% if feedback %}
-Here is the feedback from the Critic regarding your previous attempt:
+<critic_feedback>
 {{ feedback }}
+</critic_feedback>
 
 Please provide an updated list of requirements addressing this feedback.
 {% endif %}
