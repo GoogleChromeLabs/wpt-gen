@@ -12,7 +12,7 @@ MYPY := mypy
 PYTEST := pytest
 PACKAGE_NAME := wptgen
 ADDLICENSE := go run github.com/google/addlicense@latest
-ADDLICENSE_IGNORE := -ignore '.venv/**' -ignore 'venv/**' -ignore 'build/**' -ignore 'dist/**' -ignore '.mypy_cache/**' -ignore '.ruff_cache/**' -ignore '.pytest_cache/**' -ignore '.git/**' -ignore 'wpt_gen.egg-info/**' -ignore '.agents/**' -ignore '.coverage'
+ADDLICENSE_IGNORE := -ignore '.venv/**' -ignore 'venv/**' -ignore '.venv_fresh/**' -ignore 'build/**' -ignore 'dist/**' -ignore '.mypy_cache/**' -ignore '.ruff_cache/**' -ignore '.pytest_cache/**' -ignore '.git/**' -ignore 'wpt_gen.egg-info/**' -ignore '.agents/**' -ignore '.coverage'
 
 help:
 	@echo "Available commands:"
