@@ -1,0 +1,15 @@
+Extract normative requirements for the feature "{{ feature_name }}".
+Description: {{ feature_description }}
+
+Specifications:
+{% for url, content in specs.items() %}
+--- Spec: {{ url }} ---
+{{ content }}
+{% endfor %}
+
+{% if feedback %}
+Here is the feedback from the Critic regarding your previous attempt:
+{{ feedback }}
+
+Please provide an updated list of requirements addressing this feedback.
+{% endif %}

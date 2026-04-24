@@ -27,8 +27,11 @@ from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.agents.requirements import (
     create_requirements_critic_agent,
     create_requirements_generator_agent,
+    run_critic_turn,
+    run_generator_turn,
 )
 from wptgen.ui import UIProvider
+from wptgen.utils import extract_xml_tag
 
 
 def _load_cached_requirements(
@@ -538,40 +541,54 @@ async def run_requirements_extraction_agentic(
     )
 
     if not requirements_xml:
-        # Initialize agents
-        generator = create_requirements_generator_agent(config)
-        critic = create_requirements_critic_agent(config)
+        ui.info("Starting Critic-Generator loop for Requirements Extraction...")
 
-        ui.info(f"Initialized ADK agents: {generator.name} and {critic.name}.")
-
-        # Basic loop skeleton
+        feedback = None
         max_iterations = 3
-        for iteration in range(1, max_iterations + 1):
-            ui.info(f"Starting iteration {iteration}...")
+        current_requirements = ""
 
-            # Step 1: Generator extracts requirements
-            # TODO: Use ADK Runner to execute the agent
-            ui.info("  [Generator] Extracting requirements...")
-            generator_output = (
-                "<requirements>"
-                "<requirement id='R1'>Spec requirement</requirement>"
-                "</requirements>"
+        for iteration in range(1, max_iterations + 1):
+            ui.info(f"Iteration {iteration}/{max_iterations}")
+
+            # Step 1: Generator extracts/refines requirements
+            ui.info("  [Generator] Working...")
+            generator_output = await run_generator_turn(
+                config, jinja_env, context, ui, feedback=feedback
             )
+            if not generator_output:
+                ui.error("  [Generator] Failed to produce output.")
+                break
+
+            current_requirements = generator_output
 
             # Step 2: Critic reviews requirements
-            # TODO: Use ADK Runner to execute the agent
-            ui.info("  [Critic] Reviewing requirements...")
-            _critic_output = "<feedback><status>APPROVED</status></feedback>"
+            ui.info("  [Critic] Reviewing...")
+            critic_output = await run_critic_turn(
+                config, jinja_env, context, ui, generator_output
+            )
+            if not critic_output:
+                ui.error("  [Critic] Failed to produce review.")
+                break
 
-            ui.info("  [Critic] Result: APPROVED")
+            # Parse feedback
+            status = extract_xml_tag(critic_output, "status")
+            feedback = extract_xml_tag(critic_output, "issues")
 
-            # For now, we just break to satisfy the basic loop requirement
-            requirements_xml = generator_output
-            break
+            ui.info(f"  [Critic] Status: {status}")
 
-        if not requirements_xml:
+            if status == "APPROVED":
+                ui.success("  [Critic] Requirements approved!")
+                break
+            
+            ui.warning("  [Critic] Requested revisions.")
+        else:
+            ui.warning(f"Reached maximum iterations ({max_iterations}) without full approval.")
+
+        if not current_requirements:
             ui.error("No requirements extracted in agentic loop.")
             return None
+
+        requirements_xml = current_requirements
 
         # Save to cache
         cache_file.write_text(requirements_xml, encoding="utf-8")

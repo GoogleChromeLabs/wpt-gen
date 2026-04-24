@@ -316,3 +316,47 @@ async def test_run_requirements_extraction_categorized_with_rationale(
         "This feature is a simple object and has no complex "
         "invalidation rules."
     )
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_agentic_success(
+    mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
+) -> None:
+    """Test successful agentic requirements extraction."""
+    context = WorkflowContext(
+        feature_id="feat",
+        metadata=FeatureMetadata("Feat", "Desc", ["http://spec"]),
+        spec_contents={"http://spec": "Spec"},
+    )
+    jinja_env = MagicMock()
+
+    # Mock run_generator_turn and run_critic_turn
+    with patch(
+        "wptgen.phases.requirements_extraction.run_generator_turn"
+    ) as mock_gen, patch(
+        "wptgen.phases.requirements_extraction.run_critic_turn"
+    ) as mock_critic:
+
+        mock_gen.return_value = (
+            "<requirements><requirement id='R1'>Req 1</requirement></requirements>"
+        )
+        # First turn: Needs revision
+        # Second turn: Approved
+        mock_critic.side_effect = [
+            "<critic_review><status>NEEDS_REVISION</status><issues><issue>...</issue></issues></critic_review>",
+            "<critic_review><status>APPROVED</status></critic_review>",
+        ]
+
+        from wptgen.phases.requirements_extraction import (
+            run_requirements_extraction_agentic,
+        )
+
+        res = await run_requirements_extraction_agentic(
+            context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+        )
+
+        assert res is not None
+        assert "<requirement id='R1'>Req 1</requirement>" in res
+        assert mock_gen.call_count == 2
+        assert mock_critic.call_count == 2
+

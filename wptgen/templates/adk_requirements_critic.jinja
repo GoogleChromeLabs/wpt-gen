@@ -1,0 +1,12 @@
+Review the following generated requirements for the feature "{{ feature_name }}" against the specifications.
+
+Generated Requirements:
+{{ generated_requirements }}
+
+Specifications:
+{% for url, content in specs.items() %}
+--- Spec: {{ url }} ---
+{{ content }}
+{% endfor %}
+
+Please provide your review in the requested XML format.
