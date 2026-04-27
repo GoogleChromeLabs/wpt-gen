@@ -331,15 +331,16 @@ async def test_run_requirements_extraction_agentic_success(
     jinja_env = MagicMock()
 
     # Mock run_generator_turn and run_critic_turn
-    with patch(
-        "wptgen.phases.requirements_extraction.run_generator_turn"
-    ) as mock_gen, patch(
-        "wptgen.phases.requirements_extraction.run_critic_turn"
-    ) as mock_critic:
+    with (
+        patch(
+            "wptgen.phases.requirements_extraction.run_generator_turn"
+        ) as mock_gen,
+        patch(
+            "wptgen.phases.requirements_extraction.run_critic_turn"
+        ) as mock_critic,
+    ):
 
-        mock_gen.return_value = (
-            "<requirements><requirement id='R1'>Req 1</requirement></requirements>"
-        )
+        mock_gen.return_value = "<requirements><requirement id='R1'>Req 1</requirement></requirements>"
         # First turn: Needs revision
         # Second turn: Approved
         mock_critic.side_effect = [
@@ -359,4 +360,3 @@ async def test_run_requirements_extraction_agentic_success(
         assert "<requirement id='R1'>Req 1</requirement>" in res
         assert mock_gen.call_count == 2
         assert mock_critic.call_count == 2
-

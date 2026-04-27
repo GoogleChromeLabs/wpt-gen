@@ -25,8 +25,6 @@ from wptgen.llm import LLMClient
 from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import confirm_prompts, generate_safe
 from wptgen.agents.requirements import (
-    create_requirements_critic_agent,
-    create_requirements_generator_agent,
     run_critic_turn,
     run_generator_turn,
 )
@@ -579,10 +577,13 @@ async def run_requirements_extraction_agentic(
             if status == "APPROVED":
                 ui.success("  [Critic] Requirements approved!")
                 break
-            
+
             ui.warning("  [Critic] Requested revisions.")
         else:
-            ui.warning(f"Reached maximum iterations ({max_iterations}) without full approval.")
+            ui.warning(
+                f"Reached maximum iterations ({max_iterations}) "
+                "without full approval."
+            )
 
         if not current_requirements:
             ui.error("No requirements extracted in agentic loop.")
