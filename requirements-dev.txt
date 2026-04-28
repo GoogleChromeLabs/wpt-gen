@@ -10,7 +10,7 @@ aiohappyeyeballs==2.6.1
     # via
     #   -c requirements.txt
     #   aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via
     #   -c requirements.txt
     #   google-cloud-aiplatform
@@ -36,7 +36,7 @@ annotated-types==0.7.0
     # via
     #   -c requirements.txt
     #   pydantic
-anthropic==0.96.0
+anthropic==0.97.0
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
@@ -51,7 +51,7 @@ anyio==4.13.0
     #   openai
     #   sse-starlette
     #   starlette
-astroid==4.0.4
+astroid==4.1.2
     # via pylint
 attrs==26.1.0
     # via
@@ -59,7 +59,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-authlib==1.6.11
+authlib==1.7.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -68,13 +68,13 @@ beautifulsoup4==4.14.3
     #   -c requirements.txt
     #   markdownify
     #   wpt-gen (pyproject.toml)
-black==25.12.0
+black==26.3.1
     # via black
-build==1.4.3
+build==1.4.4
     # via
     #   pip-tools
     #   wpt-gen (pyproject.toml)
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   -c requirements.txt
     #   httpcore
@@ -88,7 +88,7 @@ charset-normalizer==3.4.7
     # via
     #   -c requirements.txt
     #   requests
-click==8.1.8
+click==8.3.3
     # via
     #   -c requirements.txt
     #   black
@@ -104,7 +104,7 @@ cloudpickle==3.1.2
     #   google-cloud-aiplatform
 coverage[toml]==7.13.5
     # via pytest-cov
-cryptography==46.0.7
+cryptography==47.0.0
     # via
     #   -c requirements.txt
     #   authlib
@@ -127,7 +127,7 @@ docstring-parser==0.18.0
     #   google-cloud-aiplatform
 docutils==0.22.4
     # via readme-renderer
-fastapi==0.136.0
+fastapi==0.136.1
     # via
     #   -c requirements.txt
     #   google-adk
@@ -135,7 +135,7 @@ fastuuid==0.14.0
     # via
     #   -c requirements.txt
     #   litellm
-filelock==3.28.0
+filelock==3.29.0
     # via
     #   -c requirements.txt
     #   huggingface-hub
@@ -148,7 +148,7 @@ fsspec==2026.3.0
     # via
     #   -c requirements.txt
     #   huggingface-hub
-google-adk==1.31.0
+google-adk==1.31.1
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
@@ -207,7 +207,7 @@ google-auth-httplib2==0.3.1
     # via
     #   -c requirements.txt
     #   google-api-python-client
-google-cloud-aiplatform[agent-engines]==1.148.0
+google-cloud-aiplatform[agent-engines]==1.149.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -244,7 +244,7 @@ google-cloud-dataplex==2.18.0
     # via
     #   -c requirements.txt
     #   google-adk
-google-cloud-discoveryengine==0.13.12
+google-cloud-discoveryengine==0.18.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -322,7 +322,7 @@ graphviz==0.21
     # via
     #   -c requirements.txt
     #   google-adk
-greenlet==3.4.0
+greenlet==3.5.0
     # via
     #   -c requirements.txt
     #   sqlalchemy
@@ -397,20 +397,20 @@ httpx-sse==0.4.3
     # via
     #   -c requirements.txt
     #   mcp
-huggingface-hub==1.11.0
+huggingface-hub==1.12.0
     # via
     #   -c requirements.txt
     #   tokenizers
 id==1.6.1
     # via twine
-idna==3.11
+idna==3.13
     # via
     #   -c requirements.txt
     #   anyio
     #   httpx
     #   requests
     #   yarl
-importlib-metadata==8.5.0
+importlib-metadata==9.0.0
     # via
     #   -c requirements.txt
     #   litellm
@@ -439,7 +439,7 @@ jiter==0.14.0
     #   -c requirements.txt
     #   anthropic
     #   openai
-jsonschema==4.23.0
+jsonschema==4.26.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -453,7 +453,7 @@ keyring==25.7.0
     # via twine
 librt==0.9.0
     # via mypy
-litellm==1.83.9
+litellm==1.83.14
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
@@ -461,7 +461,7 @@ lxml==6.1.0
     # via
     #   -c requirements.txt
     #   wpt-gen (pyproject.toml)
-mako==1.3.11
+mako==1.3.12
     # via
     #   -c requirements.txt
     #   alembic
@@ -501,21 +501,21 @@ multidict==6.7.1
     #   -c requirements.txt
     #   aiohttp
     #   yarl
-mypy==1.20.1
+mypy==1.20.2
     # via wpt-gen (pyproject.toml)
 mypy-extensions==1.1.0
     # via
     #   black
     #   mypy
     #   black
-nh3==0.3.4
+nh3==0.3.5
     # via readme-renderer
-openai==2.24.0
+openai==2.33.0
     # via
     #   -c requirements.txt
     #   litellm
     #   wpt-gen (pyproject.toml)
-opentelemetry-api==1.38.0
+opentelemetry-api==1.41.1
     # via
     #   -c requirements.txt
     #   google-adk
@@ -543,16 +543,16 @@ opentelemetry-exporter-gcp-trace==1.11.0
     #   -c requirements.txt
     #   google-adk
     #   google-cloud-aiplatform
-opentelemetry-exporter-otlp-proto-common==1.38.0
+opentelemetry-exporter-otlp-proto-common==1.41.1
     # via
     #   -c requirements.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.38.0
+opentelemetry-exporter-otlp-proto-http==1.41.1
     # via
     #   -c requirements.txt
     #   google-adk
     #   google-cloud-aiplatform
-opentelemetry-proto==1.38.0
+opentelemetry-proto==1.41.1
     # via
     #   -c requirements.txt
     #   opentelemetry-exporter-otlp-proto-common
@@ -565,7 +565,7 @@ opentelemetry-resourcedetector-gcp==1.11.0a0
     #   opentelemetry-exporter-gcp-logging
     #   opentelemetry-exporter-gcp-monitoring
     #   opentelemetry-exporter-gcp-trace
-opentelemetry-sdk==1.38.0
+opentelemetry-sdk==1.41.1
     # via
     #   -c requirements.txt
     #   google-adk
@@ -577,12 +577,12 @@ opentelemetry-sdk==1.38.0
     #   opentelemetry-exporter-gcp-trace
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-resourcedetector-gcp
-opentelemetry-semantic-conventions==0.59b0
+opentelemetry-semantic-conventions==0.62b1
     # via
     #   -c requirements.txt
     #   google-cloud-spanner
     #   opentelemetry-sdk
-packaging==26.1
+packaging==26.2
     # via
     #   -c requirements.txt
     #   black
@@ -594,7 +594,7 @@ packaging==26.1
     #   pytest
     #   twine
     #   wheel
-pathspec==1.0.4
+pathspec==1.1.1
     # via
     #   black
     #   mypy
@@ -634,7 +634,7 @@ proto-plus==1.27.2
     #   google-cloud-spanner
     #   google-cloud-speech
     #   google-cloud-trace
-protobuf==6.33.6
+protobuf==7.34.1
     # via
     #   -c requirements.txt
     #   google-api-core
@@ -659,7 +659,7 @@ protobuf==6.33.6
     #   grpcio-status
     #   opentelemetry-proto
     #   proto-plus
-pyarrow==23.0.1
+pyarrow==24.0.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -675,7 +675,7 @@ pycparser==3.0
     # via
     #   -c requirements.txt
     #   cffi
-pydantic==2.12.5
+pydantic==2.13.3
     # via
     #   -c requirements.txt
     #   anthropic
@@ -687,11 +687,11 @@ pydantic==2.12.5
     #   mcp
     #   openai
     #   pydantic-settings
-pydantic-core==2.41.5
+pydantic-core==2.46.3
     # via
     #   -c requirements.txt
     #   pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via
     #   -c requirements.txt
     #   mcp
@@ -701,7 +701,7 @@ pygments==2.20.0
     #   pytest
     #   readme-renderer
     #   rich
-black==25.12.0
+black==26.3.1
     # via wpt-gen (pyproject.toml)
 pyjwt[crypto]==2.12.1
     # via
@@ -709,7 +709,7 @@ pyjwt[crypto]==2.12.1
     #   mcp
 pylint==4.0.5
     # via wpt-gen (pyproject.toml)
-pyopenssl==26.0.0
+pyopenssl==26.1.0
     # via
     #   -c requirements.txt
     #   google-auth
@@ -738,13 +738,13 @@ python-dateutil==2.9.0.post0
     #   -c requirements.txt
     #   google-adk
     #   google-cloud-bigquery
-python-dotenv==1.0.1
+python-dotenv==1.2.2
     # via
     #   -c requirements.txt
     #   google-adk
     #   litellm
     #   pydantic-settings
-python-multipart==0.0.26
+python-multipart==0.0.27
     # via
     #   -c requirements.txt
     #   mcp
@@ -798,7 +798,7 @@ rpds-py==0.30.0
     #   -c requirements.txt
     #   jsonschema
     #   referencing
-ruff==0.15.11
+ruff==0.15.12
     # via wpt-gen (pyproject.toml)
 secretstorage==3.5.0
     # via keyring
@@ -835,11 +835,11 @@ sqlparse==0.5.5
     # via
     #   -c requirements.txt
     #   google-cloud-spanner
-sse-starlette==3.3.4
+sse-starlette==3.4.1
     # via
     #   -c requirements.txt
     #   mcp
-starlette==0.52.1
+starlette==1.0.0
     # via
     #   -c requirements.txt
     #   fastapi
@@ -856,7 +856,7 @@ tiktoken==0.12.0
     #   -c requirements.txt
     #   litellm
     #   wpt-gen (pyproject.toml)
-tokenizers==0.22.2
+tokenizers==0.23.1
     # via
     #   -c requirements.txt
     #   litellm
@@ -869,7 +869,7 @@ tqdm==4.67.3
     #   openai
 twine==6.2.0
     # via wpt-gen (pyproject.toml)
-typer==0.23.1
+typer==0.25.0
     # via
     #   -c requirements.txt
     #   huggingface-hub
@@ -921,7 +921,7 @@ urllib3==2.6.3
     #   id
     #   requests
     #   twine
-uvicorn==0.44.0
+uvicorn==0.46.0
     # via
     #   -c requirements.txt
     #   google-adk
@@ -930,12 +930,12 @@ watchdog==6.0.0
     # via
     #   -c requirements.txt
     #   google-adk
-websockets==15.0.1
+websockets==16.0
     # via
     #   -c requirements.txt
     #   google-adk
     #   google-genai
-wheel==0.46.3
+wheel==0.47.0
     # via pip-tools
 yarl==1.23.0
     # via
