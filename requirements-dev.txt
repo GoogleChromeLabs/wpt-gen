@@ -68,7 +68,7 @@ beautifulsoup4==4.14.3
     #   -c requirements.txt
     #   markdownify
     #   wpt-gen (pyproject.toml)
-black==25.12.0
+black==26.3.1
     # via black
 build==1.4.3
     # via
@@ -701,7 +701,7 @@ pygments==2.20.0
     #   pytest
     #   readme-renderer
     #   rich
-black==25.12.0
+black==26.3.1
     # via wpt-gen (pyproject.toml)
 pyjwt[crypto]==2.12.1
     # via
