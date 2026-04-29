@@ -79,7 +79,6 @@ dev = [
     "twine>=6.2.0",
     "black>=24.1.0",
     "pylint>=4.0.5",
-    "pip-tools>=7.4.0",
 ]
 
 [project.scripts]
