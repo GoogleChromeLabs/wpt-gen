@@ -59,6 +59,19 @@ def test_confirm(mocker: MockerFixture, ui: RichUIProvider) -> None:
     mock_ask.assert_called_once_with("Are you sure?", default=True)
 
 
+def test_prompt_with_choices(mocker: MockerFixture, ui: RichUIProvider) -> None:
+    """Test that the prompt method forwards choices correctly."""
+    mock_ask = mocker.patch("rich.prompt.Prompt.ask")
+    mock_ask.return_value = "gemini"
+    result = ui.prompt(
+        "Preferred LLM Provider", default="gemini", choices=["gemini", "openai"]
+    )
+    assert result == "gemini"
+    mock_ask.assert_called_once_with(
+        "Preferred LLM Provider", default="gemini", choices=["gemini", "openai"]
+    )
+
+
 def test_info(ui: RichUIProvider, mock_console: MagicMock) -> None:
     """Test the info semantic method."""
     ui.info("info message")

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Semantic UI interface and Rich-based implementation for the WPT workflow."""
+"""Semantic UI interface and implementations for the WPT workflow."""
 
 from __future__ import annotations
 
@@ -59,7 +59,12 @@ class UIProvider(Protocol):
 
     def confirm(self, question: str, default: bool = True) -> bool: ...
 
-    def prompt(self, question: str, default: str = "") -> str: ...
+    def prompt(
+        self,
+        question: str,
+        default: str = "",
+        choices: list[str] | None = None,
+    ) -> str: ...
 
     # Generic semantic messaging
     def print(self, message: Any = "", style: str | None = None) -> None: ...
@@ -87,6 +92,8 @@ class UIProvider(Protocol):
 
     # Domain-specific reporting
     def report_metadata(self, metadata: FeatureMetadata) -> None: ...
+
+    def report_configuration(self, config_data: dict[str, str]) -> None: ...
 
     def report_context_summary(
         self,
@@ -207,10 +214,15 @@ class RichUIProvider:
     def confirm(self, question: str, default: bool = True) -> bool:
         return Confirm.ask(question, default=default)
 
-    def prompt(self, question: str, default: str = "") -> str:
+    def prompt(
+        self,
+        question: str,
+        default: str = "",
+        choices: list[str] | None = None,
+    ) -> str:
         from rich.prompt import Prompt
 
-        return Prompt.ask(question, default=default)
+        return Prompt.ask(question, default=default, choices=choices)
 
     def print(self, message: Any = "", style: str | None = None) -> None:
         self.console.print(message, style=style)

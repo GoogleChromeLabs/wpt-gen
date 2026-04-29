@@ -14,7 +14,6 @@
 
 """Tests for the clear-cache command."""
 
-import re
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -27,14 +26,6 @@ from wptgen.config import Config
 from wptgen.main import app
 
 runner = CliRunner()
-
-
-def normalize_ws(text: str) -> str:
-    """Normalizes whitespace.
-
-    Replaces any sequence of whitespace with a single space.
-    """
-    return re.sub(r"\s+", " ", text).strip()
 
 
 @pytest.fixture
@@ -63,7 +54,11 @@ def mock_load_config(mocker: MockerFixture, mock_config: Config) -> MagicMock:
 @pytest.fixture
 def mock_ui(mocker: MockerFixture) -> MagicMock:
     """Mocks the UI interactions."""
-    return mocker.patch("wptgen.main.ui")
+    # Since ui is now instantiated locally in each command, we patch the class.
+    mock_provider = mocker.patch("wptgen.main.RichUIProvider").return_value
+    # Set default behaviors for a mock UI
+    mock_provider.confirm.return_value = True
+    return mock_provider  # type: ignore[no-any-return]
 
 
 def test_clear_cache_success(
@@ -85,7 +80,7 @@ def test_clear_cache_success(
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert "Cache cleared successfully" in normalize_ws(result.stdout)
+    mock_ui.success.assert_called_with("Cache cleared successfully!")
     assert not (cache_dir / "file1.txt").exists()
     assert not (cache_dir / "subdir").exists()
     assert cache_dir.exists()  # The directory itself should remain, but empty
@@ -112,7 +107,7 @@ def test_clear_cache_force(
 
     assert result.exit_code == 0
     mock_ui.confirm.assert_not_called()
-    assert "Cache cleared successfully" in normalize_ws(result.stdout)
+    mock_ui.success.assert_called_with("Cache cleared successfully!")
     assert not (cache_dir / "file1.txt").exists()
     assert not (cache_dir / "subdir").exists()
     assert cache_dir.exists()
@@ -132,20 +127,23 @@ def test_clear_cache_aborted(
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert "Aborted" in normalize_ws(result.stdout)
+    mock_ui.print.assert_called_with("Aborted.")
     assert cache_file.exists()
 
 
-def test_clear_cache_already_empty(mock_load_config: MagicMock) -> None:
+def test_clear_cache_already_empty(
+    mock_load_config: MagicMock, mock_ui: MagicMock
+) -> None:
     """Test cache clearing when the directory is already empty."""
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert "is already empty" in normalize_ws(result.stdout)
+    mock_ui.info.assert_called()
+    assert "already empty" in mock_ui.info.call_args[0][0]
 
 
 def test_clear_cache_dir_not_exists(
-    mock_config: Config, mock_load_config: MagicMock
+    mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
     """Test cache clearing when the directory does not exist."""
     assert mock_config.cache_path is not None
@@ -155,11 +153,12 @@ def test_clear_cache_dir_not_exists(
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert "does not exist" in normalize_ws(result.stdout)
+    mock_ui.info.assert_called()
+    assert "does not exist" in mock_ui.info.call_args[0][0]
 
 
 def test_clear_cache_no_path_configured(
-    mock_config: Config, mock_load_config: MagicMock
+    mock_config: Config, mock_load_config: MagicMock, mock_ui: MagicMock
 ) -> None:
     """Test cache clearing when no cache path is configured."""
     mock_config.cache_path = None
@@ -167,10 +166,12 @@ def test_clear_cache_no_path_configured(
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 0
-    assert "Cache path not configured" in normalize_ws(result.stdout)
+    mock_ui.error.assert_called_with("Cache path not configured.")
 
 
-def test_clear_cache_config_error(mocker: MockerFixture) -> None:
+def test_clear_cache_config_error(
+    mocker: MockerFixture, mock_ui: MagicMock
+) -> None:
     """Test that configuration errors are handled."""
     mocker.patch(
         "wptgen.main.load_config", side_effect=ValueError("Config error")
@@ -179,5 +180,6 @@ def test_clear_cache_config_error(mocker: MockerFixture) -> None:
     result = runner.invoke(app, ["clear-cache"])
 
     assert result.exit_code == 1
-    assert "Configuration Error" in normalize_ws(result.stdout)
-    assert "Config error" in normalize_ws(result.stdout)
+    mock_ui.error.assert_called()
+    assert "Configuration Error" in mock_ui.error.call_args[0][0]
+    assert "Config error" in mock_ui.error.call_args[0][0]
