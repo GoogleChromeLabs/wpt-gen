@@ -255,6 +255,8 @@ def _execute_workflow(
         disable_directory_inference: Whether to skip directory inference.
     """
 
+    _print_run_config(ui, config)
+
     # Instantiate the core engine
     engine = WPTGenEngine(config=config, ui=ui)
 
