@@ -1845,6 +1845,7 @@ def init(
 
     provider = ui.prompt(
         "Preferred LLM Provider",
+        choices=["gemini", "openai", "anthropic"],
         default="gemini",
     )
 

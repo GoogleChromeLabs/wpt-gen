@@ -59,7 +59,12 @@ class UIProvider(Protocol):
 
     def confirm(self, question: str, default: bool = True) -> bool: ...
 
-    def prompt(self, question: str, default: str = "") -> str: ...
+    def prompt(
+        self,
+        question: str,
+        default: str = "",
+        choices: list[str] | None = None,
+    ) -> str: ...
 
     # Generic semantic messaging
     def print(self, message: Any = "", style: str | None = None) -> None: ...
@@ -209,10 +214,15 @@ class RichUIProvider:
     def confirm(self, question: str, default: bool = True) -> bool:
         return Confirm.ask(question, default=default)
 
-    def prompt(self, question: str, default: str = "") -> str:
+    def prompt(
+        self,
+        question: str,
+        default: str = "",
+        choices: list[str] | None = None,
+    ) -> str:
         from rich.prompt import Prompt
 
-        return Prompt.ask(question, default=default)
+        return Prompt.ask(question, default=default, choices=choices)
 
     def print(self, message: Any = "", style: str | None = None) -> None:
         self.console.print(message, style=style)
