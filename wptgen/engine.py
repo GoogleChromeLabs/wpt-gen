@@ -266,9 +266,13 @@ class WPTGenEngine:
         if not self.config.output_dir and not disable_directory_inference:
             from wptgen.utils import determine_output_directory
 
-            self.config.output_dir = determine_output_directory(
-                context, self.config, self.ui
-            )
+            try:
+                self.config.output_dir = determine_output_directory(
+                    context, self.config, self.ui
+                )
+            except ValueError as e:
+                self.ui.error(str(e))
+                raise WorkflowError(f"Directory inference failed: {e}") from e
 
         # Phase 2: Requirements Extraction
         if should_run(

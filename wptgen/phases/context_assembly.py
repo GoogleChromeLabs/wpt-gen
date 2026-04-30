@@ -29,7 +29,7 @@ from wptgen.context import (
     gather_local_test_context,
     validate_wpt_paths,
 )
-from wptgen.models import WorkflowContext
+from wptgen.models import WorkflowContext, WPTContext
 from wptgen.ui import UIProvider
 
 
@@ -141,35 +141,47 @@ async def run_context_assembly(
                         f"explainer: {url}"
                     )
 
-    ui.print(
-        "Scanning local WPT repository for existing tests and dependencies..."
-    )
-    test_paths = find_feature_tests(config.wpt_path, web_feature_id)
-    extracted_wpt_urls: list[str] | None = None
+    test_paths = []
+    extracted_wpt_urls = None
 
-    # If ChromeStatus is enabled, extract and validate tests from wpt_descr
-    if config.chromestatus and metadata.wpt_descr:
-        with ui.status("Extracting tests from ChromeStatus..."):
-            extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
-            if extracted_wpt_urls:
-                try:
-                    valid_paths, invalid_paths = validate_wpt_paths(
-                        extracted_wpt_urls, config.wpt_path
-                    )
-                    for invalid in invalid_paths:
-                        ui.warning(
-                            "Referenced WPT test file could not be found or "
-                            f"read: {invalid}"
+    if config.wpt_path:
+        ui.print(
+            "Scanning local WPT repository for existing tests and "
+            "dependencies..."
+        )
+        test_paths = find_feature_tests(config.wpt_path, web_feature_id)
+
+        # If ChromeStatus is enabled, extract and validate tests from wpt_descr
+        if config.chromestatus and metadata.wpt_descr:
+            with ui.status("Extracting tests from ChromeStatus..."):
+                extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
+                if extracted_wpt_urls:
+                    try:
+                        valid_paths, invalid_paths = validate_wpt_paths(
+                            extracted_wpt_urls, config.wpt_path
                         )
-                    # Merge unique valid paths
-                    test_paths = sorted(set(test_paths) | set(valid_paths))
-                except ValueError as e:
-                    ui.warning(f"Skipping ChromeStatus tests: {e}")
+                        for invalid in invalid_paths:
+                            ui.warning(
+                                "Referenced WPT test file could not be "
+                                f"found or read: {invalid}"
+                            )
+                        # Merge unique valid paths
+                        test_paths = sorted(set(test_paths) | set(valid_paths))
+                    except ValueError as e:
+                        ui.warning(f"Skipping ChromeStatus tests: {e}")
+    elif config.library_mode:
+        ui.info("Skipping local WPT scan (Library Mode).")
+    else:
+        raise ValueError("WPT path must be configured for CLI usage.")
 
-    if not test_paths:
+    if not test_paths and config.wpt_path:
         ui.warning("No existing Web Platform Tests were successfully loaded.")
 
-    wpt_context = gather_local_test_context(test_paths, config.wpt_path)
+    wpt_context = (
+        gather_local_test_context(test_paths, config.wpt_path)
+        if config.wpt_path
+        else WPTContext()
+    )
 
     mdn_contents: list[str] | None = None
     if config.include_mdn_docs and not config.chromestatus:
