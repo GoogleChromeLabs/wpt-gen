@@ -15,6 +15,9 @@
 """Tests for report_render.py."""
 
 from wptgen.phases.report_render import (
+    MarkdownReportRenderer,
+    RequirementAudit,
+    SuggestionData,
     parse_audit_worksheet,
     parse_test_suggestions,
 )
@@ -133,3 +136,68 @@ def test_parse_test_suggestions_invalid() -> None:
     results = parse_test_suggestions(xml)
     # Should skip suggestions without description
     assert len(results) == 0
+
+
+def test_render_basic() -> None:
+    """Test rendering with mixed coverage results."""
+    renderer = MarkdownReportRenderer()
+
+    audit_rows = [
+        RequirementAudit(
+            id="R1",
+            category="Existence",
+            text="Interface must exist",
+            status="COVERED",
+            tests=["test1.html"],
+        ),
+        RequirementAudit(
+            id="R2",
+            category="Common Use Cases",
+            text="Basic behavior works",
+            status="UNCOVERED",
+        ),
+    ]
+
+    suggestions = [SuggestionData(description="Add test for basic behavior")]
+
+    report = renderer.render(audit_rows, suggestions)
+
+    # Verify headers are present
+    assert "#### 1. Feature Existence" in report
+    assert "#### 2. Common Use Cases" in report
+    assert "### Test Suggestions" in report
+
+    # Verify status mapping
+    assert "* **Status:** Covered" in report  # For Existence
+    assert "* **Status:** Not Covered" in report  # For Common Use Cases
+
+    # Verify evidence and gaps
+    assert "Verified in `test1.html`" in report
+    assert "Missing test coverage for: Basic behavior works" in report
+
+    # Verify suggestions are listed
+    assert "Add test for basic behavior" in report
+
+
+def test_render_empty_suggestions() -> None:
+    """Test rendering when all requirements are covered."""
+    renderer = MarkdownReportRenderer()
+
+    audit_rows = [
+        RequirementAudit(
+            id="R1",
+            category="Existence",
+            text="Interface must exist",
+            status="COVERED",
+            tests=["test1.html"],
+        )
+    ]
+
+    suggestions: list[SuggestionData] = []
+
+    report = renderer.render(audit_rows, suggestions)
+
+    assert (
+        "No test suggestions found. This feature has great test coverage!"
+        in report
+    )

@@ -16,7 +16,9 @@
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 from bs4 import BeautifulSoup
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 
 @dataclass
@@ -129,3 +131,118 @@ def parse_test_suggestions(suggestions_xml: str) -> list[SuggestionData]:
         )
 
     return results
+
+
+class MarkdownReportRenderer:
+    """Renders parsed audit data into a specific Markdown format."""
+
+    def __init__(self) -> None:
+        self.env = Environment(
+            loader=PackageLoader("wptgen", "templates"),
+            autoescape=select_autoescape(),
+        )
+        self.template = self.env.get_template("report_rendering.jinja")
+
+    def render(
+        self,
+        audit_rows: list[RequirementAudit],
+        suggestions: list[SuggestionData],
+    ) -> str:
+        """Renders the report based on structured data."""
+        data = self._prepare_data(audit_rows, suggestions)
+        return self.template.render(**data)
+
+    def _prepare_data(
+        self,
+        audit_rows: list[RequirementAudit],
+        suggestions: list[SuggestionData],
+    ) -> dict[str, Any]:
+        """Groups and maps data into the structure expected by the template."""
+        categories: dict[str, dict[str, Any]] = {
+            "existence": {"status": "Not Covered", "records": []},
+            "common_use_cases": {"status": "Not Covered", "records": []},
+            "error_scenarios": {"status": "Not Covered", "records": []},
+            "invalidation": {"status": "Not Covered", "records": []},
+            "integration": {"status": "Not Covered", "records": []},
+        }
+
+        def map_category(cat: str) -> str:
+            cat_lower = cat.lower()
+            if "existence" in cat_lower:
+                return "existence"
+            if "common" in cat_lower or "use case" in cat_lower:
+                return "common_use_cases"
+            if "error" in cat_lower or "exception" in cat_lower:
+                return "error_scenarios"
+            if "invalidation" in cat_lower or "dynamic" in cat_lower:
+                return "invalidation"
+            if "integration" in cat_lower or "interact" in cat_lower:
+                return "integration"
+            return "common_use_cases"
+
+        for row in audit_rows:
+            key = map_category(row.category)
+            evidence = "None"
+            gaps = "None"
+            if row.status == "COVERED":
+                evidence = (
+                    f"Verified in `{', '.join(row.tests)}`"
+                    if row.tests
+                    else "Verified"
+                )
+            else:
+                gaps = f"Missing test coverage for: {row.text}"
+
+            categories[key]["records"].append(
+                {"requirement": row.text, "evidence": evidence, "gaps": gaps}
+            )
+
+        for _, cat_data in categories.items():
+            if not cat_data["records"]:
+                cat_data["status"] = "N/A"
+                continue
+
+            all_covered = all(
+                item["gaps"] == "None" for item in cat_data["records"]
+            )
+            all_uncovered = all(
+                item["evidence"] == "None" for item in cat_data["records"]
+            )
+
+            if all_covered:
+                cat_data["status"] = "Covered"
+            elif all_uncovered:
+                cat_data["status"] = "Not Covered"
+            else:
+                cat_data["status"] = "Partially Covered"
+
+        sug_data: dict[str, Any] = {
+            "status": "GAPS_FOUND" if suggestions else "SATISFIED",
+            "existence": [],
+            "common_use_cases": [],
+            "error_scenarios": [],
+            "invalidation": [],
+            "integration": [],
+        }
+
+        for sug in suggestions:
+            desc_lower = sug.description.lower()
+            if "existence" in desc_lower:
+                sug_data["existence"].append(sug.description)
+            elif "error" in desc_lower or "exception" in desc_lower:
+                sug_data["error_scenarios"].append(sug.description)
+            elif "invalidation" in desc_lower or "dynamic" in desc_lower:
+                sug_data["invalidation"].append(sug.description)
+            elif "integration" in desc_lower or "interact" in desc_lower:
+                sug_data["integration"].append(sug.description)
+            else:
+                sug_data["common_use_cases"].append(sug.description)
+
+        return {
+            "existence": categories["existence"],
+            "common_use_cases": categories["common_use_cases"],
+            "error_scenarios": categories["error_scenarios"],
+            "invalidation": categories["invalidation"],
+            "integration": categories["integration"],
+            "suggestions": sug_data,
+        }
