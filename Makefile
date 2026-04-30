@@ -11,8 +11,8 @@ PYLINT := pylint
 MYPY := mypy
 PYTEST := pytest
 PACKAGE_NAME := wptgen
-ADDLICENSE := go run github.com/google/addlicense@latest
-ADDLICENSE_IGNORE := -ignore '.venv/**' -ignore 'venv/**' -ignore 'build/**' -ignore 'dist/**' -ignore '.mypy_cache/**' -ignore '.ruff_cache/**' -ignore '.pytest_cache/**' -ignore '.git/**' -ignore 'wpt_gen.egg-info/**' -ignore '.agents/**' -ignore '.coverage'
+ADDLICENSE := $(PYTHON) scripts/check_license.py
+ADDLICENSE_IGNORE := 
 
 help:
 	@echo "Available commands:"
@@ -35,10 +35,10 @@ install:
 	$(PIP) install -e ".[dev]"
 
 license-check:
-	$(ADDLICENSE) -check -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
+	$(ADDLICENSE)
 
 license-fix:
-	$(ADDLICENSE) -c "Google LLC" -l apache $(ADDLICENSE_IGNORE) .
+	$(ADDLICENSE) --fix
 
 lint: license-check
 	$(RUFF) check .
