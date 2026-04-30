@@ -67,6 +67,8 @@ async def generate_test_with_adk(
         "openai/"
     ):
         model_string = f"openai/{model_string}"
+    if not config.wpt_path:
+        raise ValueError("WPT path is required to generate tests.")
     wpt_root = Path(config.wpt_path)
 
     # We need to extract the paths from the agent's final tool call.

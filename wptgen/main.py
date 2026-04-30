@@ -1085,23 +1085,27 @@ def doctor_command(
         ui.error(f"API key for {config.provider} is missing.")
         success = False
 
-    wpt_path = Path(config.wpt_path)
-    if wpt_path.is_dir():
-        ui.success(f"WPT directory found: {wpt_path}")
-        if (wpt_path / ".git").exists():
-            ui.success("WPT directory is a valid git repository.")
-        else:
-            ui.error("WPT directory is not a git repository.")
-            success = False
+    if config.wpt_path:
+        wpt_path = Path(config.wpt_path)
+        if wpt_path.is_dir():
+            ui.success(f"WPT directory found: {wpt_path}")
+            if (wpt_path / ".git").exists():
+                ui.success("WPT directory is a valid git repository.")
+            else:
+                ui.error("WPT directory is not a git repository.")
+                success = False
 
-        wpt_exec = wpt_path / "wpt"
-        if wpt_exec.exists() and os.access(wpt_exec, os.X_OK):
-            ui.success("WPT executable (./wpt) is runnable.")
+            wpt_exec = wpt_path / "wpt"
+            if wpt_exec.exists() and os.access(wpt_exec, os.X_OK):
+                ui.success("WPT executable (./wpt) is runnable.")
+            else:
+                ui.error("WPT executable (./wpt) is missing or not executable.")
+                success = False
         else:
-            ui.error("WPT executable (./wpt) is missing or not executable.")
+            ui.error(f"WPT directory not found: {wpt_path}")
             success = False
     else:
-        ui.error(f"WPT directory not found: {wpt_path}")
+        ui.error("WPT path is not configured.")
         success = False
 
     ui.print()

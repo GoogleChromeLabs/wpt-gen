@@ -69,9 +69,10 @@ class Config:
     provider: str
     default_model: str
     api_key: str | None
-    wpt_path: str
     categories: dict[str, str]
     phase_model_mapping: dict[str, str]
+    wpt_path: str | None = None
+    library_mode: bool = False
     output_dir: str | None = None
     show_responses: bool = False
     yes_tokens: bool = False

@@ -420,6 +420,15 @@ def determine_output_directory(
     context: WorkflowContext, config: Config, ui: UIProvider
 ) -> str:
     """Infers or prompts the user for the test output directory."""
+    if not config.wpt_path:
+        if config.library_mode:
+            ui.info("Skipping output directory inference (Library Mode).")
+            return ""
+        ui.warning("Cannot infer output directory without a WPT path.")
+        if config.output_dir:
+            return config.output_dir
+        raise ValueError("WPT path is required to generate tests.")
+
     wpt_path = Path(config.wpt_path).resolve()
 
     # 1. Infer from existing tests
