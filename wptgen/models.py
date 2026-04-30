@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any
 
 
+class WorkflowError(Exception):
+    """Raised when a phase of the workflow fails to complete."""
+
+
 class WorkflowPhase(str, Enum):
     """Enumeration of the phases in the WPT generation workflow."""
 
