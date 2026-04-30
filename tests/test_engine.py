@@ -21,8 +21,8 @@ import pytest
 from pytest_mock import MockerFixture
 
 from wptgen.config import Config
-from wptgen.engine import WorkflowError, WPTGenEngine
-from wptgen.models import WorkflowContext, WorkflowPhase
+from wptgen.engine import WPTGenEngine
+from wptgen.models import WorkflowContext, WorkflowError, WorkflowPhase
 
 
 @pytest.fixture
@@ -569,3 +569,17 @@ def test_engine_hydrate_context_html_files(
     paths = [p for p, c, s in context.generated_tests]
     assert html_file_1 in paths
     assert html_file_2 in paths
+
+
+def test_engine_isolated_import() -> None:
+    """Verify that the engine can be imported without CLI dependencies."""
+    import subprocess
+    import sys
+
+    # Run import in a separate process to avoid sys.modules pollution.
+    result = subprocess.run(
+        [sys.executable, "-c", "import wptgen.engine"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Import failed: {result.stderr}"

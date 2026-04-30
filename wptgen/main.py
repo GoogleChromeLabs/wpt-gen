@@ -46,13 +46,14 @@ from wptgen.context import (
     extract_feature_metadata,
     fetch_feature_yaml,
 )
-from wptgen.engine import WorkflowError, WPTGenEngine
+from wptgen.engine import WPTGenEngine
 from wptgen.llm import LLMTimeoutError
 from wptgen.metadata import update_web_features_yml
 from wptgen.models import (
     BrowserChannel,
     BrowserType,
     ModelCategory,
+    WorkflowError,
     WorkflowPhase,
 )
 from wptgen.phases.generation import (

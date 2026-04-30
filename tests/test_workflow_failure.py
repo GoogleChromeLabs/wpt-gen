@@ -22,7 +22,8 @@ from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
 from wptgen.config import Config
-from wptgen.engine import WorkflowError, WPTGenEngine
+from wptgen.engine import WPTGenEngine
+from wptgen.models import WorkflowError
 from wptgen.main import app
 
 runner = CliRunner()

@@ -22,7 +22,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from wptgen.config import TEMPLATE_DIR, Config
 from wptgen.llm import get_llm_client
-from wptgen.models import WorkflowContext, WorkflowPhase
+from wptgen.models import WorkflowContext, WorkflowError, WorkflowPhase
 from wptgen.phases.context_assembly import run_context_assembly
 from wptgen.phases.coverage_audit import (
     provide_coverage_report,
@@ -46,10 +46,6 @@ __all__ = [
     "provide_coverage_report",
     "run_test_generation",
 ]
-
-
-class WorkflowError(Exception):
-    """Raised when a phase of the workflow fails to complete."""
 
 
 class WPTGenEngine:
