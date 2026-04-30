@@ -20,7 +20,7 @@ import tempfile
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
 )
-from check_license import check_license, PY_LICENSE  # type: ignore
+from check_license import check_license, PY_LICENSE
 
 
 def test_check_license_no_missing() -> None:

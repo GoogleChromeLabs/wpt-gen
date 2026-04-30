@@ -65,7 +65,11 @@ IGNORE_DIRS = [
 ]
 
 
-def check_license(fix=False, directories=DIRECTORIES, exit_on_fail=True):
+def check_license(
+    fix: bool = False,
+    directories: list[str] = DIRECTORIES,
+    exit_on_fail: bool = True,
+) -> list[str]:
     """Checks for and optionally fixes missing license headers in files.
 
     Args:
@@ -102,8 +106,8 @@ def check_license(fix=False, directories=DIRECTORIES, exit_on_fail=True):
     if not fix:
         if missing_license:
             print("The following files are missing the Apache license:")
-            for f in missing_license:
-                print(f"  {f}")
+            for missing_file in missing_license:
+                print(f"  {missing_file}")
             print("\\nRun `make lint-fix` (or script with --fix) to add them.")
             if exit_on_fail:
                 sys.exit(1)
