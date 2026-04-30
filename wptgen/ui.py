@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import difflib
+import logging
 import re
 from collections.abc import Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -530,3 +531,197 @@ class RichUIProvider:
             )
         else:
             self.error("No files were successfully created.")
+
+
+logger = logging.getLogger("wptgen")
+
+
+class LoggingUIProvider:
+    """Non-interactive implementation of the UIProvider protocol that pipes
+    semantic UI events to standard Python logs.
+    """
+
+    @contextmanager
+    def status(self, message: str) -> Generator[Any, None, None]:
+        """Provides a context manager for a status message."""
+        logger.info(f"Starting: {message}")
+        try:
+            yield
+        finally:
+            logger.info(f"Completed: {message}")
+
+    @contextmanager
+    def progress_indicator(
+        self, description: str, total: int
+    ) -> Generator[ProgressIndicator, None, None]:
+        """Provides a context manager for a progress indicator."""
+        logger.info(f"Progress Track started: {description} (Total: {total})")
+
+        class PassiveIndicator:
+
+            def advance(self, amount: float = 1) -> None:
+                pass
+
+            def update(
+                self,
+                description: str | None = None,
+                outstanding: int | None = None,
+            ) -> None:
+                pass
+
+        yield PassiveIndicator()
+
+    def confirm(self, question: str, default: bool = True) -> bool:
+        """Prompts the user for confirmation."""
+        logger.info(f"Auto-confirming: {question} -> {default}")
+        return default
+
+    def prompt(
+        self,
+        question: str,
+        default: str = "",
+        choices: list[str] | None = None,
+    ) -> str:
+        """Prompts the user for a string input."""
+        logger.info(f"Auto-prompting: {question} -> {default}")
+        return default
+
+    def print(self, message: Any = "", style: str | None = None) -> None:
+        """Prints a message."""
+        logger.info(str(message))
+
+    def stream_text(self, text: str) -> None:
+        """Streams text."""
+        logger.info(text)
+
+    def info(self, message: str) -> None:
+        """Logs an info message."""
+        logger.info(message)
+
+    def success(self, message: str) -> None:
+        """Logs a success message."""
+        logger.info(f"SUCCESS: {message}")
+
+    def warning(self, message: str) -> None:
+        """Logs a warning message."""
+        logger.warning(message)
+
+    def error(self, message: str) -> None:
+        """Logs an error message."""
+        logger.error(message)
+
+    def print_diff(self, old_text: str, new_text: str, file_path: str) -> None:
+        """Displays a unified diff between two strings."""
+        logger.info(f"Diff for {file_path}")
+
+    def on_phase_start(
+        self, phase_num: int, phase_name: str, model_info: str | None = None
+    ) -> None:
+        """Logs the start of a phase."""
+        logger.info(f"--- Phase {phase_num}: {phase_name} ---")
+        if model_info:
+            logger.info(f"Using model: {model_info}")
+
+    def on_phase_complete(self, phase_name: str) -> None:
+        """Logs the completion of a phase."""
+        logger.info(f"Phase complete: {phase_name}")
+
+    def report_metadata(self, metadata: FeatureMetadata) -> None:
+        """Displays a panel with feature metadata."""
+        logger.info(f"Feature Metadata: {metadata.name}")
+        logger.info(f"Description: {metadata.description}")
+        if metadata.specs:
+            logger.info(f"Spec URL: {metadata.specs[0]}")
+
+    def report_configuration(self, config_data: dict[str, str]) -> None:
+        """Displays the currently resolved configuration."""
+        logger.info("Configuration:")
+        for k, v in config_data.items():
+            logger.info(f"  {k}: {v}")
+
+    def report_context_summary(
+        self,
+        spec_len: int,
+        explainer_count: int | None = None,
+        mdn_count: int | None = None,
+        test_count: int | None = None,
+        dep_count: int | None = None,
+    ) -> None:
+        """Displays a summary of the gathered context."""
+        parts = [f"{spec_len} chars of spec"]
+        if explainer_count is not None:
+            parts.append(f"{explainer_count} explainers")
+        if mdn_count is not None:
+            parts.append(f"{mdn_count} MDN pages")
+        if test_count is not None:
+            parts.append(f"{test_count} tests")
+        if dep_count is not None:
+            parts.append(f"{dep_count} dependency files")
+        logger.info(f'Context gathered: {", ".join(parts)}.')
+
+    def report_token_usage(
+        self,
+        phase_name: str,
+        model: str,
+        results: list[tuple[int, bool, str]],
+        total_tokens: int,
+        auto_confirmed: bool = False,
+    ) -> None:
+        """Displays a summary of token usage for a phase."""
+        logger.info(f"Token Usage Summary ({phase_name}) - Model: {model}")
+        for tokens, limit_exceeded, name in results:
+            status = "EXCEEDED" if limit_exceeded else "OK"
+            logger.info(f"  Task: {name} | Tokens: {tokens} | Status: {status}")
+        logger.info(f"Total Estimated Tokens: {total_tokens}")
+
+    def report_llm_response(self, response: str, task_name: str) -> None:
+        """Displays the raw LLM response."""
+        logger.info(f"LLM Response for {task_name}")
+
+    def report_coverage_audit(self, audit_response: str | None = None) -> None:
+        """Displays the coverage audit report."""
+        logger.info("Coverage Audit Report")
+        if audit_response:
+            logger.info(audit_response)
+
+    def report_audit_worksheet(self, worksheet_text: str) -> None:
+        """Displays a table showing the coverage audit worksheet."""
+        logger.info("Coverage Audit Worksheet:")
+        logger.info(worksheet_text)
+
+    def report_test_suggestion(
+        self,
+        suggestion_index: int,
+        title: str,
+        description: str,
+        test_type: str | None = None,
+    ) -> None:
+        """Displays a panel with a single test suggestion."""
+        logger.info(f"Test Suggestion #{suggestion_index}: {title}")
+        logger.info(f"  Description: {description}")
+        if test_type:
+            logger.info(f"  Test Type: {test_type}")
+
+    def report_generation_start(self, count: int) -> None:
+        """Displays the start of the test generation phase."""
+        logger.info(f"Generating {count} tests...")
+
+    def report_test_generated(
+        self,
+        root_name: str,
+        success: bool,
+        path: Path | None = None,
+        fallback: bool = False,
+    ) -> None:
+        """Reports the successful or failed generation of a single test."""
+        if success:
+            path_str = str(path) if path else ""
+            logger.info(f"SUCCESS: Generated test saved to {path_str}")
+        else:
+            logger.error(f"FAILED: Test generation failed for {root_name}")
+
+    def report_generation_summary(
+        self, generated_tests: list[tuple[Path, str, str]]
+    ) -> None:
+        """Displays a summary table of all generated tests."""
+        logger.info(f"Generated {len(generated_tests)} tests.")
