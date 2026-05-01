@@ -1,3 +1,11 @@
+**Conclusion:** {{ conclusion | default("Pending analysis...") }}
+
+**Summary of Analysis:** {{ summary | default("Pending analysis...") }}
+
+-----
+
+### Detailed Coverage Analysis
+
 #### 1. Feature Existence
 * **Status:** {{ existence.status }}
 {% for item in existence.records %}

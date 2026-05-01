@@ -141,7 +141,7 @@ class MarkdownReportRenderer:
             loader=PackageLoader("wptgen", "templates"),
             autoescape=select_autoescape(),
         )
-        self.template = self.env.get_template("report_rendering.jinja")
+        self.template = self.env.get_template("report_render.jinja")
 
     def render(
         self,
@@ -186,7 +186,7 @@ class MarkdownReportRenderer:
             gaps = "None"
             if row.status == "COVERED":
                 evidence = (
-                    f"Verified in `{', '.join(row.tests)}`"
+                    f'Verified in `{", ".join(row.tests)}`'
                     if row.tests
                     else "Verified"
                 )
