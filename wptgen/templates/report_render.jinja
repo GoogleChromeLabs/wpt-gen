@@ -1,0 +1,83 @@
+**Conclusion:** {{ conclusion | default("Pending analysis...") }}
+
+**Summary of Analysis:** {{ summary | default("Pending analysis...") }}
+
+-----
+
+### Detailed Coverage Analysis
+
+#### 1. Feature Existence
+* **Status:** {{ existence.status }}
+{% for item in existence.records %}
+* **Spec Requirement:** {{ item.requirement }}
+* **Evidence:** {{ item.evidence }}
+* **Gaps:** {{ item.gaps }}
+{% endfor %}
+
+-----
+
+#### 2. Common Use Cases
+* **Status:** {{ common_use_cases.status }}
+{% for item in common_use_cases.records %}
+* **Spec Requirement:** {{ item.requirement }}
+* **Evidence:** {{ item.evidence }}
+* **Gaps:** {{ item.gaps }}
+{% endfor %}
+
+-----
+
+#### 3. Likely Error Scenarios
+* **Status:** {{ error_scenarios.status }}
+{% for item in error_scenarios.records %}
+* **Spec Requirement:** {{ item.requirement }}
+* **Evidence:** {{ item.evidence }}
+* **Gaps:** {{ item.gaps }}
+{% endfor %}
+
+-----
+
+#### 4. Invalidation & Dynamic Behavior
+* **Status:** {{ invalidation.status }}
+{% for item in invalidation.records %}
+* **Spec Requirement:** {{ item.requirement }}
+* **Evidence:** {{ item.evidence }}
+* **Gaps:** {{ item.gaps }}
+{% endfor %}
+
+-----
+
+#### 5. Integration with Other Features
+* **Status:** {{ integration.status }}
+{% for item in integration.records %}
+* **Spec Requirement:** {{ item.requirement }}
+* **Evidence:** {{ item.evidence }}
+* **Gaps:** {{ item.gaps }}
+{% endfor %}
+
+-----
+
+### Test Suggestions
+{% if suggestions.status == "SATISFIED" %}
+No test suggestions found. This feature has great test coverage!
+{% else %}
+* **Existence:** {{ suggestions.existence | length }} test suggestions.
+{% for sug in suggestions.existence %}
+    * {{ sug }}
+{% endfor %}
+* **Common Use Cases:** {{ suggestions.common_use_cases | length }} test suggestions.
+{% for sug in suggestions.common_use_cases %}
+    * {{ sug }}
+{% endfor %}
+* **Error Scenarios:** {{ suggestions.error_scenarios | length }} test suggestions.
+{% for sug in suggestions.error_scenarios %}
+    * {{ sug }}
+{% endfor %}
+* **Invalidation:** {{ suggestions.invalidation | length }} test suggestions.
+{% for sug in suggestions.invalidation %}
+    * {{ sug }}
+{% endfor %}
+* **Integration:** {{ suggestions.integration | length }} test suggestions.
+{% for sug in suggestions.integration %}
+    * {{ sug }}
+{% endfor %}
+{% endif %}
