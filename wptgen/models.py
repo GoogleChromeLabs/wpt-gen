@@ -185,6 +185,7 @@ class WorkflowContext:
     mdn_contents: list[str] | None = None
     generated_tests: list[tuple[Path, str, str]] | None = None
     wpt_urls: list[str] | None = None
+    markdown_report: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Converts the context to a dictionary."""
@@ -207,6 +208,7 @@ class WorkflowContext:
                 else None
             ),
             "wpt_urls": self.wpt_urls,
+            "markdown_report": self.markdown_report,
         }
         return data
 
@@ -250,4 +252,5 @@ class WorkflowContext:
             mdn_contents=data.get("mdn_contents"),
             generated_tests=generated_tests,
             wpt_urls=data.get("wpt_urls"),
+            markdown_report=data.get("markdown_report"),
         )

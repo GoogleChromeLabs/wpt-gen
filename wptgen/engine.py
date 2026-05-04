@@ -329,6 +329,36 @@ class WPTGenEngine:
             self._save_resume_state(context)
             self._save_phase_artifacts(context, WorkflowPhase.COVERAGE_AUDIT)
 
+        if self.config.library_mode:
+            from wptgen.phases.report_render import (
+                MarkdownReportRenderer,
+                parse_audit_worksheet,
+                parse_test_suggestions,
+            )
+            from wptgen.utils import extract_xml_tag
+
+            renderer = MarkdownReportRenderer()
+            audit_worksheet = extract_xml_tag(
+                context.audit_response or "", "audit_worksheet"
+            )
+            test_suggestions_block = extract_xml_tag(
+                context.audit_response or "", "test_suggestions"
+            )
+
+            if audit_worksheet and test_suggestions_block:
+                audit_rows = parse_audit_worksheet(audit_worksheet)
+                suggestions = parse_test_suggestions(test_suggestions_block)
+
+                markdown_report = renderer.render(audit_rows, suggestions)
+                context.markdown_report = markdown_report
+
+                self.ui.success("Generated Markdown report in context.")
+            else:
+                self.ui.warning(
+                    "Failed to extract audit worksheet or suggestions for "
+                    "report."
+                )
+
         # Skip Phase 4 if the user only wants the coverage audit report.
         if self.config.suggestions_only or self.config.brief_suggestions:
             await provide_coverage_report(context, self.config, self.ui)

@@ -164,6 +164,13 @@ def test_render_basic() -> None:
 
     # Verify headers are present
     assert "#### 1. Feature Existence" in report
+    assert (
+        "**Conclusion:** Some test suggestions are available. See below."
+        in report
+    )
+    assert (
+        "**Summary of Analysis:** The audit analyzed 2 requirements" in report
+    )
     assert "#### 2. Common Use Cases" in report
     assert "### Test Suggestions" in report
 

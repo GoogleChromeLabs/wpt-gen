@@ -150,6 +150,27 @@ class MarkdownReportRenderer:
     ) -> str:
         """Renders the report based on structured data."""
         data = self._prepare_data(audit_rows, suggestions)
+
+        # Generate rule-based summary
+        total = len(audit_rows)
+        covered = sum(1 for row in audit_rows if row.status == "COVERED")
+        uncovered = total - covered
+
+        conclusion = (
+            "No test suggestions found. This feature has great test coverage!"
+            if uncovered == 0
+            else "Some test suggestions are available. See below."
+        )
+
+        summary = (
+            f"The audit analyzed {total} requirements extracted from the "
+            f"specification. {covered} requirements are covered by existing "
+            f"tests, and {uncovered} requirements lack test coverage."
+        )
+
+        data["conclusion"] = conclusion
+        data["summary"] = summary
+
         return self.template.render(**data)
 
     def _prepare_data(
