@@ -16,9 +16,9 @@
 
 import asyncio
 
-import typer
 
 from wptgen.config import Config
+from wptgen.models import WorkflowAborted
 from wptgen.llm import LLMClient
 from wptgen.ui import UIProvider
 
@@ -97,7 +97,7 @@ async def confirm_prompts(
 
     if not ui.confirm("\nProceed with these LLM requests?"):
         ui.warning("Aborting workflow due to user cancellation.")
-        raise typer.Abort()
+        raise WorkflowAborted()
 
 
 async def generate_safe(
