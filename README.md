@@ -1,7 +1,7 @@
 # WPT-Gen: AI-Powered Web Platform Test Generation
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 **WPT-Gen** is an agentic CLI tool designed to increase browser interoperability by automating the creation of [Web Platform Tests (WPT)](https://web-platform-tests.org/).
 
@@ -73,7 +73,7 @@ For an in-depth explanation of the internal logic, inputs, outputs, and LLM inte
 
 ## Prerequisites
 
-*   **Python 3.10+**
+*   **Python 3.11+**
 *   **Local WPT Repository:** A local checkout of [web-platform-tests/wpt](https://github.com/web-platform-tests/wpt).
 *   **API Key:** An API key for a supported LLM (Gemini, OpenAI, or Anthropic).
 
