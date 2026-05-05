@@ -21,6 +21,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+pytest.importorskip("google.adk")
+
 from wptgen.agents.adk_test_generator import generate_test_with_adk
 from wptgen.config import Config
 from wptgen.models import TestType as WPTTestType

@@ -339,6 +339,15 @@ class WPTGenEngine:
 
         # Phase 4: User Selection & Generation
         if should_run(WorkflowPhase.GENERATION, bool(context.generated_tests)):
+            import importlib.util
+
+            if not importlib.util.find_spec("google.adk"):
+                raise WorkflowError(
+                    "Test generation requires `google-adk`. "
+                    "Please install the full `wpt-gen` package instead of "
+                    "`wpt-gen-lib`."
+                )
+
             generated_tests = await run_test_generation(
                 context, self.config, self.llm, self.ui, self.jinja_env
             )

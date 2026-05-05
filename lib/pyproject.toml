@@ -1,0 +1,67 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = ["setuptools>=82.0.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wpt-gen-lib"
+version = "0.5.0"
+description = "A Core Library for AI-Powered Web Platform Test Analysis"
+readme = "../README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "Google LLC"}
+]
+keywords = ["web-platform-tests", "wpt", "ai", "llm", "testing", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    # Core LLM Integration (Excluding google-adk)
+    "google-genai>=1.62.0",
+    "openai>=2.20.0",
+    "anthropic>=0.84.0",
+    "tiktoken>=0.12.0",
+    "litellm>=1.83.8",
+
+    # Context & Scraping
+    "beautifulsoup4>=4.12.0",
+    "lxml>=6.0.4",
+    "markdownify>=0.14.0",
+
+    # Prompt Templating
+    "jinja2>=3.1.6",
+
+    # CLI Infrastructure
+    "typer>=0.23.0",
+    "rich>=15.0.0",
+    "pyyaml>=6.0.3",
+]
+
+[tool.setuptools]
+packages = ["wptgen"]
+
+[tool.setuptools.package-dir]
+"wptgen" = "../wptgen"

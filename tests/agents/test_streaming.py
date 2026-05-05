@@ -17,6 +17,9 @@
 from unittest.mock import MagicMock
 
 import pytest
+
+pytest.importorskip("google.adk")
+
 from google.adk.events import Event
 from google.genai import types
 from rich.panel import Panel

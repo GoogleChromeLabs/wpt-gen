@@ -28,6 +28,8 @@ from wptgen.phases.generation import (
     run_test_generation,
 )
 
+pytest.importorskip("google.adk")
+
 
 @pytest.mark.asyncio
 async def test_run_test_generation_satisfied(
