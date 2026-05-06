@@ -50,7 +50,9 @@ def test_generate_audit_report_success(mock_engine_class, mock_load_config):
 
 @patch("wptgen.config.load_config")
 @patch("wptgen.WPTGenEngine")
-def test_generate_audit_report_opt_out_explainer(mock_engine_class, mock_load_config):
+def test_generate_audit_report_opt_out_explainer(
+    mock_engine_class, mock_load_config
+):
     """Test that generate_audit_report respects empty explainer list (opt-out)."""
     mock_context = MagicMock(spec=WorkflowContext)
     mock_context.markdown_report = "# Fake Report"
@@ -61,7 +63,12 @@ def test_generate_audit_report_opt_out_explainer(mock_engine_class, mock_load_co
 
     # To make it clear that it overrides something, we simulate that load_config
     # initially loads a list with an old explainer, but then applies the override.
-    def mock_load_config_impl(provider_override=None, yes_tokens_override=False, explainer_urls_override=None, **kwargs):
+    def mock_load_config_impl(
+        provider_override=None,
+        yes_tokens_override=False,
+        explainer_urls_override=None,
+        **kwargs,
+    ):
         cfg = MagicMock(spec=Config)
         # Simulate pre-existing explainers loaded from defaults
         cfg.explainer_urls = ["https://example.com/old-explainer"]
@@ -79,7 +86,7 @@ def test_generate_audit_report_opt_out_explainer(mock_engine_class, mock_load_co
 
     # Assertions
     mock_load_config.assert_called_once()
-    
+
     # Verify that the final config passed to the engine has empty explainers!
     args, kwargs = mock_engine_class.call_args
     config = kwargs["config"]

@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-from wptgen.config import Config
 from wptgen.engine import WPTGenEngine
 from wptgen.ui import LoggingUIProvider
 
@@ -38,8 +37,10 @@ def generate_audit_report(
     and terminal-specific UI elements.
 
     Args:
-        feature_id: The numeric ChromeStatus feature ID or a Web Feature ID string.
-        provider: The LLM provider to use (e.g., "gemini", "openai", "anthropic").
+        feature_id: The numeric ChromeStatus feature ID or a Web Feature ID
+            string.
+        provider: The LLM provider to use (e.g., "gemini", "openai",
+            "anthropic").
         model: The specific model to use for reasoning phases.
         api_key: Optional API key override for the provider.
 
@@ -68,4 +69,9 @@ def generate_audit_report(
     context = engine.run_workflow(feature_id)
 
     # 4. Return the generated report
-    return context.markdown_report
+    if context.markdown_report is None:  # type: ignore[attr-defined]
+        from wptgen.models import WorkflowError
+
+        raise WorkflowError("Markdown report was not generated.")
+
+    return context.markdown_report  # type: ignore[attr-defined, no-any-return]
