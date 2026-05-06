@@ -89,6 +89,7 @@ class Config:
     run_on_browser: BrowserType = BrowserType.CHROME
     run_on_channel: BrowserChannel = BrowserChannel.CANARY
     spec_urls: list[str] | None = None
+    explainer_urls: list[str] | None = None
     feature_description: str | None = None
     detailed_requirements: bool = False
     include_mdn_docs: bool = False
@@ -239,6 +240,7 @@ def load_config(
     max_retries_override: int | None = None,
     timeout_override: int | None = None,
     spec_urls_override: list[str] | None = None,
+    explainer_urls_override: list[str] | None = None,
     feature_description_override: str | None = None,
     detailed_requirements_override: bool = False,
     include_mdn_docs_override: bool = False,
@@ -452,6 +454,7 @@ def load_config(
             else BrowserChannel(yaml_data.get("run_on_channel", "canary"))
         ),
         spec_urls=spec_urls_override,
+        explainer_urls=explainer_urls_override,
         feature_description=feature_description_override,
         detailed_requirements=detailed_requirements,
         include_mdn_docs=include_mdn_docs,
