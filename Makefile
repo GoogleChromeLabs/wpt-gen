@@ -44,6 +44,7 @@ lint: license-check
 	$(RUFF) check .
 	$(BLACK) --check .
 	$(PYLINT) $(PACKAGE_NAME) tests
+	$(PYTHON) scripts/check_pyproject.py
 
 lint-fix: license-fix
 	$(BLACK) .
