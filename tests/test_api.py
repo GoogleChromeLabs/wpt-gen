@@ -15,6 +15,7 @@
 """Tests for the exposed programmatic API."""
 
 from unittest.mock import MagicMock, patch
+from typing import Any
 from wptgen import generate_audit_report
 from wptgen.models import WorkflowContext
 from wptgen.config import Config
@@ -22,7 +23,9 @@ from wptgen.config import Config
 
 @patch("wptgen.config.load_config")
 @patch("wptgen.WPTGenEngine")
-def test_generate_audit_report_success(mock_engine_class, mock_load_config):
+def test_generate_audit_report_success(
+    mock_engine_class: MagicMock, mock_load_config: MagicMock
+) -> None:
     """Test that generate_audit_report correctly initializes the engine."""
     mock_context = MagicMock(spec=WorkflowContext)
     mock_context.markdown_report = "# Fake Report"
@@ -51,8 +54,8 @@ def test_generate_audit_report_success(mock_engine_class, mock_load_config):
 @patch("wptgen.config.load_config")
 @patch("wptgen.WPTGenEngine")
 def test_generate_audit_report_opt_out_explainer(
-    mock_engine_class, mock_load_config
-):
+    mock_engine_class: MagicMock, mock_load_config: MagicMock
+) -> None:
     """Test that generate_audit_report respects empty explainer list (opt-out)."""
     mock_context = MagicMock(spec=WorkflowContext)
     mock_context.markdown_report = "# Fake Report"
@@ -64,11 +67,11 @@ def test_generate_audit_report_opt_out_explainer(
     # To make it clear that it overrides something, we simulate that load_config
     # initially loads a list with an old explainer, but then applies the override.
     def mock_load_config_impl(
-        provider_override=None,
-        yes_tokens_override=False,
-        explainer_urls_override=None,
-        **kwargs,
-    ):
+        provider_override: str | None = None,
+        yes_tokens_override: bool = False,
+        explainer_urls_override: list[str] | None = None,
+        **kwargs: Any,
+    ) -> MagicMock:
         cfg = MagicMock(spec=Config)
         # Simulate pre-existing explainers loaded from defaults
         cfg.explainer_urls = ["https://example.com/old-explainer"]

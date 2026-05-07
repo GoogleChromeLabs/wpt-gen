@@ -69,9 +69,9 @@ def generate_audit_report(
     context = engine.run_workflow(feature_id)
 
     # 4. Return the generated report
-    if context.markdown_report is None:  # type: ignore[attr-defined]
+    if context.markdown_report is None:
         from wptgen.models import WorkflowError
 
         raise WorkflowError("Markdown report was not generated.")
 
-    return context.markdown_report  # type: ignore[attr-defined, no-any-return]
+    return context.markdown_report
