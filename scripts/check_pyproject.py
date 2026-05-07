@@ -44,7 +44,7 @@ def main():
     ]
     lib_deps = lib_data.get("project", {}).get("dependencies", [])
 
-    if root_deps != lib_deps:
+    if set(root_deps) != set(lib_deps):
         print("Error: Dependencies in pyproject.toml files are out of sync!")
         print(f"Root dependencies (filtered): {root_deps}")
         print(f"Lib dependencies: {lib_deps}")
