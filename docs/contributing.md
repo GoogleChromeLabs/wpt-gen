@@ -33,11 +33,4 @@ for this purpose.
 
 ## Release Process (Maintainers)
 
-To publish a new version of `wpt-gen` to PyPI, we use GitHub Actions for automated releases.
-
-1. Ensure all changes are merged into the `main` branch and the version number is bumped in `pyproject.toml` and `wptgen/__init__.py`.
-2. Go to the **Releases** section on GitHub and click **Draft a new release**.
-3. Create a new tag matching the version number (e.g., `v1.0.0`) targeting the `main` branch.
-4. Fill in the release title and describe the changes (or use the auto-generate release notes feature).
-5. Click **Publish release**.
-6. This will automatically trigger the `.github/workflows/publish.yml` workflow, which builds the Python distribution and securely publishes it to PyPI using Trusted Publishing (OIDC).
+To publish a new version of `wpt-gen` to PyPI, see the [Release Process](releasing.md) documentation.
