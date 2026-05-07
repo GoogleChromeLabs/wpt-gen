@@ -15,7 +15,7 @@
 """Data models and enums for the WPT generation workflow."""
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,7 @@ class WorkflowError(Exception):
     """Raised when a phase of the workflow fails to complete."""
 
 
-class WorkflowPhase(str, Enum):
+class WorkflowPhase(StrEnum):
     """Enumeration of the phases in the WPT generation workflow."""
 
     CONTEXT_ASSEMBLY = "context_assembly"
@@ -70,14 +70,14 @@ REQUIREMENT_CATEGORIES = [
 ]
 
 
-class DataSource(str, Enum):
+class DataSource(StrEnum):
     """Source of web feature metadata."""
 
     WEB_FEATURES = "web-features"
     CHROMESTATUS = "chromestatus"
 
 
-class BrowserType(str, Enum):
+class BrowserType(StrEnum):
     """Supported browser engines."""
 
     CHROME = "chrome"
@@ -86,7 +86,7 @@ class BrowserType(str, Enum):
     EDGE = "edge"
 
 
-class BrowserChannel(str, Enum):
+class BrowserChannel(StrEnum):
     """Browser release channels."""
 
     CANARY = "canary"
@@ -95,7 +95,7 @@ class BrowserChannel(str, Enum):
     DEV = "dev"
 
 
-class LLMProvider(str, Enum):
+class LLMProvider(StrEnum):
     """Supported LLM providers."""
 
     GEMINI = "gemini"
@@ -104,7 +104,7 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
 
 
-class ModelCategory(str, Enum):
+class ModelCategory(StrEnum):
     """Categories of LLM models used in the workflow."""
 
     DEFAULT = "default"

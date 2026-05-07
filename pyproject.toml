@@ -21,7 +21,7 @@ name = "wpt-gen"
 version = "0.5.0"
 description = "A CLI Tool for AI-Powered Web Platform Test Generation"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [
     {name = "Google LLC"}
@@ -33,7 +33,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
@@ -96,11 +95,11 @@ wptgen = [
 ]
 
 [tool.black]
-target-version = ['py310']
+target-version = ['py311']
 line-length = 80
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 80
 indent-width = 4
 
@@ -126,7 +125,7 @@ ignore = [
 known-first-party = ["wptgen"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 mypy_path = "scripts"
 
