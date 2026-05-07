@@ -24,6 +24,10 @@ class WorkflowError(Exception):
     """Raised when a phase of the workflow fails to complete."""
 
 
+class WorkflowAborted(Exception):
+    """Exception raised when a workflow step is aborted by user or policy."""
+
+
 class WorkflowPhase(StrEnum):
     """Enumeration of the phases in the WPT generation workflow."""
 

@@ -18,7 +18,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-import typer
+from wptgen.models import WorkflowAborted
 
 from wptgen.config import Config
 from wptgen.phases.utils import confirm_prompts, generate_safe
@@ -73,7 +73,7 @@ async def test_confirm_prompts_abort(
 ) -> None:
     """Test that confirm_prompts aborts the workflow when the user cancels."""
     mock_ui.confirm.return_value = False
-    with pytest.raises(typer.Abort):
+    with pytest.raises(WorkflowAborted):
         await confirm_prompts(
             [("p1", "n1")], "Phase", mock_llm, mock_ui, mock_config
         )

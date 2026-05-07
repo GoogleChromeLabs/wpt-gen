@@ -56,6 +56,9 @@ class WPTGenEngine:
         self.ui = ui
         self.llm = get_llm_client(config)
 
+        if self.config.library_mode:
+            self.config.yes_tokens = True
+
         self.jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
         assert (

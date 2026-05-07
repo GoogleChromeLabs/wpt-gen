@@ -53,6 +53,7 @@ from wptgen.models import (
     BrowserChannel,
     BrowserType,
     ModelCategory,
+    WorkflowAborted,
     WorkflowError,
     WorkflowPhase,
 )
@@ -262,9 +263,14 @@ def _execute_workflow(
     engine = WPTGenEngine(config=config, ui=ui)
 
     # Execute the workflow
-    context = engine.run_workflow(
-        web_feature_id, disable_directory_inference=disable_directory_inference
-    )
+    try:
+        context = engine.run_workflow(
+            web_feature_id,
+            disable_directory_inference=disable_directory_inference,
+        )
+    except WorkflowAborted:
+        ui.warning("Workflow aborted by user.")
+        raise typer.Exit(1) from None
 
     if is_audit:
         ui.print()
@@ -1042,7 +1048,11 @@ def chromestatus_command(
         engine = WPTGenEngine(config=config, ui=ui)
 
         # 3. Execute the workflow
-        engine.run_workflow(feature_id)
+        try:
+            engine.run_workflow(feature_id)
+        except WorkflowAborted:
+            ui.warning("Workflow aborted by user.")
+            raise typer.Exit(1) from None
 
         ui.print()
         if suggestions_only:
