@@ -43,6 +43,8 @@ def generate_audit_report(
             "anthropic").
         model: The specific model to use for reasoning phases.
         api_key: Optional API key override for the provider.
+        explainer_urls: Optional list of explainer URLs to use instead of
+            scraping them from the feature ID.
 
     Returns:
         A string containing the full, rendered Markdown report.

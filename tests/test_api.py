@@ -14,18 +14,16 @@
 
 """Tests for the exposed programmatic API."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from typing import Any
 from wptgen import generate_audit_report
 from wptgen.models import WorkflowContext
 from wptgen.config import Config
 
 
-@patch("wptgen.config.load_config")
-@patch("wptgen.WPTGenEngine")
-def test_generate_audit_report_success(
-    mock_engine_class: MagicMock, mock_load_config: MagicMock
-) -> None:
+def test_generate_audit_report_success(mocker: Any) -> None:
+    mock_load_config = mocker.patch("wptgen.config.load_config")
+    mock_engine_class = mocker.patch("wptgen.WPTGenEngine")
     """Test that generate_audit_report correctly initializes the engine."""
     mock_context = MagicMock(spec=WorkflowContext)
     mock_context.markdown_report = "# Fake Report"
@@ -51,11 +49,9 @@ def test_generate_audit_report_success(
     assert report == "# Fake Report"
 
 
-@patch("wptgen.config.load_config")
-@patch("wptgen.WPTGenEngine")
-def test_generate_audit_report_opt_out_explainer(
-    mock_engine_class: MagicMock, mock_load_config: MagicMock
-) -> None:
+def test_generate_audit_report_opt_out_explainer(mocker: Any) -> None:
+    mock_load_config = mocker.patch("wptgen.config.load_config")
+    mock_engine_class = mocker.patch("wptgen.WPTGenEngine")
     """Test that generate_audit_report respects empty explainer list (opt-out)."""
     mock_context = MagicMock(spec=WorkflowContext)
     mock_context.markdown_report = "# Fake Report"
