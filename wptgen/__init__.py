@@ -58,6 +58,8 @@ def generate_audit_report(
         explainer_urls_override=explainer_urls,
     )
     config.library_mode = True
+    config.wpt_path = None
+    config.suggestions_only = True
     if model:
         config.default_model = model
     if api_key:
@@ -68,7 +70,7 @@ def generate_audit_report(
 
     # 3. Execute workflow
     engine = WPTGenEngine(config=config, ui=ui)
-    context = engine.run_workflow(feature_id)
+    context = engine.run_workflow(feature_id, disable_directory_inference=True)
 
     # 4. Return the generated report
     if context.markdown_report is None:

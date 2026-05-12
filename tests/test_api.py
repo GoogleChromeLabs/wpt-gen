@@ -44,8 +44,12 @@ def test_generate_audit_report_success(mocker: Any) -> None:
     assert kwargs["yes_tokens_override"] is True
 
     assert mock_config.library_mode is True
+    assert mock_config.suggestions_only is True
+    assert mock_config.wpt_path is None
 
-    mock_engine.run_workflow.assert_called_once_with("12345")
+    mock_engine.run_workflow.assert_called_once_with(
+        "12345", disable_directory_inference=True
+    )
     assert report == "# Fake Report"
 
 
@@ -90,5 +94,10 @@ def test_generate_audit_report_opt_out_explainer(mocker: Any) -> None:
     args, kwargs = mock_engine_class.call_args
     config = kwargs["config"]
     assert config.explainer_urls == []
+    assert config.suggestions_only is True
+    assert config.wpt_path is None
 
+    mock_engine.run_workflow.assert_called_once_with(
+        "12345", disable_directory_inference=True
+    )
     assert report == "# Fake Report"
