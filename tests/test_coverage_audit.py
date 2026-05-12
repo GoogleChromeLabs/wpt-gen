@@ -188,43 +188,16 @@ async def test_run_coverage_audit_multiple_partitions(
 
 
 @pytest.mark.asyncio
-async def test_provide_coverage_report_save_error(
-    mocker: MockerFixture,
-    mock_config: Config,
-    mock_ui: MagicMock,
-    tmp_path: Path,
-) -> None:
-    mock_config.output_dir = str(tmp_path)
-    context = WorkflowContext(
-        feature_id="test", audit_response="Mock audit response"
-    )
-    mock_ui.confirm.return_value = True
-
-    mocker.patch(
-        "pathlib.Path.write_text",
-        side_effect=PermissionError("Mock write error"),
-    )
-
-    await provide_coverage_report(context, mock_config, mock_ui)
-
-    mock_ui.error.assert_called_with("Error saving file: Mock write error")
-
-
-@pytest.mark.asyncio
-async def test_provide_coverage_report_save_success(
+async def test_provide_coverage_report_success(
     mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
     mock_config.output_dir = str(tmp_path)
     context = WorkflowContext(
         feature_id="test", audit_response="Mock audit response"
     )
-    mock_ui.confirm.return_value = True
 
     await provide_coverage_report(context, mock_config, mock_ui)
-
-    mock_ui.success.assert_called_with(
-        f'Saved: {(tmp_path / "test_coverage_audit.md").absolute()}'
-    )
+    mock_ui.report_coverage_audit.assert_called_with("Mock audit response")
 
 
 def test_partition_requirements_xml_empty() -> None:
