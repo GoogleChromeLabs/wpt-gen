@@ -33,20 +33,18 @@ from wptgen.phases.coverage_audit import (
 async def test_provide_coverage_report(
     mock_config: Config, mock_ui: MagicMock, tmp_path: Path
 ) -> None:
-    """Test saving and displaying the coverage report."""
+    """Test that provide_coverage_report displays the report and does not save any file."""
     context = WorkflowContext(
         feature_id="feat-id", audit_response="Audit markdown"
     )
     mock_config.output_dir = str(tmp_path)
 
-    # Test saving to file
-    mock_ui.confirm.return_value = True
     await provide_coverage_report(context, mock_config, mock_ui)
 
     expected_path = tmp_path / "feat-id_coverage_audit.md"
-    assert expected_path.exists()
+    assert not expected_path.exists()
     mock_ui.report_coverage_audit.assert_called_with("Audit markdown")
-    mock_ui.success.assert_any_call(f"Saved: {expected_path.absolute()}")
+    mock_ui.confirm.assert_not_called()
 
 
 def test_partition_requirements_xml() -> None:

@@ -17,7 +17,6 @@
 import asyncio
 import math
 import re
-from pathlib import Path
 
 from jinja2 import Environment
 
@@ -271,17 +270,3 @@ async def provide_coverage_report(
                 ui.report_test_suggestion(idx, title, description, test_type)
     else:
         ui.report_coverage_audit(context.audit_response)
-
-    if ui.confirm("\nSave report to a file?"):
-        # Create a sanitized filename from the feature ID
-        feature_id_str = context.feature_id or "custom_feature"
-        safe_id = FILENAME_SANITIZATION_RE.sub("_", feature_id_str.lower())
-        filename = f"{safe_id}_coverage_audit.md"
-
-        output_path = Path(config.output_dir or ".") / filename
-        try:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(context.audit_response, encoding="utf-8")
-            ui.success(f"Saved: {output_path.absolute()}")
-        except Exception as e:
-            ui.error(f"Error saving file: {e}")
