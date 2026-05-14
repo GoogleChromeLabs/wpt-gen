@@ -772,6 +772,9 @@ async def fetch_remote_wpt_context(wpt_urls: list[str]) -> WPTContext:
             if content is not None:
                 test_contents[path] = content
 
+    logger.info(
+        f"Successfully fetched {len(test_contents)} WPT files."
+    )
     return WPTContext(test_contents=test_contents)
 
 
