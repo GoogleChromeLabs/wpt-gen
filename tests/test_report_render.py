@@ -163,7 +163,7 @@ def test_render_basic() -> None:
     report = renderer.render(audit_rows, suggestions)
 
     # Verify headers are present
-    assert "#### 1. Feature Existence" in report
+    assert "#### 1. Existence" in report
     assert (
         "**Conclusion:** Some test suggestions are available. See below."
         in report
