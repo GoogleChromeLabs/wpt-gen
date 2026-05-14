@@ -25,6 +25,7 @@ from wptgen.context import (
     fetch_chromestatus_metadata,
     fetch_feature_yaml,
     fetch_mdn_urls,
+    fetch_remote_wpt_context,
     find_feature_tests,
     gather_local_test_context,
     validate_wpt_paths,
@@ -169,19 +170,29 @@ async def run_context_assembly(
                         test_paths = sorted(set(test_paths) | set(valid_paths))
                     except ValueError as e:
                         ui.warning(f"Skipping ChromeStatus tests: {e}")
+        wpt_context = gather_local_test_context(test_paths, config.wpt_path)
     elif config.library_mode:
         ui.info("Skipping local WPT scan (Library Mode).")
+        if config.chromestatus and metadata.wpt_descr:
+            with ui.status("Extracting remote tests from ChromeStatus..."):
+                extracted_wpt_urls = extract_wpt_paths(metadata.wpt_descr)
+                if extracted_wpt_urls:
+                    try:
+                        wpt_context = await fetch_remote_wpt_context(
+                            extracted_wpt_urls
+                        )
+                    except ValueError as e:
+                        ui.warning(f"Skipping remote ChromeStatus tests: {e}")
+                        wpt_context = WPTContext()
+                else:
+                    wpt_context = WPTContext()
+        else:
+            wpt_context = WPTContext()
     else:
         raise ValueError("WPT path must be configured for CLI usage.")
 
     if not test_paths and config.wpt_path:
         ui.warning("No existing Web Platform Tests were successfully loaded.")
-
-    wpt_context = (
-        gather_local_test_context(test_paths, config.wpt_path)
-        if config.wpt_path
-        else WPTContext()
-    )
 
     mdn_contents: list[str] | None = None
     if config.include_mdn_docs and not config.chromestatus:
