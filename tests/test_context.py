@@ -31,6 +31,7 @@ from wptgen.context import (
     fetch_and_extract_text,
     fetch_feature_yaml,
     fetch_mdn_urls,
+    fetch_remote_wpt_context,
     find_feature_tests,
     gather_local_test_context,
     is_wpt_test_file,
@@ -817,3 +818,65 @@ def test_fetch_feature_yaml_draft(mocker: MockerFixture) -> None:
         == "https://raw.githubusercontent.com/web-platform-dx/"
         "web-features/main/features/draft/spec/draft-feature.yml"
     )
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_wpt_context(mocker: MockerFixture) -> None:
+    """Test successfully fetching remote WPT test files over HTTP."""
+    mock_urlopen = mocker.patch("wptgen.context._ssrf_safe_opener.open")
+
+    mock_response_html = mocker.MagicMock()
+    mock_response_html.read.return_value = b"<!DOCTYPE html><html>test</html>"
+    mock_response_html.__enter__.return_value = mock_response_html
+
+    mock_response_js = mocker.MagicMock()
+    mock_response_js.read.return_value = b"// test script"
+    mock_response_js.__enter__.return_value = mock_response_js
+
+    def mock_open_impl(req: Any, **kwargs: Any) -> Any:
+        if "test1.html" in req.full_url:
+            return mock_response_html
+        if "test2.html" in req.full_url:
+            raise urllib.error.HTTPError(
+                url="", code=404, msg="Not Found", hdrs=Message(), fp=None
+            )
+        if "test2.js" in req.full_url:
+            return mock_response_js
+        raise Exception(f"Unexpected URL: {req.full_url}")
+
+    mock_urlopen.side_effect = mock_open_impl
+    mocker.patch("time.sleep")
+
+    urls = [
+        "css/css-text/text-transform/test1.html",
+        "css/css-text/text-transform/test2.html",
+    ]
+
+    context = await fetch_remote_wpt_context(urls)
+
+    assert len(context.test_contents) == 2
+    assert "/css/css-text/text-transform/test1.html" in context.test_contents
+    assert "/css/css-text/text-transform/test2.js" in context.test_contents
+    assert (
+        context.test_contents["/css/css-text/text-transform/test1.html"]
+        == "<!DOCTYPE html><html>test</html>"
+    )
+    assert (
+        context.test_contents["/css/css-text/text-transform/test2.js"]
+        == "// test script"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_wpt_context_empty() -> None:
+    """Test that empty list returns empty context."""
+    context = await fetch_remote_wpt_context([])
+    assert not context.test_contents
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_wpt_context_limit() -> None:
+    """Test that exceeding MAX limit raises ValueError."""
+    urls = [f"test{i}.html" for i in range(51)]
+    with pytest.raises(ValueError, match="Too many tests found"):
+        await fetch_remote_wpt_context(urls)
