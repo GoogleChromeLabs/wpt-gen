@@ -46,6 +46,8 @@ def test_generate_audit_report_success(mocker: Any) -> None:
     assert mock_config.library_mode is True
     assert mock_config.suggestions_only is True
     assert mock_config.wpt_path is None
+    assert mock_config.chromestatus is True
+    assert mock_config.no_cache is True
 
     mock_engine.run_workflow.assert_called_once_with(
         "12345", disable_directory_inference=True
@@ -96,6 +98,8 @@ def test_generate_audit_report_opt_out_explainer(mocker: Any) -> None:
     assert config.explainer_urls == []
     assert config.suggestions_only is True
     assert config.wpt_path is None
+    assert config.chromestatus is True
+    assert config.no_cache is True
 
     mock_engine.run_workflow.assert_called_once_with(
         "12345", disable_directory_inference=True

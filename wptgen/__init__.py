@@ -61,6 +61,7 @@ def generate_audit_report(
     config.wpt_path = None
     config.suggestions_only = True
     config.chromestatus = True
+    config.no_cache = True
     if model:
         config.default_model = model
     if api_key:
