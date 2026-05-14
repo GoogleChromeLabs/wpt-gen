@@ -98,7 +98,7 @@ def parse_audit_worksheet(worksheet_text: str) -> list[RequirementAudit]:
 def parse_test_suggestions(suggestions_xml: str) -> list[SuggestionData]:
     """Parses the structured XML test suggestions."""
     results = []
-    soup = BeautifulSoup(suggestions_xml, "xml")
+    soup = BeautifulSoup(f"<root>{suggestions_xml}</root>", "xml")
 
     for suggestion in soup.find_all("test_suggestion"):
         description = suggestion.find("description")
