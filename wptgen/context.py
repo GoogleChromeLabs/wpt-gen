@@ -746,7 +746,7 @@ async def fetch_remote_wpt_context(wpt_urls: list[str]) -> WPTContext:
         content = None
         try:
             content = _try_url(url)
-        except Exception as e:
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
             logger.warning(f"Failed to fetch remote WPT file ({url}): {e}")
 
         if content is None and clean_path.endswith(".html"):
@@ -756,7 +756,7 @@ async def fetch_remote_wpt_context(wpt_urls: list[str]) -> WPTContext:
                 content = _try_url(js_url)
                 if content is not None:
                     clean_path = js_path
-            except Exception as e:
+            except (urllib.error.HTTPError, urllib.error.URLError) as e:
                 logger.warning(
                     f"Failed to fetch remote WPT file ({js_url}): {e}"
                 )
