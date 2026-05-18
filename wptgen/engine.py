@@ -58,6 +58,7 @@ class WPTGenEngine:
 
         if self.config.library_mode:
             self.config.yes_tokens = True
+            self.config.no_cache = True
 
         self.jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
