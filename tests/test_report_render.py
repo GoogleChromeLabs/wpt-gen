@@ -138,6 +138,22 @@ def test_parse_test_suggestions_invalid() -> None:
     assert len(results) == 0
 
 
+def test_parse_test_suggestions_multiple_roots() -> None:
+    """Test parsing multiple sibling test_suggestion tags without an enclosing root tag."""
+    xml = """
+    <test_suggestion>
+      <description>Desc 1</description>
+    </test_suggestion>
+    <test_suggestion>
+      <description>Desc 2</description>
+    </test_suggestion>
+    """
+    results = parse_test_suggestions(xml)
+    assert len(results) == 2
+    assert results[0].description == "Desc 1"
+    assert results[1].description == "Desc 2"
+
+
 def test_render_basic() -> None:
     """Test rendering with mixed coverage results."""
     renderer = MarkdownReportRenderer()
