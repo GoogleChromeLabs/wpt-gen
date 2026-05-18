@@ -22,6 +22,7 @@ import re
 import socket
 import urllib.error
 import urllib.request
+import asyncio
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -467,8 +468,8 @@ def extract_wpt_paths(wpt_descr: str) -> list[str]:
     if not wpt_descr:
         return []
 
-    # Regex to match any URL-like structure starting with http/https
-    url_pattern = r"https?://[^\s\n,]+"
+    # Regex matching ChromeStatus framework extraction exactly
+    url_pattern = r"(https?://wpt\.fyi/results[^\s?]+)"
     urls = re.findall(url_pattern, wpt_descr)
 
     extracted_paths: set[str] = set()
@@ -704,6 +705,74 @@ def resolve_dependency_path(
     except (ValueError, OSError):
         pass
     return None
+
+
+async def fetch_remote_wpt_context(wpt_urls: list[str]) -> WPTContext:
+    """Fetches WPT test file contents remotely from GitHub over HTTP.
+
+    Intended for library mode when a local WPT checkout is not available.
+    Enforces MAXIMUM_TEST_SUITE_SIZE.
+    """
+    test_contents: dict[str, str] = {}
+    if not wpt_urls:
+        return WPTContext(test_contents=test_contents)
+
+    unique_urls = sorted(set(wpt_urls))
+    if len(unique_urls) > MAXIMUM_TEST_SUITE_SIZE:
+        raise ValueError(
+            f"Too many tests found ({len(unique_urls)}). "
+            f"Max allowed is {MAXIMUM_TEST_SUITE_SIZE}."
+        )
+
+    base_github_url = (
+        "https://raw.githubusercontent.com/web-platform-tests/wpt/master/"
+    )
+
+    def _fetch_single(rel_path: str) -> tuple[str, str | None]:
+        clean_path = normalize_wpt_path(rel_path.lstrip("/"))
+        url = base_github_url + clean_path
+
+        @retry(
+            (urllib.error.HTTPError, urllib.error.URLError),
+            max_attempts=MAX_RETRIES,
+        )
+        def _try_url(target_url: str) -> str:
+            validate_url_against_ssrf(target_url)
+            headers = {"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
+            req = urllib.request.Request(target_url, headers=headers)
+            with _ssrf_safe_opener.open(req, timeout=10) as response:
+                return str(response.read().decode("utf-8"))
+
+        content = None
+        try:
+            content = _try_url(url)
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            logger.warning(f"Failed to fetch remote WPT file ({url}): {e}")
+
+        if content is None and clean_path.endswith(".html"):
+            js_path = clean_path[:-5] + ".js"
+            js_url = base_github_url + js_path
+            try:
+                content = _try_url(js_url)
+                if content is not None:
+                    clean_path = js_path
+            except (urllib.error.HTTPError, urllib.error.URLError) as e:
+                logger.warning(
+                    f"Failed to fetch remote WPT file ({js_url}): {e}"
+                )
+
+        return "/" + clean_path, content
+
+    tasks = [asyncio.to_thread(_fetch_single, u) for u in unique_urls]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for res in results:
+        if isinstance(res, tuple):
+            path, content = res
+            if content is not None:
+                test_contents[path] = content
+
+    return WPTContext(test_contents=test_contents)
 
 
 def gather_local_test_context(

@@ -471,3 +471,51 @@ async def test_run_context_assembly_spec_fetch_exception(
         "Failed to fetch spec (http://spec-error): 404 Not Found"
     )
     mock_ui.error.assert_any_call("Failed to extract spec content.")
+
+
+@pytest.mark.asyncio
+async def test_run_context_assembly_library_mode_remote_fetching(
+    mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
+) -> None:
+    """Test that library mode correctly populates wpt_context via remote fetching."""
+    mock_config.library_mode = True
+    mock_config.wpt_path = None
+    mock_config.chromestatus = True
+
+    metadata = FeatureMetadata("Feat", "Desc", ["http://spec"])
+    metadata.wpt_descr = """
+    Here are the WPT results for this feature:
+    - https://wpt.fyi/results/css/css-grid/grid-model?label=master
+    - https://wpt.fyi/results/css/css-flexbox/flex-minimum-height-flex-items-005.xht?run_id=12345
+    Check these out.
+    """
+    mocker.patch(
+        "wptgen.phases.context_assembly.fetch_chromestatus_metadata",
+        return_value=metadata,
+    )
+    mocker.patch(
+        "wptgen.phases.context_assembly.fetch_and_extract_text",
+        return_value="Spec Content",
+    )
+
+    mock_remote_context = WPTContext(
+        test_contents={
+            "/css/css-grid/grid-model": "grid content",
+            "/css/css-flexbox/flex-minimum-height-flex-items-005.xht": "flex content",
+        }
+    )
+    mock_fetch_remote = mocker.patch(
+        "wptgen.phases.context_assembly.fetch_remote_wpt_context",
+        return_value=mock_remote_context,
+    )
+
+    context = await run_context_assembly("517399", mock_config, mock_ui)
+
+    assert context is not None
+    assert context.wpt_context == mock_remote_context
+    mock_fetch_remote.assert_called_once_with(
+        [
+            "css/css-flexbox/flex-minimum-height-flex-items-005.xht",
+            "css/css-grid/grid-model",
+        ]
+    )
