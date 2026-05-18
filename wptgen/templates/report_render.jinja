@@ -10,7 +10,7 @@
 #### {{ loop.index }}. {{ cat_name }}
 * **Status:** {{ cat_data.status }}
 {% for item in cat_data.records %}
-* **Spec Requirement:** {{ item.requirement }}
+**Spec Requirement:** {{ item.requirement }}
 {% if item.evidence != "None" %}* {{ item.evidence }}{% endif %}
 {% if item.gaps != "None" %}* {{ item.gaps }}{% endif %}
 {% endfor %}
