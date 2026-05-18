@@ -8,11 +8,17 @@
 
 {% for cat_name, cat_data in categories.items() %}
 #### {{ loop.index }}. {{ cat_name }}
-* **Status:** {{ cat_data.status }}
+**Status:** {{ cat_data.status }}
 {% for item in cat_data.records %}
-**Spec Requirement:** {{ item.requirement }}
-{% if item.evidence != "None" %}* {{ item.evidence }}{% endif %}
-{% if item.gaps != "None" %}* {{ item.gaps }}{% endif %}
+* **Spec Requirement:** {{ item.requirement }}
+{% if item.evidence != "None" %}
+  
+  {{ item.evidence }}
+{% endif %}
+{% if item.gaps != "None" %}
+  
+  {{ item.gaps }}
+{% endif %}
 {% endfor %}
 {% if not loop.last %}
 
