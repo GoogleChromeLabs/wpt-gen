@@ -11,8 +11,8 @@
 * **Status:** {{ cat_data.status }}
 {% for item in cat_data.records %}
 * **Spec Requirement:** {{ item.requirement }}
-* **Evidence:** {{ item.evidence }}
-* **Gaps:** {{ item.gaps }}
+{% if item.evidence != "None" %}* {{ item.evidence }}{% endif %}
+{% if item.gaps != "None" %}* {{ item.gaps }}{% endif %}
 {% endfor %}
 {% if not loop.last %}
 
@@ -29,11 +29,8 @@ No test suggestions found. This feature has great test coverage!
 {% else %}
 Found {{ suggestions | length }} test suggestions:
 
-{% for sug in suggestions %}
-* **Suggestion #{{ loop.index }}**: {{ sug.title | default("Untitled") }}
-    * **Description:** {{ sug.description }}
-{% if sug.test_type %}    * **Test Type:** {{ sug.test_type }}{% endif %}
-{% if sug.expected_result %}    * **Expected Result:** {{ sug.expected_result }}{% endif %}
 
+{% for sug in suggestions %}
+* {{ sug.description }}
 {% endfor %}
 {% endif %}

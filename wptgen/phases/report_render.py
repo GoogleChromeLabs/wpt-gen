@@ -190,12 +190,12 @@ class MarkdownReportRenderer:
             gaps = "None"
             if row.status == "COVERED":
                 evidence = (
-                    f'Verified in `{", ".join(row.tests)}`'
+                    f'✅ Verified in `{", ".join(row.tests)}`'
                     if row.tests
-                    else "Verified"
+                    else "✅ Verified"
                 )
             else:
-                gaps = f"Missing test coverage for: {row.text}"
+                gaps = f"❌ Missing test coverage for: {row.text}"
 
             categories[cat_name]["records"].append(
                 {"requirement": row.text, "evidence": evidence, "gaps": gaps}
@@ -203,7 +203,7 @@ class MarkdownReportRenderer:
 
         for _, cat_data in categories.items():
             if not cat_data["records"]:
-                cat_data["status"] = "N/A"
+                cat_data["status"] = "⚪ N/A"
                 continue
 
             all_covered = all(
@@ -214,11 +214,11 @@ class MarkdownReportRenderer:
             )
 
             if all_covered:
-                cat_data["status"] = "Covered"
+                cat_data["status"] = "✅ Covered"
             elif all_uncovered:
-                cat_data["status"] = "Not Covered"
+                cat_data["status"] = "❌ Not Covered"
             else:
-                cat_data["status"] = "Partially Covered"
+                cat_data["status"] = "⚠️ Partially Covered"
 
         return {
             "categories": categories,

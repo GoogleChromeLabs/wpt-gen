@@ -191,12 +191,12 @@ def test_render_basic() -> None:
     assert "### Test Suggestions" in report
 
     # Verify status mapping
-    assert "* **Status:** Covered" in report  # For Existence
-    assert "* **Status:** Not Covered" in report  # For Common Use Cases
+    assert "* **Status:** ✅ Covered" in report  # For Existence
+    assert "* **Status:** ❌ Not Covered" in report  # For Common Use Cases
 
     # Verify evidence and gaps
-    assert "Verified in `test1.html`" in report
-    assert "Missing test coverage for: Basic behavior works" in report
+    assert "✅ Verified in `test1.html`" in report
+    assert "❌ Missing test coverage for: Basic behavior works" in report
 
     # Verify suggestions are listed
     assert "Add test for basic behavior" in report
