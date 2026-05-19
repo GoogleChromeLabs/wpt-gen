@@ -98,7 +98,7 @@ def parse_audit_worksheet(worksheet_text: str) -> list[RequirementAudit]:
 def parse_test_suggestions(suggestions_xml: str) -> list[SuggestionData]:
     """Parses the structured XML test suggestions."""
     results = []
-    soup = BeautifulSoup(suggestions_xml, "xml")
+    soup = BeautifulSoup(f"<root>{suggestions_xml}</root>", "xml")
 
     for suggestion in soup.find_all("test_suggestion"):
         description = suggestion.find("description")
@@ -179,42 +179,25 @@ class MarkdownReportRenderer:
         suggestions: list[SuggestionData],
     ) -> dict[str, Any]:
         """Groups and maps data into the structure expected by the template."""
-        categories: dict[str, dict[str, Any]] = {
-            "existence": {"status": "Not Covered", "records": []},
-            "common_use_cases": {"status": "Not Covered", "records": []},
-            "error_scenarios": {"status": "Not Covered", "records": []},
-            "invalidation": {"status": "Not Covered", "records": []},
-            "integration": {"status": "Not Covered", "records": []},
-        }
-
-        def map_category(cat: str) -> str:
-            cat_lower = cat.lower()
-            if "existence" in cat_lower:
-                return "existence"
-            if "common" in cat_lower or "use case" in cat_lower:
-                return "common_use_cases"
-            if "error" in cat_lower or "exception" in cat_lower:
-                return "error_scenarios"
-            if "invalidation" in cat_lower or "dynamic" in cat_lower:
-                return "invalidation"
-            if "integration" in cat_lower or "interact" in cat_lower:
-                return "integration"
-            return "common_use_cases"
+        categories: dict[str, dict[str, Any]] = {}
 
         for row in audit_rows:
-            key = map_category(row.category)
+            cat_name = row.category or "Uncategorized"
+            if cat_name not in categories:
+                categories[cat_name] = {"status": "Not Covered", "records": []}
+
             evidence = "None"
             gaps = "None"
             if row.status == "COVERED":
                 evidence = (
-                    f'Verified in `{", ".join(row.tests)}`'
+                    f'✅ Verified in `{", ".join(row.tests)}`'
                     if row.tests
-                    else "Verified"
+                    else "✅ Verified"
                 )
             else:
-                gaps = f"Missing test coverage for: {row.text}"
+                gaps = f"❌ Missing test coverage for: {row.text}"
 
-            categories[key]["records"].append(
+            categories[cat_name]["records"].append(
                 {"requirement": row.text, "evidence": evidence, "gaps": gaps}
             )
 
@@ -237,33 +220,7 @@ class MarkdownReportRenderer:
             else:
                 cat_data["status"] = "Partially Covered"
 
-        sug_data: dict[str, Any] = {
-            "status": "GAPS_FOUND" if suggestions else "SATISFIED",
-            "existence": [],
-            "common_use_cases": [],
-            "error_scenarios": [],
-            "invalidation": [],
-            "integration": [],
-        }
-
-        for sug in suggestions:
-            desc_lower = sug.description.lower()
-            if "existence" in desc_lower:
-                sug_data["existence"].append(sug.description)
-            elif "error" in desc_lower or "exception" in desc_lower:
-                sug_data["error_scenarios"].append(sug.description)
-            elif "invalidation" in desc_lower or "dynamic" in desc_lower:
-                sug_data["invalidation"].append(sug.description)
-            elif "integration" in desc_lower or "interact" in desc_lower:
-                sug_data["integration"].append(sug.description)
-            else:
-                sug_data["common_use_cases"].append(sug.description)
-
         return {
-            "existence": categories["existence"],
-            "common_use_cases": categories["common_use_cases"],
-            "error_scenarios": categories["error_scenarios"],
-            "invalidation": categories["invalidation"],
-            "integration": categories["integration"],
-            "suggestions": sug_data,
+            "categories": categories,
+            "suggestions": suggestions,
         }

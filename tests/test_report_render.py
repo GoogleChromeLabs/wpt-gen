@@ -138,6 +138,22 @@ def test_parse_test_suggestions_invalid() -> None:
     assert len(results) == 0
 
 
+def test_parse_test_suggestions_multiple_roots() -> None:
+    """Test parsing multiple sibling test_suggestion tags without an enclosing root tag."""
+    xml = """
+    <test_suggestion>
+      <description>Desc 1</description>
+    </test_suggestion>
+    <test_suggestion>
+      <description>Desc 2</description>
+    </test_suggestion>
+    """
+    results = parse_test_suggestions(xml)
+    assert len(results) == 2
+    assert results[0].description == "Desc 1"
+    assert results[1].description == "Desc 2"
+
+
 def test_render_basic() -> None:
     """Test rendering with mixed coverage results."""
     renderer = MarkdownReportRenderer()
@@ -163,7 +179,7 @@ def test_render_basic() -> None:
     report = renderer.render(audit_rows, suggestions)
 
     # Verify headers are present
-    assert "#### 1. Feature Existence" in report
+    assert "#### 1. Existence" in report
     assert (
         "**Conclusion:** Some test suggestions are available. See below."
         in report
@@ -175,12 +191,12 @@ def test_render_basic() -> None:
     assert "### Test Suggestions" in report
 
     # Verify status mapping
-    assert "* **Status:** Covered" in report  # For Existence
-    assert "* **Status:** Not Covered" in report  # For Common Use Cases
+    assert "**Status:** Covered" in report  # For Existence
+    assert "**Status:** Not Covered" in report  # For Common Use Cases
 
     # Verify evidence and gaps
-    assert "Verified in `test1.html`" in report
-    assert "Missing test coverage for: Basic behavior works" in report
+    assert "✅ Verified in `test1.html`" in report
+    assert "❌ Missing test coverage for: Basic behavior works" in report
 
     # Verify suggestions are listed
     assert "Add test for basic behavior" in report
