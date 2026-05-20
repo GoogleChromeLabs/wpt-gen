@@ -14,6 +14,7 @@ Before creating a release, ensure that the version number is updated in the code
 
 1.  **Update Version**: Update the version string in the following files:
     *   `pyproject.toml` (under `[project]`)
+    *   `lib/pyproject.toml` (under `[project/lib]`)
     *   `wptgen/__init__.py` (the `__version__` variable)
 2.  **Run Presubmit**: Run `make presubmit` to ensure all tests pass and the code complies with project standards.
 3.  **Commit and Push**: Commit the version updates and push them to the `main` branch.
