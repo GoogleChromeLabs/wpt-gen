@@ -36,11 +36,13 @@ def main():
     with open(lib_toml_path, "rb") as f:
         lib_data = tomllib.load(f)
 
-    # Compare dependencies (excluding google-adk and litellm from root)
+    # Compare dependencies (excluding google-adk, litellm, and google-cloud-storage from root)
     root_deps = [
         d
         for d in root_data.get("project", {}).get("dependencies", [])
-        if not d.startswith("google-adk") and not d.startswith("litellm")
+        if not d.startswith("google-adk")
+        and not d.startswith("litellm")
+        and not d.startswith("google-cloud-storage")
     ]
     lib_deps = lib_data.get("project", {}).get("dependencies", [])
 
