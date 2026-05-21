@@ -18,7 +18,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpt-gen-lib"
-version = "0.6.0"
+version = "0.6.1"
 description = "A Core Library for AI-Powered Web Platform Test Analysis"
 readme = "README.md"
 requires-python = ">=3.11"
