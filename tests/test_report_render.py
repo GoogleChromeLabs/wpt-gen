@@ -224,3 +224,33 @@ def test_render_empty_suggestions() -> None:
         "No test suggestions found. This feature has great test coverage!"
         in report
     )
+
+
+def test_render_missing_categories_show_default_status() -> None:
+    """Test rendering when some standard categories are missing from audit_rows."""
+    renderer = MarkdownReportRenderer()
+
+    audit_rows = [
+        RequirementAudit(
+            id="R1",
+            category="Existence",
+            text="Interface must exist",
+            status="COVERED",
+            tests=["test1.html"],
+        )
+    ]
+
+    suggestions: list[SuggestionData] = []
+
+    report = renderer.render(audit_rows, suggestions)
+
+    # Verify all 5 categories are shown, even if they have no requirements
+    assert "#### 1. Existence" in report
+    assert "#### 2. Common Use Cases" in report
+    assert "#### 3. Error Scenarios" in report
+    assert "#### 4. Invalidation" in report
+    assert "#### 5. Integration" in report
+
+    # Verify that Existence has status "Covered"
+    # Wait, there's multiple status strings, so let's make sure the default status is rendered for the empty ones
+    assert "**Status:** No test suggestions applicable" in report

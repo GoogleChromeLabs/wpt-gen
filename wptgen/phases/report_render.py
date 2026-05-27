@@ -20,6 +20,8 @@ from typing import Any
 from bs4 import BeautifulSoup
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from wptgen.models import REQUIREMENT_CATEGORIES
+
 
 @dataclass
 class RequirementAudit:
@@ -179,7 +181,14 @@ class MarkdownReportRenderer:
         suggestions: list[SuggestionData],
     ) -> dict[str, Any]:
         """Groups and maps data into the structure expected by the template."""
-        categories: dict[str, dict[str, Any]] = {}
+
+        categories: dict[str, dict[str, Any]] = {
+            cat_name: {
+                "status": "No test suggestions applicable",
+                "records": [],
+            }
+            for cat_name, _ in REQUIREMENT_CATEGORIES
+        }
 
         for row in audit_rows:
             cat_name = row.category or "Uncategorized"
@@ -203,7 +212,7 @@ class MarkdownReportRenderer:
 
         for _, cat_data in categories.items():
             if not cat_data["records"]:
-                cat_data["status"] = "N/A"
+                cat_data["status"] = "No test suggestions applicable"
                 continue
 
             all_covered = all(
