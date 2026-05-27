@@ -185,7 +185,7 @@ async def test_run_async_workflow_suggestions_only(
         "wptgen.engine.run_test_generation", return_value=[]
     )
 
-    await engine._run_async_workflow(web_feature_id="test-feat")
+    await engine._run_async_workflow(feature_id="test-feat")
 
     mock_provide.assert_called_once()
     mock_gen.assert_not_called()
@@ -495,7 +495,7 @@ async def test_run_async_workflow_brief_suggestions(
         "wptgen.engine.run_test_generation", return_value=[]
     )
 
-    await engine._run_async_workflow(web_feature_id="test-feat")
+    await engine._run_async_workflow(feature_id="test-feat")
 
     mock_provide.assert_called_once_with(context, engine.config, engine.ui)
     mock_gen.assert_not_called()

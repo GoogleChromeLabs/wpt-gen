@@ -14,16 +14,16 @@ When asked to generate a WPT from an XML test suggestion, follow these steps:
 
 ### 1. Parse the test suggestion
 Extract the following elements from the `<test_suggestion>` XML snippet provided by the user:
-{% if has_web_feature_id %}
-- `<web_feature_id>`: Used to find where the test should live.
+{% if has_feature_id %}
+- `<feature_id>`: Used to find where the test should live.
 {% endif %}
 - `<description>`: The underlying requirement or specification behavior to test.
 - `<spec_url>` (can be multiple): A link to the specification. You MUST include these exact URLs in the generated test (using `<link rel="help" href="...">` for HTML tests, or as a single-line comment for `.js` tests).
 
 ### 2. Locate the Test Directory
-{% if has_web_feature_id %}
+{% if has_feature_id %}
 Determine where this test belongs in the repository by finding the corresponding `WEB_FEATURES.yml` file.
-1. Use the `search_feature_tests` tool with the `<web_feature_id>` to find existing tests for this feature.
+1. Use the `search_feature_tests` tool with the `<feature_id>` to find existing tests for this feature.
 2. Review the output to determine the target directory.
 {% else %}
 Determine where this test belongs in the repository based on the specification URL and the feature description.
@@ -32,7 +32,7 @@ Determine where this test belongs in the repository based on the specification U
 {% endif %}
 
 ### 3. Research Existing Paradigms & Determine Test Type
-Since you are not provided with explicit steps or a test type, you MUST research how similar tests are written for this feature, both in the target directory and across the broader codebase. {% if has_web_feature_id %}**Avoid "Tunnel Vision":** Do not restrict your research solely to the output of `search_feature_tests`.
+Since you are not provided with explicit steps or a test type, you MUST research how similar tests are written for this feature, both in the target directory and across the broader codebase. {% if has_feature_id %}**Avoid "Tunnel Vision":** Do not restrict your research solely to the output of `search_feature_tests`.
 {% endif %}1. Use the `list_directory` and `search_files` tools to explore existing tests in the target directory.
 2. Broaden your search: Search the broader repository (or related parent directories) for the API name or feature (e.g., `fetchLater`) to find existing test ecosystems, helper files (`resources/`), or data-driven testing paradigms that might live in adjacent directories.
 3. **IDL Check:** If the `<description>` involves testing interface exposure, attributes, or methods, you MUST check the repository's `interfaces/` directory for a corresponding `.idl` file (e.g., `interfaces/crash-reporting.idl`). If it exists, this strongly indicates you should use `idlharness.js` instead of manual boolean assertions.
@@ -49,7 +49,7 @@ Before creating a new file, rigorously check if the test logic belongs in existi
 1. **Analyze Directory Paradigms:** Check if the target directory splits tests by category (e.g., separating valid vs. invalid values, or computed vs. parsing behavior).
 2. **Split the test suggestion if Necessary:** A single XML test suggestion might encompass multiple test categories. If the directory separates testing into distinct files (e.g., `feature-valid.html` and `feature-invalid.html`), **you MUST split the test logic across the respective existing files** rather than creating a single, monolithic new file.
 3. **Reftest Reference Search:** If you selected **Reftest**, you MUST search the target directory (and any `reference/` subdirectories) for existing reusable reference files (e.g., `ref-filled-green-100px-square.xht`) before deciding to create a new one. Do NOT generate a duplicate reference file if a suitable one exists.
-4. **Create New Only When Necessary:** Only if no logical match is found (even after considering splitting and manual consolidation), plan to create a new file. **Consult `references/wpt_style_guide.md` to determine the correct filename extension and suffixes** (e.g., `.html`, `.window.js`, `.any.js`) based on your chosen test type. Name the file logically based on the {% if has_web_feature_id %}`<web_feature_id>`{% else %}feature description{% endif %}.
+4. **Create New Only When Necessary:** Only if no logical match is found (even after considering splitting and manual consolidation), plan to create a new file. **Consult `references/wpt_style_guide.md` to determine the correct filename extension and suffixes** (e.g., `.html`, `.window.js`, `.any.js`) based on your chosen test type. Name the file logically based on the {% if has_feature_id %}`<feature_id>`{% else %}feature description{% endif %}.
 5. **File Existence Check:** Before using `write_file` to create a new test file, you MUST verify that the proposed filename does not already exist in the target directory (e.g., by using the `list_directory` tool).
 6. **Naming Conflicts:** If a file with the proposed name already exists, you MUST either append the new test logic to the existing file (if logically appropriate) or generate a new unique filename by incrementing a numerical suffix (e.g., changing `-001.html` to `-002.html`) to prevent overwriting existing work.
 7. **Existing Test Expansion:** If you detect that the core assertion of the WPT test suggestion is already present in an existing test (i.e. a test perfectly matching the test suggestion exists), you MUST ensure all specification edge cases, permutations, or multi-level DOM configurations are thoroughly exercised, and expand the existing test file as necessary instead of creating a redundant new test.
@@ -92,24 +92,24 @@ Before completing the task, you MUST validate that the code you generated is syn
    - **Self-Correct:** If the runner reports a `Harness Error`, `SyntaxError`, a timeout, or a failure that indicates a flaw in your test logic (e.g., calling an undefined helper function or making an incorrect assertion), you MUST use the `replace_in_file` or `write_file` tools to fix the bug, and re-run the test. Use `replace_in_file` whenever possible.
    - Repeat this execute-and-fix loop until the test executes successfully without syntax or harness errors. **Maximum 3 attempts.** If the test still fails after 3 correction attempts, stop debugging and proceed to finalize. *(Note: If the test fails because the browser genuinely does not support the feature, that is acceptable—your goal is to ensure the **test code** itself is valid.)*
 
-{% if has_web_feature_id %}
+{% if has_feature_id %}
 ### 7. Map the Test in WEB_FEATURES.yml
-Every generated test file MUST be explicitly mapped to the target `<web_feature_id>` (from Step 1) in the directory's `WEB_FEATURES.yml` file.
+Every generated test file MUST be explicitly mapped to the target `<feature_id>` (from Step 1) in the directory's `WEB_FEATURES.yml` file.
 1. **Check for File:** Look for `WEB_FEATURES.yml` in the directory where you created or modified the test using the `list_directory` tool.
 2. **Create if Missing:** If the file does not exist, create it using the `write_file` tool with the following structure:
    ```yaml
    features:
-   - name: <web_feature_id>
+   - name: <feature_id>
      files:
      - <new_test_file_name>
    ```
-3. **Update if Existing:** If it exists, read it using `read_file` and update it using `write_file` to append your new test file name to the `files:` list under the matching `<web_feature_id>`. (If the test is already covered by an existing wildcard pattern belonging to the correct feature, you don't need to list it individually).
+3. **Update if Existing:** If it exists, read it using `read_file` and update it using `write_file` to append your new test file name to the `files:` list under the matching `<feature_id>`. (If the test is already covered by an existing wildcard pattern belonging to the correct feature, you don't need to list it individually).
 4. **Prevent Collisions (CRITICAL):** Carefully review the other web feature IDs defined in the same `WEB_FEATURES.yml` file. If another feature uses a wildcard (like `- "**"` or `- "*.html"`) that would accidentally match your newly created test file, you MUST explicitly exclude your test from that feature by adding a negation line (e.g., `- "!<new_test_file_name>"`) to its `files:` list.
 
 {% endif %}
 
-### {% if has_web_feature_id %}8{% else %}7{% endif %}. Finalizing
+### {% if has_feature_id %}8{% else %}7{% endif %}. Finalizing
 - Ensure standard WPT scripts are included properly (if applicable) using absolute paths from the root server.
 - Ensure crashtests end with `-crash.html` if creating a new crashtest file.
 - **Clean Up:** You MUST explicitly delete any temporary files you created in `.wpt-generator-tmp/` using the `delete_file` tool to ensure no temporary prototypes, scripts, or intermediate files are left behind in the repository.
-- Once the test is validated{% if has_web_feature_id %} and the `WEB_FEATURES.yml` file is mapped{% endif %}, your task is complete.
+- Once the test is validated{% if has_feature_id %} and the `WEB_FEATURES.yml` file is mapped{% endif %}, your task is complete.

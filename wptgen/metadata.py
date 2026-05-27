@@ -38,12 +38,12 @@ def is_path_covered(rel_path: Path, patterns: list[str]) -> bool:
 
 
 def update_web_features_yml(
-    output_dir: Path, web_feature_id: str, generated_paths: list[Path]
+    output_dir: Path, feature_id: str, generated_paths: list[Path]
 ) -> None:
     """Updates or creates a WEB_FEATURES.yml file linking tests to a feature.
 
     Updates or creates a WEB_FEATURES.yml file at the root of output_dir,
-    linking generated tests to the given web_feature_id.
+    linking generated tests to the given feature_id.
     """
     yml_path = output_dir / "WEB_FEATURES.yml"
     yaml_data: dict[str, Any] = {}
@@ -61,11 +61,11 @@ def update_web_features_yml(
     features_list: list[dict[str, Any]] = yaml_data["features"]
 
     feature_block = next(
-        (f for f in features_list if f.get("name") == web_feature_id), None
+        (f for f in features_list if f.get("name") == feature_id), None
     )
 
     if feature_block is None:
-        feature_block = {"name": web_feature_id, "files": []}
+        feature_block = {"name": feature_id, "files": []}
         features_list.append(feature_block)
 
     elif "files" not in feature_block:

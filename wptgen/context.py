@@ -64,7 +64,7 @@ MDN_MAPPINGS_URL = (
 
 
 def fetch_feature_yaml(
-    web_feature_id: str, draft: bool = False
+    feature_id: str, draft: bool = False
 ) -> dict[str, Any] | None:
     """
     Fetches the YAML definition for a given web feature ID from the
@@ -75,12 +75,12 @@ def fetch_feature_yaml(
     if draft:
         url = (
             "https://raw.githubusercontent.com/web-platform-dx/web-features/"
-            f"main/features/draft/spec/{web_feature_id}.yml"
+            f"main/features/draft/spec/{feature_id}.yml"
         )
     else:
         url = (
             "https://raw.githubusercontent.com/web-platform-dx/web-features/"
-            f"main/features/{web_feature_id}.yml"
+            f"main/features/{feature_id}.yml"
         )
 
     try:
@@ -166,7 +166,7 @@ def fetch_chromestatus_metadata(feature_id: str) -> FeatureMetadata | None:
         return None
 
 
-def fetch_mdn_urls(web_feature_id: str) -> list[str]:
+def fetch_mdn_urls(feature_id: str) -> list[str]:
     """
     Fetches the MDN mapping for a given web feature ID from the
     web-platform-dx/web-features-mappings repository.
@@ -181,7 +181,7 @@ def fetch_mdn_urls(web_feature_id: str) -> list[str]:
             json_content = response.read().decode("utf-8")
             data = json.loads(json_content)
 
-            feature_mappings = data.get(web_feature_id, [])
+            feature_mappings = data.get(feature_id, [])
             return [item["url"] for item in feature_mappings if "url" in item]
 
     except (urllib.error.HTTPError, json.JSONDecodeError, KeyError) as e:

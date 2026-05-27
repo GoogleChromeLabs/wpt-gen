@@ -126,17 +126,17 @@ async def test_requirements_cache_hit_accept(
     """Verify that requirements extraction uses cached requirements when
     user accepts.
     """
-    web_feature_id = "cached-feat"
+    feature_id = "cached-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
+    cache_file = cache_dir / f"{feature_id}__requirements.xml"
     cache_file.write_text(
         "<requirements_list>Cached Requirements</requirements_list>",
         encoding="utf-8",
     )
 
     context = WorkflowContext(
-        feature_id=web_feature_id,
+        feature_id=feature_id,
         metadata=MagicMock(),
     )
 
@@ -167,10 +167,10 @@ async def test_requirements_cache_hit_reject(
     """Verify that requirements extraction regenerates requirements when
     user rejects cache.
     """
-    web_feature_id = "rejected-cache-feat"
+    feature_id = "rejected-cache-feat"
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
+    cache_file = cache_dir / f"{feature_id}__requirements.xml"
     cache_file.write_text(
         "<requirements_list>Old Cached Requirements</requirements_list>",
         encoding="utf-8",
@@ -180,7 +180,7 @@ async def test_requirements_cache_hit_reject(
         name="Feat", description="Desc", specs=["http://spec"]
     )
     context = WorkflowContext(
-        feature_id=web_feature_id,
+        feature_id=feature_id,
         metadata=metadata,
         spec_contents={"http://spec": "spec content"},
     )

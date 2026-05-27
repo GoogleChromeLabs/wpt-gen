@@ -682,7 +682,7 @@ def test_config_set_command_types() -> None:
 
 
 def test_generate_single_missing_spec_urls() -> None:
-    """Test that omitting both spec flags and --web-feature-id raises an error."""
+    """Test that omitting both spec flags and --feature-id raises an error."""
     result = runner.invoke(
         app,
         ["generate-single", "Test description"],
@@ -690,7 +690,7 @@ def test_generate_single_missing_spec_urls() -> None:
     )
     assert result.exit_code != 0
     assert (
-        "Either --spec-url, --spec-urls, or --web-feature-id must be provided."
+        "Either --spec-url, --spec-urls, or --feature-id must be provided."
         in result.output
     )
 
@@ -715,7 +715,7 @@ def test_generate_single_success(
             "This is a custom test",
             "--spec-urls",
             "https://example.com/spec",
-            "--web-feature-id",
+            "--feature-id",
             "popover",
             "--title",
             "My Custom Test",
@@ -735,7 +735,7 @@ def test_generate_single_success(
 
     mock_run_single.assert_called_once()
     kwargs = mock_run_single.call_args.kwargs
-    assert kwargs["web_feature_id"] == "popover"
+    assert kwargs["feature_id"] == "popover"
     assert kwargs["spec_urls"] == ["https://example.com/spec"]
     assert kwargs["description"] == "This is a custom test"
     assert kwargs["title"] == "My Custom Test"
@@ -767,7 +767,7 @@ def test_generate_single_no_feature_id(
 
     mock_run_single.assert_called_once()
     kwargs = mock_run_single.call_args.kwargs
-    assert kwargs["web_feature_id"] is None
+    assert kwargs["feature_id"] is None
 
 
 def test_generate_single_with_fetched_specs(
@@ -792,7 +792,7 @@ def test_generate_single_with_fetched_specs(
         [
             "generate-single",
             "This is a custom test",
-            "--web-feature-id",
+            "--feature-id",
             "popover",
         ],
     )
@@ -801,5 +801,5 @@ def test_generate_single_with_fetched_specs(
 
     mock_run_single.assert_called_once()
     kwargs = mock_run_single.call_args.kwargs
-    assert kwargs["web_feature_id"] == "popover"
+    assert kwargs["feature_id"] == "popover"
     assert kwargs["spec_urls"] == ["https://example.com/popover"]

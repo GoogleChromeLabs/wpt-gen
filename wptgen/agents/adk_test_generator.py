@@ -103,14 +103,12 @@ async def generate_test_with_adk(
         try:
             wpt_generator_skill = load_skill_from_dir(skill_dir)
 
-            # Conditionally template the skill instructions to avoid confusing
-            # the agent when no web_feature_id is provided.
             has_feature_id = bool(
-                re.search(r"<web_feature_id>\s*[^<\s]", suggestion_xml)
+                re.search(r"<feature_id>\s*[^<\s]", suggestion_xml)
             )
             template = jinja_env.from_string(wpt_generator_skill.instructions)
             wpt_generator_skill.instructions = template.render(
-                has_web_feature_id=has_feature_id
+                has_feature_id=has_feature_id
             )
 
             skill_toolset = SkillToolset(skills=[wpt_generator_skill])
