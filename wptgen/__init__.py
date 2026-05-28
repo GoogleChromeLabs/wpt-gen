@@ -19,7 +19,7 @@ from __future__ import annotations
 from wptgen.engine import WPTGenEngine
 from wptgen.ui import LoggingUIProvider
 
-__version__ = "0.6.1"
+__version__ = "0.6.3"
 
 
 def generate_audit_report(
