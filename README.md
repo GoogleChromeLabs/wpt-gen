@@ -177,7 +177,7 @@ wpt-gen generate font-family
 
 | Option | Shorthand | Description |
 | :--- | :--- | :--- |
-| `feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `font-family`, `popover`). |
+| `web_feature_id` | (Arg) | **Required.** The ID of the feature (e.g., `font-family`, `popover`). |
 | `--provider` | `-p` | Override the default LLM provider (`gemini`, `openai`, `anthropic`). |
 | `--wpt-dir` | `-w` | Override the path to the local web-platform-tests repository. |
 | `--draft` | | Enable fetching metadata from the draft features directory. |

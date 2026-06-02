@@ -5,7 +5,7 @@ The `wpt-gen generate` command orchestrates a complex, multi-phase agentic workf
 ## Phase 1: Context Assembly (`context_assembly.py`)
 
 *   **Responsibility:** Aggregates the "Source of Truth" from external documentation (W3C Specs, MDN) and identifies existing test coverage in the local WPT repository.
-*   **Inputs:** `feature_id` (string), `Config` object, `UIProvider`.
+*   **Inputs:** `web_feature_id` (string), `Config` object, `UIProvider`.
 *   **Outputs:** A hydrated `WorkflowContext` object containing the web-features metadata, scraped specification context, and local WPT tree paths.
 *   **LLM Integration:** None. This phase is entirely focused on gathering local and remote factual data deterministically to feed the subsequent phases.
 
