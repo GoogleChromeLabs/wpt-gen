@@ -58,8 +58,6 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
-[tool.setuptools]
-packages = ["wptgen"]
-
-[tool.setuptools.package-dir]
-"wptgen" = "../wptgen"
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["wptgen*"]
