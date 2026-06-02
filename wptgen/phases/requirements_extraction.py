@@ -28,7 +28,7 @@ from wptgen.ui import UIProvider
 
 
 def _load_cached_requirements(
-    web_feature_id: str,
+    feature_id: str,
     cache_file: Path,
     config: Config,
     ui: UIProvider,
@@ -36,7 +36,7 @@ def _load_cached_requirements(
     """Helper to check for and load cached requirements if requested.
 
     Args:
-      web_feature_id: The ID of the feature.
+      feature_id: The ID of the feature.
       cache_file: The path to the potential cache file.
       config: The tool configuration.
       ui: The UI provider.
@@ -47,7 +47,7 @@ def _load_cached_requirements(
     if not cache_file.exists():
         return None
 
-    ui.info(f"Found cached requirements for {web_feature_id}.")
+    ui.info(f"Found cached requirements for {feature_id}.")
     use_cache = False
     if config.yes_cache:
         use_cache = True
@@ -95,11 +95,11 @@ async def run_requirements_extraction(
     assert context.metadata is not None
     assert context.feature_id is not None
 
-    web_feature_id = context.feature_id
-    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
+    feature_id = context.feature_id
+    cache_file = cache_dir / f"{feature_id}__requirements.xml"
 
     requirements_xml = _load_cached_requirements(
-        web_feature_id, cache_file, config, ui
+        feature_id, cache_file, config, ui
     )
 
     if not requirements_xml:
@@ -185,11 +185,11 @@ async def run_requirements_extraction_categorized(
     assert context.metadata is not None
     assert context.feature_id is not None
 
-    web_feature_id = context.feature_id
-    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
+    feature_id = context.feature_id
+    cache_file = cache_dir / f"{feature_id}__requirements.xml"
 
     requirements_xml = _load_cached_requirements(
-        web_feature_id, cache_file, config, ui
+        feature_id, cache_file, config, ui
     )
 
     if not requirements_xml:
@@ -379,11 +379,11 @@ async def run_requirements_extraction_iterative(
     assert context.metadata is not None
     assert context.feature_id is not None
 
-    web_feature_id = context.feature_id
-    cache_file = cache_dir / f"{web_feature_id}__requirements.xml"
+    feature_id = context.feature_id
+    cache_file = cache_dir / f"{feature_id}__requirements.xml"
 
     requirements_xml = _load_cached_requirements(
-        web_feature_id, cache_file, config, ui
+        feature_id, cache_file, config, ui
     )
 
     if not requirements_xml:

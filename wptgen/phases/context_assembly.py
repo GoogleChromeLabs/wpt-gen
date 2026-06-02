@@ -35,7 +35,7 @@ from wptgen.ui import UIProvider
 
 
 async def run_context_assembly(
-    web_feature_id: str, config: Config, ui: UIProvider
+    feature_id: str, config: Config, ui: UIProvider
 ) -> WorkflowContext | None:
     """Executes the Context Assembly phase.
 
@@ -44,7 +44,7 @@ async def run_context_assembly(
     phases.
 
     Args:
-      web_feature_id: The ID of the feature to gather context for.
+      feature_id: The ID of the feature to gather context for.
       config: The tool configuration.
       ui: The UI provider for reporting progress.
 
@@ -55,26 +55,26 @@ async def run_context_assembly(
 
     if config.chromestatus:
         metadata = await asyncio.to_thread(
-            fetch_chromestatus_metadata, web_feature_id
+            fetch_chromestatus_metadata, feature_id
         )
         if not metadata:
-            ui.error(f"Feature {web_feature_id} not found on ChromeStatus.")
+            ui.error(f"Feature {feature_id} not found on ChromeStatus.")
             return None
     else:
-        feature_data = fetch_feature_yaml(web_feature_id, draft=config.draft)
+        feature_data = fetch_feature_yaml(feature_id, draft=config.draft)
         if not feature_data:
             if config.spec_urls and config.feature_description:
                 ui.warning(
-                    f"Feature {web_feature_id} not found in the "
+                    f"Feature {feature_id} not found in the "
                     "web-features repository."
                 )
                 metadata = FeatureMetadata(
-                    name=web_feature_id,
+                    name=feature_id,
                     description=config.feature_description,
                     specs=config.spec_urls,
                 )
             else:
-                ui.error(f"Feature {web_feature_id} not found.")
+                ui.error(f"Feature {feature_id} not found.")
                 ui.print(
                     "To generate tests for an unregistered feature, please "
                     "provide both a spec URL using --spec-urls and a "
@@ -150,7 +150,7 @@ async def run_context_assembly(
             "Scanning local WPT repository for existing tests and "
             "dependencies..."
         )
-        test_paths = find_feature_tests(config.wpt_path, web_feature_id)
+        test_paths = find_feature_tests(config.wpt_path, feature_id)
 
         # If ChromeStatus is enabled, extract and validate tests from wpt_descr
         if config.chromestatus and metadata.wpt_descr:
@@ -197,7 +197,7 @@ async def run_context_assembly(
     mdn_contents: list[str] | None = None
     if config.include_mdn_docs and not config.chromestatus:
         ui.print("Fetching MDN documentation...")
-        mdn_urls = fetch_mdn_urls(web_feature_id)
+        mdn_urls = fetch_mdn_urls(feature_id)
         if mdn_urls:
             with ui.status(f"Fetching {len(mdn_urls)} MDN pages..."):
                 # Fetch all MDN pages asynchronously using to_thread
@@ -238,7 +238,7 @@ async def run_context_assembly(
         )
 
     return WorkflowContext(
-        feature_id=web_feature_id,
+        feature_id=feature_id,
         metadata=metadata,
         spec_contents=spec_contents,
         explainer_contents=explainer_contents,

@@ -190,7 +190,7 @@ async def test_run_single_test_generation(
     jinja_env = MagicMock()
 
     result = await run_single_test_generation(
-        web_feature_id="custom-feat",
+        feature_id="custom-feat",
         spec_urls=["http://spec.com"],
         description="A cool feature",
         title="Cool Test",
@@ -220,7 +220,7 @@ async def test_run_single_test_generation(
 async def test_run_single_test_generation_no_feature_id(
     mock_config: Config, mock_ui: MagicMock, mocker: MockerFixture
 ) -> None:
-    """Test run_single_test_generation when web_feature_id is None."""
+    """Test run_single_test_generation when feature_id is None."""
     mock_generate_adk = mocker.patch(
         "wptgen.phases.generation._generate_adk_loop"
     )
@@ -228,7 +228,7 @@ async def test_run_single_test_generation_no_feature_id(
     jinja_env = MagicMock()
 
     await run_single_test_generation(
-        web_feature_id=None,
+        feature_id=None,
         spec_urls=["http://spec.com"],
         description="A cool feature",
         title=None,

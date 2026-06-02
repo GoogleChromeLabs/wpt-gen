@@ -589,17 +589,17 @@ def create_agent_tools(
         except (OSError, ValueError, subprocess.SubprocessError) as e:
             return {"status": "error", "error": str(e)}
 
-    def search_feature_tests(web_feature_id: str) -> dict[str, Any]:
+    def search_feature_tests(feature_id: str) -> dict[str, Any]:
         """Searches WPT for test files associated with a specific feature.
 
         Args:
-            web_feature_id: The ID of the feature (e.g., 'popover').
+            feature_id: The ID of the feature (e.g., 'popover').
 
         Returns:
             A dictionary with 'status' and matching 'test_files'.
         """
         try:
-            matches = find_feature_tests(str(wpt_path), web_feature_id)
+            matches = find_feature_tests(str(wpt_path), feature_id)
             if matches:
                 # Clean up paths to be relative for the agent's consumption
                 rel_matches = [
@@ -610,7 +610,7 @@ def create_agent_tools(
             return {
                 "status": "success",
                 "test_files": [],
-                "message": f"No existing tests found for {web_feature_id}",
+                "message": f"No existing tests found for {feature_id}",
             }
         except (OSError, ValueError) as e:
             return {"status": "error", "error": str(e)}

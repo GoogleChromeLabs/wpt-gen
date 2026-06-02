@@ -69,18 +69,16 @@ class WPTGenEngine:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def run_workflow(
-        self, web_feature_id: str, disable_directory_inference: bool = False
+        self, feature_id: str, disable_directory_inference: bool = False
     ) -> WorkflowContext:
         """Entry point for the synchronous CLI to launch the async workflow."""
         return asyncio.run(
-            self._run_async_workflow(
-                web_feature_id, disable_directory_inference
-            )
+            self._run_async_workflow(feature_id, disable_directory_inference)
         )
 
-    def _get_resume_file_path(self, web_feature_id: str) -> Path:
+    def _get_resume_file_path(self, feature_id: str) -> Path:
         """Returns the path to the resume file for a given web feature ID."""
-        return self.cache_dir / f"resume_{web_feature_id}.json"
+        return self.cache_dir / f"resume_{feature_id}.json"
 
     def _save_resume_state(self, context: WorkflowContext) -> None:
         """Serializes and saves the current workflow context to the cache."""
@@ -89,9 +87,9 @@ class WPTGenEngine:
         with open(resume_file, "w", encoding="utf-8") as f:
             json.dump(context.to_dict(), f, indent=2)
 
-    def _load_resume_state(self, web_feature_id: str) -> WorkflowContext | None:
+    def _load_resume_state(self, feature_id: str) -> WorkflowContext | None:
         """Attempts to load a serialized workflow context from the cache."""
-        resume_file = self._get_resume_file_path(web_feature_id)
+        resume_file = self._get_resume_file_path(feature_id)
         if not resume_file.exists():
             return None
 
@@ -105,7 +103,7 @@ class WPTGenEngine:
             )
             return None
 
-    def _hydrate_context(self, web_feature_id: str) -> WorkflowContext:
+    def _hydrate_context(self, feature_id: str) -> WorkflowContext:
         """Hydrates context from explicitly provided state directory or
         default cache.
         """
@@ -114,11 +112,11 @@ class WPTGenEngine:
             if self.config.state_dir
             else self.cache_dir
         )
-        resume_file = state_dir / f"resume_{web_feature_id}.json"
+        resume_file = state_dir / f"resume_{feature_id}.json"
         if not resume_file.exists():
-            resume_file = self._get_resume_file_path(web_feature_id)
+            resume_file = self._get_resume_file_path(feature_id)
 
-        context = WorkflowContext(feature_id=web_feature_id)
+        context = WorkflowContext(feature_id=feature_id)
         if resume_file.exists():
             try:
                 with open(resume_file, encoding="utf-8") as f:
@@ -225,7 +223,7 @@ class WPTGenEngine:
                 json.dump(tests_data, f, indent=2)
 
     async def _run_async_workflow(
-        self, web_feature_id: str, disable_directory_inference: bool = False
+        self, feature_id: str, disable_directory_inference: bool = False
     ) -> WorkflowContext:
         """Orchestrates the end-to-end WPT generation workflow."""
         context = None
@@ -235,14 +233,14 @@ class WPTGenEngine:
                 f"Explicitly resuming workflow from: "
                 f"{self.config.resume_from.value}"
             )
-            context = self._hydrate_context(web_feature_id)
+            context = self._hydrate_context(feature_id)
         elif self.config.resume:
-            context = self._load_resume_state(web_feature_id)
+            context = self._load_resume_state(feature_id)
             if context:
-                self.ui.success(f"Resuming workflow for {web_feature_id}")
+                self.ui.success(f"Resuming workflow for {feature_id}")
 
         if not context:
-            context = WorkflowContext(feature_id=web_feature_id)
+            context = WorkflowContext(feature_id=feature_id)
 
         phases_order = [
             WorkflowPhase.REQUIREMENTS_EXTRACTION,
@@ -260,7 +258,7 @@ class WPTGenEngine:
         # Phase 1: Context Assembly
         if should_run(None, bool(context.wpt_context)):
             context = await run_context_assembly(
-                web_feature_id, self.config, self.ui
+                feature_id, self.config, self.ui
             )
             if not context:
                 raise WorkflowError("Phase 1: Context Assembly failed.")
@@ -368,7 +366,7 @@ class WPTGenEngine:
             await provide_coverage_report(context, self.config, self.ui)
             # Cleanup resume file if it exists, as this is a terminal
             # state for suggestions-only
-            self._get_resume_file_path(web_feature_id).unlink(missing_ok=True)
+            self._get_resume_file_path(feature_id).unlink(missing_ok=True)
             return context
 
         # Phase 4: User Selection & Generation
@@ -392,6 +390,6 @@ class WPTGenEngine:
             self.ui.success("Skipping Phase 4: Tests already generated.")
 
         # Final cleanup of resume file on success
-        self._get_resume_file_path(web_feature_id).unlink(missing_ok=True)
+        self._get_resume_file_path(feature_id).unlink(missing_ok=True)
 
         return context

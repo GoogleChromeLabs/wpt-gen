@@ -114,7 +114,7 @@ async def run_test_generation(
 
 
 async def run_single_test_generation(
-    web_feature_id: str | None,
+    feature_id: str | None,
     spec_urls: list[str],
     description: str,
     title: str | None,
@@ -126,9 +126,9 @@ async def run_single_test_generation(
     """Generates a single test directly from a user description."""
     ui.on_phase_start(4, "Single Test Generation")
 
-    context = WorkflowContext(feature_id=web_feature_id)
+    context = WorkflowContext(feature_id=feature_id)
     context.metadata = FeatureMetadata(
-        name=web_feature_id or "custom_feature", description="", specs=spec_urls
+        name=feature_id or "custom_feature", description="", specs=spec_urls
     )
 
     title_xml = f"  <title>{title}</title>\n" if title else ""
@@ -170,16 +170,16 @@ def _format_test_suggestion(
         for url in spec_urls:
             lines.append(f"  <spec_url>{url}</spec_url>")
         if feature_id:
-            lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
+            lines.append(f"  <feature_id>{feature_id}</feature_id>")
         lines.append("</test_suggestion>")
         return "\n".join(lines)
     else:
-        # Just inject spec_urls and web_feature_id into the existing XML
+        # Just inject spec_urls and feature_id into the existing XML
         lines = []
         for url in spec_urls:
             lines.append(f"  <spec_url>{url}</spec_url>")
         if feature_id:
-            lines.append(f"  <web_feature_id>{feature_id}</web_feature_id>")
+            lines.append(f"  <feature_id>{feature_id}</feature_id>")
         additions = "\n".join(lines)
         if additions:
             return suggestion_xml.replace(

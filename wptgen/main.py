@@ -174,12 +174,12 @@ def _check_workflow_flags(
         raise typer.Exit(code=1)
 
 
-def _print_workflow_banner(ui: UIProvider, web_feature_id: str) -> None:
+def _print_workflow_banner(ui: UIProvider, feature_id: str) -> None:
     """Prints a stylized banner and target feature info to the console.
 
     Args:
         ui: The UI provider for the workflow.
-        web_feature_id: The ID of the feature being processed.
+        feature_id: The ID of the feature being processed.
     """
     banner = Panel(
         Align.center(
@@ -193,7 +193,7 @@ def _print_workflow_banner(ui: UIProvider, web_feature_id: str) -> None:
         border_style="bright_blue",
     )
     ui.print(banner)
-    ui.print(f"\n[bold]Target Feature:[/bold] [cyan]{web_feature_id}[/cyan]\n")
+    ui.print(f"\n[bold]Target Feature:[/bold] [cyan]{feature_id}[/cyan]\\n")
 
 
 def _print_run_config(ui: UIProvider, config: Any) -> None:
@@ -238,7 +238,7 @@ def _workflow_error_handler(ui: UIProvider) -> Generator[None, None, None]:
 
 def _execute_workflow(
     ui: UIProvider,
-    web_feature_id: str,
+    feature_id: str,
     config: Any,
     wf_yml_update: bool,
     output_dir: Path | None,
@@ -249,7 +249,7 @@ def _execute_workflow(
 
     Args:
         ui: The UI provider for the workflow.
-        web_feature_id: The ID of the web feature.
+        feature_id: The ID of the web feature.
         config: Resolved configuration object.
         wf_yml_update: Whether to update WEB_FEATURES.yml.
         output_dir: Directory to save tests.
@@ -265,7 +265,7 @@ def _execute_workflow(
     # Execute the workflow
     try:
         context = engine.run_workflow(
-            web_feature_id,
+            feature_id,
             disable_directory_inference=disable_directory_inference,
         )
     except WorkflowAborted:
@@ -281,8 +281,8 @@ def _execute_workflow(
         )
         if wf_yml_update and target_dir and context and context.generated_tests:
             generated_paths = [path for path, _, _ in context.generated_tests]
-            update_web_features_yml(target_dir, web_feature_id, generated_paths)
-            ui.success(f"Updated WEB_FEATURES.yml for {web_feature_id}")
+            update_web_features_yml(target_dir, feature_id, generated_paths)
+            ui.success(f"Updated WEB_FEATURES.yml for {feature_id}")
 
         ui.print()
         ui.success("Workflow completed successfully!")
@@ -291,7 +291,7 @@ def _execute_workflow(
 @app.command()
 def generate(
     ctx: typer.Context,
-    web_feature_id: Annotated[
+    feature_id: Annotated[
         str,
         typer.Argument(
             help=(
@@ -600,7 +600,7 @@ def generate(
     """
     ui = ctx.obj["ui"]
 
-    _print_workflow_banner(ui, web_feature_id)
+    _print_workflow_banner(ui, feature_id)
     _check_workflow_flags(
         ui=ui,
         wf_yml_update=wf_yml_update,
@@ -670,7 +670,7 @@ def generate(
 
         _execute_workflow(
             ui=ui,
-            web_feature_id=web_feature_id,
+            feature_id=feature_id,
             config=config,
             wf_yml_update=wf_yml_update,
             output_dir=output_dir,
@@ -700,10 +700,10 @@ def generate_single(
             help="A single specification URL for convenience.",
         ),
     ] = None,
-    web_feature_id: Annotated[
+    feature_id: Annotated[
         str | None,
         typer.Option(
-            "--web-feature-id",
+            "--feature-id",
             "-f",
             help="Optional web feature ID (e.g., 'grid', 'popover').",
         ),
@@ -771,10 +771,10 @@ def generate_single(
         )
         raise typer.Exit(code=1)
 
-    if not spec_urls and not spec_url and not web_feature_id:
+    if not spec_urls and not spec_url and not feature_id:
         ui.error(
             "Error: Either --spec-url, --spec-urls, or "
-            "--web-feature-id must be provided."
+            "--feature-id must be provided."
         )
         raise typer.Exit(code=1)
 
@@ -786,8 +786,8 @@ def generate_single(
                 [u.strip() for u in spec_urls.split(",")] if spec_urls else []
             )
 
-        if not spec_urls_list and web_feature_id:
-            feature_data = fetch_feature_yaml(web_feature_id)
+        if not spec_urls_list and feature_id:
+            feature_data = fetch_feature_yaml(feature_id)
             if feature_data:
                 metadata = extract_feature_metadata(feature_data)
                 if metadata.specs:
@@ -817,7 +817,7 @@ def generate_single(
 
         generated_tests = asyncio.run(
             run_single_test_generation(
-                web_feature_id=web_feature_id,
+                feature_id=feature_id,
                 spec_urls=spec_urls_list,
                 description=description,
                 title=title,
@@ -1384,7 +1384,7 @@ def list_models(
 @app.command(name="audit")
 def audit(
     ctx: typer.Context,
-    web_feature_id: Annotated[
+    feature_id: Annotated[
         str,
         typer.Argument(
             help=(
@@ -1667,7 +1667,7 @@ def audit(
     """
     ui = ctx.obj["ui"]
 
-    _print_workflow_banner(ui, web_feature_id)
+    _print_workflow_banner(ui, feature_id)
     _check_workflow_flags(
         ui=ui,
         wf_yml_update=wf_yml_update,
@@ -1737,7 +1737,7 @@ def audit(
 
         _execute_workflow(
             ui=ui,
-            web_feature_id=web_feature_id,
+            feature_id=feature_id,
             config=config,
             wf_yml_update=wf_yml_update,
             output_dir=output_dir,
