@@ -558,10 +558,7 @@ def test_chromestatus_command_invalid_id() -> None:
     """Test that invoking chromestatus with non-digit feature_id fails."""
     result = runner.invoke(app, ["chromestatus", "5a4321"])
     assert result.exit_code == 1
-    assert (
-        "ChromeStatus feature ID must consist digits only"
-        in result.stdout
-    )
+    assert "ChromeStatus feature ID must consist digits only" in result.stdout
 
 
 def test_audit_success(
