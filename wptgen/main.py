@@ -981,6 +981,10 @@ def chromestatus_command(
     """
     ui = ctx.obj["ui"]
 
+    if not feature_id.isdigit():
+        ui.error("ChromeStatus feature ID must consist digits only.")
+        raise typer.Exit(code=1)
+
     banner = Panel(
         Align.center(
             Text.from_markup(

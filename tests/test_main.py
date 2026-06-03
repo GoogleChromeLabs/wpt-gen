@@ -554,6 +554,16 @@ def test_chromestatus_command(
     mock_engine_instance.run_workflow.assert_called_once_with("12345")
 
 
+def test_chromestatus_command_invalid_id() -> None:
+    """Test that invoking chromestatus with non-digit feature_id fails."""
+    result = runner.invoke(app, ["chromestatus", "5a4321"])
+    assert result.exit_code == 1
+    assert (
+        "ChromeStatus feature ID must consist digits only"
+        in result.stdout
+    )
+
+
 def test_audit_success(
     mock_load_config: Any, mock_engine_instance: Any
 ) -> None:
