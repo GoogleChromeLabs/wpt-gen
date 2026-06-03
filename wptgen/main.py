@@ -57,6 +57,7 @@ from wptgen.models import (
     WorkflowError,
     WorkflowPhase,
 )
+from wptgen.phases.evaluation import run_evaluation
 from wptgen.phases.generation import (
     run_single_test_generation,
 )
@@ -834,6 +835,106 @@ def generate_single(
         else:
             ui.warning(
                 "Test generation completed, but no tests were generated."
+            )
+
+
+@app.command(name="evaluate")
+def evaluate(
+    ctx: typer.Context,
+    test_path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to the WPT test file to evaluate.",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--output-dir",
+            "-o",
+            help=(
+                "Directory where the findings report will be written. "
+                "Defaults to .wpt-evaluator-tmp/outputs/."
+            ),
+            dir_okay=True,
+        ),
+    ] = None,
+    provider: Annotated[
+        str | None,
+        typer.Option(
+            "--provider",
+            "-p",
+            help="Override the default LLM provider.",
+        ),
+    ] = None,
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            "-m",
+            help=(
+                "Override the default model for the chosen provider "
+                "(e.g., 'claude-sonnet-4-6')."
+            ),
+        ),
+    ] = None,
+    wpt_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--wpt-dir",
+            "-w",
+            help="Path to the local web-platform-tests repository.",
+            exists=True,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = None,
+    config_path: Annotated[
+        str,
+        typer.Option(
+            "--config", "-c", help="Path to a custom wpt-gen.yml file."
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+) -> None:
+    """
+    Evaluate a single WPT test file against upstream WPT guidance and emit
+    an advisory findings report. Does not run, modify, or lint the test.
+    """
+    ui = ctx.obj["ui"]
+
+    with _workflow_error_handler(ui):
+        config = load_config(
+            config_path=config_path,
+            provider_override=provider,
+            model_override=model,
+            wpt_dir_override=str(wpt_dir) if wpt_dir else None,
+            require_api_key=True,
+        )
+
+        _print_run_config(ui, config)
+
+        engine = WPTGenEngine(config=config, ui=ui)
+
+        report_path = asyncio.run(
+            run_evaluation(
+                test_path=test_path,
+                output_dir=output_dir,
+                config=config,
+                jinja_env=engine.jinja_env,
+                ui=engine.ui,
+            )
+        )
+
+        ui.print()
+        if report_path:
+            ui.success(f"Evaluation complete. Report written to: {report_path}")
+        else:
+            ui.warning(
+                "Evaluation completed, but no report was produced."
             )
 
 

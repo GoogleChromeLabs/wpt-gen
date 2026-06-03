@@ -1,0 +1,10 @@
+Evaluate the WPT test file at the path below using the wpt-evaluator skill. Rigorously follow all instructions in the skill.
+
+<test_file>{{ test_path }}</test_file>
+
+When the evaluation is complete, submit your findings via the `report_evaluation_complete` tool. Pass:
+
+- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `test_line`, `evidence`, `source`, and `summary` as described in the tool's parameter spec. If you found no issues, pass an empty list.
+- `input_scope`: an object describing every file you opened during the evaluation. Include `files` (a list of `{path, bytes, role}` rows), `dependencies_not_read` (framework + external dependencies you detected but did not open), and `approach` (set to `"doc-inputs"`).
+
+Do NOT format the report yourself; the wpt-gen CLI renders the final Markdown from the data you submit. Do NOT write any file to disk.

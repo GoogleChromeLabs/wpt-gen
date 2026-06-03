@@ -1,0 +1,42 @@
+# Findings: {{ test_path }}
+
+## Findings
+
+{% if findings -%}
+{% for f in findings -%}
+### Finding {{ loop.index }} — {{ f.title }}
+
+- **Severity**: {{ f.severity }}
+- **Test line**: {{ f.test_line }}
+- **Evidence**:
+  ```
+  {{ f.evidence | indent(2, first=False) }}
+  ```
+- **Source**: `{{ f.source }}`
+- **Summary**: {{ f.summary }}
+
+{% endfor -%}
+{% else -%}
+No findings raised.
+
+{% endif %}
+
+---
+
+## Input scope
+
+| File | Bytes | Role |
+| ---- | ----: | ---- |
+{% for row in input_scope.files -%}
+| {{ row.path }} | {{ "{:,}".format(row.bytes) }} | {{ row.role }} |
+{% endfor -%}
+| **Total** | **{{ "{:,}".format(input_scope.total_bytes) }}** | |
+
+{% if input_scope.dependencies_not_read -%}
+Declared dependencies (not read): {{ input_scope.dependencies_not_read | join(", ") }}
+{%- else -%}
+Declared dependencies (not read): none
+{%- endif %}
+
+Approach: {{ input_scope.approach }}
+Approximate input tokens: ~{{ "{:,}".format(input_scope.approximate_input_tokens) }}
