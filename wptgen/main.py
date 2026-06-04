@@ -871,17 +871,6 @@ def evaluate(
             help="Override the default LLM provider.",
         ),
     ] = None,
-    model: Annotated[
-        str | None,
-        typer.Option(
-            "--model",
-            "-m",
-            help=(
-                "Override the default model for the chosen provider "
-                "(e.g., 'claude-sonnet-4-6')."
-            ),
-        ),
-    ] = None,
     wpt_dir: Annotated[
         Path | None,
         typer.Option(
@@ -910,7 +899,6 @@ def evaluate(
         config = load_config(
             config_path=config_path,
             provider_override=provider,
-            model_override=model,
             wpt_dir_override=str(wpt_dir) if wpt_dir else None,
             require_api_key=True,
         )
