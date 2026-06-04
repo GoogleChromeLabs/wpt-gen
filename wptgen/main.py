@@ -858,7 +858,7 @@ def evaluate(
             "-o",
             help=(
                 "Directory where the findings report will be written. "
-                "Defaults to .wpt-evaluator-tmp/outputs/."
+                "Defaults to .wptgen/evaluator/outputs/."
             ),
             dir_okay=True,
         ),

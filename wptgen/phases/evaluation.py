@@ -12,9 +12,7 @@ from wptgen.config import Config
 from wptgen.ui import UIProvider
 
 
-# Default scratch location for findings reports. Matches the directory
-# used by the manual skill-call workflow (see wpt-evaluator/INVOKE.md).
-DEFAULT_OUTPUT_DIR = Path(".wpt-evaluator-tmp/outputs")
+DEFAULT_OUTPUT_DIR = Path(".wptgen/evaluator/outputs")
 
 
 @dataclass
