@@ -1,11 +1,8 @@
 """Evaluation phase — run the wpt-evaluator agent on a single test file."""
 
-import asyncio
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -15,14 +12,14 @@ from wptgen.agents.adk_conformance_evaluator import (
 from wptgen.agents.adk_evaluator import evaluate_test_with_adk
 from wptgen.agents.tools import _validate_safe_path
 from wptgen.config import Config
-from wptgen.context import fetch_and_extract_text
-from wptgen.llm import get_llm_client
-from wptgen.models import FeatureMetadata, WorkflowContext
-from wptgen.phases.requirements_extraction import run_requirements_extraction
+from wptgen.phases.spec_requirements_extraction import (
+    extract_requirements_from_spec_url,
+)
 from wptgen.ui import UIProvider
 
 
 DEFAULT_OUTPUT_DIR = Path(".wptgen/evaluator/outputs")
+DEFAULT_CACHE_DIR = Path(".wptgen/evaluator/cache")
 
 
 @dataclass
@@ -140,61 +137,6 @@ def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
     )
 
 
-async def _extract_requirements_for_spec(
-    spec_url: str,
-    config: Config,
-    jinja_env: Environment,
-    ui: UIProvider,
-) -> tuple[str, bool] | None:
-    """Fetches a spec URL and runs the requirements extractor against it.
-
-    TEMPORARY SHIM. The existing `run_requirements_extraction` was
-    designed for the generator's workflow and demands a fully-populated
-    `WorkflowContext` keyed by a `feature_id`. Here we synthesize the
-    minimum needed: a feature_id derived stably from the spec URL (so
-    the cache hits across runs of the same URL), a minimal
-    `FeatureMetadata`, and a `spec_contents` dict containing the fetched
-    spec text. When this work goes to PR, refactor the extractor to
-    take its inputs directly and delete this shim.
-
-    Returns:
-        `(requirements_xml, cache_hit)` on success, or None if the spec
-        could not be fetched or the extractor failed.
-    """
-    spec_text = await asyncio.to_thread(fetch_and_extract_text, spec_url)
-    if not spec_text:
-        ui.error(f"Failed to fetch spec content from {spec_url}.")
-        return None
-
-    parsed = urlparse(spec_url)
-    slug = re.sub(
-        r"[^a-z0-9]+", "-", (parsed.netloc + parsed.path).lower()
-    ).strip("-")
-    feature_id = f"spec-{slug}"
-    context = WorkflowContext(
-        feature_id=feature_id,
-        metadata=FeatureMetadata(
-            name=feature_id,
-            description=f"Spec at {spec_url}",
-            specs=[spec_url],
-        ),
-        spec_contents={spec_url: spec_text},
-    )
-
-    cache_dir = Path(config.cache_path) if config.cache_path else Path.cwd()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_file = cache_dir / f"{feature_id}__requirements.xml"
-    cache_hit = cache_file.exists()
-
-    llm = get_llm_client(config)
-    requirements_xml = await run_requirements_extraction(
-        context, config, llm, ui, jinja_env, cache_dir
-    )
-    if not requirements_xml:
-        return None
-    return requirements_xml, cache_hit
-
-
 async def run_evaluation(
     test_path: Path,
     output_dir: Path | None,
@@ -248,8 +190,12 @@ async def run_evaluation(
 
     conformance: ConformanceSection | None = None
     if spec_url:
-        extraction_result = await _extract_requirements_for_spec(
-            spec_url, config, jinja_env, ui
+        extraction_result = await extract_requirements_from_spec_url(
+            spec_url=spec_url,
+            config=config,
+            jinja_env=jinja_env,
+            ui=ui,
+            cache_dir=Path.cwd() / DEFAULT_CACHE_DIR,
         )
         if extraction_result:
             requirements_xml, cache_hit = extraction_result

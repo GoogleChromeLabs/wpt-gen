@@ -78,7 +78,7 @@ async def test_run_requirements_extraction_with_explainer(
         "</requirement></requirements_list>"
     )
     with patch(
-        "wptgen.phases.requirements_extraction.generate_safe",
+        "wptgen.phases.utils.generate_safe",
         return_value=req_xml,
     ):
         await run_requirements_extraction(
@@ -118,7 +118,7 @@ async def test_run_requirements_extraction_success(
         "</requirement></requirements_list>"
     )
     with patch(
-        "wptgen.phases.requirements_extraction.generate_safe",
+        "wptgen.phases.utils.generate_safe",
         return_value=req_xml,
     ):
         await run_requirements_extraction(

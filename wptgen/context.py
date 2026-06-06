@@ -386,11 +386,12 @@ def validate_url_against_ssrf(url: str) -> None:
         raise ValueError(f"Could not resolve hostname: {hostname}") from e
 
 
-def fetch_and_extract_text(url: str) -> str | None:
-    """
-    Fetches the HTML content from a URL and extracts the core textual content,
-    stripping away navigation, footers, and boilerplate.
-    Returns the content formatted as Markdown.
+def fetch_raw_html(url: str) -> str | None:
+    """Fetches the raw HTML at a URL with SSRF protection and retry.
+
+    Shared low-level helper for callers that need the raw HTML (e.g. to
+    slice by anchor before extraction). Returns None on fetch failure.
+    Re-raises SSRF redirect violations.
     """
     logger.info(f"Fetching content from: {url}")
     validate_url_against_ssrf(url)
@@ -400,22 +401,31 @@ def fetch_and_extract_text(url: str) -> str | None:
         max_attempts=MAX_RETRIES,
     )
     def _fetch() -> str:
-        # Set User-Agent to bypass generic bot filters and identify our crawler
         headers = {"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
         req = urllib.request.Request(url, headers=headers)
         with _ssrf_safe_opener.open(req, timeout=10) as response:
             return str(response.read().decode("utf-8"))
 
     try:
-        html = _fetch()
+        return _fetch()
     except ValueError as e:
-        # Rethrow SSRF validation errors during redirects or connection
         if "resolves to a restricted IP address" in str(e):
             raise
         logger.error(f"Failed to download HTML from {url}: {e}")
         return None
     except Exception as e:
         logger.error(f"Failed to download HTML from {url}: {e}")
+        return None
+
+
+def fetch_and_extract_text(url: str) -> str | None:
+    """
+    Fetches the HTML content from a URL and extracts the core textual content,
+    stripping away navigation, footers, and boilerplate.
+    Returns the content formatted as Markdown.
+    """
+    html = fetch_raw_html(url)
+    if html is None:
         return None
 
     soup = BeautifulSoup(html, "lxml")

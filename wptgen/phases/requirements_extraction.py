@@ -23,47 +23,18 @@ from jinja2 import Environment
 from wptgen.config import Config
 from wptgen.llm import LLMClient
 from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext, WorkflowPhase
-from wptgen.phases.utils import confirm_prompts, generate_safe
+from wptgen.phases.utils import (
+    confirm_prompts,
+    generate_safe,
+    invoke_extractor,
+    load_cached_requirements,
+)
 from wptgen.ui import UIProvider
 
 
-def _load_cached_requirements(
-    feature_id: str,
-    cache_file: Path,
-    config: Config,
-    ui: UIProvider,
-) -> str | None:
-    """Helper to check for and load cached requirements if requested.
-
-    Args:
-      feature_id: The ID of the feature.
-      cache_file: The path to the potential cache file.
-      config: The tool configuration.
-      ui: The UI provider.
-
-    Returns:
-      The cached XML string if loaded, otherwise None.
-    """
-    if not cache_file.exists():
-        return None
-
-    ui.info(f"Found cached requirements for {feature_id}.")
-    use_cache = False
-    if config.yes_cache:
-        use_cache = True
-        ui.success("Automatically using cached requirements (--yes-cache).")
-    elif config.no_cache:
-        use_cache = False
-        ui.info("Automatically ignoring cached requirements (--no-cache).")
-    else:
-        use_cache = ui.confirm("Use cached requirements?")
-
-    if use_cache:
-        requirements_xml = cache_file.read_text(encoding="utf-8")
-        if not config.yes_cache:
-            ui.success("Using cached requirements.")
-        return requirements_xml
-    return None
+# Kept for backwards compatibility with any external callers; new code
+# should use `load_cached_requirements` from the shared module directly.
+_load_cached_requirements = load_cached_requirements
 
 
 async def run_requirements_extraction(
@@ -98,60 +69,43 @@ async def run_requirements_extraction(
     feature_id = context.feature_id
     cache_file = cache_dir / f"{feature_id}__requirements.xml"
 
-    requirements_xml = _load_cached_requirements(
+    requirements_xml = load_cached_requirements(
         feature_id, cache_file, config, ui
     )
 
+    if requirements_xml:
+        count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
+        ui.success(f"Extracted {count} test requirements.")
+        context.requirements_xml = requirements_xml
+        return requirements_xml
+
+    extraction_prompt = jinja_env.get_template(
+        "requirements_extraction.jinja"
+    ).render(
+        feature_name=context.metadata.name,
+        feature_description=context.metadata.description,
+        specs=context.spec_contents,
+        mdn_contents=context.mdn_contents,
+        explainer_contents=context.explainer_contents,
+    )
+    extraction_system_prompt = jinja_env.get_template(
+        "requirements_extraction_system.jinja"
+    ).render(
+        has_mdn=bool(context.mdn_contents),
+        has_explainer=bool(context.explainer_contents),
+    )
+
+    requirements_xml = await invoke_extractor(
+        extraction_prompt=extraction_prompt,
+        extraction_system_prompt=extraction_system_prompt,
+        label="Requirements Extraction",
+        cache_file=cache_file,
+        config=config,
+        llm=llm,
+        ui=ui,
+    )
     if not requirements_xml:
-        extraction_prompt = jinja_env.get_template(
-            "requirements_extraction.jinja"
-        ).render(
-            feature_name=context.metadata.name,
-            feature_description=context.metadata.description,
-            specs=context.spec_contents,
-            mdn_contents=context.mdn_contents,
-            explainer_contents=context.explainer_contents,
-        )
-        extraction_system_prompt = jinja_env.get_template(
-            "requirements_extraction_system.jinja"
-        ).render(
-            has_mdn=bool(context.mdn_contents),
-            has_explainer=bool(context.explainer_contents),
-        )
-
-        await confirm_prompts(
-            [(extraction_prompt, "Requirements Extraction")],
-            "Requirements Extraction",
-            llm,
-            ui,
-            config,
-            model=config.get_model_for_phase(
-                WorkflowPhase.REQUIREMENTS_EXTRACTION
-            ),
-        )
-
-        requirements_xml = await generate_safe(
-            extraction_prompt,
-            "Requirements Extraction",
-            llm,
-            ui,
-            config,
-            system_instruction=extraction_system_prompt,
-            temperature=0.01,
-            model=config.get_model_for_phase(
-                WorkflowPhase.REQUIREMENTS_EXTRACTION
-            ),
-        )
-
-        if not requirements_xml:
-            return None
-
-        # Save to cache
-        cache_file.write_text(requirements_xml, encoding="utf-8")
-
-    count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
-    ui.success(f"Extracted {count} test requirements.")
-
+        return None
     context.requirements_xml = requirements_xml
     return requirements_xml
 

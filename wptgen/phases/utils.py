@@ -15,10 +15,12 @@
 """Shared utilities and helpers for the WPT workflow phases."""
 
 import asyncio
+import re
+from pathlib import Path
 
 
 from wptgen.config import Config
-from wptgen.models import WorkflowAborted
+from wptgen.models import WorkflowAborted, WorkflowPhase
 from wptgen.llm import LLMClient
 from wptgen.ui import UIProvider
 
@@ -149,3 +151,95 @@ async def generate_safe(
     except Exception as e:
         ui.error(f"{task_name} failed ({target_model}): {e}")
         return ""
+
+
+def load_cached_requirements(
+    label: str,
+    cache_file: Path,
+    config: Config,
+    ui: UIProvider,
+) -> str | None:
+    """Loads requirements from cache if present and the user opts in.
+
+    Args:
+        label: Human-readable identifier for the cache entry (used in
+            UI prompts; e.g. a feature_id or a spec slug).
+        cache_file: The path to the potential cache file.
+        config: The tool configuration.
+        ui: The UI provider.
+
+    Returns:
+        The cached XML string if loaded, otherwise None.
+    """
+    if not cache_file.exists():
+        return None
+
+    ui.info(f"Found cached requirements for {label}.")
+    if config.yes_cache:
+        ui.success("Automatically using cached requirements (--yes-cache).")
+        return cache_file.read_text(encoding="utf-8")
+    if config.no_cache:
+        ui.info("Automatically ignoring cached requirements (--no-cache).")
+        return None
+    if ui.confirm("Use cached requirements?"):
+        ui.success("Using cached requirements.")
+        return cache_file.read_text(encoding="utf-8")
+    return None
+
+
+async def invoke_extractor(
+    extraction_prompt: str,
+    extraction_system_prompt: str,
+    label: str,
+    cache_file: Path,
+    config: Config,
+    llm: LLMClient,
+    ui: UIProvider,
+) -> str | None:
+    """Invokes the requirements-extraction LLM call and persists the result.
+
+    Args:
+        extraction_prompt: The fully-rendered user prompt.
+        extraction_system_prompt: The fully-rendered system prompt.
+        label: Short label used in UI ("Requirements Extraction" or
+            "Spec Requirements Extraction").
+        cache_file: Path where the resulting XML should be written.
+        config: The tool configuration.
+        llm: The LLM client.
+        ui: The UI provider.
+
+    Returns:
+        The extracted requirements XML string, or None on failure.
+    """
+    await confirm_prompts(
+        [(extraction_prompt, label)],
+        label,
+        llm,
+        ui,
+        config,
+        model=config.get_model_for_phase(
+            WorkflowPhase.REQUIREMENTS_EXTRACTION
+        ),
+    )
+
+    requirements_xml = await generate_safe(
+        extraction_prompt,
+        label,
+        llm,
+        ui,
+        config,
+        system_instruction=extraction_system_prompt,
+        temperature=0.01,
+        model=config.get_model_for_phase(
+            WorkflowPhase.REQUIREMENTS_EXTRACTION
+        ),
+    )
+
+    if not requirements_xml:
+        return None
+
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(requirements_xml, encoding="utf-8")
+    count = len(re.findall(r"<requirement\b[^>]*>", requirements_xml))
+    ui.success(f"Extracted {count} test requirements.")
+    return requirements_xml
