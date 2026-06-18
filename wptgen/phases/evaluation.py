@@ -1,5 +1,6 @@
 """Evaluation phase — run the wpt-evaluator agent on a single test file."""
 
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -12,9 +13,10 @@ from wptgen.agents.adk_conformance_evaluator import (
 from wptgen.agents.adk_evaluator import evaluate_test_with_adk
 from wptgen.agents.tools import _validate_safe_path
 from wptgen.config import Config
-from wptgen.phases.spec_requirements_extraction import (
-    extract_requirements_from_spec_url,
-)
+from wptgen.context import fetch_and_slice_spec
+from wptgen.llm import get_llm_client
+from wptgen.models import WorkflowContext
+from wptgen.phases.requirements_extraction import run_requirements_extraction
 from wptgen.ui import UIProvider
 
 
@@ -69,7 +71,6 @@ class ConformanceSection:
     findings: list[Finding]
     input_scope: InputScope
     requirements_xml_bytes: int
-    cache_hit: bool
 
 
 class EvaluationReportRenderer:
@@ -137,6 +138,33 @@ def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
     )
 
 
+async def _extract_requirements_for_spec(
+    spec_url: str,
+    config: Config,
+    jinja_env: Environment,
+    ui: UIProvider,
+) -> str | None:
+    """Fetches a spec URL and extracts normative requirements from it.
+
+    Returns:
+        The requirements XML, or None if the spec could not be fetched
+        or the extractor failed.
+    """
+    spec_text = await asyncio.to_thread(
+        fetch_and_slice_spec, spec_url, ui.warning
+    )
+    if not spec_text:
+        ui.error(f"Failed to fetch spec content from {spec_url}.")
+        return None
+
+    context = WorkflowContext(spec_contents={spec_url: spec_text})
+    llm = get_llm_client(config)
+    cache_dir = Path.cwd() / DEFAULT_CACHE_DIR
+    return await run_requirements_extraction(
+        context, config, llm, ui, jinja_env, cache_dir
+    )
+
+
 async def run_evaluation(
     test_path: Path,
     output_dir: Path | None,
@@ -190,15 +218,13 @@ async def run_evaluation(
 
     conformance: ConformanceSection | None = None
     if spec_url:
-        extraction_result = await extract_requirements_from_spec_url(
+        requirements_xml = await _extract_requirements_for_spec(
             spec_url=spec_url,
             config=config,
             jinja_env=jinja_env,
             ui=ui,
-            cache_dir=Path.cwd() / DEFAULT_CACHE_DIR,
         )
-        if extraction_result:
-            requirements_xml, cache_hit = extraction_result
+        if requirements_xml:
             conformance_result = await evaluate_conformance_with_adk(
                 test_path=test_path,
                 requirements_xml=requirements_xml,
@@ -218,7 +244,6 @@ async def run_evaluation(
                     requirements_xml_bytes=len(
                         requirements_xml.encode("utf-8")
                     ),
-                    cache_hit=cache_hit,
                 )
 
     renderer = EvaluationReportRenderer()

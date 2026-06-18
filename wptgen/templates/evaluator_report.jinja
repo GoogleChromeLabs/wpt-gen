@@ -27,7 +27,7 @@ No findings raised.
 
 {% if conformance -%}
 - **Spec**: {{ conformance.spec_url }}
-- **Requirements XML**: {{ "{:,}".format(conformance.requirements_xml_bytes) }} bytes ({% if conformance.cache_hit %}cache hit{% else %}freshly extracted{% endif %})
+- **Requirements XML**: {{ "{:,}".format(conformance.requirements_xml_bytes) }} bytes
 
 {% if conformance.findings -%}
 {% for f in conformance.findings -%}

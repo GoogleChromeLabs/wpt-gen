@@ -130,6 +130,136 @@ async def test_run_requirements_extraction_success(
 
 
 @pytest.mark.asyncio
+async def test_run_requirements_extraction_spec_mode_caches_by_slug(
+    mock_config: Config,
+    mock_ui: MagicMock,
+    mock_llm: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """Spec-mode (no feature_id) caches by a URL-derived slug and renders
+    the prompt without a feature_definition block."""
+    context = WorkflowContext(
+        spec_contents={
+            "https://example.com/spec/#video": "Spec Content"
+        },
+    )
+    jinja_env = MagicMock()
+    template_mock = MagicMock()
+    jinja_env.get_template.return_value = template_mock
+
+    req_xml = (
+        '<requirements_list><requirement id="R1">'
+        "<category>Existence</category><description>D1</description>"
+        "</requirement></requirements_list>"
+    )
+    with patch(
+        "wptgen.phases.utils.generate_safe",
+        return_value=req_xml,
+    ):
+        result = await run_requirements_extraction(
+            context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+        )
+
+    assert result == req_xml
+    # Cache file derived from the spec URL slug (with fragment).
+    assert (
+        tmp_path / "spec-example-com-spec-video__requirements.xml"
+    ).is_file()
+    # Prompt rendered with feature_name="" (no feature_definition block).
+    template_mock.render.assert_any_call(
+        feature_name="",
+        feature_description="",
+        specs={"https://example.com/spec/#video": "Spec Content"},
+        mdn_contents=None,
+        explainer_contents=None,
+    )
+    # System prompt told to skip feature scoping.
+    template_mock.render.assert_any_call(
+        has_feature_definition=False,
+        has_mdn=False,
+        has_explainer=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_spec_mode_rejects_multi_spec(
+    mock_config: Config,
+    mock_ui: MagicMock,
+    mock_llm: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """Spec-mode raises ValueError when more than one spec URL is provided."""
+    context = WorkflowContext(
+        spec_contents={
+            "https://example.com/spec1/": "Spec 1",
+            "https://example.com/spec2/": "Spec 2",
+        },
+    )
+    with pytest.raises(ValueError, match="exactly one spec URL"):
+        await run_requirements_extraction(
+            context, mock_config, mock_llm, mock_ui, MagicMock(), tmp_path
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_rejects_empty_context(
+    mock_config: Config,
+    mock_ui: MagicMock,
+    mock_llm: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """A context with neither feature_id nor spec_contents is a usage error."""
+    context = WorkflowContext()
+    with pytest.raises(ValueError, match="feature_id"):
+        await run_requirements_extraction(
+            context, mock_config, mock_llm, mock_ui, MagicMock(), tmp_path
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_requirements_extraction_feature_mode_renders_feature_definition(
+    mock_config: Config,
+    mock_ui: MagicMock,
+    mock_llm: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """Feature-mode renders the feature_definition block in the prompts."""
+    context = WorkflowContext(
+        feature_id="my-feat",
+        metadata=FeatureMetadata("My Feat", "A description", ["http://spec"]),
+        spec_contents={"http://spec": "Spec Content"},
+    )
+    jinja_env = MagicMock()
+    template_mock = MagicMock()
+    jinja_env.get_template.return_value = template_mock
+
+    with patch(
+        "wptgen.phases.utils.generate_safe",
+        return_value=(
+            '<requirements_list><requirement id="R1">'
+            "<category>Existence</category><description>D1</description>"
+            "</requirement></requirements_list>"
+        ),
+    ):
+        await run_requirements_extraction(
+            context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path
+        )
+
+    template_mock.render.assert_any_call(
+        feature_name="My Feat",
+        feature_description="A description",
+        specs={"http://spec": "Spec Content"},
+        mdn_contents=None,
+        explainer_contents=None,
+    )
+    template_mock.render.assert_any_call(
+        has_feature_definition=True,
+        has_mdn=False,
+        has_explainer=False,
+    )
+
+
+@pytest.mark.asyncio
 async def test_run_requirements_extraction_categorized_with_explainer(
     mock_config: Config, mock_ui: MagicMock, mock_llm: MagicMock, tmp_path: Path
 ) -> None:

@@ -1,9 +1,11 @@
-Extract the core normative test requirements for the following feature and specification.
+Extract the core normative test requirements for the following {% if feature_name %}feature and specification{% else %}specification{% endif %}.
 
+{% if feature_name -%}
 <feature_definition>
   <feature_name>{{feature_name}}</feature_name>
   <feature_description>{{feature_description}}</feature_description>
 </feature_definition>
+{% endif -%}
 
 {% if specs -%}
 {% for url, content in specs.items() -%}

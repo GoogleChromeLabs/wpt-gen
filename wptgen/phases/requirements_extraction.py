@@ -21,6 +21,7 @@ from pathlib import Path
 from jinja2 import Environment
 
 from wptgen.config import Config
+from wptgen.context import slug_for_spec_url
 from wptgen.llm import LLMClient
 from wptgen.models import REQUIREMENT_CATEGORIES, WorkflowContext, WorkflowPhase
 from wptgen.phases.utils import (
@@ -47,8 +48,14 @@ async def run_requirements_extraction(
 ) -> str | None:
     """Executes the standard Requirements Extraction phase.
 
-    Prompts the LLM to identify all normative requirements from the gathered
-    specifications in a single request.
+    Operates in one of two modes based on `context` shape:
+
+    - Feature-mode: `context.feature_id` and `context.metadata` are set.
+      Cache key is `feature_id`; the prompt is scoped to the feature
+      definition.
+    - Spec-mode: `context.feature_id` is None and `context.spec_contents`
+      has exactly one entry. Cache key is derived from the spec URL; the
+      prompt has no feature scope (the full spec is in scope).
 
     Args:
       context: The current workflow context.
@@ -60,17 +67,39 @@ async def run_requirements_extraction(
 
     Returns:
       The extracted requirements XML string, or None on failure.
+
+    Raises:
+      ValueError: If `context` has neither a feature_id nor a usable
+        `spec_contents` for spec-mode, or if spec-mode is selected with
+        more than one spec URL.
     """
     ui.on_phase_start(2, "Requirements Extraction")
 
-    assert context.metadata is not None
-    assert context.feature_id is not None
+    if context.feature_id is not None:
+        assert context.metadata is not None
+        cache_label = context.feature_id
+        feature_name: str = context.metadata.name
+        feature_description: str = context.metadata.description
+    elif context.spec_contents:
+        if len(context.spec_contents) != 1:
+            raise ValueError(
+                "Spec-mode requirements extraction supports exactly one "
+                f"spec URL (got {len(context.spec_contents)})."
+            )
+        spec_url = next(iter(context.spec_contents))
+        cache_label = slug_for_spec_url(spec_url)
+        feature_name = ""
+        feature_description = ""
+    else:
+        raise ValueError(
+            "Requirements extraction requires either context.feature_id "
+            "or context.spec_contents."
+        )
 
-    feature_id = context.feature_id
-    cache_file = cache_dir / f"{feature_id}__requirements.xml"
+    cache_file = cache_dir / f"{cache_label}__requirements.xml"
 
     requirements_xml = load_cached_requirements(
-        feature_id, cache_file, config, ui
+        cache_label, cache_file, config, ui
     )
 
     if requirements_xml:
@@ -82,8 +111,8 @@ async def run_requirements_extraction(
     extraction_prompt = jinja_env.get_template(
         "requirements_extraction.jinja"
     ).render(
-        feature_name=context.metadata.name,
-        feature_description=context.metadata.description,
+        feature_name=feature_name,
+        feature_description=feature_description,
         specs=context.spec_contents,
         mdn_contents=context.mdn_contents,
         explainer_contents=context.explainer_contents,
@@ -91,10 +120,12 @@ async def run_requirements_extraction(
     extraction_system_prompt = jinja_env.get_template(
         "requirements_extraction_system.jinja"
     ).render(
+        has_feature_definition=bool(feature_name),
         has_mdn=bool(context.mdn_contents),
         has_explainer=bool(context.explainer_contents),
     )
 
+    cache_dir.mkdir(parents=True, exist_ok=True)
     requirements_xml = await invoke_extractor(
         extraction_prompt=extraction_prompt,
         extraction_system_prompt=extraction_system_prompt,

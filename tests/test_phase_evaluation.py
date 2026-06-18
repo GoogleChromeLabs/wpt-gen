@@ -455,7 +455,6 @@ def test_render_conformance_with_findings() -> None:
         findings=[_conformance_finding()],
         input_scope=InputScope(approach="spec-conformance"),
         requirements_xml_bytes=12_345,
-        cache_hit=True,
     )
     report = renderer.render(
         test_path="wpt/foo/bar.html",
@@ -465,7 +464,7 @@ def test_render_conformance_with_findings() -> None:
     )
     assert "## Spec conformance" in report
     assert "**Spec**: https://drafts.csswg.org/css-flexbox/" in report
-    assert "12,345 bytes (cache hit)" in report
+    assert "12,345 bytes" in report
     assert "### Conformance finding 1 — assertion contradicts requirement" in (
         report
     )
@@ -475,15 +474,14 @@ def test_render_conformance_with_findings() -> None:
     assert "Conformance check: skipped" not in report
 
 
-def test_render_conformance_cache_miss_label() -> None:
-    """A fresh extraction (cache miss) is labeled distinctly from a hit."""
+def test_render_conformance_empty_findings_fallback() -> None:
+    """Empty conformance findings show the no-findings fallback in the section."""
     renderer = EvaluationReportRenderer()
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[],
         input_scope=InputScope(approach="spec-conformance"),
         requirements_xml_bytes=2_048,
-        cache_hit=False,
     )
     report = renderer.render(
         test_path="wpt/foo/bar.html",
@@ -491,9 +489,7 @@ def test_render_conformance_cache_miss_label() -> None:
         input_scope=_sample_scope(),
         conformance=conformance,
     )
-    assert "2,048 bytes (freshly extracted)" in report
-    # Empty conformance findings should show the no-findings fallback in the
-    # conformance section.
+    assert "2,048 bytes" in report
     assert "No conformance findings raised." in report
 
 
@@ -549,8 +545,8 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
         new=AsyncMock(return_value=conformance_payload),
     )
     mock_extract = mocker.patch(
-        "wptgen.phases.evaluation.extract_requirements_from_spec_url",
-        new=AsyncMock(return_value=("<requirements_list/>", False)),
+        "wptgen.phases.evaluation._extract_requirements_for_spec",
+        new=AsyncMock(return_value="<requirements_list/>"),
     )
 
     report_path = await run_evaluation(
@@ -612,7 +608,7 @@ async def test_run_evaluation_without_spec_skips_conformance(
         new=AsyncMock(),
     )
     mock_extract = mocker.patch(
-        "wptgen.phases.evaluation.extract_requirements_from_spec_url",
+        "wptgen.phases.evaluation._extract_requirements_for_spec",
         new=AsyncMock(),
     )
 
@@ -663,7 +659,7 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
         new=AsyncMock(),
     )
     mocker.patch(
-        "wptgen.phases.evaluation.extract_requirements_from_spec_url",
+        "wptgen.phases.evaluation._extract_requirements_for_spec",
         new=AsyncMock(return_value=None),
     )
 
