@@ -599,9 +599,7 @@ class RichUIProvider:
             for role, count in files_by_role.items()
             if count > 0
         ]
-        size_part = (
-            f"{total_bytes:,} bytes, ~{approximate_tokens:,} tokens"
-        )
+        size_part = f"{total_bytes:,} bytes, ~{approximate_tokens:,} tokens"
         body = ", ".join(role_parts) if role_parts else "no files read"
         self.success(f"{label} input scope: {body} ({size_part}).")
 

@@ -755,5 +755,3 @@ def test_files_by_role_groups_input_scope_files() -> None:
         "reading-list": 2,
         "test": 1,
     }
-
-
