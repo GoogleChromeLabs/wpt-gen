@@ -28,6 +28,7 @@ from wptgen.phases.evaluation import (
     Finding,
     InputScope,
     InputScopeFile,
+    _count_findings,
     _payload_to_findings,
     _payload_to_input_scope,
     run_evaluation,
@@ -395,6 +396,8 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     assert "### Finding 1 — missing charset" in contents
     assert "Approach: doc-inputs" in contents
     mock_agent.assert_awaited_once()
+    mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
+    mock_ui.report_findings_summary.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -584,6 +587,10 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
     assert "### Conformance finding 1 — contradicts requirement" in contents
     # Skipped message should not appear.
     assert "Conformance check: skipped" not in contents
+    # Phase headers and findings summary fired for both passes.
+    mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
+    mock_ui.on_phase_start.assert_any_call(3, "Spec Conformance Evaluation")
+    mock_ui.report_findings_summary.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -686,3 +693,37 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
     mock_conformance.assert_not_awaited()
     # Report degrades gracefully: shows "skipped" rather than half-rendered.
     assert "Conformance check: skipped (no spec provided)." in contents
+
+
+# ---------------------------------------------------------------------------
+# Findings summary + phase boundaries
+# ---------------------------------------------------------------------------
+
+
+def test_count_findings_tallies_by_severity() -> None:
+    findings = [
+        Finding("a", "error", "L1", "e", "s", "y"),
+        Finding("b", "error", "L2", "e", "s", "y"),
+        Finding("c", "warn", "L3", "e", "s", "y"),
+        Finding("d", "info", "L4", "e", "s", "y"),
+        Finding("e", "nit", "L5", "e", "s", "y"),
+    ]
+    counts = _count_findings(findings)
+    assert counts == {"error": 2, "warn": 1, "info": 1, "nit": 1}
+
+
+def test_count_findings_empty_list_zeroes_all_severities() -> None:
+    counts = _count_findings([])
+    assert counts == {"error": 0, "warn": 0, "info": 0, "nit": 0}
+
+
+def test_count_findings_ignores_unknown_severity() -> None:
+    """Defensive: an agent that emits a typo'd severity shouldn't crash."""
+    findings = [
+        Finding("a", "fatal", "L1", "e", "s", "y"),
+        Finding("b", "warn", "L2", "e", "s", "y"),
+    ]
+    counts = _count_findings(findings)
+    assert counts == {"error": 0, "warn": 1, "info": 0, "nit": 0}
+
+

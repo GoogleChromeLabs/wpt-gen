@@ -214,6 +214,7 @@ async def run_evaluation(
     if not test_path.is_file():
         raise FileNotFoundError(f"Test file not found: {test_path}")
 
+    ui.on_phase_start(1, "Documentation Evaluation")
     agent_result = await evaluate_test_with_adk(
         test_path=test_path,
         config=config,
@@ -238,6 +239,7 @@ async def run_evaluation(
             ui=ui,
         )
         if requirements_xml:
+            ui.on_phase_start(3, "Spec Conformance Evaluation")
             conformance_result = await evaluate_conformance_with_adk(
                 test_path=test_path,
                 requirements_xml=requirements_xml,
@@ -259,6 +261,13 @@ async def run_evaluation(
                     ),
                 )
 
+    ui.report_findings_summary(
+        doc_inputs_counts=_count_findings(findings),
+        conformance_counts=(
+            _count_findings(conformance.findings) if conformance else None
+        ),
+    )
+
     renderer = EvaluationReportRenderer()
     report_markdown = renderer.render(
         test_path=str(test_path),
@@ -274,3 +283,12 @@ async def run_evaluation(
     output_path = output_dir / f"{test_path.name}.md"
     output_path.write_text(report_markdown, encoding="utf-8")
     return output_path
+
+
+def _count_findings(findings: list[Finding]) -> dict[str, int]:
+    """Tallies findings by severity for the CLI summary."""
+    counts: dict[str, int] = {"error": 0, "warn": 0, "info": 0, "nit": 0}
+    for f in findings:
+        if f.severity in counts:
+            counts[f.severity] += 1
+    return counts

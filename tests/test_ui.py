@@ -232,6 +232,18 @@ def test_report_generation_summary(
     assert mock_console.print.call_count == 5
 
 
+def test_report_findings_summary(
+    ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+    """Test report_findings_summary semantic method."""
+    ui.report_findings_summary(
+        doc_inputs_counts={"error": 1, "warn": 2, "info": 0, "nit": 0},
+        conformance_counts={"error": 0, "warn": 1, "info": 0, "nit": 0},
+    )
+    # 2 blank-line separators + 2 section headers + 4 severity rows × 2 sections
+    assert mock_console.print.call_count == 12
+
+
 def test_progress_indicator(mocker: MockerFixture, ui: RichUIProvider) -> None:
     """Test that progress_indicator correctly uses rich.progress.Progress."""
     mock_progress_class = mocker.patch("wptgen.ui.Progress")
