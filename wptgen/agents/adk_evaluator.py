@@ -1,3 +1,16 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Agentic test evaluation using the Google ADK framework."""
 
 import re
@@ -18,7 +31,6 @@ from wptgen.agents.streaming import ADKStreamManager, StreamConfig
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
-
 
 # Allow-list of tool names from create_agent_tools() that the evaluator
 # may use. Anything not in this set is filtered out before the agent
@@ -199,9 +211,7 @@ async def evaluate_test_with_adk(
                 stream_manager.process_event(event)
 
         if not reported_payload:
-            ui.warning(
-                "Agent finished but did not submit a findings report."
-            )
+            ui.warning("Agent finished but did not submit a findings report.")
             return None
 
         return reported_payload[-1]

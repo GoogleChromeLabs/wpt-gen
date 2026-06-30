@@ -92,9 +92,7 @@ async def test_run_requirements_extraction_fails(
     jinja_env = MagicMock()
 
     mocker.patch("wptgen.phases.utils.confirm_prompts")
-    mocker.patch(
-        "wptgen.phases.utils.generate_safe", return_value=None
-    )
+    mocker.patch("wptgen.phases.utils.generate_safe", return_value=None)
 
     result = await run_requirements_extraction(
         base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path

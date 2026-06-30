@@ -32,7 +32,6 @@ from wptgen.phases.utils import (
 )
 from wptgen.ui import UIProvider
 
-
 # Kept for backwards compatibility with any external callers; new code
 # should use `load_cached_requirements` from the shared module directly.
 _load_cached_requirements = load_cached_requirements

@@ -139,9 +139,7 @@ async def test_run_requirements_extraction_spec_mode_caches_by_slug(
     """Spec-mode (no feature_id) caches by a URL-derived slug and renders
     the prompt without a feature_definition block."""
     context = WorkflowContext(
-        spec_contents={
-            "https://example.com/spec/#video": "Spec Content"
-        },
+        spec_contents={"https://example.com/spec/#video": "Spec Content"},
     )
     jinja_env = MagicMock()
     template_mock = MagicMock()

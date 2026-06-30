@@ -1063,9 +1063,10 @@ def test_fetch_and_slice_spec_missing_anchor_without_warn_callback(
         return_value="full document markdown",
     )
     # No `warn` kwarg passed; should still succeed.
-    assert fetch_and_slice_spec(
-        "https://example.com/spec/#does-not-exist"
-    ) == "full document markdown"
+    assert (
+        fetch_and_slice_spec("https://example.com/spec/#does-not-exist")
+        == "full document markdown"
+    )
 
 
 def test_fetch_and_slice_spec_raw_fetch_failure_returns_none(
@@ -1073,10 +1074,7 @@ def test_fetch_and_slice_spec_raw_fetch_failure_returns_none(
 ) -> None:
     mocker.patch("wptgen.context.fetch_raw_html", return_value=None)
     mocker.patch("wptgen.context.fetch_and_extract_text")
-    assert (
-        fetch_and_slice_spec("https://example.com/spec/#anything")
-        is None
-    )
+    assert fetch_and_slice_spec("https://example.com/spec/#anything") is None
 
 
 # ---------------------------------------------------------------------------
@@ -1093,9 +1091,7 @@ def test_slug_for_spec_url_basic() -> None:
 
 def test_slug_for_spec_url_includes_fragment() -> None:
     assert (
-        slug_for_spec_url(
-            "https://example.com/spec/#video"
-        )
+        slug_for_spec_url("https://example.com/spec/#video")
         == "spec-example-com-spec-video"
     )
 

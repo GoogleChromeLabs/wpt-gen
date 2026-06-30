@@ -1,3 +1,16 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Tests for the evaluation phase: dataclasses, payload conversion, the
 report renderer, and run_evaluation."""
 
@@ -19,7 +32,6 @@ from wptgen.phases.evaluation import (
     _payload_to_input_scope,
     run_evaluation,
 )
-
 
 # ---------------------------------------------------------------------------
 # InputScope dataclass properties
@@ -183,9 +195,7 @@ def test_render_basic_finding() -> None:
     )
 
     # Top-level header
-    assert (
-        "# Findings: wpt/css/css-flexbox/align-content_center.html" in report
-    )
+    assert "# Findings: wpt/css/css-flexbox/align-content_center.html" in report
 
     # Finding section + fields
     assert "### Finding 1 — missing character encoding declaration" in report
@@ -571,9 +581,7 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
     # Conformance section renders with the spec URL and the finding.
     assert "## Spec conformance" in contents
     assert "**Spec**: https://drafts.csswg.org/css-flexbox/" in contents
-    assert (
-        "### Conformance finding 1 — contradicts requirement" in contents
-    )
+    assert "### Conformance finding 1 — contradicts requirement" in contents
     # Skipped message should not appear.
     assert "Conformance check: skipped" not in contents
 

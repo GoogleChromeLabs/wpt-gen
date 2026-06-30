@@ -934,9 +934,7 @@ def evaluate(
         if report_path:
             ui.success(f"Evaluation complete. Report written to: {report_path}")
         else:
-            ui.warning(
-                "Evaluation completed, but no report was produced."
-            )
+            ui.warning("Evaluation completed, but no report was produced.")
 
 
 @app.command(name="chromestatus")

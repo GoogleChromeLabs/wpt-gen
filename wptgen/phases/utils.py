@@ -217,9 +217,7 @@ async def invoke_extractor(
         llm,
         ui,
         config,
-        model=config.get_model_for_phase(
-            WorkflowPhase.REQUIREMENTS_EXTRACTION
-        ),
+        model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
     )
 
     requirements_xml = await generate_safe(
@@ -230,9 +228,7 @@ async def invoke_extractor(
         config,
         system_instruction=extraction_system_prompt,
         temperature=0.01,
-        model=config.get_model_for_phase(
-            WorkflowPhase.REQUIREMENTS_EXTRACTION
-        ),
+        model=config.get_model_for_phase(WorkflowPhase.REQUIREMENTS_EXTRACTION),
     )
 
     if not requirements_xml:
