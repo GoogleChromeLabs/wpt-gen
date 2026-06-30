@@ -27,7 +27,7 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.provider import setup_adk_environment
-from wptgen.agents.streaming import ADKStreamManager, StreamConfig
+from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
@@ -54,7 +54,7 @@ async def evaluate_test_with_adk(
     config: Config,
     jinja_env: Environment,
     ui: UIProvider,
-) -> dict[str, Any] | None:
+) -> tuple[dict[str, Any], TokenUsage] | None:
     """Runs the ADK Agent to evaluate a single WPT test file.
 
     Args:
@@ -64,10 +64,11 @@ async def evaluate_test_with_adk(
         ui: The UI provider for logging output.
 
     Returns:
-        A dict with two keys, `findings` (a list of per-finding dicts)
-        and `input_scope` (a dict describing what was read), or None
-        if the agent did not submit a report. The phase wrapper is
-        responsible for rendering the report Markdown.
+        A `(payload, token_usage)` tuple, or None if the agent did not
+        submit a report. The payload dict has two keys, `findings` (a
+        list of per-finding dicts) and `input_scope` (a dict describing
+        what was read). The phase wrapper is responsible for rendering
+        the report Markdown.
     """
     model_string = setup_adk_environment(config)
     if config.provider.lower() == "anthropic" and not model_string.startswith(
@@ -214,7 +215,7 @@ async def evaluate_test_with_adk(
             ui.warning("Agent finished but did not submit a findings report.")
             return None
 
-        return reported_payload[-1]
+        return reported_payload[-1], stream_manager.token_usage
 
     finally:
         await runner.close()  # type: ignore[no-untyped-call]

@@ -150,6 +150,22 @@ class UIProvider(Protocol):
         conformance_counts: dict[str, int] | None = None,
     ) -> None: ...
 
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None: ...
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None: ...
+
 
 class RichUIProvider:
     """Rich-based implementation of the UIProvider protocol."""
@@ -570,6 +586,39 @@ class RichUIProvider:
             self.console.print()
             _print_section("Spec conformance findings", conformance_counts)
 
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None:
+        """Displays a one-line summary of what the agent read for a pass."""
+        role_parts = [
+            f"{count} {role}{'s' if count != 1 else ''}"
+            for role, count in files_by_role.items()
+            if count > 0
+        ]
+        size_part = (
+            f"{total_bytes:,} bytes, ~{approximate_tokens:,} tokens"
+        )
+        body = ", ".join(role_parts) if role_parts else "no files read"
+        self.success(f"{label} input scope: {body} ({size_part}).")
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None:
+        """Displays a one-line summary of actual token spend for a pass."""
+        self.success(
+            f"{label} token usage: "
+            f"{prompt_tokens:,} input + {candidates_tokens:,} output "
+            f"= {total_tokens:,} total."
+        )
+
 
 logger = logging.getLogger("wptgen")
 
@@ -785,3 +834,36 @@ class LoggingUIProvider:
         _log_section("Findings", doc_inputs_counts)
         if conformance_counts is not None:
             _log_section("Spec conformance findings", conformance_counts)
+
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None:
+        """Logs a one-line summary of what the agent read for a pass."""
+        role_parts = [
+            f"{count} {role}"
+            for role, count in files_by_role.items()
+            if count > 0
+        ]
+        body = ", ".join(role_parts) if role_parts else "no files read"
+        logger.info(
+            f"{label} input scope: {body} "
+            f"({total_bytes} bytes, ~{approximate_tokens} tokens)."
+        )
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None:
+        """Logs a one-line summary of actual token spend for a pass."""
+        logger.info(
+            f"{label} token usage: "
+            f"{prompt_tokens} input + {candidates_tokens} output "
+            f"= {total_tokens} total."
+        )
