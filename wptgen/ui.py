@@ -144,6 +144,12 @@ class UIProvider(Protocol):
         self, generated_tests: list[tuple[Path, str, str]]
     ) -> None: ...
 
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None: ...
+
 
 class RichUIProvider:
     """Rich-based implementation of the UIProvider protocol."""
@@ -532,6 +538,38 @@ class RichUIProvider:
         else:
             self.error("No files were successfully created.")
 
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None:
+        """Displays a summary count of evaluator findings by severity."""
+
+        def _print_section(label: str, counts: dict[str, int]) -> None:
+            self.console.print(f"[bold]{label}:[/bold]")
+            total = sum(counts.values())
+            if total == 0:
+                self.console.print("  [blue]ℹ No findings raised.[/blue]")
+                return
+            rows = [
+                ("error", "✘", "bold red"),
+                ("warn", "⚠", "yellow"),
+                ("info", "ℹ", "blue"),
+                ("nit", "•", "dim"),
+            ]
+            for key, glyph, style in rows:
+                n = counts.get(key, 0)
+                plural = "s" if n != 1 else ""
+                self.console.print(
+                    f"  [{style}]{glyph} {n} {key}{plural}[/{style}]"
+                )
+
+        self.console.print()
+        _print_section("Findings", doc_inputs_counts)
+        if conformance_counts is not None:
+            self.console.print()
+            _print_section("Spec conformance findings", conformance_counts)
+
 
 logger = logging.getLogger("wptgen")
 
@@ -725,3 +763,25 @@ class LoggingUIProvider:
     ) -> None:
         """Displays a summary table of all generated tests."""
         logger.info(f"Generated {len(generated_tests)} tests.")
+
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None:
+        """Logs a summary count of evaluator findings by severity."""
+
+        def _log_section(label: str, counts: dict[str, int]) -> None:
+            total = sum(counts.values())
+            if total == 0:
+                logger.info(f"{label}: no findings raised.")
+                return
+            parts = [
+                f"{counts.get(k, 0)} {k}"
+                for k in ("error", "warn", "info", "nit")
+            ]
+            logger.info(f"{label}: {', '.join(parts)}.")
+
+        _log_section("Findings", doc_inputs_counts)
+        if conformance_counts is not None:
+            _log_section("Spec conformance findings", conformance_counts)
