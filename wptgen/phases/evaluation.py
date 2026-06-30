@@ -24,6 +24,7 @@ from wptgen.agents.adk_conformance_evaluator import (
     evaluate_conformance_with_adk,
 )
 from wptgen.agents.adk_evaluator import evaluate_test_with_adk
+from wptgen.agents.streaming import TokenUsage
 from wptgen.agents.tools import _validate_safe_path
 from wptgen.config import (
     DEFAULT_EVALUATOR_CACHE_DIR,
@@ -225,10 +226,12 @@ async def run_evaluation(
     if not agent_result:
         return None
 
-    findings = _payload_to_findings(agent_result.get("findings", []) or [])
+    agent_payload, doc_inputs_tokens = agent_result
+    findings = _payload_to_findings(agent_payload.get("findings", []) or [])
     input_scope = _payload_to_input_scope(
-        agent_result.get("input_scope", {}) or {}
+        agent_payload.get("input_scope", {}) or {}
     )
+    _report_pass_summaries(ui, "Documentation", input_scope, doc_inputs_tokens)
 
     conformance: ConformanceSection | None = None
     if spec_url:
@@ -248,17 +251,25 @@ async def run_evaluation(
                 ui=ui,
             )
             if conformance_result:
+                conformance_payload, conformance_tokens = conformance_result
+                conformance_scope = _payload_to_input_scope(
+                    conformance_payload.get("input_scope", {}) or {}
+                )
                 conformance = ConformanceSection(
                     spec_url=spec_url,
                     findings=_payload_to_findings(
-                        conformance_result.get("findings", []) or []
+                        conformance_payload.get("findings", []) or []
                     ),
-                    input_scope=_payload_to_input_scope(
-                        conformance_result.get("input_scope", {}) or {}
-                    ),
+                    input_scope=conformance_scope,
                     requirements_xml_bytes=len(
                         requirements_xml.encode("utf-8")
                     ),
+                )
+                _report_pass_summaries(
+                    ui,
+                    "Spec conformance",
+                    conformance_scope,
+                    conformance_tokens,
                 )
 
     ui.report_findings_summary(
@@ -292,3 +303,32 @@ def _count_findings(findings: list[Finding]) -> dict[str, int]:
         if f.severity in counts:
             counts[f.severity] += 1
     return counts
+
+
+def _files_by_role(input_scope: InputScope) -> dict[str, int]:
+    """Tallies input-scope file counts grouped by role."""
+    counts: dict[str, int] = {}
+    for file in input_scope.files:
+        counts[file.role] = counts.get(file.role, 0) + 1
+    return counts
+
+
+def _report_pass_summaries(
+    ui: UIProvider,
+    label: str,
+    input_scope: InputScope,
+    tokens: TokenUsage,
+) -> None:
+    """Emits the input-scope and token-usage summaries for a finished pass."""
+    ui.report_input_scope_summary(
+        label=label,
+        files_by_role=_files_by_role(input_scope),
+        total_bytes=input_scope.total_bytes,
+        approximate_tokens=input_scope.approximate_input_tokens,
+    )
+    ui.report_token_usage_actual(
+        label=label,
+        prompt_tokens=tokens.prompt_tokens,
+        candidates_tokens=tokens.candidates_tokens,
+        total_tokens=tokens.total_tokens,
+    )

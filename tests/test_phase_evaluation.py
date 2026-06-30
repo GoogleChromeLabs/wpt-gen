@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
+from wptgen.agents.streaming import TokenUsage
 from wptgen.config import Config
 from wptgen.phases.evaluation import (
     ConformanceSection,
@@ -378,7 +379,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
 
     mock_agent = mocker.patch(
         "wptgen.phases.evaluation.evaluate_test_with_adk",
-        new=AsyncMock(return_value=agent_payload),
+        new=AsyncMock(return_value=(agent_payload, TokenUsage())),
     )
 
     report_path = await run_evaluation(
@@ -398,6 +399,8 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     mock_agent.assert_awaited_once()
     mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
     mock_ui.report_findings_summary.assert_called_once()
+    mock_ui.report_input_scope_summary.assert_called_once()
+    mock_ui.report_token_usage_actual.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -551,11 +554,11 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
 
     mock_doc_inputs = mocker.patch(
         "wptgen.phases.evaluation.evaluate_test_with_adk",
-        new=AsyncMock(return_value=doc_inputs_payload),
+        new=AsyncMock(return_value=(doc_inputs_payload, TokenUsage())),
     )
     mock_conformance = mocker.patch(
         "wptgen.phases.evaluation.evaluate_conformance_with_adk",
-        new=AsyncMock(return_value=conformance_payload),
+        new=AsyncMock(return_value=(conformance_payload, TokenUsage())),
     )
     mock_extract = mocker.patch(
         "wptgen.phases.evaluation._extract_requirements_for_spec",
@@ -591,6 +594,9 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
     mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
     mock_ui.on_phase_start.assert_any_call(3, "Spec Conformance Evaluation")
     mock_ui.report_findings_summary.assert_called_once()
+    # Per-pass input-scope and token-usage summaries fire twice (one per pass).
+    assert mock_ui.report_input_scope_summary.call_count == 2
+    assert mock_ui.report_token_usage_actual.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -608,14 +614,17 @@ async def test_run_evaluation_without_spec_skips_conformance(
     mocker.patch(
         "wptgen.phases.evaluation.evaluate_test_with_adk",
         new=AsyncMock(
-            return_value={
-                "findings": [],
-                "input_scope": {
-                    "files": [],
-                    "dependencies_not_read": [],
-                    "approach": "doc-inputs",
+            return_value=(
+                {
+                    "findings": [],
+                    "input_scope": {
+                        "files": [],
+                        "dependencies_not_read": [],
+                        "approach": "doc-inputs",
+                    },
                 },
-            }
+                TokenUsage(),
+            )
         ),
     )
     mock_conformance = mocker.patch(
@@ -659,14 +668,17 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
     mocker.patch(
         "wptgen.phases.evaluation.evaluate_test_with_adk",
         new=AsyncMock(
-            return_value={
-                "findings": [],
-                "input_scope": {
-                    "files": [],
-                    "dependencies_not_read": [],
-                    "approach": "doc-inputs",
+            return_value=(
+                {
+                    "findings": [],
+                    "input_scope": {
+                        "files": [],
+                        "dependencies_not_read": [],
+                        "approach": "doc-inputs",
+                    },
                 },
-            }
+                TokenUsage(),
+            )
         ),
     )
     mock_conformance = mocker.patch(
@@ -725,5 +737,23 @@ def test_count_findings_ignores_unknown_severity() -> None:
     ]
     counts = _count_findings(findings)
     assert counts == {"error": 0, "warn": 1, "info": 0, "nit": 0}
+
+
+def test_files_by_role_groups_input_scope_files() -> None:
+    from wptgen.phases.evaluation import _files_by_role
+
+    scope = InputScope(
+        files=[
+            InputScopeFile(path="a.md", bytes=10, role="skill"),
+            InputScopeFile(path="b.md", bytes=20, role="reading-list"),
+            InputScopeFile(path="c.md", bytes=30, role="reading-list"),
+            InputScopeFile(path="d.html", bytes=40, role="test"),
+        ],
+    )
+    assert _files_by_role(scope) == {
+        "skill": 1,
+        "reading-list": 2,
+        "test": 1,
+    }
 
 
