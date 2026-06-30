@@ -561,19 +561,25 @@ class RichUIProvider:
     ) -> None:
         """Displays a summary count of evaluator findings by severity."""
 
-        def _print_section(label: str, counts: dict[str, int]) -> None:
+        all_rows = [
+            ("error", "✘", "bold red"),
+            ("warn", "⚠", "yellow"),
+            ("info", "ℹ", "blue"),
+            ("nit", "•", "dim"),
+        ]
+
+        def _print_section(
+            label: str,
+            counts: dict[str, int],
+            severities: tuple[str, ...],
+        ) -> None:
             self.console.print(f"[bold]{label}:[/bold]")
-            total = sum(counts.values())
-            if total == 0:
+            if sum(counts.get(s, 0) for s in severities) == 0:
                 self.console.print("  [blue]ℹ No findings raised.[/blue]")
                 return
-            rows = [
-                ("error", "✘", "bold red"),
-                ("warn", "⚠", "yellow"),
-                ("info", "ℹ", "blue"),
-                ("nit", "•", "dim"),
-            ]
-            for key, glyph, style in rows:
+            for key, glyph, style in all_rows:
+                if key not in severities:
+                    continue
                 n = counts.get(key, 0)
                 plural = "s" if n != 1 else ""
                 self.console.print(
@@ -581,10 +587,18 @@ class RichUIProvider:
                 )
 
         self.console.print()
-        _print_section("Findings", doc_inputs_counts)
+        _print_section(
+            "WPT Documentation Findings",
+            doc_inputs_counts,
+            ("error", "warn", "info", "nit"),
+        )
         if conformance_counts is not None:
             self.console.print()
-            _print_section("Spec conformance findings", conformance_counts)
+            _print_section(
+                "Spec Conformance Findings",
+                conformance_counts,
+                ("error", "warn"),
+            )
 
     def report_input_scope_summary(
         self,
@@ -818,20 +832,28 @@ class LoggingUIProvider:
     ) -> None:
         """Logs a summary count of evaluator findings by severity."""
 
-        def _log_section(label: str, counts: dict[str, int]) -> None:
-            total = sum(counts.values())
-            if total == 0:
+        def _log_section(
+            label: str,
+            counts: dict[str, int],
+            severities: tuple[str, ...],
+        ) -> None:
+            if sum(counts.get(s, 0) for s in severities) == 0:
                 logger.info(f"{label}: no findings raised.")
                 return
-            parts = [
-                f"{counts.get(k, 0)} {k}"
-                for k in ("error", "warn", "info", "nit")
-            ]
+            parts = [f"{counts.get(k, 0)} {k}" for k in severities]
             logger.info(f"{label}: {', '.join(parts)}.")
 
-        _log_section("Findings", doc_inputs_counts)
+        _log_section(
+            "WPT Documentation Findings",
+            doc_inputs_counts,
+            ("error", "warn", "info", "nit"),
+        )
         if conformance_counts is not None:
-            _log_section("Spec conformance findings", conformance_counts)
+            _log_section(
+                "Spec Conformance Findings",
+                conformance_counts,
+                ("error", "warn"),
+            )
 
     def report_input_scope_summary(
         self,

@@ -240,8 +240,9 @@ def test_report_findings_summary(
         doc_inputs_counts={"error": 1, "warn": 2, "info": 0, "nit": 0},
         conformance_counts={"error": 0, "warn": 1, "info": 0, "nit": 0},
     )
-    # 2 blank-line separators + 2 section headers + 4 severity rows × 2 sections
-    assert mock_console.print.call_count == 12
+    # 2 blank-line separators + 2 section headers
+    # + 4 severity rows (doc-inputs) + 2 severity rows (conformance)
+    assert mock_console.print.call_count == 10
 
 
 def test_report_input_scope_summary(
