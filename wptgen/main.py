@@ -37,6 +37,7 @@ from rich.text import Text
 
 from wptgen.config import (
     DEFAULT_CONFIG_PATH,
+    DEFAULT_EVALUATOR_OUTPUT_DIR,
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_PROVIDER_MODELS,
     _get_global_config_path,
@@ -858,7 +859,7 @@ def evaluate(
             "-o",
             help=(
                 "Directory where the findings report will be written. "
-                "Defaults to .wptgen/evaluator/outputs/."
+                f"Defaults to {DEFAULT_EVALUATOR_OUTPUT_DIR}/."
             ),
             dir_okay=True,
         ),

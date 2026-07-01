@@ -25,15 +25,16 @@ from wptgen.agents.adk_conformance_evaluator import (
 )
 from wptgen.agents.adk_evaluator import evaluate_test_with_adk
 from wptgen.agents.tools import _validate_safe_path
-from wptgen.config import Config
+from wptgen.config import (
+    DEFAULT_EVALUATOR_CACHE_DIR,
+    DEFAULT_EVALUATOR_OUTPUT_DIR,
+    Config,
+)
 from wptgen.context import fetch_and_slice_spec
 from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext
 from wptgen.phases.requirements_extraction import run_requirements_extraction
 from wptgen.ui import UIProvider
-
-DEFAULT_OUTPUT_DIR = Path(".wptgen/evaluator/outputs")
-DEFAULT_CACHE_DIR = Path(".wptgen/evaluator/cache")
 
 
 @dataclass
@@ -171,7 +172,7 @@ async def _extract_requirements_for_spec(
 
     context = WorkflowContext(spec_contents={spec_url: spec_text})
     llm = get_llm_client(config)
-    cache_dir = Path.cwd() / DEFAULT_CACHE_DIR
+    cache_dir = Path.cwd() / DEFAULT_EVALUATOR_CACHE_DIR
     return await run_requirements_extraction(
         context, config, llm, ui, jinja_env, cache_dir
     )
@@ -267,7 +268,7 @@ async def run_evaluation(
     )
 
     if output_dir is None:
-        output_dir = Path.cwd() / DEFAULT_OUTPUT_DIR
+        output_dir = Path.cwd() / DEFAULT_EVALUATOR_OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{test_path.name}.md"
