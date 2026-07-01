@@ -26,12 +26,15 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
-from wptgen.agents.adk_evaluator import _EVALUATOR_TOOL_ALLOWLIST
+from wptgen.agents.adk_evaluator import EVALUATOR_TOOL_ALLOWLIST
 from wptgen.agents.provider import setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
+
+# Re-exported so both evaluators share one read-only allowlist
+__all__ = ["EVALUATOR_TOOL_ALLOWLIST", "evaluate_conformance_with_adk"]
 
 
 async def evaluate_conformance_with_adk(
@@ -117,7 +120,7 @@ async def evaluate_conformance_with_adk(
         )
     )
     tools: list[Any] = [
-        t for t in all_tools if t.func.__name__ in _EVALUATOR_TOOL_ALLOWLIST
+        t for t in all_tools if t.func.__name__ in EVALUATOR_TOOL_ALLOWLIST
     ]
     tools.append(FunctionTool(func=report_conformance_complete))
 

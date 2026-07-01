@@ -17,11 +17,11 @@ import pytest
 
 pytest.importorskip("google.adk")
 
-from wptgen.agents.adk_evaluator import _EVALUATOR_TOOL_ALLOWLIST
+from wptgen.agents.adk_evaluator import EVALUATOR_TOOL_ALLOWLIST
 
 
 def test_evaluator_tool_allowlist_is_pinned() -> None:
-    assert _EVALUATOR_TOOL_ALLOWLIST == frozenset(
+    assert EVALUATOR_TOOL_ALLOWLIST == frozenset(
         {
             "read_file",
             "list_directory",

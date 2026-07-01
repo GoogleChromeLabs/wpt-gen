@@ -38,7 +38,7 @@ from wptgen.ui import UIProvider
 # writes files (the report comes back through the completion tool and
 # is written by the phase wrapper), and never explores the broader
 # WPT repository.
-_EVALUATOR_TOOL_ALLOWLIST = frozenset(
+EVALUATOR_TOOL_ALLOWLIST = frozenset(
     {
         "read_file",
         "list_directory",
@@ -132,7 +132,7 @@ async def evaluate_test_with_adk(
         )
     )
     tools: list[Any] = [
-        t for t in all_tools if t.func.__name__ in _EVALUATOR_TOOL_ALLOWLIST
+        t for t in all_tools if t.func.__name__ in EVALUATOR_TOOL_ALLOWLIST
     ]
     tools.append(FunctionTool(func=report_evaluation_complete))
 

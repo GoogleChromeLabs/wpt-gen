@@ -18,10 +18,10 @@ import pytest
 pytest.importorskip("google.adk")
 
 from wptgen.agents.adk_conformance_evaluator import (  # noqa: E402
-    _EVALUATOR_TOOL_ALLOWLIST as CONFORMANCE_ALLOWLIST,
+    EVALUATOR_TOOL_ALLOWLIST as CONFORMANCE_ALLOWLIST,
 )
 from wptgen.agents.adk_evaluator import (  # noqa: E402
-    _EVALUATOR_TOOL_ALLOWLIST as DOC_INPUTS_ALLOWLIST,
+    EVALUATOR_TOOL_ALLOWLIST as DOC_INPUTS_ALLOWLIST,
 )
 
 

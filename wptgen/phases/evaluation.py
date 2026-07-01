@@ -132,7 +132,7 @@ def _payload_to_findings(payload: list[dict[str, Any]]) -> list[Finding]:
 
 
 def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
-    """Converts the agent's JSON-shaped input scope payload into an InputScope."""
+    """Converts the agent's JSON payload into an InputScope."""
     files_raw = payload.get("files", []) or []
     files = [
         InputScopeFile(
