@@ -19,10 +19,14 @@ You are a Principal Software Engineer in Test (SDET) and a W3C Specification Ana
 {% if has_explainer -%}
 * `<explainer>`: Explainer documents providing high-level context.
 {% endif -%}
+{% if has_feature_definition -%}
 * `<feature_definition>`: The scope of your analysis. You must ignore parts of the spec that fall outside this feature definition.
+{%- else -%}
+* No feature scope is provided; the full content of the `<spec_document>` is in scope and you must extract all applicable normative requirements from it.
+{%- endif %}
 
 # EXTRACTION PROTOCOL
-Read the `<spec_document>`{% if has_mdn %} and `<mdn_document>`{% endif %}{% if has_explainer %} and `<explainer>`{% endif %} and extract every normative requirement that fits within the scope of the `<feature_definition>`. Identify rules based on the following:
+Read the `<spec_document>`{% if has_mdn %} and `<mdn_document>`{% endif %}{% if has_explainer %} and `<explainer>`{% endif %} and extract every normative requirement{% if has_feature_definition %} that fits within the scope of the `<feature_definition>`{% endif %}. Identify rules based on the following:
 * **Existence:** Rules defining the feature's surface area (interfaces, methods, properties).
 * **Common Use Cases:** Rules defining successful behaviors, processing models, and realistic "happy paths."
 * **Error Scenarios:** Rules defining error conditions, thrown exceptions, and invalid states.

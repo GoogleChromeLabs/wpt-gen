@@ -36,6 +36,10 @@ PACKAGE_ROOT = Path(str(importlib.resources.files("wptgen")))
 TEMPLATE_DIR = PACKAGE_ROOT / "templates"
 SKILLS_DIR = PACKAGE_ROOT / "skills"
 
+# Project-relative paths for evaluator artifacts.
+DEFAULT_EVALUATOR_OUTPUT_DIR = Path(".wptgen/evaluator/outputs")
+DEFAULT_EVALUATOR_CACHE_DIR = Path(".wptgen/evaluator/cache")
+
 # Default timeout for LLM requests in seconds (10 minutes)
 DEFAULT_LLM_TIMEOUT = 600
 # Minimum allowed timeout for Gemini API (10 seconds)

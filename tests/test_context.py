@@ -25,10 +25,12 @@ from pytest_mock import MockerFixture
 from wptgen.context import (
     FeatureMetadata,
     _resolve_patterns,
+    _slice_html_by_anchor,
     extract_dependencies,
     extract_feature_metadata,
     extract_wpt_paths,
     fetch_and_extract_text,
+    fetch_and_slice_spec,
     fetch_feature_yaml,
     fetch_mdn_urls,
     fetch_remote_wpt_context,
@@ -37,6 +39,7 @@ from wptgen.context import (
     is_wpt_test_file,
     normalize_wpt_path,
     resolve_dependency_path,
+    slug_for_spec_url,
     validate_wpt_paths,
 )
 
@@ -880,3 +883,221 @@ async def test_fetch_remote_wpt_context_limit() -> None:
     urls = [f"test{i}.html" for i in range(51)]
     with pytest.raises(ValueError, match="Too many tests found"):
         await fetch_remote_wpt_context(urls)
+
+
+# ---------------------------------------------------------------------------
+# HTML anchor slicing
+# ---------------------------------------------------------------------------
+
+
+def test_slice_html_by_heading_anchor_collects_until_same_level() -> None:
+    """Slice from an <h3> anchor collects forward to the next <h3>/<h2>/<h1>."""
+    html = """
+    <html><body>
+    <h2 id="other-section">Other</h2>
+    <p>other content</p>
+    <h3 id="align-content-property">align-content</h3>
+    <p>The align-content property...</p>
+    <p>It applies to multi-line flex containers.</p>
+    <h4 id="sub">Sub-section</h4>
+    <p>sub content</p>
+    <h3 id="next-property">next-property</h3>
+    <p>should be excluded</p>
+    </body></html>
+    """
+    sliced = _slice_html_by_anchor(html, "align-content-property")
+    assert sliced is not None
+    assert "align-content property" in sliced
+    assert "multi-line flex containers" in sliced
+    assert "Sub-section" in sliced  # h4 is below the boundary, included
+    assert "sub content" in sliced
+    assert "next-property" not in sliced  # same-level h3 → boundary
+    assert "should be excluded" not in sliced
+
+
+def test_slice_html_by_section_anchor_returns_section() -> None:
+    """A <section id="..."> anchor returns the whole section."""
+    html = """
+    <html><body>
+    <section id="video">
+      <h2>The video element</h2>
+      <p>The video element represents a video.</p>
+    </section>
+    <section id="audio">
+      <h2>The audio element</h2>
+    </section>
+    </body></html>
+    """
+    sliced = _slice_html_by_anchor(html, "video")
+    assert sliced is not None
+    assert "video element" in sliced
+    assert "represents a video" in sliced
+    assert "audio element" not in sliced
+
+
+def test_slice_html_by_inline_anchor_walks_to_enclosing_section() -> None:
+    """An inline <dfn> anchor walks up to the nearest enclosing <section>."""
+    html = """
+    <html><body>
+    <section>
+      <h2>Other</h2>
+      <p>other content</p>
+    </section>
+    <section>
+      <h2>The <dfn id="flex-basis">flex-basis</dfn> property</h2>
+      <p>flex-basis description.</p>
+    </section>
+    </body></html>
+    """
+    sliced = _slice_html_by_anchor(html, "flex-basis")
+    assert sliced is not None
+    assert 'id="flex-basis"' in sliced
+    assert "flex-basis description" in sliced
+    assert "other content" not in sliced
+
+
+def test_slice_html_by_anchor_missing_returns_none() -> None:
+    """A missing anchor returns None so callers can fall back."""
+    html = "<html><body><h2 id='real'>Real</h2></body></html>"
+    assert _slice_html_by_anchor(html, "does-not-exist") is None
+
+
+def test_slice_html_by_heading_anchor_higher_level_boundary() -> None:
+    """An <h4> anchor stops at the next <h4>/<h3>/<h2>/<h1>, not at <h5>/<h6>."""
+    html = """
+    <html><body>
+    <h4 id="target">Target</h4>
+    <p>p1</p>
+    <h5>Sub</h5>
+    <p>p2</p>
+    <h6>Sub-sub</h6>
+    <p>p3</p>
+    <h3>Higher</h3>
+    <p>p4 should be excluded</p>
+    </body></html>
+    """
+    sliced = _slice_html_by_anchor(html, "target")
+    assert sliced is not None
+    assert "p1" in sliced
+    assert "p2" in sliced
+    assert "p3" in sliced
+    assert "p4 should be excluded" not in sliced
+    assert "Higher" not in sliced
+
+
+# ---------------------------------------------------------------------------
+# fetch_and_slice_spec (slicer + fetch integration)
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_and_slice_spec_without_fragment_uses_full_extract(
+    mocker: MockerFixture,
+) -> None:
+    """A URL with no fragment delegates to fetch_and_extract_text."""
+    mocker.patch(
+        "wptgen.context.fetch_and_extract_text",
+        return_value="full document markdown",
+    )
+    raw_html_mock = mocker.patch("wptgen.context.fetch_raw_html")
+
+    result = fetch_and_slice_spec("https://example.com/spec/")
+    assert result == "full document markdown"
+    raw_html_mock.assert_not_called()
+
+
+def test_fetch_and_slice_spec_with_fragment_slices(
+    mocker: MockerFixture,
+) -> None:
+    """A URL with a fragment fetches raw HTML and slices to the section."""
+    raw_html = """
+    <html><body>
+      <h2 id="other">other</h2>
+      <p>excluded</p>
+      <h2 id="video">Video element</h2>
+      <p>The video element represents a video.</p>
+    </body></html>
+    """
+    mocker.patch("wptgen.context.fetch_raw_html", return_value=raw_html)
+    fallback_mock = mocker.patch("wptgen.context.fetch_and_extract_text")
+
+    result = fetch_and_slice_spec("https://example.com/spec/#video")
+    assert result is not None
+    assert "Video element" in result
+    assert "represents a video" in result
+    assert "excluded" not in result
+    fallback_mock.assert_not_called()
+
+
+def test_fetch_and_slice_spec_missing_anchor_falls_back_to_full(
+    mocker: MockerFixture,
+) -> None:
+    """Anchor not found → invoke `warn` callback + fall back to the full document."""
+    mocker.patch(
+        "wptgen.context.fetch_raw_html",
+        return_value="<html><body><p>no anchors</p></body></html>",
+    )
+    fallback_mock = mocker.patch(
+        "wptgen.context.fetch_and_extract_text",
+        return_value="full document markdown",
+    )
+    warn = mocker.MagicMock()
+
+    result = fetch_and_slice_spec(
+        "https://example.com/spec/#does-not-exist", warn=warn
+    )
+    assert result == "full document markdown"
+    fallback_mock.assert_called_once_with("https://example.com/spec/")
+    warn.assert_called_once()
+
+
+def test_fetch_and_slice_spec_missing_anchor_without_warn_callback(
+    mocker: MockerFixture,
+) -> None:
+    """Missing anchor + no warn callback → silent fallback, no crash."""
+    mocker.patch(
+        "wptgen.context.fetch_raw_html",
+        return_value="<html><body><p>no anchors</p></body></html>",
+    )
+    mocker.patch(
+        "wptgen.context.fetch_and_extract_text",
+        return_value="full document markdown",
+    )
+    # No `warn` kwarg passed; should still succeed.
+    assert (
+        fetch_and_slice_spec("https://example.com/spec/#does-not-exist")
+        == "full document markdown"
+    )
+
+
+def test_fetch_and_slice_spec_raw_fetch_failure_returns_none(
+    mocker: MockerFixture,
+) -> None:
+    mocker.patch("wptgen.context.fetch_raw_html", return_value=None)
+    mocker.patch("wptgen.context.fetch_and_extract_text")
+    assert fetch_and_slice_spec("https://example.com/spec/#anything") is None
+
+
+# ---------------------------------------------------------------------------
+# slug_for_spec_url
+# ---------------------------------------------------------------------------
+
+
+def test_slug_for_spec_url_basic() -> None:
+    assert (
+        slug_for_spec_url("https://drafts.csswg.org/css-flexbox/")
+        == "spec-drafts-csswg-org-css-flexbox"
+    )
+
+
+def test_slug_for_spec_url_includes_fragment() -> None:
+    assert (
+        slug_for_spec_url("https://example.com/spec/#video")
+        == "spec-example-com-spec-video"
+    )
+
+
+def test_slug_for_spec_url_fragments_distinguish() -> None:
+    """`#video` and `#audio` produce different slugs so caches don't collide."""
+    a = slug_for_spec_url("https://example.com/spec/#video")
+    b = slug_for_spec_url("https://example.com/spec/#audio")
+    assert a != b

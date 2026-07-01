@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 
 import markdownify
 import yaml
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from wptgen.models import DataSource, FeatureMetadata, WPTContext
 from wptgen.utils import MAX_RETRIES, retry
@@ -386,11 +386,12 @@ def validate_url_against_ssrf(url: str) -> None:
         raise ValueError(f"Could not resolve hostname: {hostname}") from e
 
 
-def fetch_and_extract_text(url: str) -> str | None:
-    """
-    Fetches the HTML content from a URL and extracts the core textual content,
-    stripping away navigation, footers, and boilerplate.
-    Returns the content formatted as Markdown.
+def fetch_raw_html(url: str) -> str | None:
+    """Fetches the raw HTML at a URL with SSRF protection and retry.
+
+    Shared low-level helper for callers that need the raw HTML (e.g. to
+    slice by anchor before extraction). Returns None on fetch failure.
+    Re-raises SSRF redirect violations.
     """
     logger.info(f"Fetching content from: {url}")
     validate_url_against_ssrf(url)
@@ -400,22 +401,31 @@ def fetch_and_extract_text(url: str) -> str | None:
         max_attempts=MAX_RETRIES,
     )
     def _fetch() -> str:
-        # Set User-Agent to bypass generic bot filters and identify our crawler
         headers = {"User-Agent": "Mozilla/5.0 (compatible; WPT-Gen/1.0)"}
         req = urllib.request.Request(url, headers=headers)
         with _ssrf_safe_opener.open(req, timeout=10) as response:
             return str(response.read().decode("utf-8"))
 
     try:
-        html = _fetch()
+        return _fetch()
     except ValueError as e:
-        # Rethrow SSRF validation errors during redirects or connection
         if "resolves to a restricted IP address" in str(e):
             raise
         logger.error(f"Failed to download HTML from {url}: {e}")
         return None
     except Exception as e:
         logger.error(f"Failed to download HTML from {url}: {e}")
+        return None
+
+
+def fetch_and_extract_text(url: str) -> str | None:
+    """
+    Fetches the HTML content from a URL and extracts the core textual content,
+    stripping away navigation, footers, and boilerplate.
+    Returns the content formatted as Markdown.
+    """
+    html = fetch_raw_html(url)
+    if html is None:
         return None
 
     soup = BeautifulSoup(html, "lxml")
@@ -458,6 +468,117 @@ def fetch_and_extract_text(url: str) -> str | None:
         return None
 
     return content
+
+
+_HEADING_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6")
+_SECTIONING_TAGS = ("section", "article")
+
+
+def _find_section_root(target: Tag) -> Tag:
+    """Resolves the target element to the root of its section for slicing."""
+    if target.name in _SECTIONING_TAGS or target.name in _HEADING_TAGS:
+        return target
+    for ancestor in target.parents:
+        if not isinstance(ancestor, Tag):
+            continue
+        if ancestor.name in _SECTIONING_TAGS:
+            return ancestor
+        first_child = next(
+            (c for c in ancestor.children if isinstance(c, Tag)), None
+        )
+        if first_child is not None and first_child.name in _HEADING_TAGS:
+            return ancestor
+    return target
+
+
+def _slice_html_by_anchor(html: str, fragment: str) -> str | None:
+    """Returns an HTML fragment containing just the section at `fragment`,
+    or None if the anchor can't be found."""
+    soup = BeautifulSoup(html, "lxml")
+    target = soup.find(id=fragment)
+    if not isinstance(target, Tag):
+        return None
+
+    root = _find_section_root(target)
+
+    if root.name in _SECTIONING_TAGS:
+        return str(root)
+
+    if root.name in _HEADING_TAGS:
+        boundary_level = int(root.name[1])
+        collected = [str(root)]
+        for sibling in root.next_siblings:
+            if isinstance(sibling, Tag) and sibling.name in _HEADING_TAGS:
+                if int(sibling.name[1]) <= boundary_level:
+                    break
+            collected.append(str(sibling))
+        return "".join(collected)
+
+    return str(root)
+
+
+def _section_to_markdown(section_html: str) -> str:
+    """Converts a sliced HTML section to Markdown."""
+    soup = BeautifulSoup(section_html, "lxml")
+    for element in soup(
+        ["nav", "script", "style", "footer", "head", "link", "meta", "noscript"]
+    ):
+        element.extract()
+    for a_tag in soup.find_all("a"):
+        href = a_tag.get("href")
+        if not isinstance(href, str) or not href.startswith("#"):
+            a_tag.unwrap()
+    content = markdownify.markdownify(
+        str(soup),
+        heading_style="ATX",
+        strip=["img", "picture", "video", "audio", "iframe"],
+    )
+    return str(content).strip()
+
+
+def fetch_and_slice_spec(spec_url: str, warn: Any = None) -> str | None:
+    """Fetches a spec URL, slicing to the fragment section if one is given.
+
+    Args:
+        spec_url: The spec URL, optionally with a #fragment for section slicing.
+        warn: Optional callable invoked with a message string when the
+            fragment cannot be located and we fall back to the full
+            document. Typically pass `ui.warning`.
+
+    Returns:
+        Markdown of the sliced section (or full document), or None if
+        the fetch failed.
+    """
+    parsed = urlparse(spec_url)
+    fragment = parsed.fragment
+    if not fragment:
+        return fetch_and_extract_text(spec_url)
+
+    base_url = spec_url.split("#", 1)[0]
+    raw_html = fetch_raw_html(base_url)
+    if not raw_html:
+        return None
+
+    section_html = _slice_html_by_anchor(raw_html, fragment)
+    if section_html is None:
+        if warn is not None:
+            warn(
+                f"Anchor #{fragment} not found in {base_url}; falling back "
+                "to the full document."
+            )
+        return fetch_and_extract_text(base_url)
+
+    return _section_to_markdown(section_html)
+
+
+def slug_for_spec_url(spec_url: str) -> str:
+    """Stable, human-readable cache key for a spec URL."""
+    parsed = urlparse(spec_url)
+    slug_source = parsed.netloc + parsed.path
+    if parsed.fragment:
+        slug_source += "-" + parsed.fragment
+    slug = re.sub(r"[^a-z0-9]+", "-", slug_source.lower()).strip("-")
+    return f"spec-{slug}"
 
 
 def extract_wpt_paths(wpt_descr: str) -> list[str]:

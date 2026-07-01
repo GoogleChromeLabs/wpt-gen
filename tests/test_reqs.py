@@ -62,9 +62,9 @@ async def test_run_requirements_extraction_no_cache(
     jinja_env = MagicMock()
     jinja_env.get_template.return_value.render.return_value = "Mock Prompt"
 
-    mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
+    mocker.patch("wptgen.phases.utils.confirm_prompts")
     mocker.patch(
-        "wptgen.phases.requirements_extraction.generate_safe",
+        "wptgen.phases.utils.generate_safe",
         return_value=(
             "<requirements_list><requirement>"
             "</requirement></requirements_list>"
@@ -91,10 +91,8 @@ async def test_run_requirements_extraction_fails(
     mock_llm = MagicMock()
     jinja_env = MagicMock()
 
-    mocker.patch("wptgen.phases.requirements_extraction.confirm_prompts")
-    mocker.patch(
-        "wptgen.phases.requirements_extraction.generate_safe", return_value=None
-    )
+    mocker.patch("wptgen.phases.utils.confirm_prompts")
+    mocker.patch("wptgen.phases.utils.generate_safe", return_value=None)
 
     result = await run_requirements_extraction(
         base_context, mock_config, mock_llm, mock_ui, jinja_env, tmp_path

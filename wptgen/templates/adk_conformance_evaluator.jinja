@@ -1,0 +1,14 @@
+Evaluate the WPT test file at the path below for conformance against the normative requirements provided. Rigorously follow all instructions in the wpt-evaluator-conformance skill.
+
+<test_file>{{ test_path }}</test_file>
+
+<requirements_list>
+{{ requirements_xml }}
+</requirements_list>
+
+When the evaluation is complete, submit your findings via the `report_conformance_complete` tool. Pass:
+
+- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `test_line`, `evidence`, `source`, and `summary` as described in the tool's parameter spec. Use only the severities `error` (contradicts a requirement) and `warn` (assertion on behavior not in the requirements). If you found no issues, pass an empty list.
+- `input_scope`: an object describing every file you opened during the evaluation. Include `files` (a list of `{path, bytes, role}` rows; roles are `skill`, `test`, `requirements`, or `dependency`), `dependencies_not_read` (framework + external dependencies you detected but did not open), and `approach` (set to `"spec-conformance"`).
+
+Do NOT format the report yourself; the wpt-gen CLI renders the final Markdown from the data you submit. Do NOT write any file to disk.
