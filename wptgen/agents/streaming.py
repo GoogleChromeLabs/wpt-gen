@@ -123,12 +123,22 @@ class StreamConfig:
     include_thoughts: bool = False
 
 
+@dataclass
+class TokenUsage:
+    """Cumulative token totals across an ADK run."""
+
+    prompt_tokens: int = 0
+    candidates_tokens: int = 0
+    total_tokens: int = 0
+
+
 class ADKStreamManager:
     """Manages the streaming of ADK events into the UI."""
 
     def __init__(self, ui: UIProvider, config: StreamConfig | None = None):
         self.ui = ui
         self.config = config or StreamConfig()
+        self.token_usage = TokenUsage()
 
     def __enter__(self) -> ADKStreamManager:
         return self
@@ -142,6 +152,18 @@ class ADKStreamManager:
         Args:
             event: The incoming ADK Event yielded by the Runner.
         """
+        usage = getattr(event, "usage_metadata", None)
+        if usage is not None:
+            self.token_usage.prompt_tokens += (
+                getattr(usage, "prompt_token_count", None) or 0
+            )
+            self.token_usage.candidates_tokens += (
+                getattr(usage, "candidates_token_count", None) or 0
+            )
+            self.token_usage.total_tokens += (
+                getattr(usage, "total_token_count", None) or 0
+            )
+
         if not event.content or not event.content.parts:
             return
 

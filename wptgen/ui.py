@@ -144,6 +144,28 @@ class UIProvider(Protocol):
         self, generated_tests: list[tuple[Path, str, str]]
     ) -> None: ...
 
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None: ...
+
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None: ...
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None: ...
+
 
 class RichUIProvider:
     """Rich-based implementation of the UIProvider protocol."""
@@ -532,6 +554,83 @@ class RichUIProvider:
         else:
             self.error("No files were successfully created.")
 
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None:
+        """Displays a summary count of evaluator findings by severity."""
+
+        all_rows = [
+            ("error", "✘", "bold red"),
+            ("warn", "⚠", "yellow"),
+            ("info", "ℹ", "blue"),
+            ("nit", "•", "dim"),
+        ]
+
+        def _print_section(
+            label: str,
+            counts: dict[str, int],
+            severities: tuple[str, ...],
+        ) -> None:
+            self.console.print(f"[bold]{label}:[/bold]")
+            if sum(counts.get(s, 0) for s in severities) == 0:
+                self.console.print("  [blue]ℹ No findings raised.[/blue]")
+                return
+            for key, glyph, style in all_rows:
+                if key not in severities:
+                    continue
+                n = counts.get(key, 0)
+                plural = "s" if n != 1 else ""
+                self.console.print(
+                    f"  [{style}]{glyph} {n} {key}{plural}[/{style}]"
+                )
+
+        self.console.print()
+        _print_section(
+            "WPT Documentation Findings",
+            doc_inputs_counts,
+            ("error", "warn", "info", "nit"),
+        )
+        if conformance_counts is not None:
+            self.console.print()
+            _print_section(
+                "Spec Conformance Findings",
+                conformance_counts,
+                ("error", "warn"),
+            )
+
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None:
+        """Displays a one-line summary of what the agent read for a pass."""
+        role_parts = [
+            f'{count} {role}{"s" if count != 1 else ""}'
+            for role, count in files_by_role.items()
+            if count > 0
+        ]
+        size_part = f"{total_bytes:,} bytes, ~{approximate_tokens:,} tokens"
+        body = ", ".join(role_parts) if role_parts else "no files read"
+        self.success(f"{label} input scope: {body} ({size_part}).")
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None:
+        """Displays a one-line summary of actual token spend for a pass."""
+        self.success(
+            f"{label} token usage: "
+            f"{prompt_tokens:,} input + {candidates_tokens:,} output "
+            f"= {total_tokens:,} total."
+        )
+
 
 logger = logging.getLogger("wptgen")
 
@@ -725,3 +824,66 @@ class LoggingUIProvider:
     ) -> None:
         """Displays a summary table of all generated tests."""
         logger.info(f"Generated {len(generated_tests)} tests.")
+
+    def report_findings_summary(
+        self,
+        doc_inputs_counts: dict[str, int],
+        conformance_counts: dict[str, int] | None = None,
+    ) -> None:
+        """Logs a summary count of evaluator findings by severity."""
+
+        def _log_section(
+            label: str,
+            counts: dict[str, int],
+            severities: tuple[str, ...],
+        ) -> None:
+            if sum(counts.get(s, 0) for s in severities) == 0:
+                logger.info(f"{label}: no findings raised.")
+                return
+            parts = [f"{counts.get(k, 0)} {k}" for k in severities]
+            logger.info(f'{label}: {", ".join(parts)}.')
+
+        _log_section(
+            "WPT Documentation Findings",
+            doc_inputs_counts,
+            ("error", "warn", "info", "nit"),
+        )
+        if conformance_counts is not None:
+            _log_section(
+                "Spec Conformance Findings",
+                conformance_counts,
+                ("error", "warn"),
+            )
+
+    def report_input_scope_summary(
+        self,
+        label: str,
+        files_by_role: dict[str, int],
+        total_bytes: int,
+        approximate_tokens: int,
+    ) -> None:
+        """Logs a one-line summary of what the agent read for a pass."""
+        role_parts = [
+            f"{count} {role}"
+            for role, count in files_by_role.items()
+            if count > 0
+        ]
+        body = ", ".join(role_parts) if role_parts else "no files read"
+        logger.info(
+            f"{label} input scope: {body} "
+            f"({total_bytes} bytes, ~{approximate_tokens} tokens)."
+        )
+
+    def report_token_usage_actual(
+        self,
+        label: str,
+        prompt_tokens: int,
+        candidates_tokens: int,
+        total_tokens: int,
+    ) -> None:
+        """Logs a one-line summary of actual token spend for a pass."""
+        logger.info(
+            f"{label} token usage: "
+            f"{prompt_tokens} input + {candidates_tokens} output "
+            f"= {total_tokens} total."
+        )

@@ -232,6 +232,45 @@ def test_report_generation_summary(
     assert mock_console.print.call_count == 5
 
 
+def test_report_findings_summary(
+    ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+    """Test report_findings_summary semantic method."""
+    ui.report_findings_summary(
+        doc_inputs_counts={"error": 1, "warn": 2, "info": 0, "nit": 0},
+        conformance_counts={"error": 0, "warn": 1, "info": 0, "nit": 0},
+    )
+    # 2 blank-line separators + 2 section headers
+    # + 4 severity rows (doc-inputs) + 2 severity rows (conformance)
+    assert mock_console.print.call_count == 10
+
+
+def test_report_input_scope_summary(
+    ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+    """Test report_input_scope_summary semantic method."""
+    ui.report_input_scope_summary(
+        label="Documentation",
+        files_by_role={"skill": 1, "reading-list": 5, "test": 1},
+        total_bytes=28_413,
+        approximate_tokens=7_103,
+    )
+    mock_console.print.assert_called_once()
+
+
+def test_report_token_usage_actual(
+    ui: RichUIProvider, mock_console: MagicMock
+) -> None:
+    """Test report_token_usage_actual semantic method."""
+    ui.report_token_usage_actual(
+        label="Documentation",
+        prompt_tokens=12_345,
+        candidates_tokens=2_108,
+        total_tokens=14_453,
+    )
+    mock_console.print.assert_called_once()
+
+
 def test_progress_indicator(mocker: MockerFixture, ui: RichUIProvider) -> None:
     """Test that progress_indicator correctly uses rich.progress.Progress."""
     mock_progress_class = mocker.patch("wptgen.ui.Progress")
