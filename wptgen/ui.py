@@ -609,7 +609,7 @@ class RichUIProvider:
     ) -> None:
         """Displays a one-line summary of what the agent read for a pass."""
         role_parts = [
-            f"{count} {role}{'s' if count != 1 else ''}"
+            f'{count} {role}{"s" if count != 1 else ""}'
             for role, count in files_by_role.items()
             if count > 0
         ]
@@ -841,7 +841,7 @@ class LoggingUIProvider:
                 logger.info(f"{label}: no findings raised.")
                 return
             parts = [f"{counts.get(k, 0)} {k}" for k in severities]
-            logger.info(f"{label}: {', '.join(parts)}.")
+            logger.info(f'{label}: {", ".join(parts)}.')
 
         _log_section(
             "WPT Documentation Findings",
