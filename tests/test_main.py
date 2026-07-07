@@ -431,94 +431,100 @@ def test_config_command_error(mocker: MockerFixture) -> None:
     assert "Invalid config" in result.stdout
 
 
-def test_init_command_global(mocker: MockerFixture) -> None:
+def test_init_command_global(
+    mocker: MockerFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test the init command successfully creates a global configuration
     file.
     """
-    with runner.isolated_filesystem():
-        # Mock the global config path so it creates the file within the
-        # isolated filesystem
-        global_config_path = str(Path(".config/wpt-gen/config.yml").resolve())
-        mocker.patch(
-            "wptgen.main._get_global_config_path",
-            return_value=global_config_path,
-        )
+    monkeypatch.chdir(tmp_path)
+    # Mock the global config path so it creates the file within the
+    # isolated filesystem
+    global_config_path = str(Path(".config/wpt-gen/config.yml").resolve())
+    mocker.patch(
+        "wptgen.main._get_global_config_path",
+        return_value=global_config_path,
+    )
 
-        result = runner.invoke(app, ["init"], input="gemini\n\n\n\n/fake/wpt\n")
+    result = runner.invoke(app, ["init"], input="gemini\n\n\n\n/fake/wpt\n")
 
-        assert result.exit_code == 0
-        assert "Configuration saved successfully" in result.stdout
+    assert result.exit_code == 0
+    assert "Configuration saved successfully" in result.stdout
 
-        config_path = Path(global_config_path)
-        assert config_path.exists()
+    config_path = Path(global_config_path)
+    assert config_path.exists()
 
-        with open(config_path, encoding="utf-8") as f:
-            config_data = yaml.safe_load(f)
+    with open(config_path, encoding="utf-8") as f:
+        config_data = yaml.safe_load(f)
 
-        assert config_data["default_provider"] == "gemini"
-        assert str(Path("/fake/wpt").resolve()) == config_data["wpt_path"]
-        assert "providers" in config_data
-        assert "gemini" in config_data["providers"]
-        assert (
-            config_data["providers"]["gemini"]["default_model"]
-            == "gemini-3.1-pro-preview"
-        )
-        assert (
-            config_data["providers"]["gemini"]["categories"]["lightweight"]
-            == "gemini-3-flash-preview"
-        )
-        assert (
-            config_data["providers"]["gemini"]["categories"]["reasoning"]
-            == "gemini-3.1-pro-preview"
-        )
+    assert config_data["default_provider"] == "gemini"
+    assert str(Path("/fake/wpt").resolve()) == config_data["wpt_path"]
+    assert "providers" in config_data
+    assert "gemini" in config_data["providers"]
+    assert (
+        config_data["providers"]["gemini"]["default_model"]
+        == "gemini-3.1-pro-preview"
+    )
+    assert (
+        config_data["providers"]["gemini"]["categories"]["lightweight"]
+        == "gemini-3-flash-preview"
+    )
+    assert (
+        config_data["providers"]["gemini"]["categories"]["reasoning"]
+        == "gemini-3.1-pro-preview"
+    )
 
 
-def test_init_command_local() -> None:
+def test_init_command_local(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test the init command successfully creates a local configuration file."""
-    with runner.isolated_filesystem():
-        local_config_path = str(Path("wpt-gen.yml").resolve())
+    monkeypatch.chdir(tmp_path)
+    local_config_path = str(Path("wpt-gen.yml").resolve())
 
-        result = runner.invoke(
-            app,
-            ["init", "--config", "wpt-gen.yml"],
-            input="gemini\n\n\n\n/fake/wpt\n",
-        )
+    result = runner.invoke(
+        app,
+        ["init", "--config", "wpt-gen.yml"],
+        input="gemini\n\n\n\n/fake/wpt\n",
+    )
 
-        assert result.exit_code == 0
-        assert "Configuration saved successfully" in result.stdout
+    assert result.exit_code == 0
+    assert "Configuration saved successfully" in result.stdout
 
-        config_path = Path(local_config_path)
-        assert config_path.exists()
+    config_path = Path(local_config_path)
+    assert config_path.exists()
 
-        with open(config_path, encoding="utf-8") as f:
-            config_data = yaml.safe_load(f)
+    with open(config_path, encoding="utf-8") as f:
+        config_data = yaml.safe_load(f)
 
-        assert config_data["default_provider"] == "gemini"
-        assert str(Path("/fake/wpt").resolve()) == config_data["wpt_path"]
+    assert config_data["default_provider"] == "gemini"
+    assert str(Path("/fake/wpt").resolve()) == config_data["wpt_path"]
 
 
-def test_init_command_with_wpt_path_flag() -> None:
+def test_init_command_with_wpt_path_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test the init command accepts --wpt-path and skips the prompt."""
-    with runner.isolated_filesystem():
-        local_config_path = str(Path("wpt-gen.yml").resolve())
+    monkeypatch.chdir(tmp_path)
+    local_config_path = str(Path("wpt-gen.yml").resolve())
 
-        result = runner.invoke(
-            app,
-            ["init", "--config", "wpt-gen.yml", "--wpt-path", "/flag/wpt"],
-            input="gemini\n\n\n\n",
-        )
+    result = runner.invoke(
+        app,
+        ["init", "--config", "wpt-gen.yml", "--wpt-path", "/flag/wpt"],
+        input="gemini\n\n\n\n",
+    )
 
-        assert result.exit_code == 0
-        assert "Configuration saved successfully" in result.stdout
+    assert result.exit_code == 0
+    assert "Configuration saved successfully" in result.stdout
 
-        config_path = Path(local_config_path)
-        assert config_path.exists()
+    config_path = Path(local_config_path)
+    assert config_path.exists()
 
-        with open(config_path, encoding="utf-8") as f:
-            config_data = yaml.safe_load(f)
+    with open(config_path, encoding="utf-8") as f:
+        config_data = yaml.safe_load(f)
 
-        assert config_data["default_provider"] == "gemini"
-        assert str(Path("/flag/wpt").resolve()) == config_data["wpt_path"]
+    assert config_data["default_provider"] == "gemini"
+    assert str(Path("/flag/wpt").resolve()) == config_data["wpt_path"]
 
 
 @pytest.mark.parametrize("suggestions_only", [True, False])
@@ -593,99 +599,105 @@ def test_config_show_command(
     assert "Resolved Configuration" in result.stdout
 
 
-def test_config_set_command_flat() -> None:
+def test_config_set_command_flat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test setting a flat configuration value."""
-    with runner.isolated_filesystem():
-        config_file = Path("wpt-gen.yml")
-        config_file.write_text("default_provider: openai\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    config_file = Path("wpt-gen.yml")
+    config_file.write_text("default_provider: openai\n", encoding="utf-8")
 
-        result = runner.invoke(
-            app,
-            [
-                "config",
-                "set",
-                "default_provider",
-                "gemini",
-                "--config",
-                str(config_file),
-            ],
-        )
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "default_provider",
+            "gemini",
+            "--config",
+            str(config_file),
+        ],
+    )
 
-        assert result.exit_code == 0
-        assert "Set default_provider = gemini" in result.stdout
+    assert result.exit_code == 0
+    assert "Set default_provider = gemini" in result.stdout
 
-        with open(config_file, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        assert data["default_provider"] == "gemini"
+    with open(config_file, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    assert data["default_provider"] == "gemini"
 
 
-def test_config_set_command_nested() -> None:
+def test_config_set_command_nested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test setting a nested configuration value."""
-    with runner.isolated_filesystem():
-        config_file = Path("wpt-gen.yml")
-        config_file.write_text(
-            "providers:\n  gemini:\n    default_model: old-model\n",
-            encoding="utf-8",
-        )
+    monkeypatch.chdir(tmp_path)
+    config_file = Path("wpt-gen.yml")
+    config_file.write_text(
+        "providers:\n  gemini:\n    default_model: old-model\n",
+        encoding="utf-8",
+    )
 
-        result = runner.invoke(
-            app,
-            [
-                "config",
-                "set",
-                "providers.gemini.default_model",
-                "new-model",
-                "--config",
-                str(config_file),
-            ],
-        )
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "providers.gemini.default_model",
+            "new-model",
+            "--config",
+            str(config_file),
+        ],
+    )
 
-        assert result.exit_code == 0
+    assert result.exit_code == 0
 
-        with open(config_file, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        assert data["providers"]["gemini"]["default_model"] == "new-model"
+    with open(config_file, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    assert data["providers"]["gemini"]["default_model"] == "new-model"
 
 
-def test_config_set_command_types() -> None:
+def test_config_set_command_types(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test type conversion for config set."""
-    with runner.isolated_filesystem():
-        config_file = Path("wpt-gen.yml")
-        config_file.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    config_file = Path("wpt-gen.yml")
+    config_file.write_text("", encoding="utf-8")
 
-        runner.invoke(
-            app,
-            ["config", "set", "timeout", "120", "--config", str(config_file)],
-        )
-        runner.invoke(
-            app,
-            [
-                "config",
-                "set",
-                "show_responses",
-                "true",
-                "--config",
-                str(config_file),
-            ],
-        )
-        runner.invoke(
-            app,
-            [
-                "config",
-                "set",
-                "temperature",
-                "0.5",
-                "--config",
-                str(config_file),
-            ],
-        )
+    runner.invoke(
+        app,
+        ["config", "set", "timeout", "120", "--config", str(config_file)],
+    )
+    runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "show_responses",
+            "true",
+            "--config",
+            str(config_file),
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "temperature",
+            "0.5",
+            "--config",
+            str(config_file),
+        ],
+    )
 
-        with open(config_file, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+    with open(config_file, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
 
-        assert data["timeout"] == 120
-        assert data["show_responses"] is True
-        assert data["temperature"] == 0.5
+    assert data["timeout"] == 120
+    assert data["show_responses"] is True
+    assert data["temperature"] == 0.5
 
 
 def test_generate_single_missing_spec_urls() -> None:
