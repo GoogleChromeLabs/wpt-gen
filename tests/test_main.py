@@ -439,7 +439,7 @@ def test_init_command_global(
     """
     monkeypatch.chdir(tmp_path)
     # Mock the global config path so it creates the file within the
-    # isolated filesystem
+    # temporary test directory
     global_config_path = str(Path(".config/wpt-gen/config.yml").resolve())
     mocker.patch(
         "wptgen.main._get_global_config_path",
