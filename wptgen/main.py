@@ -58,6 +58,10 @@ from wptgen.models import (
     WorkflowError,
     WorkflowPhase,
 )
+from wptgen.agents.adk_evaluator import (
+    DEFAULT_EVALUATOR_STRATEGY,
+    EVALUATOR_STRATEGIES,
+)
 from wptgen.phases.evaluation import run_evaluation
 from wptgen.phases.generation import (
     run_single_test_generation,
@@ -895,6 +899,18 @@ def evaluate(
             ),
         ),
     ] = None,
+    strategy: Annotated[
+        str,
+        typer.Option(
+            "--strategy",
+            "-a",
+            help=(
+                "Documentation-pass strategy: 'distilled' (default) judges "
+                "against the distilled rules corpus; 'raw' reads the "
+                "curated upstream docs live."
+            ),
+        ),
+    ] = DEFAULT_EVALUATOR_STRATEGY,
     config_path: Annotated[
         str,
         typer.Option(
@@ -906,6 +922,13 @@ def evaluate(
     Evaluate a single WPT test file against upstream WPT guidance and emit
     an advisory findings report. Does not run, modify, or lint the test.
     """
+    if strategy not in EVALUATOR_STRATEGIES:
+        ui = ctx.obj["ui"]
+        ui.error(
+            f"Unknown --strategy {strategy!r}. Valid: "
+            f"{', '.join(sorted(EVALUATOR_STRATEGIES))}."
+        )
+        raise typer.Exit(code=1)
     ui = ctx.obj["ui"]
 
     with _workflow_error_handler(ui):
@@ -928,6 +951,7 @@ def evaluate(
                 jinja_env=engine.jinja_env,
                 ui=engine.ui,
                 spec_url=spec_url,
+                strategy=strategy,
             )
         )
 

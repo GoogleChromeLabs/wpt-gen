@@ -45,8 +45,21 @@ EVALUATOR_TOOL_ALLOWLIST = frozenset(
         "search_files",
         "search_file_contents",
         "run_wpt_lint",
+        "run_lint_ext",
     }
 )
+
+
+# Evaluator strategies. Both are served by the single `wpt-evaluator`
+# skill, which branches internally on the strategy label passed in the
+# prompt: `distilled` (default) judges against the distilled `rules.yaml`
+# corpus; `raw` reads the curated upstream docs live.
+EVALUATOR_STRATEGIES: frozenset[str] = frozenset({"distilled", "raw"})
+
+DEFAULT_EVALUATOR_STRATEGY = "distilled"
+
+# The single skill dir + frontmatter name that serves both strategies.
+EVALUATOR_SKILL_NAME = "wpt-evaluator"
 
 
 async def evaluate_test_with_adk(
@@ -54,6 +67,7 @@ async def evaluate_test_with_adk(
     config: Config,
     jinja_env: Environment,
     ui: UIProvider,
+    strategy: str = DEFAULT_EVALUATOR_STRATEGY,
 ) -> tuple[dict[str, Any], TokenUsage] | None:
     """Runs the ADK Agent to evaluate a single WPT test file.
 
@@ -98,19 +112,20 @@ async def evaluate_test_with_adk(
 
         Args:
             findings: A list of finding objects, each containing the
-                fields `title` (short description), `severity` (one of
-                "error", "warn", "info", "nit"), `test_line` (a line
-                reference into the test file), `evidence` (a short quote
-                or description), `source` (a `wpt/...:Lstart-Lend`
-                citation), and `summary` (a one-sentence paraphrase of
-                the upstream guidance).
+                fields `rule_id` (the `rules.yaml` rule that was
+                violated, e.g. "GENERAL-005"), `title` (short description),
+                `severity` (one of "error", "warn", "info", "nit"),
+                `test_line` (a line reference into the test file),
+                `evidence` (a short quote or description), `source` (the
+                rule's `wpt/...:Lstart-Lend` provenance), and `summary`
+                (a one-sentence paraphrase of the rule).
             input_scope: An object describing what was loaded, with the
                 fields `files` (a list of `{path, bytes, role}` rows
-                where `role` is one of "skill", "reading-list", "test",
-                or "dependency"), `dependencies_not_read` (a list of
+                where `role` is one of "skill", "rules", "test", or
+                "dependency"), `dependencies_not_read` (a list of
                 framework/external dependency paths that were detected
-                but not read), and `approach` (a stable label for the
-                evaluator variant, currently "doc-inputs").
+                but not read), and `strategy` (a stable label for the
+                evaluator variant, currently "distilled").
 
         Returns:
             A dictionary confirming receipt.
@@ -137,22 +152,28 @@ async def evaluate_test_with_adk(
     ]
     tools.append(FunctionTool(func=report_evaluation_complete))
 
-    skill_dir = SKILLS_DIR / "wpt-evaluator"
+    if strategy not in EVALUATOR_STRATEGIES:
+        raise ValueError(
+            f"Unknown evaluator strategy {strategy!r}. Valid strategies: "
+            f"{', '.join(sorted(EVALUATOR_STRATEGIES))}."
+        )
+
+    skill_dir = SKILLS_DIR / EVALUATOR_SKILL_NAME
     if skill_dir.is_dir():
         try:
             wpt_evaluator_skill = load_skill_from_dir(skill_dir)
             skill_toolset = SkillToolset(skills=[wpt_evaluator_skill])
             tools.append(skill_toolset)
         except Exception as e:
-            ui.error(f"Failed to load wpt-evaluator skill: {e}")
+            ui.error(f"Failed to load {EVALUATOR_SKILL_NAME} skill: {e}")
     else:
         ui.warning(
-            "wpt-evaluator skill directory not found. Agent will evaluate "
-            "without skill guidance."
+            f"{EVALUATOR_SKILL_NAME} skill directory not found. Agent will "
+            "evaluate without skill guidance."
         )
 
     system_template = jinja_env.get_template("adk_evaluator_system.jinja")
-    instruction = system_template.render()
+    instruction = system_template.render(skill_name=EVALUATOR_SKILL_NAME)
 
     # Prevent ADK's internal template parser from crashing if any tool
     # description contains WPT placeholder syntax (`{{host}}`, etc.).
@@ -197,6 +218,8 @@ async def evaluate_test_with_adk(
     prompt_template = jinja_env.get_template("adk_evaluator.jinja")
     prompt = prompt_template.render(
         test_path=str(test_path),
+        skill_name=EVALUATOR_SKILL_NAME,
+        strategy=strategy,
     )
     content = types.Content(role="user", parts=[types.Part(text=prompt)])
 
