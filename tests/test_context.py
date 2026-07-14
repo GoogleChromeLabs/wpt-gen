@@ -40,6 +40,7 @@ from wptgen.context import (
     normalize_wpt_path,
     resolve_dependency_path,
     slug_for_spec_url,
+    validate_ip_against_ssrf,
     validate_wpt_paths,
 )
 
@@ -1101,3 +1102,26 @@ def test_slug_for_spec_url_fragments_distinguish() -> None:
     a = slug_for_spec_url("https://example.com/spec/#video")
     b = slug_for_spec_url("https://example.com/spec/#audio")
     assert a != b
+
+
+# ---------------------------------------------------------------------------
+# SSRF Protection & IP Hardening
+# ---------------------------------------------------------------------------
+
+
+def test_validate_ip_against_ssrf() -> None:
+    """Verifies restricted IP ranges raise ValueError."""
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("127.0.0.1")
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("10.0.0.1")
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("169.254.169.254")
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("100.64.0.1")
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("0.0.0.0")
+    with pytest.raises(ValueError, match="restricted IP address"):
+        validate_ip_against_ssrf("::ffff:127.0.0.1")
+    validate_ip_against_ssrf("8.8.8.8")
+    validate_ip_against_ssrf("93.184.216.34")

@@ -57,6 +57,16 @@ IGNORED_DEPENDENCIES = {
 MAXIMUM_TEST_SUITE_SIZE = 50
 MAXIMUM_FETCHED_DEPENDENCIES = 100
 
+# RFC 6598: Shared Address Space for Carrier-Grade NAT and cloud infrastructure.
+# https://datatracker.ietf.org/doc/html/rfc6598
+CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
+
+# RFC 1122 & RFC 6890: "This network" / unspecified address block (`0.0.0.0/8`).
+# Prevents loopback bypasses where `0.x.y.z` routes to `127.0.0.1`
+# on local sockets.
+# https://datatracker.ietf.org/doc/html/rfc6890
+ZERO_NETWORK = ipaddress.ip_network("0.0.0.0/8")
+
 MDN_MAPPINGS_URL = (
     "https://raw.githubusercontent.com/web-platform-dx/"
     "web-features-mappings/main/mappings/mdn-docs.json"
@@ -212,15 +222,21 @@ def extract_feature_metadata(feature_data: dict[str, Any]) -> FeatureMetadata:
 def validate_ip_against_ssrf(ip: str) -> None:
     """Validates that an IP address is not a restricted internal address."""
     ip_obj = ipaddress.ip_address(ip)
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped:
+        ip_obj = ip_obj.ipv4_mapped
     if (
         ip_obj.is_loopback
         or ip_obj.is_private
         or ip_obj.is_link_local
         or ip_obj.is_multicast
         or ip_obj.is_reserved
+        or ip_obj.is_unspecified
         or ip == "0.0.0.0"
     ):
         raise ValueError(f"URL resolves to a restricted IP address: {ip}")
+    if isinstance(ip_obj, ipaddress.IPv4Address):
+        if ip_obj in CGNAT_NETWORK or ip_obj in ZERO_NETWORK:
+            raise ValueError(f"URL resolves to a restricted IP address: {ip}")
 
 
 class SafeHTTPConnection(http.client.HTTPConnection):
