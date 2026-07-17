@@ -1,5 +1,8 @@
 # Findings: {{ test_path }}
 
+{% if run_metadata -%}
+Model: `{{ run_metadata.model }}` (provider: `{{ run_metadata.provider }}`)
+{% endif %}
 ## Findings
 
 {% if findings -%}

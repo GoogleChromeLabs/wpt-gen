@@ -107,15 +107,22 @@ def _build_findings_payload(
     findings: list[Finding],
     input_scope: InputScope,
     conformance: ConformanceSection | None,
+    run_metadata: dict[str, Any],
 ) -> dict[str, Any]:
     """Assembles the machine-readable findings payload.
 
     The payload is the source of truth for both the JSON output and the
     rendered Markdown report, so downstream tooling (e.g. the benchmark
     harness) consumes exactly what the report shows.
+
+    ``run_metadata`` records how this evaluation was produced (provider,
+    model). It travels with the findings so consumers know which model
+    generated them without re-deriving it from config that may since have
+    changed.
     """
     payload: dict[str, Any] = {
         "test_path": str(test_path),
+        "run_metadata": run_metadata,
         "findings": [asdict(f) for f in findings],
         "input_scope": _input_scope_to_payload(input_scope),
         "conformance": None,
@@ -312,16 +319,19 @@ async def run_evaluation(
         output_dir = Path.cwd() / DEFAULT_EVALUATOR_OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    run_metadata: dict[str, Any] = {
+        "provider": config.provider,
+        "model": config.default_model,
+    }
     payload = _build_findings_payload(
         test_path=test_path,
         findings=findings,
         input_scope=input_scope,
         conformance=conformance,
+        run_metadata=run_metadata,
     )
     json_output_path = output_dir / f"{test_path.name}.json"
-    json_output_path.write_text(
-        json.dumps(payload, indent=2), encoding="utf-8"
-    )
+    json_output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     renderer = EvaluationReportRenderer()
     report_markdown = renderer.render_from_payload(payload)

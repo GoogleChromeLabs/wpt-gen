@@ -189,6 +189,10 @@ def _sample_scope(**overrides: Any) -> InputScope:
     return InputScope(**defaults)
 
 
+def _sample_metadata() -> dict[str, Any]:
+    return {"provider": "gemini", "model": "gemini-3.1-pro-preview"}
+
+
 def _render(
     test_path: str,
     findings: list[Finding],
@@ -201,6 +205,7 @@ def _render(
         findings=findings,
         input_scope=input_scope if input_scope is not None else _sample_scope(),
         conformance=conformance,
+        run_metadata=_sample_metadata(),
     )
     return EvaluationReportRenderer().render_from_payload(payload)
 
@@ -212,9 +217,24 @@ def test_build_findings_payload_is_json_serializable() -> None:
         findings=[_sample_finding()],
         input_scope=_sample_scope(),
         conformance=None,
+        run_metadata=_sample_metadata(),
     )
     round_tripped = json.loads(json.dumps(payload))
     assert round_tripped == payload
+
+
+def test_build_findings_payload_records_run_metadata() -> None:
+    payload = _build_findings_payload(
+        test_path=Path("wpt/foo/bar.html"),
+        findings=[],
+        input_scope=_sample_scope(),
+        conformance=None,
+        run_metadata=_sample_metadata(),
+    )
+    assert payload["run_metadata"] == {
+        "provider": "gemini",
+        "model": "gemini-3.1-pro-preview",
+    }
 
 
 def test_build_findings_payload_conformance_is_none_without_spec() -> None:
@@ -223,6 +243,7 @@ def test_build_findings_payload_conformance_is_none_without_spec() -> None:
         findings=[],
         input_scope=_sample_scope(),
         conformance=None,
+        run_metadata=_sample_metadata(),
     )
     assert payload["conformance"] is None
 
@@ -239,6 +260,7 @@ def test_build_findings_payload_includes_conformance_section() -> None:
         findings=[],
         input_scope=_sample_scope(),
         conformance=conformance,
+        run_metadata=_sample_metadata(),
     )
     section = payload["conformance"]
     assert section["spec_url"] == "https://drafts.csswg.org/css-flexbox/"
@@ -316,9 +338,7 @@ def test_render_input_scope_table_format() -> None:
         ],
         approach="doc-inputs",
     )
-    report = _render(
-        test_path="wpt/c.html", findings=[], input_scope=scope
-    )
+    report = _render(test_path="wpt/c.html", findings=[], input_scope=scope)
 
     # Each row shows comma-formatted bytes.
     assert "| a.md | 1,500 | skill |" in report
@@ -470,9 +490,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     # Input scope carries its derived totals so the JSON is self-describing.
     scope = payload["input_scope"]
     assert scope["approach"] == "doc-inputs"
-    assert scope["files"] == [
-        {"path": "foo.html", "bytes": 30, "role": "test"}
-    ]
+    assert scope["files"] == [{"path": "foo.html", "bytes": 30, "role": "test"}]
     assert scope["total_bytes"] == 30
     assert scope["approximate_input_tokens"] == 7
 
