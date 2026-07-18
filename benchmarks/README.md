@@ -1,9 +1,7 @@
-# Evaluator benchmark corpus
+# Benchmarking the WPT Evaluator
 
-The data the evaluator benchmark runs against. The harness that consumes it
-is [`scripts/benchmark/run_benchmark.py`](../scripts/benchmark/run_benchmark.py);
-the design lives in
-[`docs/benchmarking-implementation-plan.md`](../docs/benchmarking-implementation-plan.md).
+Measures how well the WPT Docs Eval agent finds seeded defects and how
+consistently it fires on a WPT checkout across repeats.
 
 ## Running
 
