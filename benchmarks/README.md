@@ -1,8 +1,113 @@
 # Evaluator benchmark corpus
 
 The data the evaluator benchmark runs against. The harness that consumes it
-is `scripts/benchmark/run_benchmark.py` (not yet implemented); the design
-lives in [`docs/benchmarking-implementation-plan.md`](../docs/benchmarking-implementation-plan.md).
+is [`scripts/benchmark/run_benchmark.py`](../scripts/benchmark/run_benchmark.py);
+the design lives in
+[`docs/benchmarking-implementation-plan.md`](../docs/benchmarking-implementation-plan.md).
+
+## Running
+
+```
+python scripts/benchmark/run_benchmark.py --repeats 3 [--filter role=seed]
+```
+
+With no other flags the harness defaults `--manifest` to
+`benchmarks/manifest.yaml`, `--wpt-dir` to the `wpt_path` in `wpt-gen.yml`,
+and `--out` to a timestamped `bench-runs/<date>-<time>/`. All are
+overridable; other flags are `--provider`, `--config`, `--filter` (e.g.
+`role=seed`, `role=corpus`, `kind=reftest`), and `--score-only`.
+
+
+The harness validates the manifest against the checkout, stages seeds into
+`<wpt-dir>/wpt-gen-bench/`, runs
+`wpt-gen evaluate` `--repeats` times per entry into
+`<out>/runs/<entry-id>/rep-<i>/`, then scores every entry and writes
+`<out>/report.md` + `<out>/report.json`. `--score-only` re-scores existing
+run dirs without invoking the agent (pass the same `--out`). Scoring itself lives in
+`scripts/benchmark/scoring.py` and is covered by
+`tests/benchmark/test_run_benchmark.py`, which runs entirely on synthetic run
+dirs (no agent calls).
+
+## Reading a benchmark report
+
+Each run writes `report.md` (this section is what it links to) and an
+identical-content `report.json`. Precision and Recall metrics are computed only over `seed`
+entries.
+
+**Precision** — of the findings the evaluator emitted, the fraction that
+were expected. Target **1.0** (no false positives). 
+
+**Recall** — of the
+seeded defects, the fraction the evaluator caught. Target **1.0** (nothing
+missed).
+
+Abbreviations in the seed scores:
+
+- **TP** — true positive: an expected finding fired.
+- **FP** — false positive: an unexpected finding fired (including any
+  finding on a known-clean seed).
+- **FN** — false negative: an expected finding was missed.
+
+**Advisory notes** — findings whose `source` cites an upstream doc that is
+*not* on the evaluator's curated reading list (parsed from the evaluator
+SKILL.md), which suggests an invented citation. This is *advisory only*, not
+a pass/fail gate: the report counts them and annotates each finding's row,
+but they do not count against any score. This check is meaningful while the
+evaluator reads the raw curated docs; a future rules-based strategy would
+replace it with a rule-id validity check.
+
+The **Aggregate** table rolls the seed scores up across all seeds:
+
+| metric | value | target |
+| --- | --- | --- |
+| seed precision | 0.83 | 1.0 |
+| seed recall | 1.0 | 1.0 |
+| seed TP / FP / FN | 5 / 1 / 0 | FP=0, FN=0 |
+
+ `corpus` entries are measured for
+consistency only.
+
+**Consistency** — how often each finding fires across the repeats. There is
+no single target: a finding *should* sit at an extreme (**always** or
+**never**); the **mid** band is the flaky zone to drive out. The report
+buckets every finding's firing rate:
+
+| bucket | firing rate | meaning |
+| --- | --- | --- |
+| always | 1.0 | fires every repeat - trustworthy |
+| high | ≥0.75 | usually fires |
+| mid | 0.25–0.75 | flaky zone |
+| low | >0 | rarely fires |
+| never | 0.0 | never fires |
+
+Each entry then lists its own findings as a table. **Seed** entries split
+their findings into **True positives** (matched a gold label) and **False
+positives** (did not); **corpus** entries, which have no labels, show one
+**Findings** table. The `firing rate` column is `firings/repeats (rate)`,
+and `warnings` counts that finding's advisory notes (e.g. `⚠ source ×2`).
+A per-entry example:
+
+```
+### `seed-worker-missing-done` (seed/testharness)
+
+- Seed: precision 0.5, recall 1.0 (TP 1, FP 1, FN 0)
+
+**True positives**
+
+| title | source | firing rate | warnings |
+| --- | --- | --- | --- |
+| Missing `done()` call | `wpt/docs/writing-tests/testharness.md` @ L15-16 | 3/3 (1.0) | ⚠ source ×3 |
+
+**False positives**
+
+| title | source | firing rate | warnings |
+| --- | --- | --- | --- |
+| Test not in spec directory | `wpt/docs/reviewing-tests/checklist.md` @ L1-1 | 1/3 (0.333) |  |
+```
+
+Here the intended defect (`testharness.md`) is a true positive that fired
+every repeat, while a noisy `checklist.md` finding is a false positive that
+also fired only once — flaky *and* spurious.
 
 ## Layout
 
@@ -14,7 +119,7 @@ benchmarks/
     reftest/
     clean/        # well-formed files; any finding is a false positive
   golden/
-    candidates/   # harvested PR snapshots (Phase 6); holdout-window
+    candidates/   # harvested PR snapshots (Not Yet Implemented)); holdout-window
                   # annotations live in a private location, not here
 ```
 
@@ -22,14 +127,20 @@ benchmarks/
 
 | dataset | ground truth | measures |
 | --- | --- | --- |
-| consistency corpus (`role: corpus`) | none | run-to-run variance per finding key |
-| seeded-defect set (`role: seed`, non-empty `expect`) | exact (injected) | precision / recall |
-| known-clean (`role: seed`, empty `expect`) | exact (no findings) | precision |
+| consistency corpus (`corpus:` entries) | none | run-to-run variance per finding key |
+| seeded-defect set (`seeds:` with non-empty `expect`) | exact (injected) | precision / recall |
+| known-clean (`seeds:` with empty `expect`) | exact (no findings) | precision |
 
 Corpus entries are real merged wpt files referenced by path inside the
-checkout. Seeds live here and are copied into `<wpt_dir>/wpt-gen-bench/` by
+checkout. 
+
+Seeds live here and are copied into `<wpt_dir>/wpt-gen-bench/` by
 the harness, because `run_evaluation` requires the test under evaluation to
-live inside the wpt checkout.
+live inside the wpt checkout. The harness stages them **flattened** — the
+category subdir (`testharness/`, `reftest/`, `clean/`) is dropped so it does
+not leak the defect class into the checkout the evaluator can list; a reftest
+seed's sibling `references/` dir is carried along so its `<link rel=match>`
+still resolves.
 
 ## Manifest schema
 
@@ -44,23 +155,42 @@ live inside the wpt checkout.
   files must be byte-identical across runs or consistency numbers are not
   comparable. The harness warns (not fails) on mismatch and records the
   actual commit in run metadata.
-- `entries[]`:
-  - `id` — stable identifier; the harness uses it for run output dirs.
-  - `kind` — test kind (`testharness`, `reftest`, …); supports `--filter`.
-  - `role` — `corpus` (consistency only) or `seed` (labeled).
-  - `path` — corpus entries: path relative to the wpt root.
-  - `seed` — seed entries: path relative to `benchmarks/seeds/`.
-  - `dest` — seed entries: subdir created inside the checkout.
-  - `expect[]` — gold labels: finding keys that MUST fire.
+
+Entries live in two top-level lists — `corpus:` and `seeds:` — so each entry
+has a single, total shape (no `role` tag, no fields that apply to only half
+the cases). Both share `id` and `kind`:
+
+- `id` — stable identifier; the harness uses it for run output dirs. Must be
+  unique across both lists.
+- `kind` — test kind (`testharness`, `reftest`, …); supports `--filter`.
+
+- `corpus[]` — real merged wpt files, measured for consistency only:
+  - `path` — path relative to the wpt root.
+
+- `seeds[]` — checked-in seed files with gold labels:
+  - `seed` — path relative to `benchmarks/seeds/`.
+  - `dest` — subdir created inside the checkout to stage the seed into.
+  - `expect[]` — gold labels: finding keys that MUST fire (empty `[]` for a
+    known-clean seed).
     - `source_doc` — the finding key today (see below); a path *into the
-      wpt docs*.
+      wpt docs*. May carry a trailing `:L…` doc-line anchor, which is
+      **documentation only** — the harness strips it before matching (it
+      keys on the bare doc path). Recording the passage a seed targets lets
+      you eyeball raw `source` citations across a multi-repeat run for
+      citation jitter without a dedicated metric.
     - `rule_id` — `null` until the rules work lands.
     - `test_file_lines` — acceptable line window **in the seed test file**
       (not in the source doc), inclusive. This is where the finding should
       anchor; a prediction whose `test_line` falls outside the window does
       not match this label.
-  - `forbid[]` — finding keys that must NOT fire (regression pins for known
-    false positives).
+
+### Future idea: a `forbid` list for known false positives
+
+Not implemented. A per-seed `forbid` list
+could file and categorize *repeated, known* false positives seen in the wild
+(distinct from novel ones), so a regression that re-introduces a catalogued
+FP is flagged on its own rather than folded into the aggregate. Worth adding
+when the benchmark runs continuously and an FP backlog accumulates.
 
 ## Finding keys: doc paths now, rule ids later
 
@@ -93,11 +223,12 @@ governing docs are distinct enough that the key is unambiguous.
   skill instructs the evaluator to skip anything `wpt lint` enforces, so a
   lint-covered defect tests nothing — the agent is *correct* to stay silent,
   and the seed would score as a false recall failure. Every seed must be
-  lint-clean; check before adding it:
+  lint-clean; check before adding it (the harness stages seeds flattened, so
+  copy the bare file, not its category dir):
 
   ```
-  cp -R benchmarks/seeds/* <wpt_dir>/wpt-gen-bench/
-  cd <wpt_dir> && ./wpt lint ./wpt-gen-bench/<path>   # must report no errors
+  cp benchmarks/seeds/<category>/<file> <wpt_dir>/wpt-gen-bench/<file>
+  cd <wpt_dir> && ./wpt lint ./wpt-gen-bench/<file>   # must report no errors
   ```
 
 - Embed the canary GUID in a comment. In `.js` seeds it must come *after*
@@ -116,11 +247,12 @@ small for now:
    names its violation and its source anchor, so seeds (and their `expect`
    labels) can be **generated from the rules corpus** and then translated
    back to doc keys for the pre-merge baseline.
-2. The stratified corpus (20–40 files across every kind) is selected by a
-   scripted, fixed-seed procedure and pinned after maintainer review — see
-   the implementation plan's Phase 2.
+2. The "consistency corpus" (20–40 files across every kind) should be selected by a
+   scripted, fixed-seed procedure and pinned after maintainer review.
 
-So the current entries exercise the schema end to end (a violation seed with
+The current entries exercise the schema end to end (a violation seed with
 a doc-keyed label, a reference-quality seed, a clean file, and two real
-corpus files) without pre-committing to hand-authored labels that the rules
-work will supersede.
+corpus files).
+
+The benchmark runs the WPT Docs Eval agent only; the --spec conformance check is 
+out of scope until spec requirements XML can be pinned per test.

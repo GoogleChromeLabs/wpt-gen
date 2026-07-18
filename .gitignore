@@ -12,3 +12,6 @@ dist/
 
 # Local wpt-gen artifacts
 .wptgen/
+
+# Benchmark harness run outputs
+bench-runs/
