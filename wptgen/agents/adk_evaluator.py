@@ -14,6 +14,7 @@
 """Agentic test evaluation using the Google ADK framework."""
 
 import re
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -50,13 +51,18 @@ EVALUATOR_TOOL_ALLOWLIST = frozenset(
 )
 
 
-# Evaluator strategies. Both are served by the single `wpt-evaluator`
-# skill, which branches internally on the strategy label passed in the
-# prompt: `distilled` (default) judges against the distilled `rules.yaml`
-# corpus; `raw` reads the curated upstream docs live.
-EVALUATOR_STRATEGIES: frozenset[str] = frozenset({"distilled", "raw"})
+class EvaluatorStrategy(StrEnum):
+    """Evaluator strategies. Both are served by the single `wpt-evaluator`
+    skill, which branches internally on the strategy label passed in the
+    prompt: `distilled` (default) judges against the distilled
+    `rules.yaml` corpus; `raw` reads the curated upstream docs live.
+    """
 
-DEFAULT_EVALUATOR_STRATEGY = "distilled"
+    DISTILLED = "distilled"
+    RAW = "raw"
+
+
+DEFAULT_EVALUATOR_STRATEGY = EvaluatorStrategy.DISTILLED
 
 # The single skill dir + frontmatter name that serves both strategies.
 EVALUATOR_SKILL_NAME = "wpt-evaluator"
@@ -67,7 +73,7 @@ async def evaluate_test_with_adk(
     config: Config,
     jinja_env: Environment,
     ui: UIProvider,
-    strategy: str = DEFAULT_EVALUATOR_STRATEGY,
+    strategy: EvaluatorStrategy = DEFAULT_EVALUATOR_STRATEGY,
 ) -> tuple[dict[str, Any], TokenUsage] | None:
     """Runs the ADK Agent to evaluate a single WPT test file.
 
@@ -152,11 +158,15 @@ async def evaluate_test_with_adk(
     ]
     tools.append(FunctionTool(func=report_evaluation_complete))
 
-    if strategy not in EVALUATOR_STRATEGIES:
-        raise ValueError(
-            f"Unknown evaluator strategy {strategy!r}. Valid strategies: "
-            f"{', '.join(sorted(EVALUATOR_STRATEGIES))}."
-        )
+    if not isinstance(strategy, EvaluatorStrategy):
+        try:
+            strategy = EvaluatorStrategy(strategy)
+        except ValueError:
+            raise ValueError(
+                f"Unknown evaluator strategy {strategy!r}. Valid "
+                "strategies: "
+                f'{", ".join(sorted(EvaluatorStrategy))}.'
+            ) from None
 
     skill_dir = SKILLS_DIR / EVALUATOR_SKILL_NAME
     if skill_dir.is_dir():

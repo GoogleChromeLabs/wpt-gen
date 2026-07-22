@@ -25,6 +25,7 @@ from wptgen.agents.adk_conformance_evaluator import (
 )
 from wptgen.agents.adk_evaluator import (
     DEFAULT_EVALUATOR_STRATEGY,
+    EvaluatorStrategy,
     evaluate_test_with_adk,
 )
 from wptgen.agents.streaming import TokenUsage
@@ -74,7 +75,7 @@ class InputScope:
     # Which reading strategy produced this scope: "distilled" (judge against
     # the distilled rules corpus / extracted requirements) or "raw" (read the
     # upstream docs / spec directly).
-    strategy: str = "distilled"
+    strategy: EvaluatorStrategy = EvaluatorStrategy.DISTILLED
 
     @property
     def total_bytes(self) -> int:
@@ -153,10 +154,14 @@ def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
         for item in files_raw
     ]
     deps = payload.get("dependencies_not_read", []) or []
+    try:
+        strategy = EvaluatorStrategy(payload.get("strategy", "distilled"))
+    except ValueError:
+        strategy = EvaluatorStrategy.DISTILLED
     return InputScope(
         files=files,
         dependencies_not_read=[str(d) for d in deps],
-        strategy=str(payload.get("strategy", "distilled")),
+        strategy=strategy,
     )
 
 
@@ -194,7 +199,7 @@ async def run_evaluation(
     jinja_env: Environment,
     ui: UIProvider,
     spec_url: str | None = None,
-    strategy: str = DEFAULT_EVALUATOR_STRATEGY,
+    strategy: EvaluatorStrategy = DEFAULT_EVALUATOR_STRATEGY,
 ) -> Path | None:
     """Evaluates a single WPT test file.
 

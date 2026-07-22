@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
+from wptgen.agents.adk_evaluator import EvaluatorStrategy
 from wptgen.agents.streaming import TokenUsage
 from wptgen.config import Config
 from wptgen.phases.evaluation import (
@@ -414,7 +415,7 @@ def test_render_conformance_with_findings() -> None:
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[_conformance_finding()],
-        input_scope=InputScope(strategy="distilled"),
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
         requirements_xml_bytes=12_345,
     )
     report = renderer.render(
@@ -440,7 +441,7 @@ def test_render_conformance_empty_findings_fallback() -> None:
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[],
-        input_scope=InputScope(strategy="distilled"),
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
         requirements_xml_bytes=2_048,
     )
     report = renderer.render(
