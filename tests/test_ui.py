@@ -241,7 +241,7 @@ def test_report_findings_summary(
         conformance_counts={"error": 0, "warn": 1, "info": 0, "nit": 0},
     )
     # 2 blank-line separators + 2 section headers
-    # + 4 severity rows (doc-inputs) + 2 severity rows (conformance)
+    # + 4 severity rows (documentation) + 2 severity rows (conformance)
     assert mock_console.print.call_count == 10
 
 
@@ -251,7 +251,7 @@ def test_report_input_scope_summary(
     """Test report_input_scope_summary semantic method."""
     ui.report_input_scope_summary(
         label="Documentation",
-        files_by_role={"skill": 1, "reading-list": 5, "test": 1},
+        files_by_role={"skill": 1, "rules": 1, "test": 1},
         total_bytes=28_413,
         approximate_tokens=7_103,
     )

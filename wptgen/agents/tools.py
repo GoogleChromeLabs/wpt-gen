@@ -27,6 +27,7 @@ from typing import Any
 from google.adk.tools.function_tool import FunctionTool
 
 from wptgen.context import fetch_and_extract_text, find_feature_tests
+from wptgen.lint_ext import check_file as run_lint_ext_checks
 from wptgen.ui import UIProvider
 
 BINARY_EXTENSIONS = {
@@ -483,6 +484,48 @@ def create_agent_tools(
         except (OSError, ValueError, subprocess.SubprocessError) as e:
             return {"status": "error", "error": str(e)}
 
+    def run_lint_ext(file_path: str) -> dict[str, Any]:
+        """Runs wpt-gen's deterministic linter extension on a file.
+
+        This covers the `layer: deterministic` rules from the evaluator
+        rules corpus that upstream `wpt lint` does NOT already check.
+
+        Args:
+            file_path: The path to the file to lint.
+
+        Returns:
+            A dict with `status` and, if any, a `findings` list of
+            `{rule_id, description, path, line}` objects.
+        """
+        try:
+            target = _validate_safe_path(Path(file_path), wpt_path)
+            if not target.is_file():
+                return {
+                    "status": "error",
+                    "error": f"File not found: {file_path}",
+                }
+
+            errors = run_lint_ext_checks(str(target))
+            if not errors:
+                return {
+                    "status": "success",
+                    "message": "No linter-extension findings.",
+                }
+            return {
+                "status": "failed",
+                "findings": [
+                    {
+                        "rule_id": rule_id,
+                        "description": description,
+                        "path": path,
+                        "line": line_no,
+                    }
+                    for (rule_id, description, path, line_no) in errors
+                ],
+            }
+        except (OSError, ValueError) as e:
+            return {"status": "error", "error": str(e)}
+
     def run_wpt_test(file_path: str, headless: bool = True) -> dict[str, Any]:
         """Executes a test file using the local WPT test runner infrastructure.
 
@@ -804,6 +847,7 @@ def create_agent_tools(
         FunctionTool(func=delete_file),
         FunctionTool(func=move_file),
         FunctionTool(func=run_wpt_lint),
+        FunctionTool(func=run_lint_ext),
         FunctionTool(func=fetch_spec_content),
         FunctionTool(func=search_file_contents),
         FunctionTool(func=replace_in_file),

@@ -99,8 +99,8 @@ async def evaluate_conformance_with_adk(
                 where `role` is one of "skill", "test", "requirements",
                 or "dependency"), `dependencies_not_read` (a list of
                 framework/external dependency paths that were detected
-                but not read), and `approach` (set to
-                "spec-conformance").
+                but not read), and `strategy` (set to "distilled" —
+                conformance judges against the distilled requirements).
 
         Returns:
             A dictionary confirming receipt.
