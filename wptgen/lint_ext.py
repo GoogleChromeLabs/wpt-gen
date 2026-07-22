@@ -72,27 +72,24 @@ EXTENSIONS["js_all"] = EXTENSIONS["markup"] + EXTENSIONS["js"]
 class Regexp(abc.ABC):
     """A line-pattern check. Subclasses set `pattern`, `name`, and
     `description`; `file_extensions` optionally restricts which files it
-    applies to (None = all files), and `path_predicate` optionally gates
-    it on a filename property (e.g. only manual tests)."""
+    applies to (None = all files).
+
+    Mirrors WPT's `tools/lint/rules.py:Regexp`
+    """
 
     pattern: bytes
     name: str
     description: str
     file_extensions: list[str] | None = None
-    path_predicate: Callable[[str], bool] | None = None
 
     def __init__(self) -> None:
         self._re: re.Pattern[bytes] = re.compile(self.pattern)
 
     def applies(self, path: str) -> bool:
-        if (
-            self.file_extensions is not None
-            and os.path.splitext(path)[1] not in self.file_extensions
-        ):
-            return False
-        if self.path_predicate is not None and not self.path_predicate(path):
-            return False
-        return True
+        return (
+            self.file_extensions is None
+            or os.path.splitext(path)[1] in self.file_extensions
+        )
 
     def search(self, line: bytes) -> re.Match[bytes] | None:
         return self._re.search(line)
@@ -119,18 +116,20 @@ class ManualExplicitTimeout(Regexp):
     """MANUAL-004: manual testharness tests must pass {explicit_timeout: true}.
 
     Flags a `setup()` call that lacks `explicit_timeout`, but only in
-    manual tests — `path_predicate` gates the check on the `-manual`
-    filename so ordinary tests' `setup()` calls are not flagged.
+    manual tests, so ordinary tests' `setup()` calls are not flagged.
     """
 
     pattern = rb"setup\((?![^)]*explicit_timeout)[^)]*\)"
     name = "MANUAL-004"
     file_extensions = EXTENSIONS["markup"]
-    path_predicate = staticmethod(is_manual_test)
     description = (
         "Manual testharness test calls setup() without "
         "{explicit_timeout: true}"
     )
+
+    def applies(self, path: str) -> bool:
+        # Only manual tests (`-manual` filename) need explicit_timeout.
+        return super().applies(path) and is_manual_test(path)
 
 
 class DeprecatedCssFlag(Regexp):
@@ -263,8 +262,8 @@ _DONE_CALL_RE = re.compile(rb"\bdone\s*\(\s*\)")
 
 
 def check_worker_boilerplate(path: str, content: bytes) -> Error | None:
-    """TESTHARNESS-003: a `.worker.js` file must importScripts testharness.js and
-    call done().
+    """TESTHARNESS-003: a `.worker.js` file must importScripts
+    testharness.js and call done().
 
     Only runs for `.worker.js` files (gated by the driver), so the content
     read is not incurred for other files.
