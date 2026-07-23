@@ -1,5 +1,8 @@
 # Findings: {{ test_path }}
 
+{% if run_metadata -%}
+Model: `{{ run_metadata.model }}` (provider: `{{ run_metadata.provider }}`)
+{% endif %}
 ## Findings
 
 {% if findings -%}
@@ -55,3 +58,23 @@ No conformance findings raised.
 Conformance check: skipped (no spec provided).
 
 {% endif %}
+
+---
+
+## Input scope
+
+| File | Bytes | Role |
+| ---- | ----: | ---- |
+{% for row in input_scope.files -%}
+| {{ row.path }} | {{ "{:,}".format(row.bytes) }} | {{ row.role }} |
+{% endfor -%}
+| **Total** | **{{ "{:,}".format(input_scope.total_bytes) }}** | |
+
+{% if input_scope.dependencies_not_read -%}
+Declared dependencies (not read): {{ input_scope.dependencies_not_read | join(", ") }}
+{%- else -%}
+Declared dependencies (not read): none
+{%- endif %}
+
+Strategy: {{ input_scope.strategy }}
+Approximate input tokens: ~{{ "{:,}".format(input_scope.approximate_input_tokens) }}
