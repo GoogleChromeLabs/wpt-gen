@@ -108,18 +108,6 @@ class EvaluationReportRenderer:
         )
         self.template = self.env.get_template("evaluator_report.jinja")
 
-    def render(
-        self,
-        test_path: str,
-        findings: list[Finding],
-        conformance: ConformanceSection | None = None,
-    ) -> str:
-        return self.template.render(
-            test_path=test_path,
-            findings=findings,
-            conformance=conformance,
-        )
-
     def render_from_payload(self, payload: dict[str, Any]) -> str:
         return self.template.render(**payload)
 
