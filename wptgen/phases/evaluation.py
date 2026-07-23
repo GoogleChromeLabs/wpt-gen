@@ -144,10 +144,15 @@ def _build_findings_payload(
     }
     if conformance is not None:
         payload["conformance"] = {
-            "spec_url": conformance.spec_url,
+            "specs": [
+                {
+                    "spec_url": spec.spec_url,
+                    "requirements_xml_bytes": spec.requirements_xml_bytes,
+                }
+                for spec in conformance.specs
+            ],
             "findings": [asdict(f) for f in conformance.findings],
             "input_scope": _input_scope_to_payload(conformance.input_scope),
-            "requirements_xml_bytes": conformance.requirements_xml_bytes,
         }
     return payload
 

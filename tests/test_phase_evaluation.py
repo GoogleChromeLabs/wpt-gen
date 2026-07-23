@@ -253,10 +253,14 @@ def test_build_findings_payload_conformance_is_none_without_spec() -> None:
 
 def test_build_findings_payload_includes_conformance_section() -> None:
     conformance = ConformanceSection(
-        spec_url="https://drafts.csswg.org/css-flexbox/",
+        specs=[
+            SpecRequirements(
+                spec_url="https://drafts.csswg.org/css-flexbox/",
+                requirements_xml="x" * 2_048,
+            )
+        ],
         findings=[_conformance_finding()],
         input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
-        requirements_xml_bytes=2_048,
     )
     payload = _build_findings_payload(
         test_path=Path("wpt/foo/bar.html"),
@@ -266,8 +270,12 @@ def test_build_findings_payload_includes_conformance_section() -> None:
         run_metadata=_sample_metadata(),
     )
     section = payload["conformance"]
-    assert section["spec_url"] == "https://drafts.csswg.org/css-flexbox/"
-    assert section["requirements_xml_bytes"] == 2_048
+    assert len(section["specs"]) == 1
+    assert (
+        section["specs"][0]["spec_url"]
+        == "https://drafts.csswg.org/css-flexbox/"
+    )
+    assert section["specs"][0]["requirements_xml_bytes"] == 2_048
     assert len(section["findings"]) == 1
     assert section["input_scope"]["strategy"] == "distilled"
 

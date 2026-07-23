@@ -160,10 +160,9 @@ def test_parse_line_range(text: str, expected: tuple[int, int] | None) -> None:
 def test_payload_to_predictions_includes_conformance_findings() -> None:
     payload = _payload([_finding(source="wpt/docs/a.md#L1")])
     payload["conformance"] = {
-        "spec_url": "https://spec",
+        "specs": [{"spec_url": "https://spec", "requirements_xml_bytes": 0}],
         "findings": [_finding(source="wpt/docs/b.md#L2")],
         "input_scope": {},
-        "requirements_xml_bytes": 0,
     }
     preds = payload_to_predictions(payload)
     keys = {p.key for p in preds}
