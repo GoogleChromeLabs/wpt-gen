@@ -32,9 +32,10 @@ No findings raised.
 ## Spec conformance
 
 {% if conformance -%}
-- **Spec**: {{ conformance.spec_url }}
-- **Requirements XML**: {{ "{:,}".format(conformance.requirements_xml_bytes) }} bytes
-
+{% for spec in conformance.specs -%}
+- **Spec**: {{ spec.spec_url }}
+- **Requirements XML**: {{ "{:,}".format(spec.requirements_xml_bytes) }} bytes
+{% endfor %}
 {% if conformance.findings -%}
 {% for f in conformance.findings -%}
 ### Conformance finding {{ loop.index }} — {{ f.title }}

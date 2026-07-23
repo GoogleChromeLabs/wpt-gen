@@ -887,16 +887,25 @@ def evaluate(
             resolve_path=True,
         ),
     ] = None,
+    spec_urls: Annotated[
+        str | None,
+        typer.Option(
+            "--spec-urls",
+            "-u",
+            help=(
+                "Comma-separated list of governing specification URLs. When "
+                "provided, a conformance pass runs per spec: it extracts "
+                "normative requirements and judges the test's assertions "
+                "against them, producing one conformance section per spec."
+            ),
+        ),
+    ] = None,
     spec_url: Annotated[
         str | None,
         typer.Option(
-            "--spec",
+            "--spec-url",
             "-s",
-            help=(
-                "URL of the governing specification. When provided, a "
-                "conformance pass extracts normative requirements from "
-                "the spec and judges the test's assertions against them."
-            ),
+            help="A single specification URL for convenience.",
         ),
     ] = None,
     strategy: Annotated[
@@ -925,6 +934,20 @@ def evaluate(
     ui = ctx.obj["ui"]
 
     with _workflow_error_handler(ui):
+        if spec_urls and spec_url:
+            ui.print(
+                "[red]Error: Cannot provide both --spec-urls and --spec-url. "
+                "Please use only one.[/red]"
+            )
+            raise typer.Exit(code=1)
+
+        # Parse spec_urls if provided
+        spec_urls_list = None
+        if spec_url:
+            spec_urls_list = [spec_url.strip()]
+        elif spec_urls:
+            spec_urls_list = [u.strip() for u in spec_urls.split(",")]
+
         config = load_config(
             config_path=config_path,
             provider_override=provider,
@@ -943,7 +966,7 @@ def evaluate(
                 config=config,
                 jinja_env=engine.jinja_env,
                 ui=engine.ui,
-                spec_url=spec_url,
+                spec_urls=spec_urls_list,
                 strategy=strategy,
             )
         )

@@ -22,6 +22,7 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from wptgen.agents.adk_conformance_evaluator import (
+    SpecRequirements,
     evaluate_conformance_with_adk,
 )
 from wptgen.agents.adk_evaluator import (
@@ -90,12 +91,16 @@ class InputScope:
 
 @dataclass
 class ConformanceSection:
-    """Conformance pass results, rendered as a distinct section."""
+    """Conformance pass results, rendered as a distinct section.
 
-    spec_url: str
+    A single judging pass covers every governing spec at once, so `specs`
+    lists each spec that was judged and `findings` are attributed back to a
+    spec via each finding's `source`.
+    """
+
+    specs: list[SpecRequirements]
     findings: list[Finding]
     input_scope: InputScope
-    requirements_xml_bytes: int
 
 
 class EvaluationReportRenderer:
@@ -230,13 +235,84 @@ async def _extract_requirements_for_spec(
     )
 
 
+async def _gather_spec_requirements(
+    spec_urls: list[str],
+    config: Config,
+    jinja_env: Environment,
+    ui: UIProvider,
+) -> list[SpecRequirements]:
+    """Extracts (and caches) requirements for each spec, one at a time.
+
+    Extraction stays per-spec so each spec keeps its own cached requirements
+    XML. A spec that cannot be fetched or extracted is skipped (one bad spec
+    does not sink the rest).
+    """
+    gathered: list[SpecRequirements] = []
+    for spec_url in spec_urls:
+        requirements_xml = await _extract_requirements_for_spec(
+            spec_url=spec_url,
+            config=config,
+            jinja_env=jinja_env,
+            ui=ui,
+        )
+        if requirements_xml:
+            gathered.append(
+                SpecRequirements(
+                    spec_url=spec_url, requirements_xml=requirements_xml
+                )
+            )
+    return gathered
+
+
+async def _run_conformance(
+    specs: list[SpecRequirements],
+    test_path: Path,
+    config: Config,
+    jinja_env: Environment,
+    ui: UIProvider,
+) -> ConformanceSection | None:
+    """Judges the test against every spec in a single conformance pass."""
+    if not specs:
+        return None
+
+    label = ", ".join(s.spec_url for s in specs)
+    ui.on_phase_start(3, f"Spec Conformance Evaluation ({label})")
+    conformance_result = await evaluate_conformance_with_adk(
+        test_path=test_path,
+        specs=specs,
+        config=config,
+        jinja_env=jinja_env,
+        ui=ui,
+    )
+    if not conformance_result:
+        return None
+
+    conformance_payload, conformance_tokens = conformance_result
+    conformance_scope = _payload_to_input_scope(
+        conformance_payload.get("input_scope", {}) or {}
+    )
+    _report_pass_summaries(
+        ui,
+        "Spec conformance",
+        conformance_scope,
+        conformance_tokens,
+    )
+    return ConformanceSection(
+        specs=specs,
+        findings=_payload_to_findings(
+            conformance_payload.get("findings", []) or []
+        ),
+        input_scope=conformance_scope,
+    )
+
+
 async def run_evaluation(
     test_path: Path,
     output_dir: Path | None,
     config: Config,
     jinja_env: Environment,
     ui: UIProvider,
-    spec_url: str | None = None,
+    spec_urls: list[str] | None = None,
     strategy: EvaluatorStrategy = DEFAULT_EVALUATOR_STRATEGY,
 ) -> Path | None:
     """Evaluates a single WPT test file.
@@ -250,10 +326,11 @@ async def run_evaluation(
         jinja_env: The Jinja2 environment (used for agent prompt rendering;
             the report renderer instantiates its own environment).
         ui: The UI provider.
-        spec_url: Optional URL of the governing specification. When
-            provided, a second conformance pass extracts requirements
-            from the spec and judges the test's assertions against
-            them. When None, only the documentation pass runs.
+        spec_urls: Optional URLs of the governing specification(s). When
+            provided, a conformance pass runs per spec: each spec's
+            normative requirements are extracted and the test's assertions
+            judged against them, producing one conformance section per
+            spec. When None or empty, only the documentation pass runs.
         strategy: Which evaluator strategy to use for the documentation
             pass — `"distilled"` (default; judges against the distilled
             rules corpus) or `"raw"` (reads the curated upstream docs
@@ -291,43 +368,17 @@ async def run_evaluation(
     _report_pass_summaries(ui, "Documentation", input_scope, doc_inputs_tokens)
 
     conformance: ConformanceSection | None = None
-    if spec_url:
-        requirements_xml = await _extract_requirements_for_spec(
-            spec_url=spec_url,
+    specs = await _gather_spec_requirements(
+        spec_urls or [], config, jinja_env, ui
+    )
+    if specs:
+        conformance = await _run_conformance(
+            specs=specs,
+            test_path=test_path,
             config=config,
             jinja_env=jinja_env,
             ui=ui,
         )
-        if requirements_xml:
-            ui.on_phase_start(3, "Spec Conformance Evaluation")
-            conformance_result = await evaluate_conformance_with_adk(
-                test_path=test_path,
-                requirements_xml=requirements_xml,
-                config=config,
-                jinja_env=jinja_env,
-                ui=ui,
-            )
-            if conformance_result:
-                conformance_payload, conformance_tokens = conformance_result
-                conformance_scope = _payload_to_input_scope(
-                    conformance_payload.get("input_scope", {}) or {}
-                )
-                conformance = ConformanceSection(
-                    spec_url=spec_url,
-                    findings=_payload_to_findings(
-                        conformance_payload.get("findings", []) or []
-                    ),
-                    input_scope=conformance_scope,
-                    requirements_xml_bytes=len(
-                        requirements_xml.encode("utf-8")
-                    ),
-                )
-                _report_pass_summaries(
-                    ui,
-                    "Spec conformance",
-                    conformance_scope,
-                    conformance_tokens,
-                )
 
     ui.report_findings_summary(
         doc_inputs_counts=_count_findings(findings),

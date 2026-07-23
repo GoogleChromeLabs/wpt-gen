@@ -22,9 +22,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
+from wptgen.agents.adk_conformance_evaluator import SpecRequirements
 from wptgen.agents.adk_evaluator import EvaluatorStrategy
 from wptgen.agents.streaming import TokenUsage
-from wptgen.config import Config
+from wptgen.config import DEFAULT_EVALUATOR_CACHE_DIR, Config
+from wptgen.context import slug_for_spec_url
 from wptgen.phases.evaluation import (
     ConformanceSection,
     EvaluationReportRenderer,
@@ -537,10 +539,14 @@ def test_render_conformance_skipped_when_none() -> None:
 def test_render_conformance_with_findings() -> None:
     """A conformance section with findings renders them in their own block."""
     conformance = ConformanceSection(
-        spec_url="https://drafts.csswg.org/css-flexbox/",
+        specs=[
+            SpecRequirements(
+                spec_url="https://drafts.csswg.org/css-flexbox/",
+                requirements_xml="x" * 12_345,
+            )
+        ],
         findings=[_conformance_finding()],
         input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
-        requirements_xml_bytes=12_345,
     )
     report = _render(
         test_path="wpt/foo/bar.html",
@@ -562,10 +568,14 @@ def test_render_conformance_with_findings() -> None:
 def test_render_conformance_empty_findings_fallback() -> None:
     """Empty conformance findings show the no-findings fallback in the section."""
     conformance = ConformanceSection(
-        spec_url="https://drafts.csswg.org/css-flexbox/",
+        specs=[
+            SpecRequirements(
+                spec_url="https://drafts.csswg.org/css-flexbox/",
+                requirements_xml="x" * 2_048,
+            )
+        ],
         findings=[],
         input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
-        requirements_xml_bytes=2_048,
     )
     report = _render(
         test_path="wpt/foo/bar.html",
@@ -638,7 +648,7 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
         config=evaluation_config,
         jinja_env=MagicMock(),
         ui=mock_ui,
-        spec_url="https://drafts.csswg.org/css-flexbox/",
+        spec_urls=["https://drafts.csswg.org/css-flexbox/"],
     )
 
     assert report_path is not None
@@ -659,11 +669,217 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
     assert "Conformance check: skipped" not in contents
     # Phase headers and findings summary fired for both passes.
     mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
-    mock_ui.on_phase_start.assert_any_call(3, "Spec Conformance Evaluation")
+    mock_ui.on_phase_start.assert_any_call(
+        3,
+        "Spec Conformance Evaluation "
+        "(https://drafts.csswg.org/css-flexbox/)",
+    )
     mock_ui.report_findings_summary.assert_called_once()
     # Per-pass input-scope and token-usage summaries fire twice (one per pass).
     assert mock_ui.report_input_scope_summary.call_count == 2
     assert mock_ui.report_token_usage_actual.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_evaluation_multiple_specs_judged_in_one_pass(
+    wpt_root_with_test: tuple[Path, Path],
+    evaluation_config: Config,
+    mock_ui: MagicMock,
+    tmp_path: Path,
+    mocker: MockerFixture,
+) -> None:
+    """Requirements are extracted per spec, but a single conformance pass
+    judges the test against every spec at once (both in the agent's
+    context), attributing findings back to each spec."""
+    _, test_path = wpt_root_with_test
+    output_dir = tmp_path / "out"
+
+    doc_inputs_payload = {
+        "findings": [],
+        "input_scope": {
+            "files": [],
+            "dependencies_not_read": [],
+            "strategy": "raw",
+        },
+    }
+
+    spec_a = "https://drafts.csswg.org/css-flexbox/"
+    spec_b = "https://drafts.csswg.org/css-grid/"
+
+    # One conformance pass returns findings attributed to both specs.
+    conformance_payload = {
+        "findings": [
+            {
+                "title": "contradicts flexbox",
+                "severity": "error",
+                "test_line": "Line 12",
+                "evidence": "assert_equals(x, 'wrong')",
+                "source": f"{spec_a}#R1",
+                "summary": "flexbox disagrees.",
+            },
+            {
+                "title": "contradicts grid",
+                "severity": "warn",
+                "test_line": "Line 20",
+                "evidence": "assert_true(y)",
+                "source": f"{spec_b}#R4",
+                "summary": "grid disagrees.",
+            },
+        ],
+        "input_scope": {
+            "files": [],
+            "dependencies_not_read": [],
+            "strategy": "distilled",
+        },
+    }
+
+    mock_doc_inputs = mocker.patch(
+        "wptgen.phases.evaluation.evaluate_test_with_adk",
+        new=AsyncMock(return_value=(doc_inputs_payload, TokenUsage())),
+    )
+    mock_conformance = mocker.patch(
+        "wptgen.phases.evaluation.evaluate_conformance_with_adk",
+        new=AsyncMock(return_value=(conformance_payload, TokenUsage())),
+    )
+    # Extraction still runs per spec, returning a distinct doc for each.
+    mock_extract = mocker.patch(
+        "wptgen.phases.evaluation._extract_requirements_for_spec",
+        new=AsyncMock(side_effect=["<requirements a/>", "<requirements b/>"]),
+    )
+
+    report_path = await run_evaluation(
+        test_path=test_path,
+        output_dir=output_dir,
+        config=evaluation_config,
+        jinja_env=MagicMock(),
+        ui=mock_ui,
+        spec_urls=[spec_a, spec_b],
+    )
+
+    assert report_path is not None
+    contents = report_path.read_text(encoding="utf-8")
+
+    # Extraction per spec, but only ONE conformance pass over both.
+    mock_doc_inputs.assert_awaited_once()
+    assert mock_extract.await_count == 2
+    mock_conformance.assert_awaited_once()
+
+    # The single conformance call received both specs, each with its own XML.
+    passed_specs = mock_conformance.await_args_list[0].kwargs["specs"]
+    assert [s.spec_url for s in passed_specs] == [spec_a, spec_b]
+    assert passed_specs[0].requirements_xml == "<requirements a/>"
+    assert passed_specs[1].requirements_xml == "<requirements b/>"
+
+    # One conformance section lists both specs and both attributed findings.
+    assert f"**Spec**: {spec_a}" in contents
+    assert f"**Spec**: {spec_b}" in contents
+    assert "contradicts flexbox" in contents
+    assert "contradicts grid" in contents
+    assert f"**Source**: `{spec_a}#R1`" in contents
+    assert f"**Source**: `{spec_b}#R4`" in contents
+    assert "Conformance check: skipped" not in contents
+
+    # A single conformance phase header fired, labeled with both specs.
+    mock_ui.on_phase_start.assert_any_call(
+        3, f"Spec Conformance Evaluation ({spec_a}, {spec_b})"
+    )
+    mock_ui.report_findings_summary.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_evaluation_multi_spec_pulls_each_spec_from_cache(
+    wpt_root_with_test: tuple[Path, Path],
+    evaluation_config: Config,
+    mock_ui: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+) -> None:
+    """With two specs cached, each conformance pass gets *its own* cached XML."""
+    _, test_path = wpt_root_with_test
+    output_dir = tmp_path / "out"
+
+    spec_a = "https://drafts.csswg.org/css-flexbox/"
+    spec_b = "https://drafts.csswg.org/css-grid/"
+    xml_a = '<requirements_list><requirement id="A1"/></requirements_list>'
+    xml_b = '<requirements_list><requirement id="B1"/></requirements_list>'
+
+    # run_evaluation resolves the cache dir relative to cwd; write the cache
+    # files there under the real spec-slug names so a slug change breaks this.
+    monkeypatch.chdir(tmp_path)
+    cache_dir = tmp_path / DEFAULT_EVALUATOR_CACHE_DIR
+    cache_dir.mkdir(parents=True)
+    for url, xml in ((spec_a, xml_a), (spec_b, xml_b)):
+        cache_file = cache_dir / f"{slug_for_spec_url(url)}__requirements.xml"
+        cache_file.write_text(xml, encoding="utf-8")
+
+    # Auto-accept the cache so no UI prompt is needed for the hit.
+    evaluation_config.yes_cache = True
+
+    mocker.patch(
+        "wptgen.phases.evaluation.evaluate_test_with_adk",
+        new=AsyncMock(
+            return_value=(
+                {
+                    "findings": [],
+                    "input_scope": {
+                        "files": [],
+                        "dependencies_not_read": [],
+                        "strategy": "raw",
+                    },
+                },
+                TokenUsage(),
+            )
+        ),
+    )
+    # Spec text is per-URL, but it must never reach the LLM: the cache hits.
+    mocker.patch(
+        "wptgen.phases.evaluation.fetch_and_slice_spec",
+        return_value="spec text",
+    )
+    mocker.patch(
+        "wptgen.phases.evaluation.get_llm_client",
+        return_value=MagicMock(),
+    )
+    # The extractor LLM. If a cache lookup misses, this fires — and we assert
+    # it does not.
+    mock_generate = mocker.patch(
+        "wptgen.phases.utils.generate_safe",
+        new=AsyncMock(return_value="<should-not-be-used/>"),
+    )
+
+    conformance_payload = {
+        "findings": [],
+        "input_scope": {
+            "files": [],
+            "dependencies_not_read": [],
+            "strategy": "distilled",
+        },
+    }
+    mock_conformance = mocker.patch(
+        "wptgen.phases.evaluation.evaluate_conformance_with_adk",
+        new=AsyncMock(return_value=(conformance_payload, TokenUsage())),
+    )
+
+    report_path = await run_evaluation(
+        test_path=test_path,
+        output_dir=output_dir,
+        config=evaluation_config,
+        jinja_env=MagicMock(),
+        ui=mock_ui,
+        spec_urls=[spec_a, spec_b],
+    )
+
+    assert report_path is not None
+    # The cache satisfied both extractions — the extractor LLM never ran.
+    mock_generate.assert_not_awaited()
+
+    # The single conformance pass received each spec's own cached XML, keyed
+    # to the right spec (a cross-spec cache collision would swap these).
+    mock_conformance.assert_awaited_once()
+    passed_specs = mock_conformance.await_args_list[0].kwargs["specs"]
+    by_url = {s.spec_url: s.requirements_xml for s in passed_specs}
+    assert by_url == {spec_a: xml_a, spec_b: xml_b}
 
 
 @pytest.mark.asyncio
@@ -674,7 +890,7 @@ async def test_run_evaluation_without_spec_skips_conformance(
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    """Without spec_url, neither extraction nor conformance agent runs."""
+    """Without spec_urls, neither extraction nor conformance agent runs."""
     _, test_path = wpt_root_with_test
     output_dir = tmp_path / "out"
 
@@ -709,7 +925,7 @@ async def test_run_evaluation_without_spec_skips_conformance(
         config=evaluation_config,
         jinja_env=MagicMock(),
         ui=mock_ui,
-        spec_url=None,
+        spec_urls=None,
     )
 
     assert report_path is not None
@@ -763,7 +979,7 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
         config=evaluation_config,
         jinja_env=MagicMock(),
         ui=mock_ui,
-        spec_url="https://drafts.csswg.org/css-flexbox/",
+        spec_urls=["https://drafts.csswg.org/css-flexbox/"],
     )
 
     assert report_path is not None

@@ -14,6 +14,7 @@
 """Agentic spec-conformance evaluation using the Google ADK framework."""
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -34,22 +35,39 @@ from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
 
 # Re-exported so both evaluators share one read-only allowlist
-__all__ = ["EVALUATOR_TOOL_ALLOWLIST", "evaluate_conformance_with_adk"]
+__all__ = [
+    "EVALUATOR_TOOL_ALLOWLIST",
+    "SpecRequirements",
+    "evaluate_conformance_with_adk",
+]
+
+
+@dataclass
+class SpecRequirements:
+    """One spec's extracted requirements, kept separate but attributed."""
+
+    spec_url: str
+    requirements_xml: str
+
+    @property
+    def requirements_xml_bytes(self) -> int:
+        return len(self.requirements_xml.encode("utf-8"))
 
 
 async def evaluate_conformance_with_adk(
     test_path: Path,
-    requirements_xml: str,
+    specs: list[SpecRequirements],
     config: Config,
     jinja_env: Environment,
     ui: UIProvider,
 ) -> tuple[dict[str, Any], TokenUsage] | None:
-    """Runs the ADK Agent to judge a test file against a requirements XML.
+    """Runs the ADK Agent to judge a test file against one or more specs.
 
     Args:
         test_path: Path to the test file under evaluation.
-        requirements_xml: The <requirements_list> XML produced by the
-            requirements extraction phase.
+        specs: The governing specs to judge against, each carrying its own
+            <requirements_list> XML (produced by the requirements
+            extraction phase) and its source URL.
         config: The configuration object.
         jinja_env: The Jinja2 environment for loading templates.
         ui: The UI provider for logging output.
@@ -91,9 +109,11 @@ async def evaluate_conformance_with_adk(
                 fields `title` (short description), `severity` (one of
                 "error" or "warn"), `test_line` (a line reference into
                 the test file), `evidence` (the assertion in question),
-                `source` (e.g. `requirements.xml#R3` or
-                `requirements.xml#none-matched`), and `summary` (a
-                one-sentence paraphrase of the contradiction or gap).
+                `source` (the concerned spec's URL plus the requirement
+                id, e.g. `https://drafts.csswg.org/css-flexbox/#R3`, so
+                each finding is attributed to the spec it came from), and
+                `summary` (a one-sentence paraphrase of the contradiction
+                or gap).
             input_scope: An object describing what was loaded, with the
                 fields `files` (a list of `{path, bytes, role}` rows
                 where `role` is one of "skill", "test", "requirements",
@@ -183,7 +203,7 @@ async def evaluate_conformance_with_adk(
     prompt_template = jinja_env.get_template("adk_conformance_evaluator.jinja")
     prompt = prompt_template.render(
         test_path=str(test_path),
-        requirements_xml=requirements_xml,
+        specs=specs,
     )
     content = types.Content(role="user", parts=[types.Part(text=prompt)])
 
