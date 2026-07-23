@@ -87,6 +87,29 @@ def main():
 
         sys.exit(1)
 
+    # Compare setuptools packages.find include
+    root_pkg_find = (
+        root_data.get("tool", {})
+        .get("setuptools", {})
+        .get("packages", {})
+        .get("find", {})
+        .get("include", [])
+    )
+    lib_pkg_find = (
+        lib_data.get("tool", {})
+        .get("setuptools", {})
+        .get("packages", {})
+        .get("find", {})
+        .get("include", [])
+    )
+    if root_pkg_find != lib_pkg_find:
+        print(
+            "Error: packages.find.include in pyproject.toml files is out of sync!"
+        )
+        print(f"Root packages.find.include: {root_pkg_find}")
+        print(f"Lib packages.find.include: {lib_pkg_find}")
+        sys.exit(1)
+
     # Compare setuptools package-data
     root_pkg_data = (
         root_data.get("tool", {}).get("setuptools", {}).get("package-data", {})
