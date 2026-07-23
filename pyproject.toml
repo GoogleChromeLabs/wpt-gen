@@ -92,7 +92,7 @@ wptgen = [
     "templates/*.jinja",
     "templates/*.xml",
     "templates/*.txt",
-    "skills/wpt-generator/**/*"
+    "skills/**/*"
 ]
 
 [tool.black]

@@ -63,3 +63,11 @@ packages = ["wptgen"]
 
 [tool.setuptools.package-dir]
 "wptgen" = "../wptgen"
+
+[tool.setuptools.package-data]
+wptgen = [
+    "templates/*.jinja",
+    "templates/*.xml",
+    "templates/*.txt",
+    "skills/**/*"
+]
