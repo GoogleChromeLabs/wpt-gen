@@ -9,6 +9,9 @@ Model: `{{ run_metadata.model }}` (provider: `{{ run_metadata.provider }}`)
 {% for f in findings -%}
 ### Finding {{ loop.index }} — {{ f.title }}
 
+{% if f.rule_id -%}
+- **Rule**: `{{ f.rule_id }}`
+{% endif -%}
 - **Severity**: {{ f.severity }}
 - **Test line**: {{ f.test_line }}
 - **Evidence**:
@@ -72,5 +75,5 @@ Declared dependencies (not read): {{ input_scope.dependencies_not_read | join(",
 Declared dependencies (not read): none
 {%- endif %}
 
-Approach: {{ input_scope.approach }}
+Strategy: {{ input_scope.strategy }}
 Approximate input tokens: ~{{ "{:,}".format(input_scope.approximate_input_tokens) }}

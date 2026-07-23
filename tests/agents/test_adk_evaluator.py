@@ -28,5 +28,6 @@ def test_evaluator_tool_allowlist_is_pinned() -> None:
             "search_files",
             "search_file_contents",
             "run_wpt_lint",
+            "run_lint_ext",
         }
     )

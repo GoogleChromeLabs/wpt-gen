@@ -24,7 +24,11 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from wptgen.agents.adk_conformance_evaluator import (
     evaluate_conformance_with_adk,
 )
-from wptgen.agents.adk_evaluator import evaluate_test_with_adk
+from wptgen.agents.adk_evaluator import (
+    DEFAULT_EVALUATOR_STRATEGY,
+    EvaluatorStrategy,
+    evaluate_test_with_adk,
+)
 from wptgen.agents.streaming import TokenUsage
 from wptgen.agents.tools import _validate_safe_path
 from wptgen.config import (
@@ -49,6 +53,9 @@ class Finding:
     evidence: str
     source: str  # e.g. "wpt/docs/writing-tests/general-guidelines.md:L82-L87"
     summary: str
+    rule_id: str = (
+        ""  # e.g. "GENERAL-005"; empty for findings not tied to a rule
+    )
 
 
 @dataclass
@@ -66,7 +73,10 @@ class InputScope:
 
     files: list[InputScopeFile] = field(default_factory=list)
     dependencies_not_read: list[str] = field(default_factory=list)
-    approach: str = "doc-inputs"
+    # Which reading strategy produced this scope: "distilled" (judge against
+    # the distilled rules corpus / extracted requirements) or "raw" (read the
+    # upstream docs / spec directly).
+    strategy: EvaluatorStrategy = EvaluatorStrategy.DISTILLED
 
     @property
     def total_bytes(self) -> int:
@@ -97,6 +107,18 @@ class EvaluationReportRenderer:
             autoescape=select_autoescape(disabled_extensions=("jinja",)),
         )
         self.template = self.env.get_template("evaluator_report.jinja")
+
+    def render(
+        self,
+        test_path: str,
+        findings: list[Finding],
+        conformance: ConformanceSection | None = None,
+    ) -> str:
+        return self.template.render(
+            test_path=test_path,
+            findings=findings,
+            conformance=conformance,
+        )
 
     def render_from_payload(self, payload: dict[str, Any]) -> str:
         return self.template.render(**payload)
@@ -142,7 +164,7 @@ def _input_scope_to_payload(input_scope: InputScope) -> dict[str, Any]:
     return {
         "files": [asdict(f) for f in input_scope.files],
         "dependencies_not_read": list(input_scope.dependencies_not_read),
-        "approach": input_scope.approach,
+        "strategy": input_scope.strategy,
         "total_bytes": input_scope.total_bytes,
         "approximate_input_tokens": input_scope.approximate_input_tokens,
     }
@@ -164,6 +186,7 @@ def _payload_to_findings(payload: list[dict[str, Any]]) -> list[Finding]:
                 evidence=str(item.get("evidence", "")),
                 source=str(item.get("source", "")),
                 summary=str(item.get("summary", "")),
+                rule_id=str(item.get("rule_id", "")),
             )
         )
     return findings
@@ -181,10 +204,14 @@ def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
         for item in files_raw
     ]
     deps = payload.get("dependencies_not_read", []) or []
+    try:
+        strategy = EvaluatorStrategy(payload.get("strategy", "distilled"))
+    except ValueError:
+        strategy = EvaluatorStrategy.DISTILLED
     return InputScope(
         files=files,
         dependencies_not_read=[str(d) for d in deps],
-        approach=str(payload.get("approach", "doc-inputs")),
+        strategy=strategy,
     )
 
 
@@ -222,6 +249,7 @@ async def run_evaluation(
     jinja_env: Environment,
     ui: UIProvider,
     spec_url: str | None = None,
+    strategy: EvaluatorStrategy = DEFAULT_EVALUATOR_STRATEGY,
 ) -> Path | None:
     """Evaluates a single WPT test file.
 
@@ -237,11 +265,15 @@ async def run_evaluation(
         spec_url: Optional URL of the governing specification. When
             provided, a second conformance pass extracts requirements
             from the spec and judges the test's assertions against
-            them. When None, only the doc-inputs pass runs.
+            them. When None, only the documentation pass runs.
+        strategy: Which evaluator strategy to use for the documentation
+            pass — `"distilled"` (default; judges against the distilled
+            rules corpus) or `"raw"` (reads the curated upstream docs
+            live).
 
     Returns:
         The path to the written findings report, or None if the
-        doc-inputs agent did not produce one.
+        documentation-pass agent did not produce one.
     """
     if not config.wpt_path:
         raise ValueError("WPT path is required to evaluate tests.")
@@ -257,6 +289,7 @@ async def run_evaluation(
         config=config,
         jinja_env=jinja_env,
         ui=ui,
+        strategy=strategy,
     )
 
     if not agent_result:

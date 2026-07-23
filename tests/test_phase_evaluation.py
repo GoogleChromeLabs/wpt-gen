@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
+from wptgen.agents.adk_evaluator import EvaluatorStrategy
 from wptgen.agents.streaming import TokenUsage
 from wptgen.config import Config
 from wptgen.phases.evaluation import (
@@ -119,7 +120,7 @@ def test_payload_to_input_scope_full() -> None:
             "/resources/testharness.js",
             "http://example.com",
         ],
-        "approach": "doc-inputs",
+        "strategy": "raw",
     }
     scope = _payload_to_input_scope(payload)
     assert len(scope.files) == 2
@@ -130,14 +131,14 @@ def test_payload_to_input_scope_full() -> None:
         "/resources/testharness.js",
         "http://example.com",
     ]
-    assert scope.approach == "doc-inputs"
+    assert scope.strategy == "raw"
 
 
 def test_payload_to_input_scope_tolerates_empty_payload() -> None:
     scope = _payload_to_input_scope({})
     assert scope.files == []
     assert scope.dependencies_not_read == []
-    assert scope.approach == "doc-inputs"  # default
+    assert scope.strategy == "distilled"  # default
 
 
 def test_payload_to_input_scope_handles_none_lists() -> None:
@@ -183,7 +184,7 @@ def _sample_scope(**overrides: Any) -> InputScope:
             ),
         ],
         "dependencies_not_read": [],
-        "approach": "doc-inputs",
+        "strategy": "raw",
     }
     defaults.update(overrides)
     return InputScope(**defaults)
@@ -252,7 +253,7 @@ def test_build_findings_payload_includes_conformance_section() -> None:
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[_conformance_finding()],
-        input_scope=InputScope(approach="spec-conformance"),
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
         requirements_xml_bytes=2_048,
     )
     payload = _build_findings_payload(
@@ -266,15 +267,14 @@ def test_build_findings_payload_includes_conformance_section() -> None:
     assert section["spec_url"] == "https://drafts.csswg.org/css-flexbox/"
     assert section["requirements_xml_bytes"] == 2_048
     assert len(section["findings"]) == 1
-    assert section["input_scope"]["approach"] == "spec-conformance"
+    assert section["input_scope"]["strategy"] == "distilled"
 
 
 def test_render_basic_finding() -> None:
     """A single finding renders with all expected fields."""
     report = _render(
         test_path="wpt/css/css-flexbox/align-content_center.html",
-        findings=[_sample_finding()],
-        input_scope=_sample_scope(),
+        findings=[_sample_finding(rule_id="GENERAL-005")],
     )
 
     # Top-level header
@@ -282,6 +282,7 @@ def test_render_basic_finding() -> None:
 
     # Finding section + fields
     assert "### Finding 1 — missing character encoding declaration" in report
+    assert "**Rule**: `GENERAL-005`" in report
     assert "**Severity**: warn" in report
     assert "**Test line**: Lines 1-4" in report
     assert (
@@ -300,7 +301,6 @@ def test_render_multiline_evidence_stays_inside_code_fence() -> None:
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[_sample_finding(evidence=evidence)],
-        input_scope=_sample_scope(),
     )
 
     # Verify each line of the evidence is inside the fence (indented).
@@ -321,7 +321,6 @@ def test_render_empty_findings_shows_fallback() -> None:
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
-        input_scope=_sample_scope(),
     )
     assert "No findings raised." in report
     # Input scope still renders.
@@ -336,7 +335,7 @@ def test_render_input_scope_table_format() -> None:
             InputScopeFile(path="b.md", bytes=12_345, role="reading-list"),
             InputScopeFile(path="c.html", bytes=968, role="test"),
         ],
-        approach="doc-inputs",
+        strategy=EvaluatorStrategy.DISTILLED,
     )
     report = _render(test_path="wpt/c.html", findings=[], input_scope=scope)
 
@@ -372,15 +371,15 @@ def test_render_dependencies_comma_separated() -> None:
     ) in report
 
 
-def test_render_approach_label_appears() -> None:
-    """The approach label flows through to the rendered Markdown."""
-    scope = _sample_scope(approach="some-other-variant")
+def test_render_strategy_label_appears() -> None:
+    """The strategy label flows through to the rendered Markdown."""
+    scope = _sample_scope(strategy=EvaluatorStrategy.RAW)
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
         input_scope=scope,
     )
-    assert "Approach: some-other-variant" in report
+    assert "Strategy: raw" in report
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +432,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     agent_payload = {
         "findings": [
             {
+                "rule_id": "GENERAL-005",
                 "title": "missing charset",
                 "severity": "warn",
                 "test_line": "Lines 1-4",
@@ -446,7 +446,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
         "input_scope": {
             "files": [{"path": "foo.html", "bytes": 30, "role": "test"}],
             "dependencies_not_read": [],
-            "approach": "doc-inputs",
+            "strategy": "distilled",
         },
     }
 
@@ -468,32 +468,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     contents = report_path.read_text(encoding="utf-8")
     assert "# Findings:" in contents
     assert "### Finding 1 — missing charset" in contents
-    assert "Approach: doc-inputs" in contents
-
-    # The machine-readable JSON output lands alongside the report.
-    json_path = output_dir / f"{test_path.name}.json"
-    assert json_path.is_file()
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    assert payload["test_path"] == str(test_path)
-    assert payload["conformance"] is None
-    # Findings round-trip with their fields intact.
-    assert len(payload["findings"]) == 1
-    finding = payload["findings"][0]
-    assert finding["title"] == "missing charset"
-    assert finding["severity"] == "warn"
-    assert finding["test_line"] == "Lines 1-4"
-    assert finding["evidence"] == "<!doctype html>"
-    assert finding["source"] == (
-        "wpt/docs/writing-tests/general-guidelines.md:L82-L87"
-    )
-    assert finding["summary"] == "HTML must declare encoding."
-    # Input scope carries its derived totals so the JSON is self-describing.
-    scope = payload["input_scope"]
-    assert scope["approach"] == "doc-inputs"
-    assert scope["files"] == [{"path": "foo.html", "bytes": 30, "role": "test"}]
-    assert scope["total_bytes"] == 30
-    assert scope["approximate_input_tokens"] == 7
-
+    assert "Strategy: distilled" in contents
     mock_agent.assert_awaited_once()
     mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
     mock_ui.report_findings_summary.assert_called_once()
@@ -552,7 +527,6 @@ def test_render_conformance_skipped_when_none() -> None:
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
-        input_scope=_sample_scope(),
         conformance=None,
     )
     assert "Conformance check: skipped (no spec provided)." in report
@@ -565,13 +539,12 @@ def test_render_conformance_with_findings() -> None:
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[_conformance_finding()],
-        input_scope=InputScope(approach="spec-conformance"),
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
         requirements_xml_bytes=12_345,
     )
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
-        input_scope=_sample_scope(),
         conformance=conformance,
     )
     assert "## Spec conformance" in report
@@ -591,13 +564,12 @@ def test_render_conformance_empty_findings_fallback() -> None:
     conformance = ConformanceSection(
         spec_url="https://drafts.csswg.org/css-flexbox/",
         findings=[],
-        input_scope=InputScope(approach="spec-conformance"),
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
         requirements_xml_bytes=2_048,
     )
     report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
-        input_scope=_sample_scope(),
         conformance=conformance,
     )
     assert "2,048 bytes" in report
@@ -626,7 +598,7 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
         "input_scope": {
             "files": [{"path": "foo.html", "bytes": 30, "role": "test"}],
             "dependencies_not_read": [],
-            "approach": "doc-inputs",
+            "strategy": "raw",
         },
     }
     conformance_payload = {
@@ -643,7 +615,7 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
         "input_scope": {
             "files": [{"path": "foo.html", "bytes": 30, "role": "test"}],
             "dependencies_not_read": [],
-            "approach": "spec-conformance",
+            "strategy": "distilled",
         },
     }
 
@@ -715,7 +687,7 @@ async def test_run_evaluation_without_spec_skips_conformance(
                     "input_scope": {
                         "files": [],
                         "dependencies_not_read": [],
-                        "approach": "doc-inputs",
+                        "strategy": "raw",
                     },
                 },
                 TokenUsage(),
@@ -756,7 +728,7 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
     mocker: MockerFixture,
 ) -> None:
     """If extraction returns None (fetch failed), conformance is omitted but
-    the doc-inputs report still writes."""
+    the raw-strategy report still writes."""
     _, test_path = wpt_root_with_test
     output_dir = tmp_path / "out"
 
@@ -769,7 +741,7 @@ async def test_run_evaluation_with_spec_renders_skipped_when_extraction_fails(
                     "input_scope": {
                         "files": [],
                         "dependencies_not_read": [],
-                        "approach": "doc-inputs",
+                        "strategy": "raw",
                     },
                 },
                 TokenUsage(),

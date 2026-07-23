@@ -58,6 +58,10 @@ from wptgen.models import (
     WorkflowError,
     WorkflowPhase,
 )
+from wptgen.agents.adk_evaluator import (
+    DEFAULT_EVALUATOR_STRATEGY,
+    EvaluatorStrategy,
+)
 from wptgen.phases.evaluation import run_evaluation
 from wptgen.phases.generation import (
     run_single_test_generation,
@@ -895,6 +899,18 @@ def evaluate(
             ),
         ),
     ] = None,
+    strategy: Annotated[
+        EvaluatorStrategy,
+        typer.Option(
+            "--strategy",
+            "-a",
+            help=(
+                "Documentation-pass strategy: 'distilled' (default) judges "
+                "against the distilled rules corpus; 'raw' reads the "
+                "curated upstream docs live."
+            ),
+        ),
+    ] = DEFAULT_EVALUATOR_STRATEGY,
     config_path: Annotated[
         str,
         typer.Option(
@@ -928,6 +944,7 @@ def evaluate(
                 jinja_env=engine.jinja_env,
                 ui=engine.ui,
                 spec_url=spec_url,
+                strategy=strategy,
             )
         )
 
