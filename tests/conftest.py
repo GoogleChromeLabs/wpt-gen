@@ -14,12 +14,20 @@
 
 """Shared fixtures for tests."""
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from wptgen.config import Config
+
+# The benchmark harness modules form the ``benchmark`` package under
+# ``scripts/``. Adding it here lets the benchmark tests use
+# ``from benchmark... import`` with no per-file setup.
+_SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
 
 
 @pytest.fixture

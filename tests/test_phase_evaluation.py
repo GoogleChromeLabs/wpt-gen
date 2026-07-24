@@ -14,6 +14,7 @@
 """Tests for the evaluation phase: dataclasses, payload conversion, the
 report renderer, and run_evaluation."""
 
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -32,6 +33,7 @@ from wptgen.phases.evaluation import (
     Finding,
     InputScope,
     InputScopeFile,
+    _build_findings_payload,
     _count_findings,
     _payload_to_findings,
     _payload_to_input_scope,
@@ -190,10 +192,97 @@ def _sample_scope(**overrides: Any) -> InputScope:
     return InputScope(**defaults)
 
 
+def _sample_metadata() -> dict[str, Any]:
+    return {"provider": "gemini", "model": "gemini-3.1-pro-preview"}
+
+
+def _render(
+    test_path: str,
+    findings: list[Finding],
+    input_scope: InputScope | None = None,
+    conformance: ConformanceSection | None = None,
+) -> str:
+    """Builds the payload and renders it, mirroring run_evaluation's path."""
+    payload = _build_findings_payload(
+        test_path=Path(test_path),
+        findings=findings,
+        input_scope=input_scope if input_scope is not None else _sample_scope(),
+        conformance=conformance,
+        run_metadata=_sample_metadata(),
+    )
+    return EvaluationReportRenderer().render_from_payload(payload)
+
+
+def test_build_findings_payload_is_json_serializable() -> None:
+    """The payload must survive json.dumps — it is written to disk as-is."""
+    payload = _build_findings_payload(
+        test_path=Path("wpt/foo/bar.html"),
+        findings=[_sample_finding()],
+        input_scope=_sample_scope(),
+        conformance=None,
+        run_metadata=_sample_metadata(),
+    )
+    round_tripped = json.loads(json.dumps(payload))
+    assert round_tripped == payload
+
+
+def test_build_findings_payload_records_run_metadata() -> None:
+    payload = _build_findings_payload(
+        test_path=Path("wpt/foo/bar.html"),
+        findings=[],
+        input_scope=_sample_scope(),
+        conformance=None,
+        run_metadata=_sample_metadata(),
+    )
+    assert payload["run_metadata"] == {
+        "provider": "gemini",
+        "model": "gemini-3.1-pro-preview",
+    }
+
+
+def test_build_findings_payload_conformance_is_none_without_spec() -> None:
+    payload = _build_findings_payload(
+        test_path=Path("wpt/foo/bar.html"),
+        findings=[],
+        input_scope=_sample_scope(),
+        conformance=None,
+        run_metadata=_sample_metadata(),
+    )
+    assert payload["conformance"] is None
+
+
+def test_build_findings_payload_includes_conformance_section() -> None:
+    conformance = ConformanceSection(
+        specs=[
+            SpecRequirements(
+                spec_url="https://drafts.csswg.org/css-flexbox/",
+                requirements_xml="x" * 2_048,
+            )
+        ],
+        findings=[_conformance_finding()],
+        input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
+    )
+    payload = _build_findings_payload(
+        test_path=Path("wpt/foo/bar.html"),
+        findings=[],
+        input_scope=_sample_scope(),
+        conformance=conformance,
+        run_metadata=_sample_metadata(),
+    )
+    section = payload["conformance"]
+    assert len(section["specs"]) == 1
+    assert (
+        section["specs"][0]["spec_url"]
+        == "https://drafts.csswg.org/css-flexbox/"
+    )
+    assert section["specs"][0]["requirements_xml_bytes"] == 2_048
+    assert len(section["findings"]) == 1
+    assert section["input_scope"]["strategy"] == "distilled"
+
+
 def test_render_basic_finding() -> None:
     """A single finding renders with all expected fields."""
-    renderer = EvaluationReportRenderer()
-    report = renderer.render(
+    report = _render(
         test_path="wpt/css/css-flexbox/align-content_center.html",
         findings=[_sample_finding(rule_id="GENERAL-005")],
     )
@@ -218,9 +307,8 @@ def test_render_basic_finding() -> None:
 
 def test_render_multiline_evidence_stays_inside_code_fence() -> None:
     """Multi-line evidence renders within a single fenced block."""
-    renderer = EvaluationReportRenderer()
     evidence = "<head>\n  <title>foo</title>\n  <meta>"
-    report = renderer.render(
+    report = _render(
         test_path="wpt/foo/bar.html",
         findings=[_sample_finding(evidence=evidence)],
     )
@@ -240,22 +328,68 @@ def test_render_multiline_evidence_stays_inside_code_fence() -> None:
 
 
 def test_render_empty_findings_shows_fallback() -> None:
-    renderer = EvaluationReportRenderer()
-    report = renderer.render(
+    report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
     )
     assert "No findings raised." in report
+    # Input scope still renders.
+    assert "## Input scope" in report
 
 
-def test_render_finding_without_rule_id_omits_rule_line() -> None:
-    """A finding with no rule_id renders without a **Rule** line."""
-    renderer = EvaluationReportRenderer()
-    report = renderer.render(
-        test_path="wpt/foo/bar.html",
-        findings=[_sample_finding(rule_id="")],
+def test_render_input_scope_table_format() -> None:
+    """The Input scope table uses comma-formatted bytes and a Total row."""
+    scope = InputScope(
+        files=[
+            InputScopeFile(path="a.md", bytes=1_500, role="skill"),
+            InputScopeFile(path="b.md", bytes=12_345, role="reading-list"),
+            InputScopeFile(path="c.html", bytes=968, role="test"),
+        ],
+        strategy=EvaluatorStrategy.DISTILLED,
     )
-    assert "**Rule**:" not in report
+    report = _render(test_path="wpt/c.html", findings=[], input_scope=scope)
+
+    # Each row shows comma-formatted bytes.
+    assert "| a.md | 1,500 | skill |" in report
+    assert "| b.md | 12,345 | reading-list |" in report
+    assert "| c.html | 968 | test |" in report
+    # Total row matches total_bytes (1500 + 12345 + 968 = 14813).
+    assert "**Total** | **14,813**" in report
+    # Token estimate is total_bytes // 4 = 3703.
+    assert "Approximate input tokens: ~3,703" in report
+
+
+def test_render_no_dependencies_says_none() -> None:
+    report = _render(
+        test_path="wpt/foo/bar.html",
+        findings=[],
+        input_scope=_sample_scope(dependencies_not_read=[]),
+    )
+    assert "Declared dependencies (not read): none" in report
+
+
+def test_render_dependencies_comma_separated() -> None:
+    deps = ["/resources/testharness.js", "http://example.com/foo.js"]
+    report = _render(
+        test_path="wpt/foo/bar.html",
+        findings=[],
+        input_scope=_sample_scope(dependencies_not_read=deps),
+    )
+    assert (
+        "Declared dependencies (not read): "
+        "/resources/testharness.js, http://example.com/foo.js"
+    ) in report
+
+
+def test_render_strategy_label_appears() -> None:
+    """The strategy label flows through to the rendered Markdown."""
+    scope = _sample_scope(strategy=EvaluatorStrategy.RAW)
+    report = _render(
+        test_path="wpt/foo/bar.html",
+        findings=[],
+        input_scope=scope,
+    )
+    assert "Strategy: raw" in report
 
 
 # ---------------------------------------------------------------------------
@@ -344,7 +478,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
     contents = report_path.read_text(encoding="utf-8")
     assert "# Findings:" in contents
     assert "### Finding 1 — missing charset" in contents
-    assert "**Rule**: `GENERAL-005`" in contents
+    assert "Strategy: distilled" in contents
     mock_agent.assert_awaited_once()
     mock_ui.on_phase_start.assert_any_call(1, "Documentation Evaluation")
     mock_ui.report_findings_summary.assert_called_once()
@@ -400,8 +534,7 @@ def _conformance_finding() -> Finding:
 
 def test_render_conformance_skipped_when_none() -> None:
     """No conformance section means the report says 'skipped'."""
-    renderer = EvaluationReportRenderer()
-    report = renderer.render(
+    report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
         conformance=None,
@@ -413,7 +546,6 @@ def test_render_conformance_skipped_when_none() -> None:
 
 def test_render_conformance_with_findings() -> None:
     """A conformance section with findings renders them in their own block."""
-    renderer = EvaluationReportRenderer()
     conformance = ConformanceSection(
         specs=[
             SpecRequirements(
@@ -424,7 +556,7 @@ def test_render_conformance_with_findings() -> None:
         findings=[_conformance_finding()],
         input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
     )
-    report = renderer.render(
+    report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
         conformance=conformance,
@@ -443,7 +575,6 @@ def test_render_conformance_with_findings() -> None:
 
 def test_render_conformance_empty_findings_fallback() -> None:
     """Empty conformance findings show the no-findings fallback in the section."""
-    renderer = EvaluationReportRenderer()
     conformance = ConformanceSection(
         specs=[
             SpecRequirements(
@@ -454,7 +585,7 @@ def test_render_conformance_empty_findings_fallback() -> None:
         findings=[],
         input_scope=InputScope(strategy=EvaluatorStrategy.DISTILLED),
     )
-    report = renderer.render(
+    report = _render(
         test_path="wpt/foo/bar.html",
         findings=[],
         conformance=conformance,

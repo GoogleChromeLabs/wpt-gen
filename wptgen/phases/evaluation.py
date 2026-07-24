@@ -14,7 +14,8 @@
 """Evaluation phase — run the wpt-evaluator agent on a single test file."""
 
 import asyncio
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +104,7 @@ class ConformanceSection:
 
 
 class EvaluationReportRenderer:
-    """Renders structured evaluator output into the report Markdown format."""
+    """Renders the findings payload into the report Markdown format."""
 
     def __init__(self) -> None:
         self.env = Environment(
@@ -112,17 +113,59 @@ class EvaluationReportRenderer:
         )
         self.template = self.env.get_template("evaluator_report.jinja")
 
-    def render(
-        self,
-        test_path: str,
-        findings: list[Finding],
-        conformance: ConformanceSection | None = None,
-    ) -> str:
-        return self.template.render(
-            test_path=test_path,
-            findings=findings,
-            conformance=conformance,
-        )
+    def render_from_payload(self, payload: dict[str, Any]) -> str:
+        return self.template.render(**payload)
+
+
+def _build_findings_payload(
+    test_path: Path,
+    findings: list[Finding],
+    input_scope: InputScope,
+    conformance: ConformanceSection | None,
+    run_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Assembles the machine-readable findings payload.
+
+    The payload is the source of truth for both the JSON output and the
+    rendered Markdown report, so downstream tooling (e.g. the benchmark
+    harness) consumes exactly what the report shows.
+
+    ``run_metadata`` records how this evaluation was produced (provider,
+    model). It travels with the findings so consumers know which model
+    generated them without re-deriving it from config that may since have
+    changed.
+    """
+    payload: dict[str, Any] = {
+        "test_path": test_path.as_posix(),
+        "run_metadata": run_metadata,
+        "findings": [asdict(f) for f in findings],
+        "input_scope": _input_scope_to_payload(input_scope),
+        "conformance": None,
+    }
+    if conformance is not None:
+        payload["conformance"] = {
+            "specs": [
+                {
+                    "spec_url": spec.spec_url,
+                    "requirements_xml_bytes": spec.requirements_xml_bytes,
+                }
+                for spec in conformance.specs
+            ],
+            "findings": [asdict(f) for f in conformance.findings],
+            "input_scope": _input_scope_to_payload(conformance.input_scope),
+        }
+    return payload
+
+
+def _input_scope_to_payload(input_scope: InputScope) -> dict[str, Any]:
+    """Serializes an InputScope, including its derived totals."""
+    return {
+        "files": [asdict(f) for f in input_scope.files],
+        "dependencies_not_read": list(input_scope.dependencies_not_read),
+        "strategy": input_scope.strategy,
+        "total_bytes": input_scope.total_bytes,
+        "approximate_input_tokens": input_scope.approximate_input_tokens,
+    }
 
 
 def _payload_to_findings(payload: list[dict[str, Any]]) -> list[Finding]:
@@ -349,17 +392,26 @@ async def run_evaluation(
         ),
     )
 
-    renderer = EvaluationReportRenderer()
-    report_markdown = renderer.render(
-        test_path=str(test_path),
-        findings=findings,
-        conformance=conformance,
-    )
-
     if output_dir is None:
         output_dir = Path.cwd() / DEFAULT_EVALUATOR_OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    run_metadata: dict[str, Any] = {
+        "provider": config.provider,
+        "model": config.default_model,
+    }
+    payload = _build_findings_payload(
+        test_path=test_path,
+        findings=findings,
+        input_scope=input_scope,
+        conformance=conformance,
+        run_metadata=run_metadata,
+    )
+    json_output_path = output_dir / f"{test_path.name}.json"
+    json_output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    renderer = EvaluationReportRenderer()
+    report_markdown = renderer.render_from_payload(payload)
     output_path = output_dir / f"{test_path.name}.md"
     output_path.write_text(report_markdown, encoding="utf-8")
     return output_path
