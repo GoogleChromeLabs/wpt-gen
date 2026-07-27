@@ -21,8 +21,8 @@ stable.
 ## Pinned upstream commit
 
 - Repository: https://github.com/web-platform-tests/wpt
-- Commit: `fbe57e07f26f4e9b45bdf7647b4cbf1e1a4563dd`
-- Date: 2026-07-02
+- Commit: `f5a7deaba2bffac7a534dfafaa3baf14b9a253cf`
+- Date: 2026-07-23
 
 ## Upstream source documents
 
