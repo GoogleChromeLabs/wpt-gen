@@ -22,7 +22,7 @@
 # See ../SKILL.md for how this corpus is consumed.
 
 version: 0.2.0
-wpt_upstream_commit: fbe57e07f26f4e9b45bdf7647b4cbf1e1a4563dd
+wpt_upstream_commit: f5a7deaba2bffac7a534dfafaa3baf14b9a253cf
 
 # Source-document prefixes (used as rule ID prefixes):
 #   GENERAL          writing-tests/general-guidelines.md
