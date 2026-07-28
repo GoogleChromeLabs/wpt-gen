@@ -86,7 +86,7 @@ and `warnings` counts that finding's advisory notes (e.g. `⚠ source ×2`).
 A per-entry example:
 
 ```
-### `seed-worker-missing-done` (seed/testharness)
+### `seed-worker-missing-title` (seed/testharness)
 
 - Seed: precision 0.5, recall 1.0 (TP 1, FP 1, FN 0)
 
@@ -94,18 +94,18 @@ A per-entry example:
 
 | title | source | firing rate | warnings |
 | --- | --- | --- | --- |
-| Missing `done()` call | `wpt/docs/writing-tests/testharness.md` @ L15-16 | 3/3 (1.0) | ⚠ source ×3 |
+| Missing `META: title` | `TESTHARNESS-005` @ L1-3 | 3/3 (1.0) |  |
 
 **False positives**
 
 | title | source | firing rate | warnings |
 | --- | --- | --- | --- |
-| Test not in spec directory | `wpt/docs/reviewing-tests/checklist.md` @ L1-1 | 1/3 (0.333) |  |
+| Test not in spec directory | `CHECKLIST-007` @ L1-1 | 1/3 (0.333) |  |
 ```
 
-Here the intended defect (`testharness.md`) is a true positive that fired
-every repeat, while a noisy `checklist.md` finding is a false positive that
-also fired only once — flaky *and* spurious.
+Here the intended defect (`TESTHARNESS-005`) is a true positive that fired
+every repeat, while a spurious `CHECKLIST-007` finding is a false positive
+that also fired only once — flaky *and* spurious.
 
 ## Layout
 
@@ -223,12 +223,14 @@ them.
   skill instructs the evaluator to skip anything `wpt lint` enforces, so a
   lint-covered defect tests nothing — the agent is *correct* to stay silent,
   and the seed would score as a false recall failure. Every seed must be
-  lint-clean; check before adding it (the harness stages seeds flattened, so
-  copy the bare file, not its category dir):
+  lint-clean; check before adding it (copy the bare file into a scratch dir
+  in the checkout — not the harness's `wpt-gen-bench/` staging dir, which is
+  marker-protected):
 
   ```
-  cp benchmarks/seeds/<category>/<file> <wpt_dir>/wpt-gen-bench/<file>
-  cd <wpt_dir> && ./wpt lint ./wpt-gen-bench/<file>   # must report no errors
+  mkdir -p <wpt_dir>/lintcheck
+  cp benchmarks/seeds/<category>/<file> <wpt_dir>/lintcheck/<file>
+  cd <wpt_dir> && ./wpt lint ./lintcheck/<file>   # must report no errors
   ```
 
 - Embed the canary GUID in a comment. In `.js` seeds it must come *after*
@@ -236,23 +238,27 @@ them.
   the `// META:` block trips the linter's `STRAY-METADATA` rule.
 - Re-review seeds whenever `rules.yaml` bumps its version.
 
-## Current status: proof of concept
+## Current status
 
-The seeds here are a deliberately small proof of concept — enough to wire up
-and test the harness, not the full stratified set. Two reasons to keep it
-small for now:
+The seed set is a **first real batch derived from `rules.yaml`**, not yet the
+full stratified corpus. It targets objective semantic rules — ones requiring
+judgment (so worth an evaluator) but with a crisp, checkable violation:
 
-1. Seed authoring is the expensive, judgment-heavy part of this work, and it
-   gets substantially cheaper once `rules.yaml` lands: each rule already
-   names its violation and its source anchor, so seeds (and their `expect`
-   labels) can be **generated from the rules corpus** and then translated
-   back to doc keys for the pre-merge baseline.
-2. The "consistency corpus" (20–40 files across every kind) should be selected by a
-   scripted, fixed-seed procedure and pinned after maintainer review.
+| seed | rule | defect |
+| --- | --- | --- |
+| `seed-worker-missing-title` | TESTHARNESS-005 | `.worker.js` with no `META: title` |
+| `seed-window-manual-script-wiring` | TESTHARNESS-006 | helper wired by hand, not `META: script` |
+| `seed-any-missing-long-timeout` | TESTHARNESS-008 | long test with no `META: timeout=long` |
+| `seed-feature-support-bailout` | CHECKLIST-015 | support gate skips the rest of the file |
+| `seed-internal-timeout-wait` | CHECKLIST-016 | fixed `step_timeout` instead of an event |
+| `seed-idl-ancestor-interface` | IDLHARNESS-003 | `add_objects` names an ancestor interface |
+| `seed-reftest-ref-same-technique` | REFTESTS-002 | reference reuses the technology under test |
+| `seed-clean-headers-append` | — | known-clean control (`expect: []`) |
 
-The current entries exercise the schema end to end (a violation seed with
-a doc-keyed label, a reference-quality seed, a clean file, and two real
-corpus files).
+Still to come: seeds for the remaining semantic rules (subjective-quality
+ones like GENERAL-006 "as short as possible" are deferred — they make recall
+noisy), and a scripted, fixed-seed selection of the 20–40 file consistency
+corpus (currently a two-file POC slice).
 
 The benchmark runs the WPT Docs Eval agent only; the --spec conformance check is 
 out of scope until spec requirements XML can be pinned per test.
