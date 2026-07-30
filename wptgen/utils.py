@@ -61,6 +61,33 @@ def clean_file_content(content: str) -> str:
     return content.rstrip("\r\n") + "\n"
 
 
+def _normalize_ws(text: str) -> str:
+    """Collapses whitespace runs to one space and trims, for permissive
+    matching of a snippet the model may have reflowed or re-indented."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def locate_snippet(snippet: str, source: str) -> list[tuple[int, str]]:
+    """Every (1-based line, exact source text) where ``snippet`` appears.
+
+    Whitespace-normalized substring match on the snippet's first non-blank
+    line. Returns the source's own text for each hit, so a caller can anchor a
+    finding to real file content that it never has to transcribe. Empty when
+    the snippet is not present.
+    """
+    snippet_lines = [ln for ln in snippet.splitlines() if ln.strip()]
+    if not snippet_lines:
+        return []
+    needle = _normalize_ws(snippet_lines[0])
+    if not needle:
+        return []
+    return [
+        (i, src_line)
+        for i, src_line in enumerate(source.splitlines(), start=1)
+        if needle in _normalize_ws(src_line)
+    ]
+
+
 def extract_xml_tag(text: str, tag: str) -> str | None:
     """Extracts the content of an XML-like tag from a string."""
     match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL)

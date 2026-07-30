@@ -27,7 +27,11 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
-from wptgen.agents.adk_evaluator import EVALUATOR_TOOL_ALLOWLIST
+from wptgen.agents.adk_evaluator import (
+    EVALUATOR_TOOL_ALLOWLIST,
+    _read_test_source,
+)
+from wptgen.utils import locate_snippet
 from wptgen.agents.provider import setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
@@ -105,15 +109,12 @@ async def evaluate_conformance_with_adk(
         attempt to format the report yourself; do NOT write any file.
 
         Args:
-            findings: A list of finding objects, each containing the
-                fields `title` (short description), `severity` (one of
-                "error" or "warn"), `test_line` (a line reference into
-                the test file), `evidence` (the assertion in question),
-                `source` (the concerned spec's URL plus the requirement
-                id, e.g. `https://drafts.csswg.org/css-flexbox/#R3`, so
-                each finding is attributed to the spec it came from), and
-                `summary` (a one-sentence paraphrase of the contradiction
-                or gap).
+            findings: Finding objects with fields `title`, `severity`
+                ("error"/"warn"), `citation` (verbatim snippet from `locate`,
+                "" if none), `source` (the concerned spec's URL + requirement
+                id, e.g. `https://drafts.csswg.org/css-flexbox/#R3`), and
+                `summary` (the requirement and how this test contradicts or
+                gaps it). No `test_line` — it derives from `citation`.
             input_scope: An object describing what was loaded, with the
                 fields `files` (a list of `{path, bytes, role}` rows
                 where `role` is one of "skill", "test", "requirements",
@@ -130,6 +131,29 @@ async def evaluate_conformance_with_adk(
         )
         return {"status": "success", "message": "Evaluation recorded."}
 
+    def locate(snippet: str) -> dict[str, Any]:
+        """Find where a snippet appears in the test file under evaluation.
+
+        Use this to obtain a finding's `citation`: pass the assertion or code
+        you are flagging and record a returned match's `text` (verbatim file
+        content) and `line`. Never write a line number or citation from memory.
+
+        Args:
+            snippet: The code/assertion you are flagging, roughly as recalled.
+                Whitespace differences are tolerated.
+
+        Returns:
+            A dict with `matches`: a list of `{line, text}` objects, one per
+            place the snippet occurs (empty when not in the file).
+        """
+        matches = [
+            {"line": line, "text": text}
+            for line, text in locate_snippet(snippet, test_source or "")
+        ]
+        return {"matches": matches}
+
+    test_source = _read_test_source(test_path)
+
     all_tools = list(
         create_agent_tools(
             wpt_root,
@@ -144,6 +168,7 @@ async def evaluate_conformance_with_adk(
         t for t in all_tools if t.func.__name__ in EVALUATOR_TOOL_ALLOWLIST
     ]
     tools.append(FunctionTool(func=report_conformance_complete))
+    tools.append(FunctionTool(func=locate))
 
     skill_dir = SKILLS_DIR / "wpt-evaluator-conformance"
     if skill_dir.is_dir():

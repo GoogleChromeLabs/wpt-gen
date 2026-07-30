@@ -42,18 +42,30 @@ from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext
 from wptgen.phases.requirements_extraction import run_requirements_extraction
 from wptgen.ui import UIProvider
+from wptgen.utils import locate_snippet
 
 
 @dataclass
 class Finding:
-    """A single advisory finding produced by the evaluator."""
+    """A single advisory finding produced by the evaluator.
+
+    ``citation`` and ``test_line`` are line-anchored provenance: the exact file
+    text the finding points at and its line. They are derived deterministically
+    from the ``locate`` tool / a post-hoc lookup, never authored by the model,
+    so they cannot cite text that is not in the file. A finding may be
+    citation-less (``citation=""``, ``test_line=""``) when it concerns
+    something missing or a whole-file property; its ``summary`` then carries the
+    reasoning alone. ``summary`` is the model's prose: the governing rule and
+    how it applies to this test.
+    """
 
     title: str
     severity: str  # "error", "warn", "info", or "nit"
-    test_line: str  # e.g. "Line 24" or "Lines 21-23" or "filename"
-    evidence: str
+    test_line: str  # e.g. "Line 24" or "Lines 21-23"; "" when citation-less
     source: str  # e.g. "wpt/docs/writing-tests/general-guidelines.md:L82-L87"
-    summary: str
+    summary: str  # the rule + how it applies to this finding
+    # Exact verbatim file text the finding anchors to; "" when citation-less.
+    citation: str = ""
     rule_id: str = (
         ""  # e.g. "GENERAL-005"; empty for findings not tied to a rule
     )
@@ -168,26 +180,61 @@ def _input_scope_to_payload(input_scope: InputScope) -> dict[str, Any]:
     }
 
 
-def _payload_to_findings(payload: list[dict[str, Any]]) -> list[Finding]:
+def _read_test_source(test_path: Path) -> str | None:
+    """The test file's text for citation resolution, or None if unreadable."""
+    try:
+        return test_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _payload_to_findings(
+    payload: list[dict[str, Any]], test_source: str | None = None
+) -> tuple[list[Finding], int]:
     """Converts the agent's JSON-shaped findings payload into Finding objects.
 
     Tolerates missing fields by substituting empty strings — the renderer
     will display the gap rather than crash.
+
+    ``citation``/``test_line`` are validated against ``test_source`` (the
+    evaluated file's text): a citation is re-located in the file and its
+    ``test_line`` set from that location, with the citation replaced by the
+    exact file text. A citation that cannot be located is dropped and the
+    finding demoted to citation-less (never emit a line the file does not
+    back). Omitting ``test_source`` passes the fields through unchecked.
+
+    Returns ``(findings, demoted)`` where ``demoted`` counts citations the
+    model supplied that were not in the file (a hallucination quality signal).
     """
     findings: list[Finding] = []
+    demoted = 0
     for item in payload:
+        citation = str(item.get("citation", ""))
+        test_line = str(item.get("test_line", ""))
+        if test_source is not None and citation.strip():
+            located = locate_snippet(citation, test_source)
+            if located:
+                line, exact_text = located[0]
+                citation = exact_text
+                test_line = f"Line {line}"
+            else:
+                # Fabricated citation: demote to citation-less rather than
+                # emit an unbacked line.
+                citation = ""
+                test_line = ""
+                demoted += 1
         findings.append(
             Finding(
                 title=str(item.get("title", "")),
                 severity=str(item.get("severity", "")),
-                test_line=str(item.get("test_line", "")),
-                evidence=str(item.get("evidence", "")),
+                test_line=test_line,
                 source=str(item.get("source", "")),
                 summary=str(item.get("summary", "")),
+                citation=citation,
                 rule_id=str(item.get("rule_id", "")),
             )
         )
-    return findings
+    return findings, demoted
 
 
 def _payload_to_input_scope(payload: dict[str, Any]) -> InputScope:
@@ -302,11 +349,14 @@ async def _run_conformance(
         conformance_scope,
         conformance_tokens,
     )
+    conf_findings, conf_demoted = _payload_to_findings(
+        conformance_payload.get("findings", []) or [],
+        _read_test_source(test_path),
+    )
+    _warn_demoted_citations(ui, "conformance", conf_demoted)
     return ConformanceSection(
         specs=specs,
-        findings=_payload_to_findings(
-            conformance_payload.get("findings", []) or []
-        ),
+        findings=conf_findings,
         input_scope=conformance_scope,
     )
 
@@ -366,7 +416,11 @@ async def run_evaluation(
         return None
 
     agent_payload, doc_inputs_tokens = agent_result
-    findings = _payload_to_findings(agent_payload.get("findings", []) or [])
+    findings, demoted = _payload_to_findings(
+        agent_payload.get("findings", []) or [],
+        _read_test_source(test_path),
+    )
+    _warn_demoted_citations(ui, "documentation", demoted)
     input_scope = _payload_to_input_scope(
         agent_payload.get("input_scope", {}) or {}
     )
@@ -432,6 +486,20 @@ def _files_by_role(input_scope: InputScope) -> dict[str, int]:
     for file in input_scope.files:
         counts[file.role] = counts.get(file.role, 0) + 1
     return counts
+
+
+def _warn_demoted_citations(ui: UIProvider, label: str, demoted: int) -> None:
+    """Surfaces the count of citations that were not in the file.
+
+    A demotion means the model supplied a citation the file does not contain;
+    the backstop stripped it so no bad line reaches the report. The report
+    stays clean — this is a run-quality signal, not a report annotation.
+    """
+    if demoted:
+        ui.warning(
+            f"{label}: {demoted} finding citation(s) were not found in the "
+            "test file and were dropped (line reference removed)."
+        )
 
 
 def _report_pass_summaries(

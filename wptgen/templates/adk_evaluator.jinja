@@ -2,12 +2,14 @@ Evaluate the WPT test file at the path below using the {{ skill_name }} skill. R
 
 <test_file>{{ test_path }}</test_file>
 
+To anchor a finding to a line, call the `locate` tool with the offending snippet and record a returned match's `text` as the finding's `citation`. Never write a line number or citation from memory — a citation must come from `locate` so it always matches the file. If a finding is about something missing or a whole-file property (no snippet to quote), leave `citation` empty.
+
 When the evaluation is complete, submit your findings via the `report_evaluation_complete` tool. Pass:
 
 {% if strategy == "distilled" -%}
-- `findings`: a list of finding objects (one per rule violation raised). Each finding must include the fields `rule_id` (the violated `rules.yaml` rule, e.g. `GENERAL-005`), `title`, `severity`, `test_line`, `evidence`, `source`, and `summary` as described in the tool's parameter spec. If you found no issues, pass an empty list.
+- `findings`: a list of finding objects (one per rule violation raised). Each finding must include the fields `rule_id` (the violated `rules.yaml` rule, e.g. `GENERAL-005`), `title`, `severity`, `citation` (verbatim from `locate`, or `""`), `source`, and `summary` (the rule and how it applies to this test) as described in the tool's parameter spec. Do NOT include `test_line`. If you found no issues, pass an empty list.
 {% else -%}
-- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `test_line`, `evidence`, `source` (the upstream doc path + line range that prompted the finding), and `summary` as described in the tool's parameter spec. If you found no issues, pass an empty list.
+- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `citation` (verbatim from `locate`, or `""`), `source` (the upstream doc path + line range that prompted the finding), and `summary` (the guidance and how it applies to this test) as described in the tool's parameter spec. Do NOT include `test_line`. If you found no issues, pass an empty list.
 {% endif -%}
 - `input_scope`: an object describing every file you opened during the evaluation. Include `files` (a list of `{path, bytes, role}` rows), `dependencies_not_read` (framework + external dependencies you detected but did not open), and `strategy` (set to `"{{ strategy }}"`).
 

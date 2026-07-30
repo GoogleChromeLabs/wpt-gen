@@ -20,7 +20,29 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from wptgen.utils import retry
+from wptgen.utils import locate_snippet, retry
+
+_SRC = "a\n  <b>x</b>\nc\n  <b>x</b>\n"
+
+
+def test_locate_snippet_finds_and_returns_exact_text() -> None:
+    assert locate_snippet("<b>x</b>", _SRC) == [
+        (2, "  <b>x</b>"),
+        (4, "  <b>x</b>"),
+    ]
+
+
+def test_locate_snippet_normalizes_whitespace() -> None:
+    # A snippet re-indented by the model still matches the file's own line.
+    assert locate_snippet("<b>x</b>", _SRC)[0][0] == 2
+
+
+def test_locate_snippet_missing_is_empty() -> None:
+    assert locate_snippet("nope", _SRC) == []
+
+
+def test_locate_snippet_blank_is_empty() -> None:
+    assert locate_snippet("   \n  ", _SRC) == []
 
 
 def test_retry_success() -> None:

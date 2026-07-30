@@ -39,6 +39,7 @@ from wptgen.phases.evaluation import (
     _payload_to_input_scope,
     run_evaluation,
 )
+from wptgen.utils import locate_snippet
 
 # ---------------------------------------------------------------------------
 # InputScope dataclass properties
@@ -80,36 +81,142 @@ def test_payload_to_findings_roundtrips_all_fields() -> None:
             "title": "missing charset",
             "severity": "warn",
             "test_line": "Lines 1-4",
-            "evidence": "<head>...",
+            "citation": "<head>...",
             "source": "wpt/docs/writing-tests/general-guidelines.md:L82-L87",
             "summary": "HTML files must declare encoding.",
         }
     ]
-    findings = _payload_to_findings(payload)
+    findings, demoted = _payload_to_findings(payload)
     assert len(findings) == 1
+    assert demoted == 0
     f = findings[0]
     assert f.title == "missing charset"
     assert f.severity == "warn"
     assert f.test_line == "Lines 1-4"
-    assert f.evidence == "<head>..."
+    assert f.citation == "<head>..."
     assert f.source == "wpt/docs/writing-tests/general-guidelines.md:L82-L87"
     assert f.summary == "HTML files must declare encoding."
 
 
 def test_payload_to_findings_tolerates_missing_fields() -> None:
-    findings = _payload_to_findings([{}])
+    findings, _ = _payload_to_findings([{}])
     assert len(findings) == 1
     f = findings[0]
     assert f.title == ""
     assert f.severity == ""
     assert f.test_line == ""
-    assert f.evidence == ""
+    assert f.citation == ""
     assert f.source == ""
     assert f.summary == ""
 
 
 def test_payload_to_findings_empty_list() -> None:
-    assert _payload_to_findings([]) == []
+    assert _payload_to_findings([]) == ([], 0)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic citation resolution
+# ---------------------------------------------------------------------------
+
+_CITE_SRC = (
+    "<!DOCTYPE html>\n"
+    "<div>a</div>\n"
+    "  <div style='display: float'>x</div>\n"
+    "<div>a</div>\n"
+)
+
+
+def test_locate_snippet_finds_verbatim() -> None:
+    assert locate_snippet("display: float", _CITE_SRC) == [
+        (3, "  <div style='display: float'>x</div>"),
+    ]
+
+
+def test_locate_snippet_normalizes_whitespace() -> None:
+    assert locate_snippet("display:    float", _CITE_SRC)[0][0] == 3
+
+
+def test_locate_snippet_not_found_is_empty() -> None:
+    assert locate_snippet("not in file", _CITE_SRC) == []
+
+
+def test_locate_snippet_empty_is_empty() -> None:
+    assert locate_snippet("", _CITE_SRC) == []
+
+
+def test_locate_snippet_returns_every_occurrence() -> None:
+    # "<div>a</div>" is on lines 2 and 4.
+    matches = locate_snippet("<div>a</div>", _CITE_SRC)
+    assert [line for line, _ in matches] == [2, 4]
+
+
+def test_payload_corrects_line_and_text_from_citation() -> None:
+    # Model gives a wrong line and a rough citation; both are corrected to
+    # the file's exact text and real line.
+    payload = [
+        {
+            "title": "t",
+            "test_line": "Line 99",
+            "citation": "display:   float",
+            "summary": "s",
+        }
+    ]
+    findings, demoted = _payload_to_findings(payload, _CITE_SRC)
+    assert demoted == 0
+    assert findings[0].test_line == "Line 3"
+    assert findings[0].citation == "  <div style='display: float'>x</div>"
+
+
+def test_payload_demotes_unlocatable_citation() -> None:
+    # A citation not in the file is dropped; the finding goes citation-less
+    # rather than emitting an unbacked line, and is counted as demoted.
+    payload = [
+        {
+            "title": "t",
+            "test_line": "Line 5",
+            "citation": "fabricated",
+            "summary": "s",
+        }
+    ]
+    findings, demoted = _payload_to_findings(payload, _CITE_SRC)
+    assert findings[0].citation == ""
+    assert findings[0].test_line == ""
+    assert demoted == 1
+
+
+def test_payload_citationless_passes_through() -> None:
+    payload = [{"title": "t", "citation": "", "summary": "no done() call"}]
+    findings, demoted = _payload_to_findings(payload, _CITE_SRC)
+    assert findings[0].citation == ""
+    assert findings[0].test_line == ""
+    assert demoted == 0  # no citation to demote
+
+
+def test_payload_without_source_is_unchecked() -> None:
+    # No test_source -> fields pass through unvalidated.
+    payload = [
+        {
+            "title": "t",
+            "test_line": "Line 99",
+            "citation": "anything",
+            "summary": "s",
+        }
+    ]
+    findings, demoted = _payload_to_findings(payload)
+    assert findings[0].test_line == "Line 99"
+    assert findings[0].citation == "anything"
+    assert demoted == 0
+
+
+def test_warn_demoted_citations_warns_only_when_nonzero() -> None:
+    from wptgen.phases.evaluation import _warn_demoted_citations
+
+    ui = MagicMock()
+    _warn_demoted_citations(ui, "documentation", 0)
+    ui.warning.assert_not_called()
+    _warn_demoted_citations(ui, "documentation", 2)
+    ui.warning.assert_called_once()
+    assert "2" in ui.warning.call_args[0][0]
 
 
 def test_payload_to_input_scope_full() -> None:
@@ -163,7 +270,7 @@ def _sample_finding(**overrides: Any) -> Finding:
         "title": "missing character encoding declaration",
         "severity": "warn",
         "test_line": "Lines 1-4",
-        "evidence": "<!DOCTYPE html>",
+        "citation": "<!DOCTYPE html>",
         "source": "wpt/docs/writing-tests/general-guidelines.md:L82-L87",
         "summary": "HTML must declare encoding.",
     }
@@ -301,30 +408,49 @@ def test_render_basic_finding() -> None:
     )
     assert "**Summary**: HTML must declare encoding." in report
 
-    # Evidence is code-fenced
+    # Citation is code-fenced.
     assert "```\n  <!DOCTYPE html>\n  ```" in report
 
 
-def test_render_multiline_evidence_stays_inside_code_fence() -> None:
-    """Multi-line evidence renders within a single fenced block."""
-    evidence = "<head>\n  <title>foo</title>\n  <meta>"
+def test_render_multiline_citation_stays_inside_code_fence() -> None:
+    """Multi-line citation renders within a single fenced block."""
+    citation = "<head>\n  <title>foo</title>\n  <meta>"
     report = _render(
         test_path="wpt/foo/bar.html",
-        findings=[_sample_finding(evidence=evidence)],
+        findings=[_sample_finding(citation=citation)],
     )
 
-    # Verify each line of the evidence is inside the fence (indented).
+    # Verify each line of the citation is inside the fence (indented).
     assert "  <head>" in report
     assert "  <title>foo</title>" in report
     assert "  <meta>" in report
 
     # Verify the fenced block is well-formed: opening fence, content,
     # closing fence — and that we have exactly two fence markers for
-    # this finding's evidence.
+    # this finding's citation.
     fence_lines = [
         line for line in report.splitlines() if line.strip() == "```"
     ]
     assert len(fence_lines) == 2
+
+
+def test_render_citationless_finding_shows_file_scoped() -> None:
+    report = _render(
+        test_path="wpt/foo/bar.html",
+        findings=[
+            _sample_finding(
+                citation="",
+                test_line="",
+                summary="No done() call anywhere; worker tests must call it.",
+            )
+        ],
+    )
+    assert "file-scoped (no citation)" in report
+    # No code fence for a citation-less finding.
+    fence_lines = [
+        line for line in report.splitlines() if line.strip() == "```"
+    ]
+    assert len(fence_lines) == 0
 
 
 def test_render_empty_findings_shows_fallback() -> None:
@@ -446,7 +572,7 @@ async def test_run_evaluation_writes_report_when_agent_succeeds(
                 "title": "missing charset",
                 "severity": "warn",
                 "test_line": "Lines 1-4",
-                "evidence": "<!doctype html>",
+                "citation": "<!doctype html>",
                 "source": (
                     "wpt/docs/writing-tests/general-guidelines.md:L82-L87"
                 ),
@@ -526,7 +652,7 @@ def _conformance_finding() -> Finding:
         title="assertion contradicts requirement",
         severity="error",
         test_line="Line 42",
-        evidence="assert_equals(getComputedStyle(el).flexBasis, '0px')",
+        citation="assert_equals(getComputedStyle(el).flexBasis, '0px')",
         source="requirements.xml#R3",
         summary="Spec says flex-basis defaults to 'auto', not '0px'.",
     )
@@ -625,7 +751,7 @@ async def test_run_evaluation_with_spec_url_runs_conformance_pass(
                 "title": "contradicts requirement",
                 "severity": "error",
                 "test_line": "Line 12",
-                "evidence": "assert_equals(x, 'wrong')",
+                "citation": "assert_equals(x, 'wrong')",
                 "source": "requirements.xml#R1",
                 "summary": "Spec requires 'right', not 'wrong'.",
             }
@@ -721,7 +847,7 @@ async def test_run_evaluation_multiple_specs_judged_in_one_pass(
                 "title": "contradicts flexbox",
                 "severity": "error",
                 "test_line": "Line 12",
-                "evidence": "assert_equals(x, 'wrong')",
+                "citation": "assert_equals(x, 'wrong')",
                 "source": f"{spec_a}#R1",
                 "summary": "flexbox disagrees.",
             },
@@ -729,7 +855,7 @@ async def test_run_evaluation_multiple_specs_judged_in_one_pass(
                 "title": "contradicts grid",
                 "severity": "warn",
                 "test_line": "Line 20",
-                "evidence": "assert_true(y)",
+                "citation": "assert_true(y)",
                 "source": f"{spec_b}#R4",
                 "summary": "grid disagrees.",
             },

@@ -12,9 +12,11 @@ Consider the specifications together: an assertion may satisfy one spec while di
 </spec>
 {% endfor %}
 
+To anchor a finding to a line, call the `locate` tool with the offending assertion/snippet and record a returned match's `text` as the finding's `citation`. Never write a line number or citation from memory. If a finding has no snippet to quote, leave `citation` empty.
+
 When the evaluation is complete, submit your findings via the `report_conformance_complete` tool. Pass:
 
-- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `test_line`, `evidence`, `source`, and `summary` as described in the tool's parameter spec. Use only the severities `error` (contradicts a requirement) and `warn` (assertion on behavior not in the requirements). Attribute each finding to the spec it concerns: set `source` to that spec's URL followed by the requirement id, e.g. `https://drafts.csswg.org/css-flexbox/#R3`. If you found no issues, pass an empty list.
+- `findings`: a list of finding objects (one per issue raised). Each finding must include the fields `title`, `severity`, `citation` (verbatim from `locate`, or `""`), `source`, and `summary` (the requirement and how this test contradicts or gaps it) as described in the tool's parameter spec. Do NOT include `test_line`. Use only the severities `error` (contradicts a requirement) and `warn` (assertion on behavior not in the requirements). Attribute each finding to the spec it concerns: set `source` to that spec's URL followed by the requirement id, e.g. `https://drafts.csswg.org/css-flexbox/#R3`. If you found no issues, pass an empty list.
 - `input_scope`: an object describing every file you opened during the evaluation. Include `files` (a list of `{path, bytes, role}` rows; roles are `skill`, `test`, `requirements`, or `dependency`), `dependencies_not_read` (framework + external dependencies you detected but did not open), and `strategy` (set to `"distilled"` — conformance judges against the distilled requirements).
 
 Do NOT format the report yourself; the wpt-gen CLI renders the final Markdown from the data you submit. Do NOT write any file to disk.

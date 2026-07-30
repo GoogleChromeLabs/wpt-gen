@@ -32,6 +32,7 @@ from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
+from wptgen.utils import locate_snippet
 
 # Allow-list of tool names from create_agent_tools() that the evaluator
 # may use. Anything not in this set is filtered out before the agent
@@ -49,6 +50,14 @@ EVALUATOR_TOOL_ALLOWLIST = frozenset(
         "run_lint_ext",
     }
 )
+
+
+def _read_test_source(test_path: Path) -> str | None:
+    """The test file's text (for the `locate` tool), or None if unreadable."""
+    try:
+        return test_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
 
 
 class EvaluatorStrategy(StrEnum):
@@ -117,14 +126,13 @@ async def evaluate_test_with_adk(
         attempt to format the report yourself; do NOT write any file.
 
         Args:
-            findings: A list of finding objects, each containing the
-                fields `rule_id` (the `rules.yaml` rule that was
-                violated, e.g. "GENERAL-005"), `title` (short description),
-                `severity` (one of "error", "warn", "info", "nit"),
-                `test_line` (a line reference into the test file),
-                `evidence` (a short quote or description), `source` (the
-                rule's `wpt/...:Lstart-Lend` provenance), and `summary`
-                (a one-sentence paraphrase of the rule).
+            findings: Finding objects with fields `rule_id` (violated
+                `rules.yaml` rule, e.g. "GENERAL-005"), `title`, `severity`
+                ("error"/"warn"/"info"/"nit"), `citation` (verbatim snippet
+                from `locate`, "" if none), `source` (the rule's
+                `wpt/...:Lstart-Lend` provenance), and `summary` (the rule and
+                how it applies to this test). No `test_line` — it derives from
+                `citation`.
             input_scope: An object describing what was loaded, with the
                 fields `files` (a list of `{path, bytes, role}` rows
                 where `role` is one of "skill", "rules", "test", or
@@ -140,6 +148,32 @@ async def evaluate_test_with_adk(
             {"findings": findings, "input_scope": input_scope}
         )
         return {"status": "success", "message": "Evaluation recorded."}
+
+    def locate(snippet: str) -> dict[str, Any]:
+        """Find where a snippet appears in the test file under evaluation.
+
+        Use this to obtain a finding's `citation`: pass the offending code and
+        record a returned match's `text` (verbatim file content) and `line`.
+        Never write a line number or citation from memory — get them here so
+        they always match the file.
+
+        Args:
+            snippet: The code you are flagging, roughly as you recall it.
+                Whitespace differences are tolerated.
+
+        Returns:
+            A dict with `matches`: a list of `{line, text}` objects, one per
+            place the snippet occurs (empty if it is not in the file, in which
+            case the finding has no citation and should be reported with an
+            empty `citation`).
+        """
+        matches = [
+            {"line": line, "text": text}
+            for line, text in locate_snippet(snippet, test_source or "")
+        ]
+        return {"matches": matches}
+
+    test_source = _read_test_source(test_path)
 
     # Build the evaluator's tool kit: the full create_agent_tools() set,
     # filtered to the allow-list, plus the completion tool.
@@ -157,6 +191,7 @@ async def evaluate_test_with_adk(
         t for t in all_tools if t.func.__name__ in EVALUATOR_TOOL_ALLOWLIST
     ]
     tools.append(FunctionTool(func=report_evaluation_complete))
+    tools.append(FunctionTool(func=locate))
 
     if not isinstance(strategy, EvaluatorStrategy):
         try:
