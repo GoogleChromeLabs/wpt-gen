@@ -1,0 +1,31 @@
+{
+  "pr": 49133,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/49133",
+  "merged_at": "2024-12-13T03:06:32Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "5428a309d3ff2715c43bc0fdbf706be9c57d9b66",
+      "test_files": [
+        {
+          "path": "webidl/ecmascript-binding/es-exceptions/DOMException-is-error.any.js",
+          "content_b64": "Ly8gTUVUQTogZ2xvYmFsPXdpbmRvdyxkZWRpY2F0ZWR3b3JrZXIsc2hhZG93\ncmVhbG0KCid1c2Ugc3RyaWN0JzsKCnRlc3QoZnVuY3Rpb24oKSB7CiAgLy8g\naHR0cHM6Ly9naXRodWIuY29tL3RjMzkvcHJvcG9zYWwtaXMtZXJyb3IvaXNz\ndWVzLzkKICAvLyBodHRwczovL2dpdGh1Yi5jb20vd2hhdHdnL3dlYmlkbC9w\ndWxsLzE0MjEKICBhc3NlcnRfdHJ1ZShFcnJvci5pc0Vycm9yKG5ldyBET01F\neGNlcHRpb24oKSkpOwp9KTsK\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "domenic",
+          "path": "webidl/ecmascript-binding/es-exceptions/DOMException-is-error.any.js",
+          "line": 6,
+          "commit_id": "5428a309d3ff2715c43bc0fdbf706be9c57d9b66",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/49133#discussion_r1839496664",
+          "body": "This should not be conditional.",
+          "fixed_before_merge": false
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "webidl/ecmascript-binding/es-exceptions/DOMException-is-error.any.js"
+  ]
+}

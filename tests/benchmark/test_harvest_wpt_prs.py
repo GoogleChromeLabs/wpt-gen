@@ -442,6 +442,55 @@ def test_harvest_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert not wm.exists()  # watermark untouched in dry-run
 
 
+def _capped_pulls(n: int) -> list[dict]:
+    # Export-labelled PRs: rejected at the cheap gate, so no per-PR fetch is
+    # needed. Only the count (== max_prs) matters for the truncation warning.
+    return [
+        _raw_pull(i, "2024-12-01T00:00:00Z", "e", ["chromium-export"])
+        for i in range(n)
+    ]
+
+
+def test_harvest_reports_where_it_stopped_on_fatal(
+    tmp_path: Path, capsys
+) -> None:
+    # A PR whose per-PR fetch fails unrecoverably: harvest reports what was
+    # written + which PR it died on, then re-raises.
+    class _BoomGitHub(_FakeGitHub):
+        def files(self, number: int) -> list[dict]:
+            raise h.subprocess.CalledProcessError(1, ["gh"], stderr="502")
+
+    pulls = [_raw_pull(10, "2024-12-05T00:00:00Z", "human", ["dom"])]
+    with pytest.raises(h.subprocess.CalledProcessError):
+        h.harvest(
+            _BoomGitHub(pulls, {10: _cr_pr(10)}), tmp_path / "c",
+            tmp_path / "w", max_prs=200, dry_run=False,
+        )
+    err = capsys.readouterr().err
+    assert "PR #10" in err
+    assert "2024-12-05" in err  # where it stopped
+
+
+def test_harvest_warns_when_window_hits_max_prs(
+    tmp_path: Path, capsys
+) -> None:
+    h.harvest(
+        _FakeGitHub(_capped_pulls(3), {}), tmp_path / "c", tmp_path / "w",
+        max_prs=3, dry_run=True, since_date="2024-10-01",
+    )
+    assert "hit --max-prs=3" in capsys.readouterr().err
+
+
+def test_harvest_no_warn_without_window(tmp_path: Path, capsys) -> None:
+    # Same cap, but no --since/--until: the cap is just the forward safety
+    # limit, not a truncated window -> no warning.
+    h.harvest(
+        _FakeGitHub(_capped_pulls(3), {}), tmp_path / "c", tmp_path / "w",
+        max_prs=3, dry_run=True,
+    )
+    assert "--max-prs" not in capsys.readouterr().err
+
+
 # --- GitHub._all_pages (bounded paging) -------------------------------------
 
 
@@ -467,3 +516,53 @@ def test_all_pages_stops_on_short_page() -> None:
     gh = h.GitHub(fetch=fake_fetch)
     items = gh._all_pages("/x", max_items=10_000)
     assert len(items) == 120  # stopped at the short second page
+
+
+# --- _gh_json retry on transient errors -------------------------------------
+
+
+class _FakeProc:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = ""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def test_gh_json_retries_transient_then_succeeds(monkeypatch) -> None:
+    procs = [
+        _FakeProc(1, stderr="gh: Server Error (HTTP 502)"),
+        _FakeProc(1, stderr="gh: Server Error (HTTP 502)"),
+        _FakeProc(0, stdout='{"ok": true}'),
+    ]
+    monkeypatch.setattr(h.subprocess, "run", lambda *a, **k: procs.pop(0))
+    monkeypatch.setattr(h.time, "sleep", lambda _: None)
+    assert h._gh_json("/x") == {"ok": True}
+    assert not procs  # all three consumed
+
+
+def test_gh_json_reraises_on_fatal_without_retry(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def fake_run(*a, **k):
+        calls["n"] += 1
+        return _FakeProc(1, stderr="gh: Not Found (HTTP 404)")
+
+    monkeypatch.setattr(h.subprocess, "run", fake_run)
+    monkeypatch.setattr(h.time, "sleep", lambda _: None)
+    with pytest.raises(h.subprocess.CalledProcessError):
+        h._gh_json("/x")
+    assert calls["n"] == 1  # 404 is fatal -> no retry
+
+
+def test_gh_json_gives_up_after_max_retries(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def fake_run(*a, **k):
+        calls["n"] += 1
+        return _FakeProc(1, stderr="gh: Server Error (HTTP 503)")
+
+    monkeypatch.setattr(h.subprocess, "run", fake_run)
+    monkeypatch.setattr(h.time, "sleep", lambda _: None)
+    with pytest.raises(h.subprocess.CalledProcessError):
+        h._gh_json("/x")
+    assert calls["n"] == h._MAX_RETRIES + 1  # initial + retries

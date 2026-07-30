@@ -1,0 +1,86 @@
+{
+  "pr": 47662,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/47662",
+  "merged_at": "2024-08-22T12:31:27Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+      "test_files": [
+        {
+          "path": "digital-credentials/allow-attribute.https.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxodG1sPgogICAgPGhlYWQ+CiAgICAgICAgPHRp\ndGxlPgogICAgICAgICAgICBUZXN0IGFsbG93IGF0dHJpYnV0ZSB3aXRoICJk\naWdpdGFsLWNyZWRlbnRpYWxzLWdldCIgYW5kCiAgICAgICAgICAgIENyZWRl\nbnRpYWxzQ29udGFpbmVyJ3MgLmdldCgpIG1ldGhvZAogICAgICAgIDwvdGl0\nbGU+CiAgICAgICAgPHNjcmlwdCBzcmM9Ii9jb21tb24vZ2V0LWhvc3QtaW5m\nby5zdWIuanMiPjwvc2NyaXB0PgogICAgICAgIDxzY3JpcHQgc3JjPSIvcmVz\nb3VyY2VzL3Rlc3RoYXJuZXNzLmpzIj48L3NjcmlwdD4KICAgICAgICA8c2Ny\naXB0IHNyYz0iL3Jlc291cmNlcy90ZXN0aGFybmVzc3JlcG9ydC5qcyI+PC9z\nY3JpcHQ+CiAgICAgICAgPHNjcmlwdD4KICAgICAgICAgICAgY29uc3QgaG9z\ndEluZm8gPSBnZXRfaG9zdF9pbmZvKCk7CiAgICAgICAgICAgIGNvbnN0IGlm\ncmFtZURldGFpbHMgPSBbCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAg\nICAgICAgICAgcG9saWN5OiBudWxsLAogICAgICAgICAgICAgICAgICAgIGNy\nb3NzT3JpZ2luOiBmYWxzZSwKICAgICAgICAgICAgICAgICAgICBleHBlY3RJ\nc0FsbG93ZWQ6IHRydWUsCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAg\nICAgICAgewogICAgICAgICAgICAgICAgICAgIHBvbGljeTogbnVsbCwKICAg\nICAgICAgICAgICAgICAgICBjcm9zc09yaWdpbjogdHJ1ZSwKICAgICAgICAg\nICAgICAgICAgICBleHBlY3RJc0FsbG93ZWQ6IGZhbHNlLAogICAgICAgICAg\nICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAg\nICBwb2xpY3k6ICJkaWdpdGFsLWNyZWRlbnRpYWxzLWdldCIsCiAgICAgICAg\nICAgICAgICAgICAgY3Jvc3NPcmlnaW46IGZhbHNlLAogICAgICAgICAgICAg\nICAgICAgIGV4cGVjdElzQWxsb3dlZDogdHJ1ZSwKICAgICAgICAgICAgICAg\nIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgcG9s\naWN5OiAiZGlnaXRhbC1jcmVkZW50aWFscy1nZXQiLAogICAgICAgICAgICAg\nICAgICAgIGNyb3NzT3JpZ2luOiB0cnVlLAogICAgICAgICAgICAgICAgICAg\nIGV4cGVjdElzQWxsb3dlZDogdHJ1ZSwKICAgICAgICAgICAgICAgIH0sCiAg\nICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgcG9saWN5OiAi\nZGlnaXRhbC1jcmVkZW50aWFscy1nZXQgKiIsCiAgICAgICAgICAgICAgICAg\nICAgY3Jvc3NPcmlnaW46IGZhbHNlLAogICAgICAgICAgICAgICAgICAgIGV4\ncGVjdElzQWxsb3dlZDogdHJ1ZSwKICAgICAgICAgICAgICAgIH0sCiAgICAg\nICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgcG9saWN5OiAiZGln\naXRhbC1jcmVkZW50aWFscy1nZXQgKiIsCiAgICAgICAgICAgICAgICAgICAg\nY3Jvc3NPcmlnaW46IHRydWUsCiAgICAgICAgICAgICAgICAgICAgZXhwZWN0\nSXNBbGxvd2VkOiB0cnVlLAogICAgICAgICAgICAgICAgfSwKICAgICAgICAg\nICAgICAgIHsKICAgICAgICAgICAgICAgICAgICBwb2xpY3k6ICJkaWdpdGFs\nLWNyZWRlbnRpYWxzLWdldCAnbm9uZSciLAogICAgICAgICAgICAgICAgICAg\nIGNyb3NzT3JpZ2luOiBmYWxzZSwKICAgICAgICAgICAgICAgICAgICBleHBl\nY3RJc0FsbG93ZWQ6IGZhbHNlLAogICAgICAgICAgICAgICAgfSwKICAgICAg\nICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICBwb2xpY3k6ICJkaWdp\ndGFsLWNyZWRlbnRpYWxzLWdldCAnbm9uZSciLAogICAgICAgICAgICAgICAg\nICAgIGNyb3NzT3JpZ2luOiB0cnVlLAogICAgICAgICAgICAgICAgICAgIGV4\ncGVjdElzQWxsb3dlZDogZmFsc2UsCiAgICAgICAgICAgICAgICB9LAogICAg\nICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgIHBvbGljeTogImRp\nZ2l0YWwtY3JlZGVudGlhbHMtZ2V0ICdzZWxmJyIsCiAgICAgICAgICAgICAg\nICAgICAgY3Jvc3NPcmlnaW46IGZhbHNlLAogICAgICAgICAgICAgICAgICAg\nIGV4cGVjdElzQWxsb3dlZDogdHJ1ZSwKICAgICAgICAgICAgICAgIH0sCiAg\nICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgcG9saWN5OiAi\nZGlnaXRhbC1jcmVkZW50aWFscy1nZXQgJ3NlbGYnIiwKICAgICAgICAgICAg\nICAgICAgICBjcm9zc09yaWdpbjogdHJ1ZSwKICAgICAgICAgICAgICAgICAg\nICBleHBlY3RJc0FsbG93ZWQ6IGZhbHNlLAogICAgICAgICAgICAgICAgfSwK\nICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICBwb2xpY3k6\nIGBkaWdpdGFsLWNyZWRlbnRpYWxzLWdldCAke2hvc3RJbmZvLkhUVFBTX1JF\nTU9URV9PUklHSU59YCwKICAgICAgICAgICAgICAgICAgICBjcm9zc09yaWdp\nbjogZmFsc2UsCiAgICAgICAgICAgICAgICAgICAgZXhwZWN0SXNBbGxvd2Vk\nOiBmYWxzZSwKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7\nCiAgICAgICAgICAgICAgICAgICAgcG9saWN5OiBgZGlnaXRhbC1jcmVkZW50\naWFscy1nZXQgJHtob3N0SW5mby5IVFRQU19SRU1PVEVfT1JJR0lOfWAsCiAg\nICAgICAgICAgICAgICAgICAgY3Jvc3NPcmlnaW46IHRydWUsCiAgICAgICAg\nICAgICAgICAgICAgZXhwZWN0SXNBbGxvd2VkOiB0cnVlLAogICAgICAgICAg\nICAgICAgfSwKICAgICAgICAgICAgXTsKCiAgICAgICAgICAgIGFzeW5jIGZ1\nbmN0aW9uIGxvYWRJZnJhbWUoeyBwb2xpY3ksIGNyb3NzT3JpZ2luLCBleHBl\nY3RJc0FsbG93ZWQgfSkgewogICAgICAgICAgICAgICAgY29uc3QgaWZyYW1l\nID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiaWZyYW1lIik7CiAgICAgICAg\nICAgICAgICBpZiAocG9saWN5ICE9PSBudWxsKSB7CiAgICAgICAgICAgICAg\nICAgICAgaWZyYW1lLmFsbG93ID0gcG9saWN5OwogICAgICAgICAgICAgICAg\nfQoKICAgICAgICAgICAgICAgIGF3YWl0IG5ldyBQcm9taXNlKChyZXNvbHZl\nKSA9PiB7CiAgICAgICAgICAgICAgICAgICAgaWZyYW1lLm9ubG9hZCA9IHJl\nc29sdmU7CiAgICAgICAgICAgICAgICAgICAgaWZyYW1lLnNyYyA9IG5ldyBV\nUkwoCiAgICAgICAgICAgICAgICAgICAgICAgICIvZGlnaXRhbC1jcmVkZW50\naWFscy9zdXBwb3J0L2lmcmFtZS5odG1sIiwKICAgICAgICAgICAgICAgICAg\nICAgICAgY3Jvc3NPcmlnaW4KICAgICAgICAgICAgICAgICAgICAgICAgICAg\nID8gaG9zdEluZm8uSFRUUFNfUkVNT1RFX09SSUdJTgogICAgICAgICAgICAg\nICAgICAgICAgICAgICAgOiBsb2NhdGlvbi5vcmlnaW4KICAgICAgICAgICAg\nICAgICAgICApLmhyZWY7CiAgICAgICAgICAgICAgICAgICAgaWZyYW1lLmRh\ndGFzZXQuZXhwZWN0SXNBbGxvd2VkID0gZXhwZWN0SXNBbGxvd2VkOwogICAg\nICAgICAgICAgICAgICAgIGRvY3VtZW50LmJvZHkuYXBwZW5kQ2hpbGQoaWZy\nYW1lKTsKICAgICAgICAgICAgICAgIH0pOwogICAgICAgICAgICAgICAgaWZy\nYW1lLmZvY3VzKCk7CiAgICAgICAgICAgICAgICByZXR1cm4gaWZyYW1lOwog\nICAgICAgICAgICB9CgogICAgICAgICAgICBmdW5jdGlvbiBydW5UZXN0cygp\nIHsKICAgICAgICAgICAgICAgIGZvciAoY29uc3QgZGV0YWlscyBvZiBpZnJh\nbWVEZXRhaWxzKSB7CiAgICAgICAgICAgICAgICAgICAgcHJvbWlzZV90ZXN0\nKGFzeW5jICh0ZXN0KSA9PiB7CiAgICAgICAgICAgICAgICAgICAgICAgIGNv\nbnN0IGlmcmFtZSA9IGF3YWl0IGxvYWRJZnJhbWUoZGV0YWlscyk7CiAgICAg\nICAgICAgICAgICAgICAgICAgIGNvbnN0IHsgZXhwZWN0SXNBbGxvd2VkIH0g\nPSBkZXRhaWxzOwogICAgICAgICAgICAgICAgICAgICAgICBjb25zdCBhY3Rp\nb24gPSAiZ2V0IjsKICAgICAgICAgICAgICAgICAgICAgICAgY29uc3Qgb3B0\naW9ucyA9IHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRpZ2l0YWw6\nIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvLyBSZXN1bHRz\nIGluIFR5cGVFcnJvciB3aGVuIGFsbG93ZWQsIE5vdEFsbG93ZWRFcnJvciB3\naGVuIGRpc2FsbG93ZWQKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg\nICBwcm92aWRlcnM6IFtdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAg\nfSwKICAgICAgICAgICAgICAgICAgICAgICAgfTsKICAgICAgICAgICAgICAg\nICAgICAgICAgY29uc3QgeyBkYXRhIH0gPSBhd2FpdCBuZXcgUHJvbWlzZSgo\ncmVzb2x2ZSkgPT4gewogICAgICAgICAgICAgICAgICAgICAgICAgICAgd2lu\nZG93LmFkZEV2ZW50TGlzdGVuZXIoIm1lc3NhZ2UiLCByZXNvbHZlLCB7CiAg\nICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25jZTogdHJ1ZSwKICAg\nICAgICAgICAgICAgICAgICAgICAgICAgIH0pOwogICAgICAgICAgICAgICAg\nICAgICAgICAgICAgaWZyYW1lLmNvbnRlbnRXaW5kb3cucG9zdE1lc3NhZ2Uo\nCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgeyBhY3Rpb24sIG9w\ndGlvbnMsIG5lZWRzQWN0aXZhdGlvbjogdHJ1ZSB9LAogICAgICAgICAgICAg\nICAgICAgICAgICAgICAgICAgICIqIgogICAgICAgICAgICAgICAgICAgICAg\nICAgICAgKTsKICAgICAgICAgICAgICAgICAgICAgICAgfSk7CiAgICAgICAg\nICAgICAgICAgICAgICAgIGNvbnN0IHsgbmFtZSwgbWVzc2FnZSB9ID0gZGF0\nYTsKICAgICAgICAgICAgICAgICAgICAgICAgYXNzZXJ0X2VxdWFscygKICAg\nICAgICAgICAgICAgICAgICAgICAgICAgIG5hbWUsCiAgICAgICAgICAgICAg\nICAgICAgICAgICAgICBleHBlY3RJc0FsbG93ZWQgPyAiVHlwZUVycm9yIiA6\nICJOb3RBbGxvd2VkRXJyb3IiLAogICAgICAgICAgICAgICAgICAgICAgICAg\nICAgYCR7aWZyYW1lLm91dGVySFRNTH0gLSAke21lc3NhZ2V9YAogICAgICAg\nICAgICAgICAgICAgICAgICApOwogICAgICAgICAgICAgICAgICAgICAgICBp\nZnJhbWUucmVtb3ZlKCk7CiAgICAgICAgICAgICAgICAgICAgfSwgYFBvbGlj\neSB0byB1c2U6ICR7ZGV0YWlscy5wb2xpY3l9LCBpcyBjcm9zcy1vcmlnaW46\nICR7ZGV0YWlscy5jcm9zc09yaWdpbn0sIGlzIGFsbG93ZWQgYnkgcG9saWN5\nOiAke2RldGFpbHMuZXhwZWN0SXNBbGxvd2VkfWApOwogICAgICAgICAgICAg\nICAgfQogICAgICAgICAgICB9CiAgICAgICAgPC9zY3JpcHQ+CiAgICA8L2hl\nYWQ+CiAgICA8Ym9keSBvbmxvYWQ9InJ1blRlc3RzKCkiPjwvYm9keT4KPC9o\ndG1sPgo=\n"
+        },
+        {
+          "path": "digital-credentials/default-permissions-policy.https.sub.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgo8c2Ny\naXB0IHNyYz0iL3Jlc291cmNlcy90ZXN0aGFybmVzcy5qcyI+PC9zY3JpcHQ+\nCjxzY3JpcHQgc3JjPSIvcmVzb3VyY2VzL3Rlc3RoYXJuZXNzcmVwb3J0Lmpz\nIj48L3NjcmlwdD4KPHNjcmlwdCBzcmM9Ii9yZXNvdXJjZXMvdGVzdGRyaXZl\nci5qcyI+PC9zY3JpcHQ+CjxzY3JpcHQgc3JjPSIvcmVzb3VyY2VzL3Rlc3Rk\ncml2ZXItdmVuZG9yLmpzIj48L3NjcmlwdD4KPHNjcmlwdCBzcmM9Ii9wZXJt\naXNzaW9ucy1wb2xpY3kvcmVzb3VyY2VzL3Blcm1pc3Npb25zLXBvbGljeS5q\ncyI+PC9zY3JpcHQ+CjxzY3JpcHQgc3JjPSIvY29tbW9uL2dldC1ob3N0LWlu\nZm8uc3ViLmpzIj48L3NjcmlwdD4KPGJvZHk+PC9ib2R5Pgo8c2NyaXB0Pgog\nICAgInVzZSBzdHJpY3QiOwogICAgY29uc3QgeyBIVFRQU19SRU1PVEVfT1JJ\nR0lOIH0gPSBnZXRfaG9zdF9pbmZvKCk7CiAgICBjb25zdCBzYW1lX29yaWdp\nbl9zcmMgPQogICAgICAgICIvcGVybWlzc2lvbnMtcG9saWN5L3Jlc291cmNl\ncy9kaWdpdGFsLWNyZWRlbnRpYWxzLWdldC5odG1sIjsKICAgIGNvbnN0IGNy\nb3NzX29yaWdpbl9zcmMgPSBuZXcgVVJMKHNhbWVfb3JpZ2luX3NyYywgSFRU\nUFNfUkVNT1RFX09SSUdJTikuaHJlZjsKCiAgICBwcm9taXNlX3Rlc3QoYXN5\nbmMgKHRlc3QpID0+IHsKICAgICAgICBhd2FpdCB0ZXN0X2RyaXZlci5ibGVz\ncygidXNlciBhY3RpdmF0aW9uIik7CiAgICAgICAgYXdhaXQgcHJvbWlzZV9y\nZWplY3RzX2pzKAogICAgICAgICAgICB0ZXN0LAogICAgICAgICAgICBUeXBl\nRXJyb3IsCiAgICAgICAgICAgIG5hdmlnYXRvci5pZGVudGl0eS5nZXQoeyBk\naWdpdGFsOiB7IHByb3ZpZGVyczogW10gfSB9KQogICAgICAgICk7CgogICAg\nICAgIGF3YWl0IHRlc3RfZmVhdHVyZV9hdmFpbGFiaWxpdHkoewogICAgICAg\nICAgICBmZWF0dXJlX2Rlc2NyaXB0aW9uOiAiRGlnaXRhbCBDcmVkZW50aWFs\nIEFQSSIsCiAgICAgICAgICAgIHRlc3QsCiAgICAgICAgICAgIHNyYzogc2Ft\nZV9vcmlnaW5fc3JjLAogICAgICAgICAgICBleHBlY3RfZmVhdHVyZV9hdmFp\nbGFibGU6IGV4cGVjdF9mZWF0dXJlX2F2YWlsYWJsZV9kZWZhdWx0LAogICAg\nICAgICAgICBpc19wcm9taXNlX3Rlc3Q6IHRydWUsCiAgICAgICAgfSk7Cgog\nICAgICAgIGF3YWl0IHRlc3RfZmVhdHVyZV9hdmFpbGFiaWxpdHkoewogICAg\nICAgICAgICBmZWF0dXJlX2Rlc2NyaXB0aW9uOiAiRGlnaXRhbCBDcmVkZW50\naWFsIEFQSSIsCiAgICAgICAgICAgIHRlc3QsCiAgICAgICAgICAgIHNyYzog\nY3Jvc3Nfb3JpZ2luX3NyYywKICAgICAgICAgICAgZXhwZWN0X2ZlYXR1cmVf\nYXZhaWxhYmxlOiBleHBlY3RfZmVhdHVyZV91bmF2YWlsYWJsZV9kZWZhdWx0\nLAogICAgICAgICAgICBmZWF0dXJlX25hbWU6ICJkaWdpdGFsLWNyZWRlbnRp\nYWxzLWdldCIsCiAgICAgICAgICAgIGlzX3Byb21pc2VfdGVzdDogdHJ1ZSwK\nICAgICAgICB9KTsKICAgIH0sICJQZXJtaXNzaW9ucy1Qb2xpY3kgaXMgYnkg\nZGVmYXVsdCAnc2VsZicuIik7Cjwvc2NyaXB0Pgo=\n"
+        },
+        {
+          "path": "digital-credentials/get-user-activation.https.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+Cjx0aXRsZT5EaWdpdGFsIENyZWRlbnRpYWwgQVBJ\nOiBnZXQoKSBjb25zdW1lcyB1c2VyIGFjdGl2YXRpb24uPC90aXRsZT4KPHNj\ncmlwdCBzcmM9Ii9yZXNvdXJjZXMvdGVzdGRyaXZlci5qcyI+PC9zY3JpcHQ+\nCjxzY3JpcHQgc3JjPSIvcmVzb3VyY2VzL3Rlc3Rkcml2ZXItdmVuZG9yLmpz\nIj48L3NjcmlwdD4KPHNjcmlwdCBzcmM9Ii9yZXNvdXJjZXMvdGVzdGhhcm5l\nc3MuanMiPjwvc2NyaXB0Pgo8c2NyaXB0IHNyYz0iL3Jlc291cmNlcy90ZXN0\naGFybmVzc3JlcG9ydC5qcyI+PC9zY3JpcHQ+CjxzY3JpcHQgc3JjPSJzdXBw\nb3J0L2hlbHBlci5qcyIgdHlwZT0ibW9kdWxlIj48L3NjcmlwdD4KPGJvZHk+\nPC9ib2R5Pgo8c2NyaXB0IHR5cGU9Im1vZHVsZSI+CiAgaW1wb3J0IHsgbWFr\nZUdldE9wdGlvbnMgfSBmcm9tICIuL3N1cHBvcnQvaGVscGVyLmpzIjsKCiAg\ncHJvbWlzZV90ZXN0KGFzeW5jICh0KSA9PiB7CiAgICBhc3NlcnRfZmFsc2Uo\nCiAgICAgIG5hdmlnYXRvci51c2VyQWN0aXZhdGlvbi5pc0FjdGl2ZSwKICAg\nICAgIlVzZXIgYWN0aXZhdGlvbiBzaG91bGQgbm90IGJlIGFjdGl2ZSIKICAg\nICk7CiAgICBjb25zdCBvcHRpb25zID0gbWFrZUdldE9wdGlvbnMoW10pOwog\nICAgYXdhaXQgcHJvbWlzZV9yZWplY3RzX2RvbSgKICAgICAgdCwKICAgICAg\nIk5vdEFsbG93ZWRFcnJvciIsCiAgICAgIG5hdmlnYXRvci5pZGVudGl0eS5n\nZXQob3B0aW9ucykKICAgICk7CiAgfSwgIm5hdmlnYXRvci5pZGVudGl0eS5n\nZXQoKSBjYWxsaW5nIHRoZSBBUEkgd2l0aG91dCB1c2VyIGFjdGl2YXRpb24g\nc2hvdWxkIHJlamVjdCB3aXRoIE5vdEFsbG93ZWRFcnJvci4iKTsKCiAgcHJv\nbWlzZV90ZXN0KGFzeW5jICh0KSA9PiB7CiAgICBhd2FpdCB0ZXN0X2RyaXZl\nci5ibGVzcygpOwogICAgYXNzZXJ0X3RydWUoCiAgICAgIG5hdmlnYXRvci51\nc2VyQWN0aXZhdGlvbi5pc0FjdGl2ZSwKICAgICAgIlVzZXIgYWN0aXZhdGlv\nbiBzaG91bGQgYmUgYWN0aXZlIGFmdGVyIHRlc3RfZHJpdmVyLmJsZXNzKCku\nIgogICAgKTsKICAgIGNvbnN0IG9wdGlvbnMgPSBtYWtlR2V0T3B0aW9ucyhb\nXSk7CiAgICBhd2FpdCBwcm9taXNlX3JlamVjdHNfanModCwgVHlwZUVycm9y\nLCBuYXZpZ2F0b3IuaWRlbnRpdHkuZ2V0KG9wdGlvbnMpKTsKICAgIGFzc2Vy\ndF9mYWxzZSgKICAgICAgbmF2aWdhdG9yLnVzZXJBY3RpdmF0aW9uLmlzQWN0\naXZlLAogICAgICAiVXNlciBhY3RpdmF0aW9uIHNob3VsZCBiZSBjb25zdW1l\nZCBhZnRlciBuYXZpZ2F0b3IuaWRlbnRpdHkuZ2V0KCkuIgogICAgKTsKICB9\nLCAibmF2aWdhdG9yLmlkZW50aXR5LmdldCgpIGNvbnN1bWVzIHVzZXIgYWN0\naXZhdGlvbi4iKTsKPC9zY3JpcHQ+Cg==\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "pkotwicz2",
+          "path": "digital-credentials/allow-attribute.https.html",
+          "line": 36,
+          "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722253527",
+          "body": "Please be consistent and have the `crossOrigin: false` test case first.",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "pkotwicz2",
+          "path": "digital-credentials/allow-attribute.https.html",
+          "line": 76,
+          "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722256355",
+          "body": "Nit: `isAllowed` is an unituitive parameter name. `expectIsAllowed` would be clearer (especially since you are testing an attribute called \"allow\")",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "pkotwicz2",
+          "path": "digital-credentials/default-permissions-policy.https.sub.html",
+          "line": 18,
+          "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722330967",
+          "body": "Nit: use->user",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "pkotwicz2",
+          "path": "digital-credentials/override-permissions-policy.https.sub.html",
+          "line": 10,
+          "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722337642",
+          "body": "What is the difference between this test and enabled-on-self-origin-by-permissions-policy.https.sub.html ?",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "pkotwicz2",
+          "path": "digital-credentials/get-user-activation.https.html",
+          "line": 1,
+          "commit_id": "800f578c65b1a4373c915fa34199d73d1640cb74",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722338866",
+          "body": "Is this a bad merge?\r\n\r\nIsn't this file added by https://github.com/web-platform-tests/wpt/pull/46642",
+          "fixed_before_merge": false
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "digital-credentials/allow-attribute.https.html",
+    "digital-credentials/default-permissions-policy.https.sub.html",
+    "digital-credentials/disabled-by-permissions-policy.https.sub.html",
+    "digital-credentials/disabled-by-permissions-policy.https.sub.html.headers",
+    "digital-credentials/enabled-on-self-origin-by-permissions-policy.https.sub.html",
+    "digital-credentials/enabled-on-self-origin-by-permissions-policy.https.sub.html.headers",
+    "permissions-policy/resources/digital-credentials-get.html",
+    "permissions-policy/resources/permissions-policy.js"
+  ]
+}

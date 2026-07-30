@@ -1,0 +1,15 @@
+pr: 47302
+labels:
+  - html_url: https://github.com/web-platform-tests/wpt/pull/47302#discussion_r1692298032
+    commit_id: b1241f3e12ee74a3a05dac0ef1f981d44d07a7d2
+    excerpt: "should be `float: left`/`float: right`; there's no such thing as `display: float`"
+    rule_id: CHECKLIST-002   # invalid CSS -> test does not exercise what it claims
+    source_doc: wpt/docs/reviewing-tests/checklist.md
+    path: css/css-align/self-alignment/block-justify-self.html
+    lines: [45, 45]
+  - html_url: https://github.com/web-platform-tests/wpt/pull/47302#discussion_r1692298591
+    commit_id: b1241f3e12ee74a3a05dac0ef1f981d44d07a7d2
+    excerpt: "also test what happens if the aligned <div> is absolutely positioned"
+    rule_id: no-rule   # coverage suggestion; maybe CHECKLIST-004
+    path: css/css-align/self-alignment/block-justify-self.html
+    lines: [52, 52]

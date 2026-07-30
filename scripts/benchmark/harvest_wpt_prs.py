@@ -41,8 +41,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -225,13 +227,35 @@ def snapshot(
 # --- gh I/O layer (thin; injected so tests can stub it) ---------------------
 
 
+# Transient HTTP statuses worth retrying (server hiccups / rate limits).
+_TRANSIENT_STATUS = re.compile(r"HTTP (429|50[0234])")
+_MAX_RETRIES = 4
+
+
 def _gh_json(path: str) -> Any:
-    """One gh api call, one page. Paging is done explicitly (see _all_pages);
-    `--paginate` on an unbounded collection walks all of history."""
-    result = subprocess.run(
-        ["gh", "api", path], capture_output=True, text=True, check=True
-    )
-    return json.loads(result.stdout)
+    """One gh api call, one page. Retries transient (5xx/429) failures with
+    exponential backoff; a fatal error (or exhausted retries) re-raises the
+    CalledProcessError. Paging is explicit (see _all_pages)."""
+    for attempt in range(_MAX_RETRIES + 1):
+        result = subprocess.run(
+            ["gh", "api", path], capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        transient = _TRANSIENT_STATUS.search(result.stderr)
+        if not transient or attempt == _MAX_RETRIES:
+            raise subprocess.CalledProcessError(
+                result.returncode, ["gh", "api", path],
+                output=result.stdout, stderr=result.stderr,
+            )
+        delay = 2**attempt
+        print(
+            f"[warn] {transient.group(0)} from gh; retry "
+            f"{attempt + 1}/{_MAX_RETRIES} in {delay}s...",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 _PER_PAGE = 100
@@ -442,6 +466,14 @@ def harvest(
     raw_pulls = gh.merged_pulls(
         max_items=max_prs, since_date=since_date, until_date=until_date
     )
+    if len(raw_pulls) == max_prs and (since_date or until_date):
+        # A bounded window that fills --max-prs was probably truncated: the
+        # oldest PRs in the window may be missing (search is newest-first).
+        print(
+            f"[warn] hit --max-prs={max_prs} with a --since/--until window; "
+            "the window may be incomplete. Raise --max-prs to be sure.",
+            file=sys.stderr,
+        )
     newest_seen = watermark
     count = 0
 
@@ -452,13 +484,27 @@ def harvest(
         if watermark is not None and merged_at <= watermark:
             continue  # already processed in an earlier run
 
-        pr = _to_pull_request(raw, gh)
-        if newest_seen is None or (pr.merged_at or "") > newest_seen:
-            newest_seen = pr.merged_at
-        if not qualifies(pr):
-            continue
+        try:
+            pr = _to_pull_request(raw, gh)
+            if newest_seen is None or (pr.merged_at or "") > newest_seen:
+                newest_seen = pr.merged_at
+            if not qualifies(pr):
+                continue
+            record = build_record(pr, gh)
+        except subprocess.CalledProcessError:
+            # gh failed even after retries. Candidates already written are
+            # complete (per-PR atomic writes); report where we stopped so the
+            # run can be resumed with --since <last merged_at written>.
+            print(
+                f"\n[error] gh API failed on PR #{raw.get('number')} "
+                f"(merged {merged_at}); stopping.\n"
+                f"        {count} candidate(s) written to {out_dir} so far.\n"
+                "        Re-run to continue; already-written candidates are "
+                "complete.",
+                file=sys.stderr,
+            )
+            raise
 
-        record = build_record(pr, gh)
         count += 1
         if dry_run:
             blocks = record["reviewed_commits"]
@@ -540,7 +586,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     except subprocess.CalledProcessError as exc:
-        print(f"error: gh api call failed: {exc.stderr}", file=sys.stderr)
+        # A per-PR failure is already reported by harvest() (with where it
+        # stopped); this catches a failure in the initial PR-list fetch.
+        print(
+            f"error: gh api call failed: {exc.stderr.strip()}",
+            file=sys.stderr,
+        )
         return 1
 
     verb = "would harvest" if args.dry_run else "harvested"

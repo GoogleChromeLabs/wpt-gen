@@ -1,0 +1,69 @@
+{
+  "pr": 46734,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/46734",
+  "merged_at": "2024-09-02T04:53:58Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86",
+      "test_files": [
+        {
+          "path": "css/css-overflow/line-clamp/line-clamp-with-floats-008.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPHRpdGxl\nPkNTUyBPdmVyZmxvdzogbGluZS1jbGFtcCBJRkMgd2l0aCBmbG9hdHMgZXh0\nZW5kaW5nIHBhc3QgdGhlIGNsYW1wIHBvaW50PC90aXRsZT4KPGxpbmsgcmVs\nPSJhdXRob3IiIHRpdGxlPSJBbmRyZXUgQm90ZWxsYSIgaHJlZj0ibWFpbHRv\nOmFib3RlbGxhQGlnYWxpYS5jb20iPgo8bGluayByZWw9ImhlbHAiIGhyZWY9\nImh0dHBzOi8vZHJhZnRzLmNzc3dnLm9yZy9jc3Mtb3ZlcmZsb3ctNC8jbGlu\nZS1jbGFtcCI+CjxsaW5rIHJlbD0ibWF0Y2giIGhyZWY9InJlZmVyZW5jZS9s\naW5lLWNsYW1wLXdpdGgtZmxvYXRzLTAwOC1yZWYuaHRtbCI+CjxtZXRhIG5h\nbWU9ImFzc2VydCIgY29udGVudD0iTGluZS1jbGFtcCBjb250YWluZXJzIGNy\nZWF0ZSBhbiBpbmRlcGVuZGVudCBmb3JtYXR0aW5nIGNvbnRleHQsIHNvIHRo\nZXkgd2lsbCBjbGVhciBjb250YWluZWQgZmxvYXRzIGJlZm9yZSB0aGUgY2xh\nbXAgcG9pbnQsIGV2ZW4gaWYgdGhleSBleHRlbmQgYmV5b25kIHRoZSBsYXN0\nIGxpbmUuIExpbmVzIHBhc3QgdGhlIGNsYW1wIHBvaW50IHdpbGwgcmVtYWlu\nIGhpZGRlbi4iPgo8c3R5bGU+Ci5jbGFtcCB7CiAgbGluZS1jbGFtcDogNDsK\nICBmb250OiAxNnB4IC8gMzJweCBzZXJpZjsKICBwYWRkaW5nOiAwIDRweDsK\nICB3aGl0ZS1zcGFjZTogcHJlOwogIGJhY2tncm91bmQtY29sb3I6IHllbGxv\ndzsKfQouZmxvYXQgewogIC8qIEZsb2F0cyBjcmVhdGUgYSBwYXJhbGxlbCBm\ncmFnbWVudGF0aW9uIGNvbnRleHQsIGFuZCB0aGUgZm9yY2VkIGJyZWFrIHRo\nYXQKICAgKiBsaW5lLWNsYW1wIGNhdXNlcyBvbiB0aGUgbWFpbiBjb250ZXh0\nIHNob3VsZCBub3QgY2F1c2UgdGhlIGZsb2F0IHRvCiAgICogZnJhZ21lbnQu\nICovCiAgZmxvYXQ6IGxlZnQ7CiAgd2lkdGg6IDUwcHg7CiAgaGVpZ2h0OiA1\nMHB4OwogIG1hcmdpbjogNHB4OwogIGJhY2tncm91bmQtY29sb3I6IHNreWJs\ndWU7Cn0KPC9zdHlsZT4KPGRpdiBjbGFzcz0iY2xhbXAiPkxpbmUgMQpMaW5l\nIDIKTGluZSAzCjxkaXYgY2xhc3M9ImZsb2F0Ij48L2Rpdj5MaW5lIDQKTGlu\nZSA1PC9kaXY+Cg==\n"
+        },
+        {
+          "path": "css/css-overflow/line-clamp/webkit-line-clamp-044.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPHRpdGxl\nPkNTUyBPdmVyZmxvdzogLXdlYmtpdC1saW5lLWNsYW1wIGNyZWF0ZXMgYW4g\nSUZDPC90aXRsZT4KPGxpbmsgcmVsPSJhdXRob3IiIHRpdGxlPSJBbmRyZXUg\nQm90ZWxsYSIgaHJlZj0ibWFpbHRvOmFib3RlbGxhQGlnYWxpYS5jb20iPgo8\nbGluayByZWw9ImhlbHAiIGhyZWY9Imh0dHBzOi8vZHJhZnRzLmNzc3dnLm9y\nZy9jc3Mtb3ZlcmZsb3ctNC8jbGluZS1jbGFtcCI+CjxsaW5rIHJlbD0ibWF0\nY2giIGhyZWY9InJlZmVyZW5jZS93ZWJraXQtbGluZS1jbGFtcC0wNDQtcmVm\nLmh0bWwiPgo8bWV0YSBuYW1lPSJhc3NlcnQiIGNvbnRlbnQ9Ii13ZWJraXQt\nbGluZS1jbGFtcCBhbHdheXMgY3JlYXRlcyBhbiBpbmRlcGVuZGVudCBmb3Jt\nYXR0aW5nIGNvbnRleHQsIGV2ZW4gd2l0aG91dCBvdmVyZmxvdzogaGlkZGVu\nLCB3aGljaCBjYXVzZXMgdGhlIGhlaWdodCB0byBncm93IHRvIHRoZSBjbGVh\ncmFuY2Ugb2YgZmxvYXRzLiI+CjxzdHlsZT4KICAuY2xhbXAgewogICAgZGlz\ncGxheTogLXdlYmtpdC1ib3g7CiAgICAtd2Via2l0LWJveC1vcmllbnQ6IHZl\ncnRpY2FsOwogICAgLXdlYmtpdC1saW5lLWNsYW1wOiA1OwogICAgLyogbm8g\nb3ZlcmZsb3c6IGhpZGRlbiAqLwogICAgYmFja2dyb3VuZC1jb2xvcjogeWVs\nbG93OwogICAgcGFkZGluZzogMC41ZW07CiAgICBmb250LXNpemU6IDE2cHgg\nLyAzMnB4IHNlcmlmOwogICAgd2hpdGUtc3BhY2U6IHByZTsKICB9CiAgLmZs\nb2F0IHsKICAgIC8qIEZsb2F0cyBjcmVhdGUgYSBwYXJhbGxlbCBmcmFnbWVu\ndGF0aW9uIGNvbnRleHQsIGFuZCBldmVuIGlmCiAgICAgKiAtd2Via2l0LWxp\nbmUtY2xhbXAgY2F1c2VkIGEgZm9yY2VkIGJyZWFrIGluIHRoZSBtYWluIGNv\nbnRleHQsIHRoYXQgc2hvdWxkCiAgICAgKiBub3QgY2F1c2UgdGhlIGZsb2F0\nIHRvIGZyYWdtZW50LiAqLwogICAgZmxvYXQ6IGxlZnQ7CiAgICBiYWNrZ3Jv\ndW5kLWNvbG9yOiBvcmFuZ2U7CiAgICBwYWRkaW5nOiAwLjVlbTsKICAgIGhl\naWdodDogMTAwcHg7CiAgICB3aWR0aDogMTAwcHg7CiAgfQo8L3N0eWxlPgoK\nPGRpdiBjbGFzcz0iY2xhbXAiPjxkaXY+TGluZSAxCkxpbmUgMgpMaW5lIDMK\nTGluZSA0CjxkaXYgY2xhc3M9ImZsb2F0Ij48L2Rpdj5MaW5lIDU8L2Rpdj48\nL2Rpdj4=\n"
+        },
+        {
+          "path": "css/css-overflow/line-clamp/webkit-line-clamp-046.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPHRpdGxl\nPkNTUyBPdmVyZmxvdzogLXdlYmtpdC1ib3gtb3JpZW50OiB2ZXJ0aWNhbCBp\ncyBuZWVkZWQgZm9yIC13ZWJraXQtbGluZS1jbGFtcCB0byBjcmVhdGUgYSBi\nbG9jayBmb3JtYXR0aW5nIGNvbnRleHQ8L3RpdGxlPgo8bGluayByZWw9ImF1\ndGhvciIgdGl0bGU9IkFuZHJldSBCb3RlbGxhIiBocmVmPSJtYWlsdG86YWJv\ndGVsbGFAaWdhbGlhLmNvbSI+CjxsaW5rIHJlbD0iaGVscCIgaHJlZj0iaHR0\ncHM6Ly9kcmFmdHMuY3Nzd2cub3JnL2Nzcy1vdmVyZmxvdy00LyNsaW5lLWNs\nYW1wIj4KPGxpbmsgcmVsPSJtYXRjaCIgaHJlZj0icmVmZXJlbmNlL3dlYmtp\ndC1saW5lLWNsYW1wLTA0Ni1yZWYuaHRtbCI+CjxtZXRhIG5hbWU9ImFzc2Vy\ndCIgY29udGVudD0iLXdlYmtpdC1saW5lLWNsYW1wIGNhdXNlcyBkaXNwbGF5\nOiAtd2Via2l0LWJveCB0byBjcmVhdGUgYSBibG9jayBib3gsIHJhdGhlciB0\naGFuIHRvIGJlaGF2ZSBsaWtlIGRpc3BsYXk6IGZsZXggYXMgaXQgd291bGQg\nb3RoZXJ3aXNlLiBIb3dldmVyLCB0aGlzIGlzIG9ubHkgdGhlIGNhc2Ugd2l0\naCAtd2Via2l0LWJveC1vcmllbnQ6IHZlcnRpY2FsLiI+CjxzdHlsZT4KLmNs\nYW1wIHsKICBkaXNwbGF5OiAtd2Via2l0LWJveDsKICAvKiBubyAtd2Via2l0\nLWJveC1vcmllbnQ6IHZlcnRpY2FsOyAqLwogIC13ZWJraXQtbGluZS1jbGFt\ncDogNDsKICBmb250OiAxNnB4IC8gMzJweCBzZXJpZjsKICB3aGl0ZS1zcGFj\nZTogcHJlOwogIGJhY2tncm91bmQtY29sb3I6IHllbGxvdzsKICBwYWRkaW5n\nOiAwIDRweDsKCiAgLyogSWYgZGlzcGxheTogLXdlYmtpdC1ib3ggYmVoYXZl\ncyB0aGUgc2FtZSBhcyB3aXRob3V0IC13ZWJraXQtbGluZS1jbGFtcCwKICAg\nKiB0aGVzZSBwcm9wZXJ0aWVzIHdpbGwgY2F1c2UgdGhlIGFub255bW91cyBp\nbmxpbmUgYm94IHRvIGJlIGNlbnRlcmVkLiAqLwogIC13ZWJraXQtYm94LWFs\naWduOiBjZW50ZXI7CiAgLXdlYmtpdC1ib3gtcGFjazogY2VudGVyOwogIGFs\naWduLWl0ZW1zOiBjZW50ZXI7CiAganVzdGlmeS1jb250ZW50OiBjZW50ZXI7\nCn0KPC9zdHlsZT4KCjxkaXYgY2xhc3M9ImNsYW1wIj5MaW5lIDEKTGluZSAy\nCkxpbmUgMwpMaW5lIDQKTGluZSA1PC9kaXY+\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "frivoal",
+          "path": "css/css-overflow/line-clamp/line-clamp-with-floats-008.html",
+          "line": 7,
+          "commit_id": "7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642164764",
+          "body": "Based on the `continue: collapse` behavior, this test seems right. But in the `continue: discard` behavior, the float itself would be fragmented as well. It still would not leak out of the IFC, but you would not see all of it.\r\n\r\nHere is one suggestion that would enable you to confirm that floats are contained and do not affect subsequent content, working in both cases:\r\n* add a fixed-height of `4lh` to the container\r\n* don't give a background color to the float inside the container\r\n* add this to the markup after the container\r\n  ```html\r\n  <div class=\"float green\"></div>\r\n  <div class=\"abs\"></div>\r\n  ```\r\n* add this to the style \r\n  ```css\r\n   .abs {\r\n      width: 50px;\r\n      height: 50px;\r\n      margin: 4px;\r\n      background-color: red;\r\n      z-index: -1;\r\n  }\r\n      .green {\r\n      background: green;\r\n  }\r\n  ```\r\nThat way, we cannot see if the float is preseved in place or fragmented, but we can see if it leaks out of the container forcing the green float to the right, and revealing the red abspos, or if it correctly has no effect outside of its BFC.\r\n",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "frivoal",
+          "path": "css/css-overflow/line-clamp/webkit-line-clamp-044.html",
+          "line": 25,
+          "commit_id": "7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642201051",
+          "body": "For the same reason as discussed for floats-008, this test works with `continue: collapse` but not with `continue: discard`. If you add  to the float, then I think it does work.\r\n```suggestion\r\n    break-inside: avoid;`\r\n  }\r\n```",
+          "fixed_before_merge": false
+        },
+        {
+          "author": "frivoal",
+          "path": "css/css-overflow/line-clamp/webkit-line-clamp-046.html",
+          "line": 19,
+          "commit_id": "7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642202227",
+          "body": "```suggestion\r\n   * these properties will cause the anonymous inline box to be centered. */\r\n```",
+          "fixed_before_merge": false
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "css/css-overflow/line-clamp/line-clamp-016.html",
+    "css/css-overflow/line-clamp/line-clamp-017.html",
+    "css/css-overflow/line-clamp/line-clamp-018.html",
+    "css/css-overflow/line-clamp/line-clamp-029.html",
+    "css/css-overflow/line-clamp/line-clamp-with-floats-008.html",
+    "css/css-overflow/line-clamp/reference/line-clamp-029-ref.html",
+    "css/css-overflow/line-clamp/reference/webkit-line-clamp-044-ref.html",
+    "css/css-overflow/line-clamp/reference/webkit-line-clamp-046-ref.html",
+    "css/css-overflow/line-clamp/webkit-line-clamp-044.html",
+    "css/css-overflow/line-clamp/webkit-line-clamp-045.html",
+    "css/css-overflow/line-clamp/webkit-line-clamp-046.html"
+  ]
+}

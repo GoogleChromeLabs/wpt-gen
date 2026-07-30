@@ -70,12 +70,14 @@ pr: 61309
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/61309#discussion_r3591041714
     commit_id: <sha>                       # REQUIRED, copied from the comment
+    excerpt: "promise_test callbacks run asynchronously... will hang"
     rule_id: CHECKLIST-016                  # a rules.yaml semantic id, or no-rule
     source_doc: wpt/docs/reviewing-tests/checklist.md   # the rule's source
     path: fetch/compression-dictionary/dictionary-fetch-with-link-connect-src.tentative.https.html
     lines: [26, 26]
   - html_url: https://github.com/web-platform-tests/wpt/pull/61309#discussion_r3591117333
     commit_id: <sha>
+    excerpt: "use a reporting observer instead which gives buffered events"
     rule_id: no-rule                        # reviewer point maps to no rule
     path: fetch/compression-dictionary/dictionary-fetch-with-link-connect-src.tentative.https.html
     lines: [20, 20]
@@ -87,6 +89,9 @@ labels:
 - **`commit_id`** — **required**; copy exactly from the comment. It pins the
   label to the revision its `line` refers to — the bytes the harness fetches
   and scores. A label without it cannot be scored.
+- **`excerpt`** — a short quote (or paraphrase, `...`-elided) of the comment
+  body, so a reviewer can judge the label without opening the candidate JSON.
+  For human readability only; not used by scoring.
 - **`rule_id`** — a `rules.yaml` **semantic** id (e.g. `CHECKLIST-016`), or
   the literal `no-rule`. A real id must exist in `rules.yaml`.
 - **`source_doc`** — the matched rule's `source` doc path. Omit for

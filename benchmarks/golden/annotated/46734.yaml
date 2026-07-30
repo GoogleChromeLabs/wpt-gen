@@ -1,0 +1,20 @@
+pr: 46734
+labels:
+  - html_url: https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642164764
+    commit_id: 7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86
+    excerpt: "works with `continue: collapse` but under `continue: discard` the float would be fragmented"
+    rule_id: no-rule   # correctness under an untested behavior mode; maybe CHECKLIST-004
+    path: css/css-overflow/line-clamp/line-clamp-with-floats-008.html
+    lines: [7, 7]
+  - html_url: https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642201051
+    commit_id: 7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86
+    excerpt: "same as floats-008: works with collapse but not discard; add `break-inside: avoid`"
+    rule_id: no-rule   # correctness under an untested behavior mode; maybe CHECKLIST-004
+    path: css/css-overflow/line-clamp/webkit-line-clamp-044.html
+    lines: [25, 25]
+  - html_url: https://github.com/web-platform-tests/wpt/pull/46734#discussion_r1642202227
+    commit_id: 7c7fd37f4a2ee65b9738c9ad5aa339666dac2d86
+    excerpt: "[suggestion: reword the explanatory comment]"
+    rule_id: no-rule   # comment wording
+    path: css/css-overflow/line-clamp/webkit-line-clamp-046.html
+    lines: [19, 19]
