@@ -107,11 +107,10 @@ reviewer decides the remediation.
    upstream WPT enforces, and `run_lint_ext` covers the deterministic
    rules from `rules.yaml` that upstream does not (each `run_lint_ext`
    finding already carries the `rule_id`). Any finding they report is
-   authoritative; carry it through to your submission as-is. The exact
-   division — which rule id each linter owns, and which
-   deterministic-looking rules are left to you because they have no
-   clean mechanical check — is documented in
-   [`references/linter-gap-analysis.md`](references/linter-gap-analysis.md).
+   authoritative; carry it through to your submission as-is. Together the
+   two linters own every `layer: deterministic` rule — you do not need to
+   reason about which linter owns which rule; step 4 has you judge only
+   `layer: semantic` rules regardless.
    (For `raw`, still skip anything `wpt lint` already enforces — no
    tabs, no trailing whitespace, no `setTimeout`,
    `assert_throws`/`promise_rejects` deprecation, filename duplicate /

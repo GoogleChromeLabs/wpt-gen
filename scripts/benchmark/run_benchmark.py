@@ -49,13 +49,11 @@ from typing import Any
 
 import yaml
 
-# Repo root: this file is scripts/benchmark/run_benchmark.py.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-
 # Puts the package's parent (scripts/) on the path so it resolves.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from benchmark.manifest import (  # noqa: E402
+    REPO_ROOT,
     STAGING_DIRNAME,
     BenchmarkEntry,
     Manifest,
@@ -721,7 +719,7 @@ def wpt_dir_from_config(config_path: Path) -> Path | None:
 
 # The evaluator skill whose curated reading list is the source of truth for
 # the source-citation check. A finding may only cite a doc the skill lists.
-_SKILL_PATH = _REPO_ROOT / "wptgen" / "skills" / "wpt-evaluator" / "SKILL.md"
+_SKILL_PATH = REPO_ROOT / "wptgen" / "skills" / "wpt-evaluator" / "SKILL.md"
 # Reading-list docs appear in SKILL.md as backtick-wrapped paths, e.g.
 # `wpt/docs/writing-tests/testharness.md`.
 _READING_LIST_RE = re.compile(r"`(wpt/docs/[\w./-]+\.md)`")
@@ -764,7 +762,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=_REPO_ROOT / "benchmarks" / "manifest.yaml",
+        default=REPO_ROOT / "benchmarks" / "manifest.yaml",
         help="Path to manifest.yaml (default: benchmarks/manifest.yaml).",
     )
     parser.add_argument(
