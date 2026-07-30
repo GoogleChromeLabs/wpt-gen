@@ -2,15 +2,20 @@
 
 Harvested snapshots of recently merged wpt PRs that received substantive
 human review — the dataset that measures whether the evaluator matches or
-exceeds a human reviewer. Not yet populated; see Phases 6–7 of
-[`docs/benchmarking-implementation-plan.md`](../../docs/benchmarking-implementation-plan.md).
+exceeds a human reviewer.
 
 ```
 golden/
-  candidates/     # <YYYY-MM>.jsonl snapshots, written by
-                  # scripts/benchmark/harvest_wpt_prs.py (weekly cron)
+  candidates/     # <pr>.json snapshots, one per PR, written by
+                  # scripts/benchmark/harvest_wpt_prs.py
+  annotated/      # <pr>.yaml answer keys; see ANNOTATION.md
   watermark.json  # last merged_at processed
 ```
+
+Harvesting is automated; annotation maps each candidate's review comments to
+rule ids — see [`ANNOTATION.md`](ANNOTATION.md) (an LLM skill; a human
+verifies its output). Run `harvest_wpt_prs.py --dry-run` to preview candidates
+without writing.
 
 ## Contamination policy
 
