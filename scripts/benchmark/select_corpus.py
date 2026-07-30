@@ -104,6 +104,17 @@ def _base_stem(base: str) -> str:
     return base.split(".", 1)[0]
 
 
+def _pre_ext_stem(base: str) -> str:
+    """The filename with only its *final* extension stripped.
+
+    ``foo.pattern-expected.html`` -> ``foo.pattern-expected``. Catches markers
+    that sit on the last dot-segment (e.g. gentest ``…-expected.html`` canvas
+    references) which ``_base_stem`` (first-dot split) would miss.
+    """
+    dot = base.rfind(".")
+    return base[:dot] if dot != -1 else base
+
+
 def _has_reftest_link(head: bytes) -> bool:
     """True if the markup declares a reftest relationship near its top.
 
@@ -136,8 +147,12 @@ def classify(path: str, sniff: bytes | None = None) -> str | None:
     ext = "." + base.rsplit(".", 1)[-1] if "." in base else ""
     stem = _base_stem(base)
 
-    # References are never sampled as tests in their own right.
+    # References/expected files are never sampled as tests in their own right.
+    # ``-expected`` sits on the final dot-segment (gentest canvas refs), so it
+    # needs the pre-extension stem, not the first-dot ``stem``.
     if stem.endswith("-ref") or stem.endswith("-notref"):
+        return None
+    if _pre_ext_stem(base).endswith("-expected"):
         return None
 
     # JS globals (worker/any/window) and plain .js harness tests.

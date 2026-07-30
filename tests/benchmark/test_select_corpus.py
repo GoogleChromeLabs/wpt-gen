@@ -48,6 +48,9 @@ from benchmark.manifest import _parse_corpus
         ("css/foo/bar-ref.html", None),
         ("css/foo/bar-notref.html", None),
         ("css/foo/bar-ref.xht", None),
+        # -expected refs (gentest canvas): marker on the final dot-segment
+        ("html/canvas/foo.grid.pattern-expected.html", None),
+        ("css/foo/bar-expected.html", None),
         # crash / manual by flag token, robust to compound extensions
         ("css/anchor/long-chain-crash.html", "crashtest"),
         ("accname/manual/name-radio-manual.html", "manual"),
