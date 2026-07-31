@@ -289,6 +289,19 @@ class ExpectLabel:
     line_window: tuple[int, int] | None
 
 
+@dataclass(frozen=True)
+class GoldenLabel(ExpectLabel):
+    """A golden gold label, carrying the human-review provenance.
+
+    ``fixed_before_merge`` (did the author change the commented file before
+    merge) and ``path`` are surfaced now so later category/time slicing is a
+    pure add; scoring itself only reads ``key``/``line_window``.
+    """
+
+    path: str = ""
+    fixed_before_merge: bool = False
+
+
 @dataclass
 class SeedScore:
     """Precision/recall for one seed entry, aggregated over its repeats."""
@@ -365,6 +378,69 @@ def score_seed(
         true_positives=tp,
         false_positives=fp,
         false_negatives=fn,
+        per_repeat_recall=per_repeat_recall,
+    )
+
+
+@dataclass
+class GoldenScore:
+    """Recall-vs-human for one golden entry, aggregated over its repeats."""
+
+    entry_id: str
+    true_positives: int
+    false_negatives: int
+    # Predictions matching no gold label. NOT false positives: they may be
+    # valid findings the human reviewer missed.
+    unmatched_predictions: int
+    per_repeat_recall: list[float] = field(default_factory=list)
+
+    @property
+    def recall(self) -> float:
+        denom = self.true_positives + self.false_negatives
+        return self.true_positives / denom if denom else 1.0
+
+
+def score_golden(
+    runs: EntryRuns,
+    expect: list[ExpectLabel],
+) -> GoldenScore:
+    """Scores one golden entry across its repeats: recall vs. the human.
+
+    Per repeat, each gold label is a TP if some prediction shares its key and
+    overlaps its window, else a FN. Unmatched predictions are counted but not
+    charged (a human miss, not a false positive). A PR with no gold labels
+    (all ``no-rule``) has empty ``expect``: it contributes no denominator but
+    its predictions still land in ``unmatched_predictions``.
+    """
+    tp = fn = unmatched = 0
+    per_repeat_recall: list[float] = []
+
+    for repeat in runs.repeats:
+        matched_labels = 0
+        matched_predictions: set[int] = set()
+        for label in expect:
+            hit = False
+            for idx, pred in enumerate(repeat):
+                if pred.key == label.key and _ranges_overlap(
+                    pred.line_range, label.line_window
+                ):
+                    hit = True
+                    matched_predictions.add(idx)
+            if hit:
+                matched_labels += 1
+                tp += 1
+            else:
+                fn += 1
+
+        unmatched += len(repeat) - len(matched_predictions)
+        if expect:
+            per_repeat_recall.append(matched_labels / len(expect))
+
+    return GoldenScore(
+        entry_id=runs.entry_id,
+        true_positives=tp,
+        false_negatives=fn,
+        unmatched_predictions=unmatched,
         per_repeat_recall=per_repeat_recall,
     )
 

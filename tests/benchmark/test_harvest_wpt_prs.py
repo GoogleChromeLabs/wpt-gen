@@ -187,6 +187,35 @@ def test_changes_requested_prefers_original_line() -> None:
     assert h.changes_requested_comments(pr)[0]["line"] == 30
 
 
+def test_changes_requested_uses_original_commit_id() -> None:
+    # The line and the commit must both be the review-time (original) values:
+    # original_line is relative to original_commit_id, not the later commit_id.
+    pr = _pr(
+        review_comments=[
+            {"author": "rev", "path": "dom/t.py", "line": None,
+             "original_line": 45, "commit_id": "MERGED",
+             "original_commit_id": "REVIEW", "review_id": 1, "body": "x"}
+        ],
+        reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
+    )
+    kept = h.changes_requested_comments(pr)[0]
+    assert kept["commit_id"] == "REVIEW"
+    assert kept["line"] == 45
+
+
+def test_changes_requested_falls_back_to_commit_id() -> None:
+    # Comment left on the head commit: no original_commit_id -> plain commit_id.
+    pr = _pr(
+        review_comments=[
+            {"author": "rev", "path": "dom/t.py", "line": 5,
+             "original_line": 5, "commit_id": "HEAD",
+             "original_commit_id": None, "review_id": 1, "body": "x"}
+        ],
+        reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
+    )
+    assert h.changes_requested_comments(pr)[0]["commit_id"] == "HEAD"
+
+
 # --- snapshot() -------------------------------------------------------------
 
 

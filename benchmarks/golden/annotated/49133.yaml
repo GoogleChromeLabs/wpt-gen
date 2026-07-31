@@ -1,7 +1,7 @@
 pr: 49133
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/49133#discussion_r1839496664
-    commit_id: 5428a309d3ff2715c43bc0fdbf706be9c57d9b66
+    commit_id: b44e2ba6f3b32b037172a396fea4bf3a06c23a47
     excerpt: "This should not be conditional."
     rule_id: CHECKLIST-004   # test-logic point, no specific governing rule
     path: webidl/ecmascript-binding/es-exceptions/DOMException-is-error.any.js

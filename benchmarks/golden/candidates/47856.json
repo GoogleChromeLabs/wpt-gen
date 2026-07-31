@@ -4,11 +4,11 @@
   "merged_at": "2024-09-20T16:06:05Z",
   "reviewed_commits": [
     {
-      "commit_id": "ad801772f612c6c04c8410c05dc59a6ee3bfdd0d",
+      "commit_id": "103fa75652b4d1a03b10e5b88b7904ee587e836e",
       "test_files": [
         {
           "path": "nav-tracking-mitigations/stateful-client-bounce.sub.https.html",
-          "content_b64": "PCFET0NUWVBFIEhUTUw+CjxtZXRhIGNoYXJzZXQ9dXRmLTg+Cjx0aXRsZT5C\nb3VuY2UgVHJhY2tpbmcgTWl0aWdhdGlvbnM6IFN0YXRlZnVsIENsaWVudCBC\nb3VuY2U8L3RpdGxlPgo8Ym9keT5ib2R5IGZvciB0ZXN0X2RyaXZlci5ibGVz\nczwvYm9keT4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90ZXN0aGFybmVzcy5q\ncz48L3NjcmlwdD4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90ZXN0aGFybmVz\nc3JlcG9ydC5qcz48L3NjcmlwdD4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90\nZXN0ZHJpdmVyLmpzPjwvc2NyaXB0Pgo8c2NyaXB0IHNyYz0vcmVzb3VyY2Vz\nL3Rlc3Rkcml2ZXItdmVuZG9yLmpzPjwvc2NyaXB0Pgo8c2NyaXB0PgogIHBy\nb21pc2Vfc2V0dXAoYXN5bmMgKCkgPT4gewogICAgdHJ5IHsKICAgICAgYXdh\naXQgdGVzdF9kcml2ZXIuc2V0X3N0b3JhZ2VfYWNjZXNzKCcqJywgJyonLCAn\nYmxvY2tlZCcpOwogICAgfSBjYXRjaCAoZSkgewogICAgICAvLyBJZ25vcmUs\nIGNhbiBiZSB1bmltcGxlbWVudGVkIGlmIHRoZSBwbGF0Zm9ybSBibG9ja3Mg\nY3Jvc3Mtc2l0ZQogICAgICAvLyBjb29raWVzIGJ5IGRlZmF1bHQuIElmIHRo\naXMgZmFpbGVkIHdpdGhvdXQgZGVmYXVsdCBibG9ja2luZyB0aGUgdGVzdAog\nICAgICAvLyB3aWxsIGZhaWwuCiAgICB9CiAgfSk7CgogIHByb21pc2VfdGVz\ndChhc3luYyB0ID0+IHsKICAgIGxldCBsaW5rSW5OZXdQYWdlID0gbnVsbDsK\nCiAgICAvLyBPcGVuIGEgbmV3IHRhYiBhbmQgcmV0cmlldmUgdGhlIGxpbmsg\ndG8gc3RhcnQgdGhlIHRlc3QuCiAgICBhd2FpdCB0ZXN0X2RyaXZlci5ibGVz\ncygnb3BlbiBwYWdlIHRvIHN0YXJ0IHRlc3QnLCBhc3luYyAoKSA9PiB7CiAg\nICAgIGNvbnN0IG90aGVyVGFiID0gd2luZG93Lm9wZW4oCiAgICAgICAgJ3Jl\nc291cmNlcy9yZWRpcmVjdC1jaGFpbi1zdGFydC5zdWIuaHR0cHMuaHRtbCcp\nOwoKICAgICAgYXdhaXQgbmV3IFByb21pc2UocmVzb2x2ZSA9PiBvdGhlclRh\nYi5hZGRFdmVudExpc3RlbmVyKCdsb2FkJywgcmVzb2x2ZSkpOwogICAgICBs\naW5rSW5OZXdQYWdlID0gb3RoZXJUYWIuZG9jdW1lbnQuZ2V0RWxlbWVudEJ5\nSWQoJ25hdmlnYXRlLWxpbmsnKTsKICAgIH0pOwoKICAgIGNvbnN0IHJlZGly\nZWN0RW5kZWRQcm9taXNlID0gbmV3IFByb21pc2UocmVzb2x2ZSA9PiB7CiAg\nICAgIHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdtZXNzYWdlJywgcmVzb2x2\nZSwge29uY2U6IHRydWV9KTsKICAgIH0pOwoKICAgIC8vIENsaWNrIHRoZSBs\naW5rIGluIHRoZSBuZXcgdGFiLgogICAgLy8KICAgIC8vIElkZWFsbHksIHdl\nIHdvdWxkIGNsaWNrIHRoaXMgZnJvbSB3aXRoaW4gdGhlIHBhZ2UsIGJ1dCBi\nZWNhdXNlIHRoZSBwYWdlCiAgICAvLyBpbW1lZGlhdGVseSBuYXZpZ2F0ZXMg\nYXdheSwgdGVzdF9kcml2ZXIgZmFpbHMgYXMgaXQgZXhwZWN0cyB0aGUgcGFn\nZSB0bwogICAgLy8gbm90IG5hdmlnYXRlIGF3YXkuIERvaW5nIHRoaXMgZnJv\nbSB0aGUgbWFpbiB0ZXN0IHBhZ2UgYXZvaWRzIHRoZSBpc3N1ZS4KICAgIHRl\nc3RfZHJpdmVyLmNsaWNrKGxpbmtJbk5ld1BhZ2UpOwoKICAgIGF3YWl0IHJl\nZGlyZWN0RW5kZWRQcm9taXNlOwoKICAgIGxldCByZXN1bHQgPSBbXTsKICAg\nIHdoaWxlIChyZXN1bHQubGVuZ3RoID09IDApIHsKICAgICAgcmVzdWx0ID0g\nYXdhaXQgdGVzdF9kcml2ZXIucnVuX2JvdW5jZV90cmFja2luZ19taXRpZ2F0\naW9ucygpOwogICAgfQogICAgYXNzZXJ0X2FycmF5X2VxdWFscyhyZXN1bHQs\nIFsne3tob3N0c1thbHRdW119fSddKTsKCiAgICAvLyBPcGVuIGEgcGFnZSBv\nbiB0aGUgYm91bmNlIG9yaWdpbiwgYW5kIGNoZWNrIHRoYXQgY29va2llcyBo\nYXZlIGJlZW4KICAgIC8vIGNsZWFyZWQuCiAgICBjb25zdCBnZXRDb29raWVz\nRnJvbUJvdW5jZU9yaWdpbiA9IG5ldyBQcm9taXNlKAogICAgICByZXNvbHZl\nID0+IHsKICAgICAgICB3aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcigKICAgICAg\nICAgICdtZXNzYWdlJywKICAgICAgICAgIChldmVudCkgPT4geyByZXNvbHZl\nKGV2ZW50LmRhdGEuY29va2llKSB9LAogICAgICAgICAge29uY2U6IHRydWV9\nKQogICAgfSk7CgogICAgY29uc3QgdXJsID0gbmV3IFVSTCgKICAgICAgJ3Jl\nc291cmNlcy9jcm9zcy1vcmlnaW4tZ2V0LWNvb2tpZS5zdWIuaHR0cHMuaHRt\nbCcsCiAgICAgIHdpbmRvdy5sb2NhdGlvbi5ocmVmKTsKICAgIHVybC5ob3N0\nbmFtZSA9ICd7e2hvc3RzW2FsdF1bXX19JzsKICAgIHdpbmRvdy5vcGVuKHVy\nbCk7CgogICAgYXNzZXJ0X2VxdWFscyhhd2FpdCBnZXRDb29raWVzRnJvbUJv\ndW5jZU9yaWdpbiwgJycpOwogIH0sICdCb3VuY2UgdHJhY2tpbmcgbWl0aWdh\ndGlvbnMgZGVsZXRpbmcgc3RhdGUgZm9yIGEgYm91bmNlIHRyYWNrZXInKTsK\nPC9zY3JpcHQ+Cg==\n"
+          "content_b64": "PCFET0NUWVBFIEhUTUw+CjxtZXRhIGNoYXJzZXQ9dXRmLTg+Cjx0aXRsZT5C\nb3VuY2UgVHJhY2tpbmcgTWl0aWdhdGlvbnM6IFN0YXRlZnVsIENsaWVudCBC\nb3VuY2U8L3RpdGxlPgo8Ym9keT5ib2R5IGZvciB0ZXN0X2RyaXZlci5ibGVz\nczwvYm9keT4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90ZXN0aGFybmVzcy5q\ncz48L3NjcmlwdD4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90ZXN0aGFybmVz\nc3JlcG9ydC5qcz48L3NjcmlwdD4KPHNjcmlwdCBzcmM9L3Jlc291cmNlcy90\nZXN0ZHJpdmVyLmpzPjwvc2NyaXB0Pgo8c2NyaXB0IHNyYz0vcmVzb3VyY2Vz\nL3Rlc3Rkcml2ZXItdmVuZG9yLmpzPjwvc2NyaXB0Pgo8c2NyaXB0PgogIHBy\nb21pc2Vfc2V0dXAoYXN5bmMgKCkgPT4gewogICAgdHJ5IHsKICAgICAgYXdh\naXQgdGVzdF9kcml2ZXIuc2V0X3N0b3JhZ2VfYWNjZXNzKCcqJywgJyonLCAn\nYmxvY2tlZCcpOwogICAgfSBjYXRjaCAoZSkgewogICAgICAvLyBJZ25vcmUs\nIGNhbiBiZSB1bmltcGxlbWVudGVkIGlmIHRoZSBwbGF0Zm9ybSBibG9ja3Mg\nY3Jvc3Mtc2l0ZQogICAgICAvLyBjb29raWVzIGJ5IGRlZmF1bHQuIElmIHRo\naXMgZmFpbGVkIHdpdGhvdXQgZGVmYXVsdCBibG9ja2luZyB0aGUgdGVzdAog\nICAgICAvLyB3aWxsIGZhaWwuCiAgICB9CiAgfSk7CgogIHByb21pc2VfdGVz\ndChhc3luYyB0ID0+IHsKICAgIGNvbnN0IHtwcm9taXNlOiBnZXRMaW5rUHJv\nbWlzZSwgcmVzb2x2ZTogZ2V0TGlua1Jlc29sdmVyfSA9CiAgICAgIFByb21p\nc2Uud2l0aFJlc29sdmVycygpOwoKICAgIC8vIE9wZW4gYSBuZXcgdGFiIGFu\nZCByZXRyaWV2ZSB0aGUgbGluayB0byBzdGFydCB0aGUgdGVzdC4KICAgIGF3\nYWl0IHRlc3RfZHJpdmVyLmJsZXNzKCdvcGVuIHBhZ2UgdG8gc3RhcnQgdGVz\ndCcsIGFzeW5jICgpID0+IHsKICAgICAgY29uc3Qgb3RoZXJUYWIgPSB3aW5k\nb3cub3BlbigKICAgICAgICAncmVzb3VyY2VzL3JlZGlyZWN0LWNoYWluLXN0\nYXJ0LnN1Yi5odHRwcy5odG1sJyk7CgogICAgICBhd2FpdCBuZXcgUHJvbWlz\nZShyZXNvbHZlID0+IG90aGVyVGFiLmFkZEV2ZW50TGlzdGVuZXIoJ2xvYWQn\nLCByZXNvbHZlKSk7CiAgICAgIGdldExpbmtSZXNvbHZlcihvdGhlclRhYi5k\nb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbmF2aWdhdGUtbGluaycpKTsKICAg\nIH0pOwoKICAgIC8vIENsaWNrIHRoZSBsaW5rIGluIHRoZSBuZXcgdGFiLgog\nICAgLy8KICAgIC8vIElkZWFsbHksIHdlIHdvdWxkIGNsaWNrIHRoaXMgZnJv\nbSB3aXRoaW4gdGhlIHBhZ2UsIGJ1dCBiZWNhdXNlIHRoZSBwYWdlCiAgICAv\nLyBpbW1lZGlhdGVseSBuYXZpZ2F0ZXMgYXdheSwgdGVzdF9kcml2ZXIgZmFp\nbHMgYXMgaXQgZXhwZWN0cyB0aGUgcGFnZSB0bwogICAgLy8gbm90IG5hdmln\nYXRlIGF3YXkuIERvaW5nIHRoaXMgZnJvbSB0aGUgbWFpbiB0ZXN0IHBhZ2Ug\nYXZvaWRzIHRoZSBpc3N1ZS4KICAgIGNvbnN0IGxpbmsgPSBhd2FpdCBnZXRM\naW5rUHJvbWlzZTsKICAgIHRlc3RfZHJpdmVyLmNsaWNrKGxpbmspOwoKICAg\nIGF3YWl0IG5ldyBQcm9taXNlKHJlc29sdmUgPT4gd2luZG93LmFkZEV2ZW50\nTGlzdGVuZXIoJ21lc3NhZ2UnLCByZXNvbHZlKSk7CgogICAgbGV0IHJlc3Vs\ndCA9IFtdOwogICAgd2hpbGUgKHJlc3VsdC5sZW5ndGggPT0gMCkgewogICAg\nICByZXN1bHQgPSBhd2FpdCB0ZXN0X2RyaXZlci5ydW5fYm91bmNlX3RyYWNr\naW5nX21pdGlnYXRpb25zKCk7CiAgICB9CgogICAgYXNzZXJ0X2FycmF5X2Vx\ndWFscyhyZXN1bHQsIFsne3tob3N0c1thbHRdW119fSddKTsKICB9LCAnQm91\nbmNlIHRyYWNraW5nIG1pdGlnYXRpb25zIGRlbGV0aW5nIHN0YXRlIGZvciBh\nIGJvdW5jZSB0cmFja2VyJyk7Cjwvc2NyaXB0Pgo=\n"
         }
       ],
       "comments": [
@@ -16,31 +16,31 @@
           "author": "Trikolon",
           "path": "nav-tracking-mitigations/stateful-client-bounce.sub.https.html",
           "line": 46,
-          "commit_id": "ad801772f612c6c04c8410c05dc59a6ee3bfdd0d",
+          "commit_id": "103fa75652b4d1a03b10e5b88b7904ee587e836e",
           "review_state": "CHANGES_REQUESTED",
           "html_url": "https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757027151",
           "body": "Why is a `while` loop required here? Is it because the bounce tracker classification only runs after a delay (on extended navigation end)? Right now that delay is implementation defined, but the spec recommends 10 seconds. \r\nEven if we're okay with waiting for 10 seconds, we should not spin the CPU for that long here. We can either add wait or make`run_bounce_tracking_mitigations` skip the 10 second wait.\r\n\r\nThe other way for an extended navigation to end (as per the spec) is if the user navigates again (before the 10 second timeout). We probably want to test both cases. I don't want to require it here since this is just the first basic bounce tracking mitigation test.",
-          "fixed_before_merge": false
+          "fixed_before_merge": true
         },
         {
           "author": "Trikolon",
           "path": "nav-tracking-mitigations/stateful-client-bounce.sub.https.html",
           "line": 22,
-          "commit_id": "ad801772f612c6c04c8410c05dc59a6ee3bfdd0d",
+          "commit_id": "103fa75652b4d1a03b10e5b88b7904ee587e836e",
           "review_state": "CHANGES_REQUESTED",
           "html_url": "https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757034255",
           "body": "This seems overly complicated, can't you just await the load / link getter and then continue? Is there a specific reason why you need to resolve a promise externally?",
-          "fixed_before_merge": false
+          "fixed_before_merge": true
         },
         {
           "author": "Trikolon",
           "path": "nav-tracking-mitigations/stateful-client-bounce.sub.https.html",
           "line": 49,
-          "commit_id": "ad801772f612c6c04c8410c05dc59a6ee3bfdd0d",
+          "commit_id": "103fa75652b4d1a03b10e5b88b7904ee587e836e",
           "review_state": "CHANGES_REQUESTED",
           "html_url": "https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757035973",
           "body": "We should also assert that the cookie has been deleted. This only asserts that the algorithm says it purged.",
-          "fixed_before_merge": false
+          "fixed_before_merge": true
         }
       ]
     }

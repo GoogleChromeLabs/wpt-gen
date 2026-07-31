@@ -22,13 +22,14 @@ surface here as ManifestError, before any agent runs.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from benchmark.scoring import ExpectLabel, parse_expect
+from benchmark.scoring import ExpectLabel, GoldenLabel, parse_expect
 
 
 class ManifestError(Exception):
@@ -107,6 +108,32 @@ class SeedEntry(BenchmarkEntry):
         return f"{STAGING_DIRNAME}/{Path(self.seed).name}"
 
 
+# Golden test files are staged under a per-PR subdir of the staging root, so
+# distinct PRs sharing a wpt-relative path don't collide.
+GOLDEN_STAGING_SUBDIR = "golden"
+
+
+@dataclass
+class GoldenEntry(BenchmarkEntry):
+    """A real merged-wpt test at a reviewed commit, with human-review labels.
+
+    Synthesized from ``candidates/<pr>.json`` + ``annotated/<pr>.yaml``; the
+    chosen commit's test bytes are base64-encoded on the record and staged at
+    run time (like a seed).
+    """
+
+    pr: int
+    commit_id: str
+    # wpt-root-relative path of the commented test to stage/run.
+    path: str
+    # base64 test-file contents at ``commit_id``, keyed by wpt-relative path.
+    files_b64: dict[str, str] = field(default_factory=dict)
+    expect: list[ExpectLabel] = field(default_factory=list)
+
+    def test_rel_path(self) -> str:
+        return f"{STAGING_DIRNAME}/{GOLDEN_STAGING_SUBDIR}/{self.pr}/{self.path}"
+
+
 @dataclass
 class Manifest:
     """A parsed, validated benchmark manifest."""
@@ -118,6 +145,10 @@ class Manifest:
     corpus: list[CorpusEntry]
     seeds: list[SeedEntry]
     source_path: Path
+    # Named golden subsets: set name -> PR numbers. Membership only; the PR's
+    # commit/bytes/labels still come from the on-disk artifacts. An empty list
+    # means "all annotated PRs".
+    golden_sets: dict[str, list[int]] = field(default_factory=dict)
 
     @property
     def entries(self) -> list[BenchmarkEntry]:
@@ -247,7 +278,128 @@ def load_manifest(path: Path) -> Manifest:
         corpus=corpus,
         seeds=seeds,
         source_path=path,
+        golden_sets=_parse_golden_sets(raw.get("golden_sets")),
     )
+
+
+def _parse_golden_sets(raw: Any) -> dict[str, list[int]]:
+    """Parses the ``golden_sets`` block (name -> PR numbers), if present."""
+    if raw is None:
+        return {}
+    _require(isinstance(raw, dict), '"golden_sets" must be a mapping')
+    sets: dict[str, list[int]] = {}
+    for name, prs in raw.items():
+        _require(
+            isinstance(prs, list),
+            f'golden_sets["{name}"] must be a list of PR numbers',
+        )
+        for pr in prs:
+            _require(
+                isinstance(pr, int),
+                f'golden_sets["{name}"] has a non-integer PR: {pr!r}',
+            )
+        sets[str(name)] = list(prs)
+    return sets
+
+
+def _short_sha(commit_id: str) -> str:
+    return commit_id[:8]
+
+
+def _pick_commit_block(candidate: dict[str, Any]) -> dict[str, Any] | None:
+    """The most-commented ``reviewed_commits`` block (None if there are none)."""
+    blocks = candidate.get("reviewed_commits") or []
+    if not blocks:
+        return None
+    return max(blocks, key=lambda b: len(b.get("comments") or []))
+
+
+def _golden_expect(
+    labels: list[dict[str, Any]], comments_by_url: dict[str, dict[str, Any]]
+) -> list[GoldenLabel]:
+    """Annotation labels -> GoldenLabels, dropping ``no-rule``.
+
+    ``fixed_before_merge`` is read from the candidate comment joined by
+    ``html_url``, not the label (the label may omit it).
+    """
+    expect: list[GoldenLabel] = []
+    for label in labels:
+        rule_id = label.get("rule_id")
+        if not rule_id or rule_id == "no-rule":
+            continue
+        lines = label.get("lines")
+        window: tuple[int, int] | None = None
+        if isinstance(lines, (list, tuple)) and len(lines) == 2:
+            start, end = int(lines[0]), int(lines[1])
+            window = (min(start, end), max(start, end))
+        comment = comments_by_url.get(str(label.get("html_url", "")), {})
+        expect.append(
+            GoldenLabel(
+                key=str(rule_id),
+                line_window=window,
+                path=str(label.get("path", "")),
+                fixed_before_merge=bool(comment.get("fixed_before_merge")),
+            )
+        )
+    return expect
+
+
+def load_golden_entries(
+    candidates_dir: Path, annotated_dir: Path
+) -> list[GoldenEntry]:
+    """Pairs each ``candidates/<pr>.json`` with ``annotated/<pr>.yaml``.
+
+    One entry per PR, from its most-commented commit block. PRs whose labels
+    are all ``no-rule`` still load (empty ``expect``) — they run but add no
+    recall denominator. A candidate with no annotation file is skipped.
+    """
+    entries: list[GoldenEntry] = []
+    for candidate_path in sorted(candidates_dir.glob("*.json")):
+        annotation_path = annotated_dir / f"{candidate_path.stem}.yaml"
+        if not annotation_path.is_file():
+            continue
+        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        annotation = yaml.safe_load(annotation_path.read_text(encoding="utf-8"))
+
+        block = _pick_commit_block(candidate)
+        if block is None:
+            continue
+        pr = int(candidate["pr"])
+        commit_id = str(block["commit_id"])
+        files_b64 = {
+            str(f["path"]): str(f["content_b64"])
+            for f in block.get("test_files") or []
+        }
+        comments_by_url = {
+            str(c.get("html_url", "")): c for c in block.get("comments") or []
+        }
+        # The commented test to run: the label paths point at it; fall back to
+        # the block's first staged file.
+        labels = (annotation or {}).get("labels") or []
+        path = str(labels[0]["path"]) if labels else next(iter(files_b64), "")
+
+        entries.append(
+            GoldenEntry(
+                entry_id=f"golden-{pr}-{_short_sha(commit_id)}",
+                kind=_golden_kind(path),
+                pr=pr,
+                commit_id=commit_id,
+                path=path,
+                files_b64=files_b64,
+                expect=_golden_expect(labels, comments_by_url),
+            )
+        )
+    return entries
+
+
+def _golden_kind(path: str) -> str:
+    """A coarse test kind from the path, for report grouping."""
+    name = Path(path).name
+    if "-ref." in name or name.endswith((".ref.html", ".html.ref")):
+        return "reftest"
+    if ".any." in name or name.endswith((".any.js", ".worker.js", ".window.js")):
+        return "js"
+    return "testharness"
 
 
 def validate_against_checkout(

@@ -20,7 +20,8 @@ result becomes the answer key. Finding candidates is automated here; judging
 them is not.
 
 Each record groups a PR's CHANGES_REQUESTED comments on test files into one
-block per ``commit_id`` — the revision each comment's ``line`` is relative to.
+block per ``commit_id`` — the *review-time* commit (GitHub's
+``original_commit_id``), the revision each comment's ``line`` is relative to.
 A block carries the commented files at that commit, so it is a self-contained
 scoring unit: fetch these bytes, run the evaluator, check the flagged lines.
 
@@ -158,7 +159,11 @@ _CHANGES_REQUESTED = "CHANGES_REQUESTED"
 
 def changes_requested_comments(pr: PullRequest) -> list[dict[str, Any]]:
     """Test-file comments under a CHANGES_REQUESTED review, excluding author
-    self-replies. ``line`` is relative to the comment's ``commit_id``."""
+    self-replies.
+
+    ``commit_id`` is the ``original_commit_id`` — the commit the PR pointed at
+    when the comment was left — paired with ``original_line`` (the line in
+    that commit)."""
     state_by_review = {r["id"]: r["state"] for r in pr.reviews}
     kept: list[dict[str, Any]] = []
     for c in pr.review_comments:
@@ -172,7 +177,7 @@ def changes_requested_comments(pr: PullRequest) -> list[dict[str, Any]]:
                 "author": c["author"],
                 "path": path,
                 "line": c.get("original_line") or c.get("line"),
-                "commit_id": c.get("commit_id"),
+                "commit_id": c.get("original_commit_id") or c.get("commit_id"),
                 "review_state": _CHANGES_REQUESTED,
                 "html_url": c.get("html_url"),
                 "body": c.get("body", ""),
@@ -385,6 +390,7 @@ def _to_pull_request(
             "line": c.get("line"),
             "original_line": c.get("original_line"),
             "commit_id": c.get("commit_id"),
+            "original_commit_id": c.get("original_commit_id"),
             "review_id": c.get("pull_request_review_id"),
             "html_url": c.get("html_url"),
             "body": c.get("body", ""),

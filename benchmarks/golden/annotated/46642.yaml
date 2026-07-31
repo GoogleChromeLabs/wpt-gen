@@ -1,25 +1,25 @@
 pr: 46642
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/46642#discussion_r1701073949
-    commit_id: bfd5525258423f44cf2d6de2fef290e9864526f3
+    commit_id: 48f64df032bac3e30bf385ae48f7796aea18952d
     excerpt: "This is identical to lines 48-53?"
     rule_id: no-rule   # duplicate check; maybe CHECKLIST-004
     path: digital-credentials/identity-get.tentative.https.html
     lines: [67, 67]
   - html_url: https://github.com/web-platform-tests/wpt/pull/46642#discussion_r1701077928
-    commit_id: bfd5525258423f44cf2d6de2fef290e9864526f3
+    commit_id: 48f64df032bac3e30bf385ae48f7796aea18952d
     excerpt: "Given the sole test in this file, do you need to load the <iframe>s?"
     rule_id: GENERAL-006   # extraneous setup question
     path: digital-credentials/identity-create.tentative.https.html
     lines: [31, 31]
   - html_url: https://github.com/web-platform-tests/wpt/pull/46642#discussion_r1701094474
-    commit_id: bfd5525258423f44cf2d6de2fef290e9864526f3
+    commit_id: 48f64df032bac3e30bf385ae48f7796aea18952d
     excerpt: "Won't makeGetOptions return a dict with a digital key? Shouldn't this be get(makeGetOptions(...))?"
     rule_id: CHECKLIST-004
     path: digital-credentials/get-user-activation.https.html
     lines: [20, 20]
   - html_url: https://github.com/web-platform-tests/wpt/pull/46642#discussion_r1701889178
-    commit_id: bfd5525258423f44cf2d6de2fef290e9864526f3
+    commit_id: 48f64df032bac3e30bf385ae48f7796aea18952d
     excerpt: "Shouldn't this also include 'ping'? (Otherwise remove the handling for 'ping')"
     rule_id: CHECKLIST-004
     path: digital-credentials/dc-types.ts

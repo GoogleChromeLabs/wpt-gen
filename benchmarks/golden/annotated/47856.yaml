@@ -1,20 +1,20 @@
 pr: 47856
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757027151
-    commit_id: ad801772f612c6c04c8410c05dc59a6ee3bfdd0d
+    commit_id: 103fa75652b4d1a03b10e5b88b7904ee587e836e
     excerpt: "Why is a `while` loop required? [10s classification delay; implementation-defined]"
     rule_id: CHECKLIST-016   # internal-timeout / polling loop for a timed behavior
     source_doc: wpt/docs/reviewing-tests/checklist.md
     path: nav-tracking-mitigations/stateful-client-bounce.sub.https.html
     lines: [46, 46]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757034255
-    commit_id: ad801772f612c6c04c8410c05dc59a6ee3bfdd0d
+    commit_id: 103fa75652b4d1a03b10e5b88b7904ee587e836e
     excerpt: "This seems overly complicated, can't you just await the load and continue?"
     rule_id: GENERAL-006   # simplify test structure
     path: nav-tracking-mitigations/stateful-client-bounce.sub.https.html
     lines: [22, 22]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47856#discussion_r1757035973
-    commit_id: ad801772f612c6c04c8410c05dc59a6ee3bfdd0d
+    commit_id: 103fa75652b4d1a03b10e5b88b7904ee587e836e
     excerpt: "should also assert the cookie has been deleted; this only asserts the algorithm purged"
     rule_id: CHECKLIST-004   # coverage/assertion-completeness
     path: nav-tracking-mitigations/stateful-client-bounce.sub.https.html

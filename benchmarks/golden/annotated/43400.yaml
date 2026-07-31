@@ -3,14 +3,14 @@ labels:
   # Both assert the test's expected values contradict the spec (HKDF/X25519
   # length handling). Clear spec-correctness fit.
   - html_url: https://github.com/web-platform-tests/wpt/pull/43400#discussion_r1660071683
-    commit_id: 3b54d1442da4757e229d56520d77c7581e79d877
+    commit_id: afe0767aa79b54c7945d768c857eceab4b6a7a8c
     excerpt: "[suggestion: default value is null for X25519 derivation]"
     rule_id: CHECKLIST-005
     source_doc: wpt/docs/reviewing-tests/checklist.md
     path: WebCryptoAPI/derive_bits_keys/derived_bits_length_testcases.js
     lines: [32, 32]
   - html_url: https://github.com/web-platform-tests/wpt/pull/43400#discussion_r1660074609
-    commit_id: 3b54d1442da4757e229d56520d77c7581e79d877
+    commit_id: afe0767aa79b54c7945d768c857eceab4b6a7a8c
     excerpt: "This is also incorrect for HKDF. [spec: null/0/non-mult-of-8 should throw]"
     rule_id: CHECKLIST-005
     source_doc: wpt/docs/reviewing-tests/checklist.md

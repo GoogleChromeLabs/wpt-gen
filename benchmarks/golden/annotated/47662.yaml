@@ -1,31 +1,31 @@
 pr: 47662
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722253527
-    commit_id: 800f578c65b1a4373c915fa34199d73d1640cb74
+    commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "Please be consistent and have the `crossOrigin: false` test case first."
     rule_id: no-rule   # test-case ordering nit
     path: digital-credentials/allow-attribute.https.html
     lines: [36, 36]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722256355
-    commit_id: 800f578c65b1a4373c915fa34199d73d1640cb74
+    commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "Nit: `isAllowed` is unintuitive; `expectIsAllowed` would be clearer"
     rule_id: no-rule   # variable naming, no governing rule
     path: digital-credentials/allow-attribute.https.html
     lines: [76, 76]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722330967
-    commit_id: 800f578c65b1a4373c915fa34199d73d1640cb74
+    commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "Nit: use->user"
     rule_id: no-rule   # typo
     path: digital-credentials/default-permissions-policy.https.sub.html
     lines: [18, 18]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722337642
-    commit_id: 800f578c65b1a4373c915fa34199d73d1640cb74
+    commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "What is the difference between this test and enabled-on-self-origin-...?"
     rule_id: CHECKLIST-004   # duplicate-coverage question
     path: digital-credentials/override-permissions-policy.https.sub.html
     lines: [10, 10]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722338866
-    commit_id: 800f578c65b1a4373c915fa34199d73d1640cb74
+    commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "Is this a bad merge? Isn't this file added by #46642?"
     rule_id: no-rule   # merge/logistics housekeeping
     path: digital-credentials/get-user-activation.https.html

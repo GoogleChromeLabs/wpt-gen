@@ -1,7 +1,7 @@
 pr: 48260
 labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/48260#discussion_r1766716887
-    commit_id: 19e28c48cfd4d67a44324955a9f188e1c64cd2e8
+    commit_id: 9220b29553d9c54439134c8aa01f5de7b1b47f8d
     excerpt: "We no longer need the parameterization given it doesn't matter what kind this iframe is."
     rule_id: GENERAL-006   # remove extraneous parameterization
     path: webdriver/tests/bidi/browsing_context/traverse_history/invalid.py

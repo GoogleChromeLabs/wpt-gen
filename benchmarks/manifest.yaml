@@ -171,3 +171,15 @@ seeds:
     seed: clean/headers-append-basic.html
     kind: testharness
     expect: []
+
+# --- Golden sets ----------------------------------------------------------
+# Named subsets of the golden dev set (benchmarks/golden/). Membership only:
+# each PR's commit/bytes/labels come from the on-disk candidate + annotation.
+# Run one with `--golden-set <name>`. With no --golden-set/--golden-prs, all
+# annotated PRs run. A missing artifact for a listed PR is warned and skipped.
+golden_sets:
+  # Fast smoke: one self-contained reftest with an invalid-CSS (CHECKLIST-002)
+  # label the structural evaluator can catch by reading the single file.
+  smoke: [47302]
+  # Every dev-set PR that maps at least one rule (drops the all-no-rule ones).
+  mapped: [43400, 46642, 47302, 47662, 47856, 48260, 49133, 49140]
