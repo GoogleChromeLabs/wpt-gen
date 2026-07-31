@@ -32,6 +32,7 @@ import yaml
 from benchmark import run_benchmark
 from benchmark.manifest import (
     GOLDEN_STAGING_SUBDIR,
+    REPO_ROOT,
     STAGING_DIRNAME,
     GoldenEntry,
     ManifestError,
@@ -992,9 +993,7 @@ def test_golden_recall_and_unmatched_not_charged() -> None:
     label = GoldenLabel("CHECKLIST-005", (4, 17))
     hit = Prediction("CHECKLIST-005", (7, 7), "e", "s", "warn")
     extra = Prediction("GENERAL-006", (99, 99), "e", "s", "warn")
-    score = score_golden(
-        _runs("g", [[hit, extra]], role="golden"), [label]
-    )
+    score = score_golden(_runs("g", [[hit, extra]], role="golden"), [label])
     assert score.true_positives == 1
     assert score.recall == pytest.approx(1.0)
     # A prediction with no gold label is unmatched, NOT a false positive.
@@ -1162,7 +1161,7 @@ def test_load_golden_skips_candidate_without_annotation(
 
 def test_load_golden_reads_real_dev_set() -> None:
     # The checked-in dev set loads; #43400 has 2 CHECKLIST-005 labels.
-    golden_dir = run_benchmark.REPO_ROOT / "benchmarks" / "golden"
+    golden_dir = REPO_ROOT / "benchmarks" / "golden"
     entries = load_golden_entries(
         golden_dir / "candidates", golden_dir / "annotated"
     )
@@ -1188,12 +1187,7 @@ def test_stage_golden_decodes_bytes_to_per_pr_path(tmp_path: Path) -> None:
     )
     run_benchmark.stage_golden(wpt_dir, [entry])
     staged = (
-        wpt_dir
-        / STAGING_DIRNAME
-        / GOLDEN_STAGING_SUBDIR
-        / "1"
-        / "a"
-        / "t.js"
+        wpt_dir / STAGING_DIRNAME / GOLDEN_STAGING_SUBDIR / "1" / "a" / "t.js"
     )
     assert staged.read_text(encoding="utf-8") == "hello\n"
     # The staged path matches the entry's advertised test_rel_path.
@@ -1213,9 +1207,7 @@ def _golden_entry(pr: int) -> GoldenEntry:
     )
 
 
-def _manifest_with_sets(
-    tmp_path: Path, sets: dict[str, list[int]]
-) -> Any:
+def _manifest_with_sets(tmp_path: Path, sets: dict[str, list[int]]) -> Any:
     data = _valid_manifest_dict()
     data["golden_sets"] = sets
     return load_manifest(_write_manifest(tmp_path, data))

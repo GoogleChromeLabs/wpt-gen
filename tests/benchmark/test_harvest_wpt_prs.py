@@ -16,13 +16,14 @@
 stubbed with a fake serving fixture payloads."""
 
 import json
+import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 # scripts/ is on sys.path via tests/conftest.py.
 from benchmark import harvest_wpt_prs as h
-
 
 # --- Pure filters -----------------------------------------------------------
 
@@ -134,9 +135,12 @@ def test_qualifies_rejects_tooling_only() -> None:
 
 def test_qualifies_rejects_no_changes_requested() -> None:
     # Only a COMMENTED review -> no answer-key finding -> does not qualify.
-    assert h.qualifies(
-        _pr(reviews=[{"id": 1, "state": "COMMENTED", "author": "rev"}])
-    ) is False
+    assert (
+        h.qualifies(
+            _pr(reviews=[{"id": 1, "state": "COMMENTED", "author": "rev"}])
+        )
+        is False
+    )
 
 
 # --- changes_requested_comments() -------------------------------------------
@@ -147,17 +151,42 @@ def test_changes_requested_filters_to_answer_key() -> None:
         author="twilco",
         review_comments=[
             # kept: reviewer, CHANGES_REQUESTED, test file
-            {"author": "jcsteh", "path": "dom/t.py", "line": 30,
-             "commit_id": "A", "review_id": 1, "html_url": "u1", "body": "fix"},
+            {
+                "author": "jcsteh",
+                "path": "dom/t.py",
+                "line": 30,
+                "commit_id": "A",
+                "review_id": 1,
+                "html_url": "u1",
+                "body": "fix",
+            },
             # dropped: author's own reply
-            {"author": "twilco", "path": "dom/t.py", "line": 30,
-             "commit_id": "A", "review_id": 2, "body": "Fixed!"},
+            {
+                "author": "twilco",
+                "path": "dom/t.py",
+                "line": 30,
+                "commit_id": "A",
+                "review_id": 2,
+                "body": "Fixed!",
+            },
             # dropped: COMMENTED (not CHANGES_REQUESTED)
-            {"author": "cookiecrook", "path": "dom/t.py", "line": 5,
-             "commit_id": "A", "review_id": 3, "body": "nit"},
+            {
+                "author": "cookiecrook",
+                "path": "dom/t.py",
+                "line": 5,
+                "commit_id": "A",
+                "review_id": 3,
+                "body": "nit",
+            },
             # dropped: CHANGES_REQUESTED but on a tooling file
-            {"author": "jcsteh", "path": "tools/x.py", "line": 1,
-             "commit_id": "A", "review_id": 1, "body": "tooling"},
+            {
+                "author": "jcsteh",
+                "path": "tools/x.py",
+                "line": 1,
+                "commit_id": "A",
+                "review_id": 1,
+                "body": "tooling",
+            },
         ],
         reviews=[
             {"id": 1, "state": "CHANGES_REQUESTED", "author": "jcsteh"},
@@ -178,9 +207,15 @@ def test_changes_requested_filters_to_answer_key() -> None:
 def test_changes_requested_prefers_original_line() -> None:
     pr = _pr(
         review_comments=[
-            {"author": "rev", "path": "dom/t.py", "line": 9,
-             "original_line": 30, "commit_id": "A", "review_id": 1,
-             "body": "x"}
+            {
+                "author": "rev",
+                "path": "dom/t.py",
+                "line": 9,
+                "original_line": 30,
+                "commit_id": "A",
+                "review_id": 1,
+                "body": "x",
+            }
         ],
         reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
     )
@@ -192,9 +227,16 @@ def test_changes_requested_uses_original_commit_id() -> None:
     # original_line is relative to original_commit_id, not the later commit_id.
     pr = _pr(
         review_comments=[
-            {"author": "rev", "path": "dom/t.py", "line": None,
-             "original_line": 45, "commit_id": "MERGED",
-             "original_commit_id": "REVIEW", "review_id": 1, "body": "x"}
+            {
+                "author": "rev",
+                "path": "dom/t.py",
+                "line": None,
+                "original_line": 45,
+                "commit_id": "MERGED",
+                "original_commit_id": "REVIEW",
+                "review_id": 1,
+                "body": "x",
+            }
         ],
         reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
     )
@@ -207,9 +249,16 @@ def test_changes_requested_falls_back_to_commit_id() -> None:
     # Comment left on the head commit: no original_commit_id -> plain commit_id.
     pr = _pr(
         review_comments=[
-            {"author": "rev", "path": "dom/t.py", "line": 5,
-             "original_line": 5, "commit_id": "HEAD",
-             "original_commit_id": None, "review_id": 1, "body": "x"}
+            {
+                "author": "rev",
+                "path": "dom/t.py",
+                "line": 5,
+                "original_line": 5,
+                "commit_id": "HEAD",
+                "original_commit_id": None,
+                "review_id": 1,
+                "body": "x",
+            }
         ],
         reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
     )
@@ -220,13 +269,30 @@ def test_changes_requested_falls_back_to_commit_id() -> None:
 
 
 def test_snapshot_groups_by_commit() -> None:
-    pr = _pr(number=59768, author="twilco",
-             changed_paths=["dom/a.py", "dom/b.py", "tools/x.py"])
+    pr = _pr(
+        number=59768,
+        author="twilco",
+        changed_paths=["dom/a.py", "dom/b.py", "tools/x.py"],
+    )
     comments = [
-        {"author": "j", "path": "dom/a.py", "line": 30, "commit_id": "A",
-         "review_state": "CHANGES_REQUESTED", "html_url": "u1", "body": "x"},
-        {"author": "j", "path": "dom/b.py", "line": 33, "commit_id": "B",
-         "review_state": "CHANGES_REQUESTED", "html_url": "u2", "body": "y"},
+        {
+            "author": "j",
+            "path": "dom/a.py",
+            "line": 30,
+            "commit_id": "A",
+            "review_state": "CHANGES_REQUESTED",
+            "html_url": "u1",
+            "body": "x",
+        },
+        {
+            "author": "j",
+            "path": "dom/b.py",
+            "line": 33,
+            "commit_id": "B",
+            "review_state": "CHANGES_REQUESTED",
+            "html_url": "u2",
+            "body": "y",
+        },
     ]
     content_at = {("A", "dom/a.py"): "Zm9v", ("B", "dom/b.py"): "YmFy"}
     fixed = {"dom/a.py": True, "dom/b.py": False}
@@ -250,16 +316,23 @@ def test_snapshot_groups_by_commit() -> None:
 
 def test_build_record_derives_fixed_before_merge() -> None:
     # file_at_ref returns different bytes at commit vs head -> fixed=True.
-    class _Gh:
-        def file_at_ref(self, path: str, ref: str) -> str:
+    class _Gh(h.GitHub):
+        def file_at_ref(self, path: str, ref: str) -> str | None:
             return "reviewed" if ref == "A" else "head"
 
     pr = _pr(
         author="twilco",
         head_sha="HEAD",
         review_comments=[
-            {"author": "rev", "path": "dom/t.py", "line": 30, "commit_id": "A",
-             "review_id": 1, "html_url": "u", "body": "x"}
+            {
+                "author": "rev",
+                "path": "dom/t.py",
+                "line": 30,
+                "commit_id": "A",
+                "review_id": 1,
+                "html_url": "u",
+                "body": "x",
+            }
         ],
         reviews=[{"id": 1, "state": "CHANGES_REQUESTED", "author": "rev"}],
     )
@@ -284,7 +357,7 @@ def test_merged_qualifier() -> None:
 def test_merged_pulls_injects_date_window() -> None:
     seen: list[str] = []
 
-    def fake_fetch(path: str) -> dict:
+    def fake_fetch(path: str) -> dict[str, Any]:
         seen.append(path)
         return {"items": []}
 
@@ -350,27 +423,33 @@ def test_watermark_load_tolerates_garbage(tmp_path: Path) -> None:
 # --- harvest() orchestration (stubbed gh) -----------------------------------
 
 
-class _FakeGitHub:
+class _FakeGitHub(h.GitHub):
     """Serves canned endpoint payloads keyed by PR number."""
 
-    def __init__(self, pulls: list[dict], per_pr: dict[int, dict]) -> None:
+    def __init__(
+        self,
+        pulls: list[dict[str, Any]],
+        per_pr: dict[int, dict[str, Any]],
+    ) -> None:
         self._pulls = pulls
         self._per_pr = per_pr
 
     def merged_pulls(
-        self, max_items: int, since_date: str | None = None,
+        self,
+        max_items: int,
+        since_date: str | None = None,
         until_date: str | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         return self._pulls[:max_items]
 
-    def review_comments(self, number: int) -> list[dict]:
-        return self._per_pr[number].get("comments", [])
+    def review_comments(self, number: int) -> list[dict[str, Any]]:
+        return list(self._per_pr[number].get("comments", []))
 
-    def reviews(self, number: int) -> list[dict]:
-        return self._per_pr[number].get("reviews", [])
+    def reviews(self, number: int) -> list[dict[str, Any]]:
+        return list(self._per_pr[number].get("reviews", []))
 
-    def files(self, number: int) -> list[dict]:
-        return self._per_pr[number].get("files", [])
+    def files(self, number: int) -> list[dict[str, Any]]:
+        return list(self._per_pr[number].get("files", []))
 
     def file_at_ref(self, path: str, ref: str) -> str | None:
         return "Y29udGVudA=="  # base64("content")
@@ -379,7 +458,9 @@ class _FakeGitHub:
         return "fetched-sha"
 
 
-def _raw_pull(number: int, merged_at: str, author: str, labels: list[str]):
+def _raw_pull(
+    number: int, merged_at: str, author: str, labels: list[str]
+) -> dict[str, Any]:
     return {
         "number": number,
         "merged_at": merged_at,
@@ -390,19 +471,30 @@ def _raw_pull(number: int, merged_at: str, author: str, labels: list[str]):
     }
 
 
-def _cr_pr(number: int) -> dict:
+def _cr_pr(number: int) -> dict[str, Any]:
     """per_pr payload for a PR that qualifies (one CHANGES_REQUESTED comment
     from a reviewer on a test file)."""
     return {
         "files": [{"filename": "dom/nodes/t.html"}],
         "comments": [
-            {"user": {"login": "rev"}, "path": "dom/nodes/t.html",
-             "line": 5, "original_line": 5, "commit_id": "sha1",
-             "pull_request_review_id": 1, "html_url": "u", "body": "fix"}
+            {
+                "user": {"login": "rev"},
+                "path": "dom/nodes/t.html",
+                "line": 5,
+                "original_line": 5,
+                "commit_id": "sha1",
+                "pull_request_review_id": 1,
+                "html_url": "u",
+                "body": "fix",
+            }
         ],
         "reviews": [
-            {"id": 1, "user": {"login": "rev"}, "state": "CHANGES_REQUESTED",
-             "body": ""}
+            {
+                "id": 1,
+                "user": {"login": "rev"},
+                "state": "CHANGES_REQUESTED",
+                "body": "",
+            }
         ],
     }
 
@@ -410,8 +502,12 @@ def _cr_pr(number: int) -> dict:
 def test_harvest_writes_qualifying_and_skips_rest(tmp_path: Path) -> None:
     pulls = [
         _raw_pull(10, "2026-07-25T00:00:00Z", "human", ["dom"]),  # qualifies
-        _raw_pull(11, "2026-07-24T00:00:00Z", "chromium-wpt-export-bot",
-                  ["chromium-export"]),  # export bot
+        _raw_pull(
+            11,
+            "2026-07-24T00:00:00Z",
+            "chromium-wpt-export-bot",
+            ["chromium-export"],
+        ),  # export bot
         _raw_pull(12, "2026-07-23T00:00:00Z", "human", ["css"]),  # no CR
     ]
     per_pr = {
@@ -419,11 +515,24 @@ def test_harvest_writes_qualifying_and_skips_rest(tmp_path: Path) -> None:
         11: {},
         12: {
             "files": [{"filename": "css/t.html"}],
-            "comments": [{"user": {"login": "rev"}, "path": "css/t.html",
-                          "line": 1, "commit_id": "s", "pull_request_review_id":
-                          9, "body": "x"}],
-            "reviews": [{"id": 9, "user": {"login": "rev"},
-                         "state": "COMMENTED", "body": ""}],
+            "comments": [
+                {
+                    "user": {"login": "rev"},
+                    "path": "css/t.html",
+                    "line": 1,
+                    "commit_id": "s",
+                    "pull_request_review_id": 9,
+                    "body": "x",
+                }
+            ],
+            "reviews": [
+                {
+                    "id": 9,
+                    "user": {"login": "rev"},
+                    "state": "COMMENTED",
+                    "body": "",
+                }
+            ],
         },
     }
     gh = _FakeGitHub(pulls, per_pr)
@@ -452,9 +561,7 @@ def test_harvest_respects_watermark(tmp_path: Path) -> None:
         _raw_pull(9, "2026-07-24T00:00:00Z", "human", ["dom"]),  # older, skip
     ]
     gh = _FakeGitHub(pulls, {10: _cr_pr(10), 9: _cr_pr(9)})
-    count, _ = h.harvest(
-        gh, tmp_path / "c", wm, max_prs=200, dry_run=False
-    )
+    count, _ = h.harvest(gh, tmp_path / "c", wm, max_prs=200, dry_run=False)
     assert count == 0
 
 
@@ -463,7 +570,10 @@ def test_harvest_dry_run_writes_nothing(tmp_path: Path) -> None:
     out = tmp_path / "candidates"
     wm = tmp_path / "watermark.json"
     count, _ = h.harvest(
-        _FakeGitHub(pulls, {10: _cr_pr(10)}), out, wm, max_prs=200,
+        _FakeGitHub(pulls, {10: _cr_pr(10)}),
+        out,
+        wm,
+        max_prs=200,
         dry_run=True,
     )
     assert count == 1
@@ -471,7 +581,7 @@ def test_harvest_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert not wm.exists()  # watermark untouched in dry-run
 
 
-def _capped_pulls(n: int) -> list[dict]:
+def _capped_pulls(n: int) -> list[dict[str, Any]]:
     # Export-labelled PRs: rejected at the cheap gate, so no per-PR fetch is
     # needed. Only the count (== max_prs) matters for the truncation warning.
     return [
@@ -481,19 +591,22 @@ def _capped_pulls(n: int) -> list[dict]:
 
 
 def test_harvest_reports_where_it_stopped_on_fatal(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # A PR whose per-PR fetch fails unrecoverably: harvest reports what was
     # written + which PR it died on, then re-raises.
     class _BoomGitHub(_FakeGitHub):
-        def files(self, number: int) -> list[dict]:
-            raise h.subprocess.CalledProcessError(1, ["gh"], stderr="502")
+        def files(self, number: int) -> list[dict[str, Any]]:
+            raise subprocess.CalledProcessError(1, ["gh"], stderr="502")
 
     pulls = [_raw_pull(10, "2024-12-05T00:00:00Z", "human", ["dom"])]
-    with pytest.raises(h.subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError):
         h.harvest(
-            _BoomGitHub(pulls, {10: _cr_pr(10)}), tmp_path / "c",
-            tmp_path / "w", max_prs=200, dry_run=False,
+            _BoomGitHub(pulls, {10: _cr_pr(10)}),
+            tmp_path / "c",
+            tmp_path / "w",
+            max_prs=200,
+            dry_run=False,
         )
     err = capsys.readouterr().err
     assert "PR #10" in err
@@ -501,21 +614,30 @@ def test_harvest_reports_where_it_stopped_on_fatal(
 
 
 def test_harvest_warns_when_window_hits_max_prs(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     h.harvest(
-        _FakeGitHub(_capped_pulls(3), {}), tmp_path / "c", tmp_path / "w",
-        max_prs=3, dry_run=True, since_date="2024-10-01",
+        _FakeGitHub(_capped_pulls(3), {}),
+        tmp_path / "c",
+        tmp_path / "w",
+        max_prs=3,
+        dry_run=True,
+        since_date="2024-10-01",
     )
     assert "hit --max-prs=3" in capsys.readouterr().err
 
 
-def test_harvest_no_warn_without_window(tmp_path: Path, capsys) -> None:
+def test_harvest_no_warn_without_window(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Same cap, but no --since/--until: the cap is just the forward safety
     # limit, not a truncated window -> no warning.
     h.harvest(
-        _FakeGitHub(_capped_pulls(3), {}), tmp_path / "c", tmp_path / "w",
-        max_prs=3, dry_run=True,
+        _FakeGitHub(_capped_pulls(3), {}),
+        tmp_path / "c",
+        tmp_path / "w",
+        max_prs=3,
+        dry_run=True,
     )
     assert "--max-prs" not in capsys.readouterr().err
 
@@ -526,7 +648,7 @@ def test_harvest_no_warn_without_window(tmp_path: Path, capsys) -> None:
 def test_all_pages_stops_at_max_items() -> None:
     calls: list[str] = []
 
-    def fake_fetch(path: str) -> list[dict]:
+    def fake_fetch(path: str) -> list[dict[str, Any]]:
         calls.append(path)
         return [{"i": 1}] * 100  # always a full page
 
@@ -539,7 +661,7 @@ def test_all_pages_stops_at_max_items() -> None:
 def test_all_pages_stops_on_short_page() -> None:
     pages = [[{"i": 1}] * 100, [{"i": 2}] * 20]
 
-    def fake_fetch(path: str) -> list[dict]:
+    def fake_fetch(path: str) -> list[dict[str, Any]]:
         return pages.pop(0) if pages else []
 
     gh = h.GitHub(fetch=fake_fetch)
@@ -557,41 +679,49 @@ class _FakeProc:
         self.stderr = stderr
 
 
-def test_gh_json_retries_transient_then_succeeds(monkeypatch) -> None:
+def test_gh_json_retries_transient_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     procs = [
         _FakeProc(1, stderr="gh: Server Error (HTTP 502)"),
         _FakeProc(1, stderr="gh: Server Error (HTTP 502)"),
         _FakeProc(0, stdout='{"ok": true}'),
     ]
-    monkeypatch.setattr(h.subprocess, "run", lambda *a, **k: procs.pop(0))
-    monkeypatch.setattr(h.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        "benchmark.harvest_wpt_prs.subprocess.run", lambda *a, **k: procs.pop(0)
+    )
+    monkeypatch.setattr("benchmark.harvest_wpt_prs.time.sleep", lambda _: None)
     assert h._gh_json("/x") == {"ok": True}
     assert not procs  # all three consumed
 
 
-def test_gh_json_reraises_on_fatal_without_retry(monkeypatch) -> None:
+def test_gh_json_reraises_on_fatal_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = {"n": 0}
 
-    def fake_run(*a, **k):
+    def fake_run(*a: Any, **k: Any) -> "_FakeProc":
         calls["n"] += 1
         return _FakeProc(1, stderr="gh: Not Found (HTTP 404)")
 
-    monkeypatch.setattr(h.subprocess, "run", fake_run)
-    monkeypatch.setattr(h.time, "sleep", lambda _: None)
-    with pytest.raises(h.subprocess.CalledProcessError):
+    monkeypatch.setattr("benchmark.harvest_wpt_prs.subprocess.run", fake_run)
+    monkeypatch.setattr("benchmark.harvest_wpt_prs.time.sleep", lambda _: None)
+    with pytest.raises(subprocess.CalledProcessError):
         h._gh_json("/x")
     assert calls["n"] == 1  # 404 is fatal -> no retry
 
 
-def test_gh_json_gives_up_after_max_retries(monkeypatch) -> None:
+def test_gh_json_gives_up_after_max_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = {"n": 0}
 
-    def fake_run(*a, **k):
+    def fake_run(*a: Any, **k: Any) -> "_FakeProc":
         calls["n"] += 1
         return _FakeProc(1, stderr="gh: Server Error (HTTP 503)")
 
-    monkeypatch.setattr(h.subprocess, "run", fake_run)
-    monkeypatch.setattr(h.time, "sleep", lambda _: None)
-    with pytest.raises(h.subprocess.CalledProcessError):
+    monkeypatch.setattr("benchmark.harvest_wpt_prs.subprocess.run", fake_run)
+    monkeypatch.setattr("benchmark.harvest_wpt_prs.time.sleep", lambda _: None)
+    with pytest.raises(subprocess.CalledProcessError):
         h._gh_json("/x")
     assert calls["n"] == h._MAX_RETRIES + 1  # initial + retries

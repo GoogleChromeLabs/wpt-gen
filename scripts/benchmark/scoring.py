@@ -24,6 +24,7 @@ run_benchmark.py; it feeds parsed payloads into here.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -402,7 +403,7 @@ class GoldenScore:
 
 def score_golden(
     runs: EntryRuns,
-    expect: list[ExpectLabel],
+    expect: Sequence[ExpectLabel],
 ) -> GoldenScore:
     """Scores one golden entry across its repeats: recall vs. the human.
 

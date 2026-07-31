@@ -128,10 +128,12 @@ class GoldenEntry(BenchmarkEntry):
     path: str
     # base64 test-file contents at ``commit_id``, keyed by wpt-relative path.
     files_b64: dict[str, str] = field(default_factory=dict)
-    expect: list[ExpectLabel] = field(default_factory=list)
+    expect: list[GoldenLabel] = field(default_factory=list)
 
     def test_rel_path(self) -> str:
-        return f"{STAGING_DIRNAME}/{GOLDEN_STAGING_SUBDIR}/{self.pr}/{self.path}"
+        return (
+            f"{STAGING_DIRNAME}/{GOLDEN_STAGING_SUBDIR}/{self.pr}/{self.path}"
+        )
 
 
 @dataclass
@@ -311,7 +313,10 @@ def _pick_commit_block(candidate: dict[str, Any]) -> dict[str, Any] | None:
     blocks = candidate.get("reviewed_commits") or []
     if not blocks:
         return None
-    return max(blocks, key=lambda b: len(b.get("comments") or []))
+    best: dict[str, Any] = max(
+        blocks, key=lambda b: len(b.get("comments") or [])
+    )
+    return best
 
 
 def _golden_expect(
@@ -397,7 +402,9 @@ def _golden_kind(path: str) -> str:
     name = Path(path).name
     if "-ref." in name or name.endswith((".ref.html", ".html.ref")):
         return "reftest"
-    if ".any." in name or name.endswith((".any.js", ".worker.js", ".window.js")):
+    if ".any." in name or name.endswith(
+        (".any.js", ".worker.js", ".window.js")
+    ):
         return "js"
     return "testharness"
 

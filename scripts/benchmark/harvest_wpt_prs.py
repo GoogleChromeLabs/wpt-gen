@@ -81,7 +81,12 @@ _NON_TEST_TOPLEVEL = (
     ".github/",
 )
 _NON_TEST_SUFFIXES = (
-    ".ignore", ".headers", ".ini", ".md", ".txt", ".json",
+    ".ignore",
+    ".headers",
+    ".ini",
+    ".md",
+    ".txt",
+    ".json",
 )
 _NON_TEST_NAMES = ("MANIFEST", "META.yml", "WEB_FEATURES.yml", "OWNERS")
 # Matched at any depth, unlike _NON_TEST_TOPLEVEL.
@@ -250,8 +255,10 @@ def _gh_json(path: str) -> Any:
         transient = _TRANSIENT_STATUS.search(result.stderr)
         if not transient or attempt == _MAX_RETRIES:
             raise subprocess.CalledProcessError(
-                result.returncode, ["gh", "api", path],
-                output=result.stdout, stderr=result.stderr,
+                result.returncode,
+                ["gh", "api", path],
+                output=result.stdout,
+                stderr=result.stderr,
             )
         delay = 2**attempt
         print(
@@ -289,9 +296,7 @@ class GitHub:
         page = 1
         sep = "&" if "?" in path else "?"
         while len(items) < max_items:
-            batch = self._fetch(
-                f"{path}{sep}per_page={_PER_PAGE}&page={page}"
-            )
+            batch = self._fetch(f"{path}{sep}per_page={_PER_PAGE}&page={page}")
             if not batch:
                 break
             items.extend(batch)
@@ -349,7 +354,7 @@ class GitHub:
     def head_sha(self, number: int) -> str:
         """The PR's head SHA (search items omit it)."""
         data = self._fetch(f"/repos/{REPO}/pulls/{number}")
-        return (data.get("head") or {}).get("sha", "")
+        return str((data.get("head") or {}).get("sha", ""))
 
 
 def _normalize_search_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -363,20 +368,22 @@ def _normalize_search_item(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _to_pull_request(
-    raw: dict[str, Any], gh: GitHub
-) -> PullRequest:
+def _to_pull_request(raw: dict[str, Any], gh: GitHub) -> PullRequest:
     number = raw["number"]
     pr = PullRequest(
         number=number,
         merged_at=raw.get("merged_at"),
         author=(raw.get("user") or {}).get("login", ""),
         head_sha=(raw.get("head") or {}).get("sha", ""),
-        html_url=raw.get("html_url", f"https://github.com/{REPO}/pull/{number}"),
+        html_url=raw.get(
+            "html_url", f"https://github.com/{REPO}/pull/{number}"
+        ),
         labels=[label["name"] for label in raw.get("labels", [])],
     )
-    if pr.merged_at is None or is_bot_author(pr.author) or is_export_pr(
-        pr.labels
+    if (
+        pr.merged_at is None
+        or is_bot_author(pr.author)
+        or is_export_pr(pr.labels)
     ):
         # Cheap gates first; skip the per-PR API calls for obvious rejects.
         return pr
@@ -418,7 +425,9 @@ def build_record(pr: PullRequest, gh: GitHub) -> dict[str, Any]:
     fixed: dict[str, bool] = {}
     for path in {c["path"] for c in comments}:
         head_content = gh.file_at_ref(path, pr.head_sha)
-        for commit_id in {c["commit_id"] for c in comments if c["path"] == path}:
+        for commit_id in {
+            c["commit_id"] for c in comments if c["path"] == path
+        }:
             reviewed = gh.file_at_ref(path, commit_id)
             if reviewed is not None:
                 content_at[(commit_id, path)] = reviewed
@@ -435,7 +444,10 @@ def load_watermark(path: Path) -> str | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("merged_at")
+        merged_at = json.loads(path.read_text(encoding="utf-8")).get(
+            "merged_at"
+        )
+        return str(merged_at) if merged_at is not None else None
     except (OSError, json.JSONDecodeError):
         return None
 
