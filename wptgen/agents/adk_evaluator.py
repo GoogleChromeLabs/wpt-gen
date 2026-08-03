@@ -32,7 +32,7 @@ from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
-from wptgen.utils import locate_snippet
+from wptgen.utils import locate_snippet, read_test_source
 
 # Allow-list of tool names from create_agent_tools() that the evaluator
 # may use. Anything not in this set is filtered out before the agent
@@ -50,14 +50,6 @@ EVALUATOR_TOOL_ALLOWLIST = frozenset(
         "run_lint_ext",
     }
 )
-
-
-def _read_test_source(test_path: Path) -> str | None:
-    """The test file's text (for the `locate` tool), or None if unreadable."""
-    try:
-        return test_path.read_text(encoding="utf-8")
-    except OSError:
-        return None
 
 
 class EvaluatorStrategy(StrEnum):
@@ -173,7 +165,7 @@ async def evaluate_test_with_adk(
         ]
         return {"matches": matches}
 
-    test_source = _read_test_source(test_path)
+    test_source = read_test_source(test_path)
 
     # Build the evaluator's tool kit: the full create_agent_tools() set,
     # filtered to the allow-list, plus the completion tool.

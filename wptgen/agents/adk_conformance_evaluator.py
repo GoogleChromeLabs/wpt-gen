@@ -27,16 +27,13 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
-from wptgen.agents.adk_evaluator import (
-    EVALUATOR_TOOL_ALLOWLIST,
-    _read_test_source,
-)
-from wptgen.utils import locate_snippet
+from wptgen.agents.adk_evaluator import EVALUATOR_TOOL_ALLOWLIST
 from wptgen.agents.provider import setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
 from wptgen.ui import UIProvider
+from wptgen.utils import locate_snippet, read_test_source
 
 # Re-exported so both evaluators share one read-only allowlist
 __all__ = [
@@ -152,7 +149,7 @@ async def evaluate_conformance_with_adk(
         ]
         return {"matches": matches}
 
-    test_source = _read_test_source(test_path)
+    test_source = read_test_source(test_path)
 
     all_tools = list(
         create_agent_tools(

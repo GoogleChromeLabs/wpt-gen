@@ -42,7 +42,7 @@ from wptgen.llm import get_llm_client
 from wptgen.models import WorkflowContext
 from wptgen.phases.requirements_extraction import run_requirements_extraction
 from wptgen.ui import UIProvider
-from wptgen.utils import locate_snippet
+from wptgen.utils import locate_snippet, read_test_source
 
 
 @dataclass
@@ -178,14 +178,6 @@ def _input_scope_to_payload(input_scope: InputScope) -> dict[str, Any]:
         "total_bytes": input_scope.total_bytes,
         "approximate_input_tokens": input_scope.approximate_input_tokens,
     }
-
-
-def _read_test_source(test_path: Path) -> str | None:
-    """The test file's text for citation resolution, or None if unreadable."""
-    try:
-        return test_path.read_text(encoding="utf-8")
-    except OSError:
-        return None
 
 
 def _payload_to_findings(
@@ -351,7 +343,7 @@ async def _run_conformance(
     )
     conf_findings, conf_demoted = _payload_to_findings(
         conformance_payload.get("findings", []) or [],
-        _read_test_source(test_path),
+        read_test_source(test_path),
     )
     _warn_demoted_citations(ui, "conformance", conf_demoted)
     return ConformanceSection(
@@ -418,7 +410,7 @@ async def run_evaluation(
     agent_payload, doc_inputs_tokens = agent_result
     findings, demoted = _payload_to_findings(
         agent_payload.get("findings", []) or [],
-        _read_test_source(test_path),
+        read_test_source(test_path),
     )
     _warn_demoted_citations(ui, "documentation", demoted)
     input_scope = _payload_to_input_scope(

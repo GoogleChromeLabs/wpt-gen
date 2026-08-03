@@ -61,6 +61,14 @@ def clean_file_content(content: str) -> str:
     return content.rstrip("\r\n") + "\n"
 
 
+def read_test_source(test_path: Path) -> str | None:
+    """The test file's text (for citation resolution), or None if unreadable."""
+    try:
+        return test_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
 def _normalize_ws(text: str) -> str:
     """Collapses whitespace runs to one space and trims, for permissive
     matching of a snippet the model may have reflowed or re-indented."""
