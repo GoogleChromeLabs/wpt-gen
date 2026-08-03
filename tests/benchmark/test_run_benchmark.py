@@ -547,7 +547,9 @@ def test_validate_against_checkout_flags_missing_paths(tmp_path: Path) -> None:
     wpt_dir.mkdir()
     seeds_root = tmp_path / "seeds"
     seeds_root.mkdir()
-    problems = validate_against_checkout(manifest, wpt_dir, seeds_root)
+    problems = validate_against_checkout(
+        manifest.corpus, manifest.seeds, wpt_dir, seeds_root
+    )
     # corpus path missing, seed file missing, and the expect doc missing.
     assert any("corpus path not found" in p for p in problems)
     assert any("seed file not found" in p for p in problems)
@@ -567,7 +569,9 @@ def test_validate_against_checkout_clean(tmp_path: Path) -> None:
     seeds_root = tmp_path / "seeds" / "testharness"
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
-    problems = validate_against_checkout(manifest, wpt_dir, tmp_path / "seeds")
+    problems = validate_against_checkout(
+        manifest.corpus, manifest.seeds, wpt_dir, tmp_path / "seeds"
+    )
     assert problems == []
 
 
@@ -602,7 +606,11 @@ def test_validate_flags_unknown_rule_id(tmp_path: Path) -> None:
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids={"TESTHARNESS-005"}
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids={"TESTHARNESS-005"},
     )
     assert any("rule id not in rules.yaml: TH-BOGUS-1" in p for p in problems)
 
@@ -618,7 +626,11 @@ def test_validate_accepts_known_rule_id(tmp_path: Path) -> None:
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids={"TESTHARNESS-005"}
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids={"TESTHARNESS-005"},
     )
     # Rule id resolves; only the (unrelated) corpus path is missing here.
     assert not any("rule id" in p for p in problems)
@@ -637,7 +649,11 @@ def test_validate_skips_rule_id_check_when_corpus_empty(
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids=set()
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids=set(),
     )
     assert not any("rule id" in p for p in problems)
 

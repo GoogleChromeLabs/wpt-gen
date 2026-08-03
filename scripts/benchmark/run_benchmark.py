@@ -58,6 +58,7 @@ from benchmark.manifest import (  # noqa: E402
     REPO_ROOT,
     STAGING_DIRNAME,
     BenchmarkEntry,
+    CorpusEntry,
     GoldenEntry,
     Manifest,
     ManifestError,
@@ -978,12 +979,6 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     seeds_root = args.manifest.parent / "seeds"
-    problems = validate_against_checkout(manifest, args.wpt_dir, seeds_root)
-    if problems:
-        sys.stderr.write("manifest/checkout mismatches:\n")
-        for problem in problems:
-            sys.stderr.write(f"  - {problem}\n")
-        return 2
 
     try:
         golden_entries = select_golden(
@@ -1000,6 +995,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if not entries:
         sys.stderr.write("no entries matched --filter\n")
+        return 2
+
+    # Validate only the selected entries against the checkout, so a scoped run
+    # doesn't hard-fail on drift in entries it never stages. A full run selects
+    # everything and still validates the whole manifest.
+    problems = validate_against_checkout(
+        [e for e in entries if isinstance(e, CorpusEntry)],
+        [e for e in entries if isinstance(e, SeedEntry)],
+        args.wpt_dir,
+        seeds_root,
+    )
+    if problems:
+        sys.stderr.write("manifest/checkout mismatches:\n")
+        for problem in problems:
+            sys.stderr.write(f"  - {problem}\n")
         return 2
 
     actual_commit = wpt_head_commit(args.wpt_dir)

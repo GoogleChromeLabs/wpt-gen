@@ -410,12 +410,13 @@ def _golden_kind(path: str) -> str:
 
 
 def validate_against_checkout(
-    manifest: Manifest,
+    corpus: list[CorpusEntry],
+    seeds: list[SeedEntry],
     wpt_dir: Path,
     seeds_root: Path,
     rule_ids: set[str] | None = None,
 ) -> list[str]:
-    """Cross-checks the manifest against a real wpt checkout and seed tree.
+    """Cross-checks selected entries against a real wpt checkout and seed tree.
 
     Returns a list of human-readable problems (empty = clean):
 
@@ -425,6 +426,8 @@ def validate_against_checkout(
       the checkout; a rule-id key exists in ``rules.yaml``. An unknown key
       is a stale or typo'd label.
 
+    Callers pass only the entries actually selected for the run.
+
     ``rule_ids`` is the set of ids declared in ``rules.yaml``; it defaults to
     ``load_rule_ids()``. If that set is empty (corpus unreadable), rule-id
     keys are not checked rather than all flagged as unknown.
@@ -433,14 +436,14 @@ def validate_against_checkout(
         rule_ids = load_rule_ids()
     problems: list[str] = []
 
-    for corpus_entry in manifest.corpus:
+    for corpus_entry in corpus:
         if not (wpt_dir / corpus_entry.path).is_file():
             problems.append(
                 f"{corpus_entry.entry_id}: corpus path not found in "
                 f"checkout: {corpus_entry.path}"
             )
 
-    for seed_entry in manifest.seeds:
+    for seed_entry in seeds:
         if not (seeds_root / seed_entry.seed).is_file():
             problems.append(
                 f"{seed_entry.entry_id}: seed file not found: {seed_entry.seed}"
