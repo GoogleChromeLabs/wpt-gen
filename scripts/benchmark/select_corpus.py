@@ -34,12 +34,14 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# Puts scripts/ on the path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from wptgen.context import is_wpt_test_file
-from wptgen.lint_ext import (
+from wpt_utils import (  # noqa: E402
     EXTENSIONS,
     is_manual_test,
     is_worker_js,
+    is_wpt_test_file,
 )
 
 # --- Stratification target --------------------------------------------------
