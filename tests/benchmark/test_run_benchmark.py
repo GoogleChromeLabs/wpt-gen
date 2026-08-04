@@ -1083,19 +1083,75 @@ def test_score_all_and_report(tmp_path: Path) -> None:
     assert full.aggregate["seed_recall"] == pytest.approx(1.0)
     md = run_benchmark.render_report_markdown(full)
     assert "WPT evaluator benchmark report" in md
-    assert "seed recall" in md
     # The model/provider must appear in the report header.
     assert "claude-opus-4-6" in md
     assert "anthropic" in md
     # Structural anchors only (not prose, which is subject to change): the
-    # legend link, the aggregate bucket table, and the per-entry finding
-    # tables (TP/FP sections + the finding-table column header).
+    # legend link, the per-dataset summary + scope line, the aggregate bucket
+    # table, and the per-entry finding tables.
     assert "#reading-a-benchmark-report" in md
+    assert "## Summary" in md
+    assert "| seed | precision / recall |" in md
+    assert "| corpus | flaky findings (mid) |" in md
+    assert "**Scope**:" in md
     assert "### Consistency buckets" in md
     assert "| bucket | firing rate | count | meaning |" in md
     assert "**True positives**" in md
     assert "**False positives**" in md
     assert "| title | source | firing rate | warnings |" in md
+
+
+def _bench_report(
+    entries: list[dict[str, Any]], aggregate: dict[str, Any]
+) -> Any:
+    return run_benchmark.BenchmarkReport(
+        manifest="m.yaml",
+        provider="p",
+        model="mdl",
+        wpt_dir="/wpt",
+        wpt_upstream_commit_expected=None,
+        wpt_upstream_commit_actual=None,
+        repeats=3,
+        entries=entries,
+        run_records=[],
+        aggregate=aggregate,
+    )
+
+
+def test_summary_renders_a_row_per_present_dataset() -> None:
+    entries = [
+        {"role": "seed", "kind": "testharness"},
+        {"role": "golden", "kind": "js"},
+        {"role": "corpus", "kind": "reftest"},
+    ]
+    agg = {
+        "seed_precision": 0.8,
+        "seed_recall": 1.0,
+        "golden_recall": 0.75,
+        "consistency_histogram": {"mid": 2},
+        "golden_unmatched_predictions": 0,
+        "advisory_notes": 0,
+    }
+    lines = run_benchmark._render_summary(_bench_report(entries, agg))
+    md = "\n".join(lines)
+    assert "| seed | precision / recall | 0.8 / 1.0 | 1 |" in md
+    assert "| golden | recall | 0.75 | 1 |" in md
+    assert "| corpus | flaky findings (mid) | 2 | 1 |" in md
+
+
+def test_summary_omits_absent_datasets() -> None:
+    # A seed-only run has no golden/corpus rows.
+    entries = [{"role": "seed", "kind": "testharness"}]
+    agg = {
+        "seed_precision": 1.0,
+        "seed_recall": 1.0,
+        "golden_recall": 1.0,
+        "consistency_histogram": {"mid": 0},
+    }
+    md = "\n".join(run_benchmark._render_summary(_bench_report(entries, agg)))
+    assert "| seed |" in md
+    assert "golden" not in md
+    assert "corpus" not in md
 
 
 def test_off_reading_list_citation_is_advisory_note(tmp_path: Path) -> None:

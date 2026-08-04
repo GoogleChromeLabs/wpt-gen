@@ -12,78 +12,127 @@ python scripts/benchmark/run_benchmark.py --repeats 3 [--filter role=seed]
 With no other flags the harness defaults `--manifest` to
 `benchmarks/manifest.yaml`, `--wpt-dir` to the `wpt_path` in `wpt-gen.yml`,
 and `--out` to a timestamped `bench-runs/<date>-<time>/`. All are
-overridable; other flags are `--provider`, `--config`, `--filter` (e.g.
-`role=seed`, `role=corpus`, `kind=reftest`), and `--score-only`.
+overridable. Other flags:
 
+- `--provider`, `--config` — passed through to each `wpt-gen evaluate`.
+- `--filter field=value` — `role=` (`seed`/`corpus`/`golden`) or `kind=`.
+- `--jobs N` — concurrent evaluator runs (default 1; the bound is provider
+  rate limits, not cores).
+- `--smoke` — the regression tier: run only the manifest's `smoke` sets
+  (see [Tiers](#tiers)). Composes with `--filter`.
+- `--golden-set NAME` / `--golden-prs 43400,…` — select golden entries.
+- `--min-precision` / `--min-recall` / `--min-golden-recall` / `--max-fn`
+  — CI quality gates (see [Quality gates](#quality-gates)).
+- `--score-only` — re-score existing run dirs in `--out` without the agent.
 
-The harness validates the manifest against the checkout, stages seeds into
-`<wpt-dir>/wpt-gen-bench/`, runs
+The harness stages seeds/golden into `<wpt-dir>/wpt-gen-bench/`, runs
 `wpt-gen evaluate` `--repeats` times per entry into
-`<out>/runs/<entry-id>/rep-<i>/`, then scores every entry and writes
-`<out>/report.md` + `<out>/report.json`. `--score-only` re-scores existing
-run dirs without invoking the agent (pass the same `--out`). Scoring itself lives in
-`scripts/benchmark/scoring.py` and is covered by
-`tests/benchmark/test_run_benchmark.py`, which runs entirely on synthetic run
-dirs (no agent calls).
+`<out>/runs/<entry-id>/rep-<i>/`, then scores and writes `<out>/report.md`
++ `<out>/report.json`.
+
+Scoring lives in `scripts/benchmark/scoring.py`, covered by
+`tests/benchmark/` on synthetic run dirs (no agent calls).
+
+### Tiers
+
+Two suggestions for how to run, differing only in selection and repeats:
+
+- **Release** — full manifest, 8 repeats (`run_benchmark.py`). Establishes
+  the consistency band; run before a corpus/skill release or after a model
+  change.
+- **Regression** — `--smoke --repeats 3`. Runs the manifest's `smoke`
+  corpus/seed/golden sets only; a fast guard for skill/evaluator changes.
+
+Tiers are selection, not schema: the manifest defines which entries are in
+`smoke` (see [Manifest schema](#manifest-schema)); `--repeats` and any
+quality gate stay on the command line.
+
+### Quality gates
+
+For CI. A gate lets a build **fail on a quality regression** — e.g. a skill
+change that drops seed recall — so the drop blocks the change instead of
+landing silently. The report is always written *first*, so a failing build
+can still post its full table onto the PR.
+
+The four `--min-*`/`--max-fn` flags gate the **exit code**: any breach exits
+non-zero. Omitting a flag leaves that check off, so by default a run always
+exits 0. `--max-fn` sums seed and golden false negatives.
 
 ## Reading a benchmark report
 
 Each run writes `report.md` (this section is what it links to) and an
-identical-content `report.json`. Precision and Recall metrics are computed only over `seed`
-entries.
+identical-content `report.json`. It opens with a **scope** line (entry counts
+per type and repeats),
+then a per-dataset **summary**, then a **per-entry** breakdown. Which numbers
+an entry contributes to the report depends on its type — seed precision/recall over `seed`
+entries, golden recall over `golden` entries, and `corpus` entries feed
+consistency only.
 
-**Precision** — of the findings the evaluator emitted, the fraction that
-were expected. Target **1.0** (no false positives). 
+### The summary table
 
-**Recall** — of the
-seeded defects, the fraction the evaluator caught. Target **1.0** (nothing
-missed).
+One row per dataset present in the run — its headline number and entry count:
 
-Abbreviations in the seed scores:
+| dataset | metric | value | entries |
+| --- | --- | --- | --- |
+| seed | precision / recall | 0.83 / 1.0 | 12 |
+| golden | recall | 0.75 | 8 |
+| corpus | flaky findings (mid) | 2 | 29 |
+
+**Precision** — of the findings the evaluator emitted, the fraction that were
+expected. Target **1.0** (no false positives).
+
+**Recall** — of the expected findings, the fraction the evaluator caught.
+Target **1.0** (nothing missed).
+
+The corpus row counts **mid**-band (flaky) findings — see
+[Consistency](#consistency); corpus is not scored for precision or recall.
+A one-line caveat under the table surfaces anything counted-but-not-scored
+(golden unmatched predictions, advisory notes).
+
+The seed scores abbreviate as:
 
 - **TP** — true positive: an expected finding fired.
 - **FP** — false positive: an unexpected finding fired (including any
   finding on a known-clean seed).
 - **FN** — false negative: an expected finding was missed.
 
-**Advisory notes** — findings whose `source` cites an upstream doc that is
-*not* on the evaluator's curated reading list (parsed from the evaluator
-SKILL.md), which suggests an invented citation. This is *advisory only*, not
-a pass/fail gate: the report counts them and annotates each finding's row,
-but they do not count against any score. This check is meaningful while the
-evaluator reads the raw curated docs; a future rules-based strategy would
-replace it with a rule-id validity check.
+**The two recall 1.0s are not the same kind of target.** Seed recall is 1.0
+against a defect *you injected* — an exact, fixed answer key. Golden recall is
+1.0 against a *human-derived, hand-annotated* denominator: which PRs are in the
+set and how each comment is annotated are both judgment calls, still iterating.
+So golden recall is a target on a moving denominator — a miss may mean the
+evaluator regressed *or* that a label needs re-annotation — where seed recall
+is more of a hard invariant. Golden also has no precision number yet: unmatched
+predictions are counted but not charged, since one may be a valid finding the
+reviewer missed rather than a false positive.
 
-The **Aggregate** table rolls the seed scores up across all seeds:
+### Per-entry findings
 
-| metric | value | target |
-| --- | --- | --- |
-| seed precision | 0.83 | 1.0 |
-| seed recall | 1.0 | 1.0 |
-| seed TP / FP / FN | 5 / 1 / 0 | FP=0, FN=0 |
+Each entry then lists the findings it produced as a table:
+`title | source | firing rate | warnings`. The `firing rate` column is
+`firings/repeats (rate)`, and `warnings` counts that finding's advisory notes
+(e.g. `⚠ source ×2`, see [Advisory notes](#advisory-notes)). What differs by
+entry type is how those findings are scored.
 
- `corpus` entries are measured for
-consistency only.
+A **corpus** entry has no labels, so it shows a single **Findings** table —
+every finding read for its firing rate, none scored:
 
-**Consistency** — how often each finding fires across the repeats. There is
-no single target: a finding *should* sit at an extreme (**always** or
-**never**); the **mid** band is the flaky zone to drive out. The report
-buckets every finding's firing rate:
+```
+### `corpus-url-data-uri-fragment` (corpus/testharness)
 
-| bucket | firing rate | meaning |
-| --- | --- | --- |
-| always | 1.0 | fires every repeat - trustworthy |
-| high | ≥0.75 | usually fires |
-| mid | 0.25–0.75 | flaky zone |
-| low | >0 | rarely fires |
-| never | 0.0 | never fires |
+**Findings**
 
-Each entry then lists its own findings as a table. **Seed** entries split
-their findings into **True positives** (matched a gold label) and **False
-positives** (did not); **corpus** entries, which have no labels, show one
-**Findings** table. The `firing rate` column is `firings/repeats (rate)`,
-and `warnings` counts that finding's advisory notes (e.g. `⚠ source ×2`).
-A per-entry example:
+| title | source | firing rate | warnings |
+| --- | --- | --- | --- |
+| Missing metadata comment | `GENERAL-004` @ L1-1 | 3/3 (1.0) |  |
+| Ambiguous assertion message | `TESTHARNESS-006` @ L22-22 | 2/3 (0.667) |  |
+```
+
+The `GENERAL-004` finding is stable (**always**); the flaky `TESTHARNESS-006`
+one (2/3) sits in the **mid** band (see [Consistency](#consistency)).
+
+A **seed** entry splits its findings into **True positives** (matched a gold
+label) and **False positives** (did not):
 
 ```
 ### `seed-worker-missing-done` (seed/testharness)
@@ -103,11 +152,64 @@ A per-entry example:
 | Test not in spec directory | `wpt/docs/reviewing-tests/checklist.md` @ L1-1 | 1/3 (0.333) |  |
 ```
 
-Here the intended defect (`testharness.md`) is a true positive that fired
-every repeat, while a noisy `checklist.md` finding is a false positive that
-also fired only once — flaky *and* spurious.
+The intended defect (`testharness.md`) is a true positive that fired every
+repeat; the noisy `checklist.md` finding is a false positive that fired only
+once — flaky *and* spurious.
 
-## Layout
+A **golden** entry reports recall against its annotated labels instead — no
+TP/FP split, just a recall line and its findings:
+
+```
+### `golden-43400-afe0767a` (golden/testharness)
+
+- Golden: recall 0.5 (TP 1, FN 1, unmatched 1)
+
+| title | source | firing rate | warnings |
+| --- | --- | --- | --- |
+| X25519 derivation length | `CHECKLIST-005` @ L32-32 | 3/3 (1.0) |  |
+| Redundant length assertion | `CHECKLIST-002` @ L18-18 | 2/3 (0.667) |  |
+```
+
+This PR carried two annotated `CHECKLIST-005` labels (L32 and L4). The
+evaluator caught the L32 one every repeat (the TP) and never the L4 one (the
+FN → recall 0.5). The table lists only findings the evaluator *produced*, so
+the never-fired label has no row — it appears only in the FN count. The second
+row matched no annotated label: that is the `unmatched 1`, counted but not
+charged (it may be a real finding the reviewer missed).
+
+### Consistency
+
+Every finding also carries a **firing rate** — how often it fired across the
+repeats. There is no single target: a finding *should* sit at an extreme
+(**always** or **never**); the **mid** band is the flaky zone to drive out.
+`corpus` entries are measured for this *only* — a corpus file is a known-real
+merged test, so a finding on one is arguably a false positive, but today corpus
+feeds only this histogram, never precision.
+
+| bucket | firing rate | meaning |
+| --- | --- | --- |
+| always | 1.0 | fires every repeat - trustworthy |
+| high | ≥0.75 | usually fires |
+| mid | 0.25–0.75 | flaky zone |
+| low | >0 | rarely fires |
+| never | 0.0 | never fires |
+
+### Advisory notes
+
+Findings whose `source` cites an upstream doc *not* on the evaluator's curated
+reading list (parsed from the evaluator SKILL.md), suggesting an invented or
+off-list source. This guards the `source` field (which doc the finding cites);
+the separate `citation` field — the verbatim snippet and its line — is verified
+deterministically at evaluation time, so a fabricated line number never reaches
+the report.
+
+Advisory notes are *advisory only*, not a pass/fail gate: the report counts
+them and annotates each finding's row (the `⚠` in the `warnings` column), but
+they do not count against any score. Most meaningful while the evaluator reads
+the raw curated docs; a `rules.yaml` strategy would replace it with a rule-id
+validity check.
+
+## Directory Layout
 
 ```
 benchmarks/
@@ -117,9 +219,14 @@ benchmarks/
     reftest/
     clean/        # well-formed files; any finding is a false positive
   golden/
-    candidates/   # harvested PR snapshots (Not Yet Implemented)); holdout-window
-                  # annotations live in a private location, not here
+    candidates/   # harvested merged-PR snapshots (public)
+    annotated/    # human-review answer keys (dev-window set; see golden/README.md)
 ```
+
+The golden set (real merged PRs scored for recall vs. human review) has its
+own workflow — harvest, annotate, score — documented in
+[`golden/README.md`](golden/README.md), including the dev-window vs. holdout
+split for annotations.
 
 ## Datasets
 
@@ -128,6 +235,7 @@ benchmarks/
 | consistency corpus (`corpus:` entries) | none | run-to-run variance per finding key |
 | seeded-defect set (`seeds:` with non-empty `expect`) | exact (injected) | precision / recall |
 | known-clean (`seeds:` with empty `expect`) | exact (no findings) | precision |
+| golden set (`golden/`) | human PR review | recall vs. review (see `golden/README.md`) |
 
 Corpus entries are real merged wpt files referenced by path inside the
 checkout. 
@@ -170,7 +278,7 @@ the cases). Both share `id` and `kind`:
 - `seeds[]` — checked-in seed files with gold labels:
   - `seed` — path relative to `benchmarks/seeds/`.
   - `expect[]` — gold labels: finding keys that MUST fire (empty `[]` for a
-    known-clean seed).
+    known-clean seed). Fields:
     - `source_doc` — a path *into the wpt docs* naming the passage this seed
       targets. The finding key when `rule_id` is null; once `rule_id` is set,
       it becomes documentation only. May carry a trailing `:L…` doc-line
@@ -184,14 +292,6 @@ the cases). Both share `id` and `kind`:
       (not in the source doc), inclusive. This is where the finding should
       anchor; a prediction whose `test_line` falls outside the window does
       not match this label.
-
-### Future idea: a `forbid` list for known false positives
-
-Not implemented. A per-seed `forbid` list
-could file and categorize *repeated, known* false positives seen in the wild
-(distinct from novel ones), so a regression that re-introduces a catalogued
-FP is flagged on its own rather than folded into the aggregate. Worth adding
-when the benchmark runs continuously and an FP backlog accumulates.
 
 ## Finding keys: rule ids
 
@@ -236,23 +336,36 @@ them.
   the `// META:` block trips the linter's `STRAY-METADATA` rule.
 - Re-review seeds whenever `rules.yaml` bumps its version.
 
-## Current status: proof of concept
+## Current status
 
-The seeds here are a deliberately small proof of concept — enough to wire up
-and test the harness, not the full stratified set. Two reasons to keep it
-small for now:
+The consistency corpus is a stratified, maintainer-reviewed set (across every
+kind), suggested by `scripts/benchmark/select_corpus.py` and pinned via
+`wpt_upstream_commit`. The golden dev set is in place (see `golden/README.md`).
 
-1. Seed authoring is the expensive, judgment-heavy part of this work, and it
-   gets substantially cheaper once `rules.yaml` lands: each rule already
-   names its violation and its source anchor, so seeds (and their `expect`
-   labels) can be **generated from the rules corpus** and then translated
-   back to doc keys for the pre-merge baseline.
-2. The "consistency corpus" (20–40 files across every kind) should be selected by a
-   scripted, fixed-seed procedure and pinned after maintainer review.
-
-The current entries exercise the schema end to end (a violation seed with
-a doc-keyed label, a reference-quality seed, a clean file, and two real
-corpus files).
+Seeds remain a deliberately small proof of concept — enough to exercise the
+schema, not the full set. Seed authoring is the expensive, judgment-heavy
+part; it gets cheaper now that `rules.yaml` has landed, since each rule names
+its violation and source anchor, so seeds and their `expect` labels can be
+generated from the rules corpus.
 
 The benchmark runs the WPT Docs Eval agent only; the --spec conformance check is 
 out of scope until spec requirements XML can be pinned per test.
+
+### Future idea: a `forbid` list for known false positives
+
+Not implemented. A per-seed `forbid` list
+could file and categorize *repeated, known* false positives seen in the wild
+(distinct from novel ones), so a regression that re-introduces a catalogued
+FP is flagged on its own rather than folded into the aggregate. Worth adding
+when the benchmark runs continuously and an FP backlog accumulates.
+
+### Future idea: a consistency gate (`--max-mid`)
+
+Not implemented. The consistency histogram is currently **informational
+only** — rendered in the report, but not a quality gate. The `mid` band is
+"the flaky zone to drive out," but nothing enforces it. A `--max-mid` (max
+flaky rows) gate would make the histogram gateable, giving the regression
+tier a labels-free stability signal today. Note the band resolution depends
+on `--repeats`: at the regression tier's 3 repeats only 0 / 0.33 / 0.67 / 1.0
+are reachable, so `high`/`low` collapse and the gate is a coarse
+flaky/not-flaky flag; the release tier's 8 repeats give the graded bands.

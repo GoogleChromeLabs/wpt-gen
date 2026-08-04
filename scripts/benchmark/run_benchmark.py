@@ -643,6 +643,40 @@ def _render_consistency_table(hist: dict[str, int]) -> list[str]:
     return lines
 
 
+def _entry_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Entry count per role."""
+    counts = {"seed": 0, "golden": 0, "corpus": 0}
+    for entry in entries:
+        counts[entry["role"]] = counts.get(entry["role"], 0) + 1
+    return counts
+
+
+def _render_summary(report: BenchmarkReport) -> list[str]:
+    """Per-dataset headline table: one row per dataset that has entries."""
+    agg = report.aggregate
+    counts = _entry_counts(report.entries)
+    mid = agg["consistency_histogram"]["mid"]
+    lines = ["## Summary", "", "| dataset | metric | value | entries |"]
+    lines.append("| --- | --- | --- | --- |")
+    if counts["seed"]:
+        lines.append(
+            f'| seed | precision / recall | {agg["seed_precision"]} / '
+            f'{agg["seed_recall"]} | {counts["seed"]} |'
+        )
+    if counts["golden"]:
+        lines.append(
+            f'| golden | recall | {agg["golden_recall"]} '
+            f'| {counts["golden"]} |'
+        )
+    if counts["corpus"]:
+        lines.append(
+            f"| corpus | flaky findings (mid) | {mid} "
+            f'| {counts["corpus"]} |'
+        )
+    lines.append("")
+    return lines
+
+
 def render_report_markdown(report: BenchmarkReport) -> str:
     """Renders the benchmark report as Markdown from its JSON payload."""
     agg = report.aggregate
@@ -651,10 +685,14 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     lines.append("")
     model = report.model or "unknown"
     provider = report.provider or "unknown"
+    counts = _entry_counts(report.entries)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    lines.append(
+        f'- **Scope**: {counts["seed"]} seed, {counts["golden"]} golden, '
+        f'{counts["corpus"]} corpus · {report.repeats} repeats'
+    )
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
-    lines.append(f"- Repeats per entry: {report.repeats}")
     if report.wpt_upstream_commit_expected:
         pinned = report.wpt_upstream_commit_expected
         actual = report.wpt_upstream_commit_actual or "unknown"
@@ -666,67 +704,52 @@ def render_report_markdown(report: BenchmarkReport) -> str:
 
     lines.extend(_render_legend())
 
-    lines.append("## Aggregate")
-    lines.append("")
-    lines.append("| metric | value | target |")
-    lines.append("| --- | --- | --- |")
-    lines.append(f'| seed precision | {agg["seed_precision"]} | 1.0 |')
-    lines.append(f'| seed recall | {agg["seed_recall"]} | 1.0 |')
-    lines.append(
-        f'| seed TP / FP / FN | {agg["seed_true_positives"]} / '
-        f'{agg["seed_false_positives"]} / {agg["seed_false_negatives"]} '
-        "| FP=0, FN=0 |"
-    )
-    lines.append(
-        f'| golden recall (vs. human) | {agg["golden_recall"]} '
-        f'| TP {agg["golden_true_positives"]}, '
-        f'FN {agg["golden_false_negatives"]} |'
-    )
-    lines.append("")
-    lines.append(
-        f'Golden unmatched predictions: {agg["golden_unmatched_predictions"]} '
-        "finding(s) with no gold label — not charged as false positives "
-        "(possible human misses)."
-    )
-    lines.append("")
-    lines.append("- **TP** — true positive: an expected finding fired.")
-    lines.append("- **FP** — false positive: an unexpected finding fired.")
-    lines.append("- **FN** — false negative: an expected finding was missed.")
-    lines.append("")
-    lines.append(
-        f'Advisory notes: {agg["advisory_notes"]} finding(s) cite a source '
-        "doc that is not on the evaluator's curated reading list. Advisory "
-        "only — not a pass/fail gate."
-    )
-    lines.append("")
+    lines.extend(_render_summary(report))
+
+    # Golden unmatched + advisory are not in the summary (neither is scored);
+    # surface them as a compact caveat line so they are not lost.
+    caveats = []
+    if agg["golden_unmatched_predictions"]:
+        caveats.append(
+            f'{agg["golden_unmatched_predictions"]} golden unmatched '
+            "(not charged)"
+        )
+    if agg["advisory_notes"]:
+        caveats.append(f'{agg["advisory_notes"]} advisory note(s)')
+    if caveats:
+        lines.append("_" + "; ".join(caveats) + "._")
+        lines.append("")
+
     lines.extend(_render_consistency_table(agg["consistency_histogram"]))
 
     lines.append("## Per entry")
     lines.append("")
     for entry in report.entries:
-        lines.append(
-            f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})'
-        )
-        lines.append("")
-        if entry["seed_score"]:
-            ss = entry["seed_score"]
-            lines.append(
-                f'- Seed: precision {ss["precision"]}, recall '
-                f'{ss["recall"]} '
-                f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
-                f'FN {ss["false_negatives"]})'
-            )
-        if entry["golden_score"]:
-            gs = entry["golden_score"]
-            lines.append(
-                f'- Golden: recall {gs["recall"]} '
-                f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
-                f'unmatched {gs["unmatched_predictions"]})'
-            )
-        lines.append("")
-        lines.extend(_render_entry_consistency(entry))
+        lines.extend(_render_entry(entry))
 
     return "\n".join(lines) + "\n"
+
+
+def _render_entry(entry: dict[str, Any]) -> list[str]:
+    """One entry's heading, score line, and finding tables."""
+    lines = [f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})', ""]
+    if entry["seed_score"]:
+        ss = entry["seed_score"]
+        lines.append(
+            f'- Seed: precision {ss["precision"]}, recall {ss["recall"]} '
+            f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
+            f'FN {ss["false_negatives"]})'
+        )
+    if entry["golden_score"]:
+        gs = entry["golden_score"]
+        lines.append(
+            f'- Golden: recall {gs["recall"]} '
+            f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
+            f'unmatched {gs["unmatched_predictions"]})'
+        )
+    lines.append("")
+    lines.extend(_render_entry_consistency(entry))
+    return lines
 
 
 def _bucket_label(row: dict[str, Any]) -> str:
