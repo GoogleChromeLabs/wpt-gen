@@ -42,7 +42,9 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -213,87 +215,80 @@ def _rep_dir(out: Path, entry_id: str, repeat: int) -> Path:
 
 
 class Progress:
-    """Prints one stderr line per evaluator invocation"""
+    """Prints one atomic completion line per evaluator invocation.
+
+    Workers run concurrently, each worker emits a single line when its run
+    finishes. The counter increment and write are lock-guarded.
+    """
 
     def __init__(self, total: int) -> None:
         self.total = total
         self.done = 0
+        self._lock = threading.Lock()
 
-    def start_repeat(self, entry_id: str, repeat: int, repeats: int) -> None:
-        sys.stderr.write(
-            f"[{self.done + 1}/{self.total}] {entry_id} "
-            f"rep {repeat + 1}/{repeats} ... "
-        )
-        sys.stderr.flush()
-
-    def end_repeat(self, exit_code: int, elapsed: float) -> None:
-        self.done += 1
+    def complete(
+        self, entry_id: str, repeat: int, exit_code: int, elapsed: float
+    ) -> None:
         status = "ok" if exit_code == 0 else f"FAILED ({exit_code})"
-        sys.stderr.write(f"{status} {elapsed:.1f}s\n")
-        sys.stderr.flush()
+        with self._lock:
+            self.done += 1
+            sys.stderr.write(
+                f"[{self.done}/{self.total}] {entry_id} rep {repeat + 1} "
+                f"{status} {elapsed:.1f}s\n"
+            )
+            sys.stderr.flush()
 
 
-def run_entry(
+def run_single(
     entry: BenchmarkEntry,
-    manifest: Manifest,
+    repeat: int,
     wpt_dir: Path,
     out: Path,
-    repeats: int,
     provider: str | None,
     config: Path,
     progress: Progress | None = None,
-) -> list[RunRecord]:
-    """Invokes ``wpt-gen evaluate`` ``repeats`` times for one entry."""
-    records: list[RunRecord] = []
-    test_rel = entry.test_rel_path()
-    test_abs = wpt_dir / test_rel
+) -> RunRecord:
+    """Invokes ``wpt-gen evaluate`` once for one (entry, repeat) pair."""
+    rep_dir = _rep_dir(out, entry.entry_id, repeat)
+    rep_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "wpt-gen",
+        "evaluate",
+        str(wpt_dir / entry.test_rel_path()),
+        "--wpt-dir",
+        str(wpt_dir),
+        "--output-dir",
+        str(rep_dir),
+        "--config",
+        str(config),
+    ]
+    if provider:
+        cmd += ["--provider", provider]
 
-    for i in range(repeats):
-        rep_dir = _rep_dir(out, entry.entry_id, i)
-        rep_dir.mkdir(parents=True, exist_ok=True)
-        cmd = [
-            "wpt-gen",
-            "evaluate",
-            str(test_abs),
-            "--wpt-dir",
-            str(wpt_dir),
-            "--output-dir",
-            str(rep_dir),
-            "--config",
-            str(config),
-        ]
-        if provider:
-            cmd += ["--provider", provider]
-
-        if progress:
-            progress.start_repeat(entry.entry_id, i, repeats)
-        started = time.monotonic()
-        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
+    started = time.monotonic()
+    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    elapsed = time.monotonic() - started
+    if progress:
+        progress.complete(entry.entry_id, repeat, completed.returncode, elapsed)
+    if completed.returncode != 0:
+        # Record it and move on; an errored repeat scores as an empty run
+        # (no findings) and still counts in the denominator.
+        sys.stderr.write(
+            f"[warn] {entry.entry_id} rep-{repeat} exited "
+            f"{completed.returncode}\n{completed.stderr}\n"
         )
-        elapsed = time.monotonic() - started
-        if progress:
-            progress.end_repeat(completed.returncode, elapsed)
-        if completed.returncode != 0:
-            # Record it and move on; an errored repeat scores as an empty
-            # run (no findings) and still counts in the denominator.
-            sys.stderr.write(
-                f"[warn] {entry.entry_id} rep-{i} exited "
-                f"{completed.returncode}\n{completed.stderr}\n"
-            )
-        records.append(
-            RunRecord(
-                entry_id=entry.entry_id,
-                repeat=i,
-                exit_code=completed.returncode,
-                wall_seconds=elapsed,
-                output_dir=str(rep_dir),
-            )
-        )
-    return records
+    return RunRecord(
+        entry_id=entry.entry_id,
+        repeat=repeat,
+        exit_code=completed.returncode,
+        wall_seconds=elapsed,
+        output_dir=str(rep_dir),
+    )
 
 
 # --- Scoring an entry from its run dirs -------------------------------------
@@ -858,6 +853,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output/run directory (default: bench-runs/<date>-<time>/).",
     )
     parser.add_argument("--repeats", type=int, default=8)
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Concurrent evaluator runs (default: 1). The bound is provider "
+        "rate limits, not cores; 4-8 is usually safe.",
+    )
     parser.add_argument("--provider", default=None)
     parser.add_argument(
         "--filter", default=None, help="field=value, e.g. kind=reftest"
@@ -930,7 +932,7 @@ def select_golden(
         if set_name not in manifest.golden_sets:
             raise HarnessError(
                 f"--golden-set {set_name!r} not in manifest golden_sets "
-                f"({', '.join(sorted(manifest.golden_sets)) or 'none'})"
+                f'({", ".join(sorted(manifest.golden_sets)) or "none"})'
             )
         prs = manifest.golden_sets[set_name]
         if prs:  # empty list means "all"
@@ -1037,20 +1039,28 @@ def main(argv: list[str] | None = None) -> int:
                 stage_seeds(seeds_root, args.wpt_dir, seed_entries)
             if gold_entries:
                 stage_golden(args.wpt_dir, gold_entries)
-            progress = Progress(total=len(entries) * args.repeats)
-            for entry in entries:
-                run_records.extend(
-                    run_entry(
+            # Flatten to (entry, repeat) tasks so the pool fills evenly.
+            tasks = [
+                (entry, i) for entry in entries for i in range(args.repeats)
+            ]
+            progress = Progress(total=len(tasks))
+            with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+                futures = [
+                    pool.submit(
+                        run_single,
                         entry=entry,
-                        manifest=manifest,
+                        repeat=i,
                         wpt_dir=args.wpt_dir,
                         out=args.out,
-                        repeats=args.repeats,
                         provider=args.provider,
                         config=args.config,
                         progress=progress,
                     )
-                )
+                    for entry, i in tasks
+                ]
+                run_records = [f.result() for f in as_completed(futures)]
+            # Completion order is nondeterministic; sort for a stable report.
+            run_records.sort(key=lambda r: (r.entry_id, r.repeat))
 
         reports, models = score_all(
             manifest=manifest,

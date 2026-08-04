@@ -21,6 +21,7 @@ against JSON.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -803,6 +804,61 @@ def _seed_entry(seed: str, kind: str = "testharness") -> SeedEntry:
         kind=kind,
         seed=seed,
     )
+
+
+class _FakeProc:
+    def __init__(self) -> None:
+        self.returncode = 0
+        self.stdout = ""
+        self.stderr = ""
+
+
+def _fake_run_recording(calls: list[list[str]]) -> Any:
+    """A subprocess.run stand-in that records argv and returns success."""
+
+    def _run(cmd: list[str], *a: Any, **k: Any) -> _FakeProc:
+        calls.append(cmd)
+        return _FakeProc()
+
+    return _run
+
+
+def test_parallel_runs_match_sequential_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The flattened pool produces the same (entry_id, repeat) records as the
+    sequential path, regardless of completion order."""
+    wpt_dir = tmp_path / "wpt"
+    wpt_dir.mkdir()
+    entries = [_seed_entry("testharness/a.js"), _seed_entry("testharness/b.js")]
+    repeats = 3
+    tasks = [(e, i) for e in entries for i in range(repeats)]
+
+    def _run_all(jobs: int) -> set[tuple[str, int]]:
+        calls: list[list[str]] = []
+        monkeypatch.setattr(
+            "benchmark.run_benchmark.subprocess.run",
+            _fake_run_recording(calls),
+        )
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            futures = [
+                pool.submit(
+                    run_benchmark.run_single,
+                    entry=e,
+                    repeat=i,
+                    wpt_dir=wpt_dir,
+                    out=tmp_path / "out",
+                    provider=None,
+                    config=Path("wpt-gen.yml"),
+                )
+                for e, i in tasks
+            ]
+            records = [f.result() for f in as_completed(futures)]
+        return {(r.entry_id, r.repeat) for r in records}
+
+    expected = {(e.entry_id, i) for e, i in tasks}
+    assert _run_all(jobs=1) == expected
+    assert _run_all(jobs=4) == expected
 
 
 def test_stage_seeds_refuses_unmarked_existing_dir(tmp_path: Path) -> None:
