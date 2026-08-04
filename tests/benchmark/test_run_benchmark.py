@@ -861,6 +861,67 @@ def test_parallel_runs_match_sequential_set(
     assert _run_all(jobs=4) == expected
 
 
+# --- Quality gates ----------------------------------------------------------
+
+
+def _agg(
+    seed_precision: float = 1.0,
+    seed_recall: float = 1.0,
+    golden_recall: float = 1.0,
+    seed_fn: int = 0,
+    golden_fn: int = 0,
+) -> dict[str, Any]:
+    return {
+        "seed_precision": seed_precision,
+        "seed_recall": seed_recall,
+        "golden_recall": golden_recall,
+        "seed_false_negatives": seed_fn,
+        "golden_false_negatives": golden_fn,
+    }
+
+
+def test_quality_gates_pass_when_unset() -> None:
+    # No thresholds set -> nothing checked, even on a poor aggregate.
+    agg = _agg(seed_precision=0.0, seed_recall=0.0, golden_recall=0.0)
+    assert (
+        run_benchmark.check_quality_gates(
+            agg, run_benchmark.QualityThresholds()
+        )
+        == []
+    )
+
+
+def test_quality_gates_flag_each_breach() -> None:
+    agg = _agg(
+        seed_precision=0.5, seed_recall=0.5, golden_recall=0.5, seed_fn=3
+    )
+    failures = run_benchmark.check_quality_gates(
+        agg,
+        run_benchmark.QualityThresholds(
+            min_precision=0.9,
+            min_recall=0.9,
+            min_golden_recall=0.9,
+            max_fn=2,
+        ),
+    )
+    assert len(failures) == 4
+
+
+def test_quality_gate_max_fn_sums_seed_and_golden() -> None:
+    agg = _agg(seed_fn=1, golden_fn=2)
+    thresholds = run_benchmark.QualityThresholds(max_fn=2)
+    assert run_benchmark.check_quality_gates(agg, thresholds) == [
+        "false negatives 3 > 2"
+    ]
+
+
+def test_quality_gate_boundary_is_inclusive() -> None:
+    # Exactly meeting a floor passes; exactly at max_fn passes.
+    agg = _agg(seed_precision=0.8, seed_fn=2)
+    thresholds = run_benchmark.QualityThresholds(min_precision=0.8, max_fn=2)
+    assert run_benchmark.check_quality_gates(agg, thresholds) == []
+
+
 def test_stage_seeds_refuses_unmarked_existing_dir(tmp_path: Path) -> None:
     seeds_root = tmp_path / "seeds"
     (seeds_root / "testharness").mkdir(parents=True)

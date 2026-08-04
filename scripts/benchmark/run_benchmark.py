@@ -513,6 +513,51 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     }
 
 
+# --- Quality gates ----------------------------------------------------------
+
+
+@dataclass
+class QualityThresholds:
+    """CI pass/fail bounds. None disables a check."""
+
+    min_precision: float | None = None
+    min_recall: float | None = None
+    min_golden_recall: float | None = None
+    max_fn: int | None = None
+
+
+def check_quality_gates(
+    aggregate: dict[str, Any], thresholds: QualityThresholds
+) -> list[str]:
+    """Returns one message per breached threshold (empty = all pass).
+
+    Reads the keys ``_aggregate`` already emits; ``max_fn`` sums seed and
+    golden false negatives.
+    """
+    failures: list[str] = []
+    t = thresholds
+    if t.min_precision is not None:
+        got = aggregate["seed_precision"]
+        if got < t.min_precision:
+            failures.append(f"seed precision {got} < {t.min_precision}")
+    if t.min_recall is not None:
+        got = aggregate["seed_recall"]
+        if got < t.min_recall:
+            failures.append(f"seed recall {got} < {t.min_recall}")
+    if t.min_golden_recall is not None:
+        got = aggregate["golden_recall"]
+        if got < t.min_golden_recall:
+            failures.append(f"golden recall {got} < {t.min_golden_recall}")
+    if t.max_fn is not None:
+        got = (
+            aggregate["seed_false_negatives"]
+            + aggregate["golden_false_negatives"]
+        )
+        if got > t.max_fn:
+            failures.append(f"false negatives {got} > {t.max_fn}")
+    return failures
+
+
 # --- Report emission --------------------------------------------------------
 
 
@@ -893,6 +938,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Re-score existing run dirs in --out; do not run the agent.",
     )
+    # CI quality gates: reports are always written first; these only affect the
+    # exit code. Omit a flag to leave that check off.
+    parser.add_argument("--min-precision", type=float, default=None)
+    parser.add_argument("--min-recall", type=float, default=None)
+    parser.add_argument("--min-golden-recall", type=float, default=None)
+    parser.add_argument("--max-fn", type=int, default=None)
     return parser.parse_args(argv)
 
 
@@ -1087,6 +1138,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     write_reports(args.out, report)
     sys.stderr.write(f'wrote {args.out / "report.md"}\n')
+
+    # Gate the exit code only after reports are on disk, so CI can publish the
+    # full table even on a failing run.
+    failures = check_quality_gates(
+        report.aggregate,
+        QualityThresholds(
+            min_precision=args.min_precision,
+            min_recall=args.min_recall,
+            min_golden_recall=args.min_golden_recall,
+            max_fn=args.max_fn,
+        ),
+    )
+    if failures:
+        sys.stderr.write("quality gate failed:\n")
+        for failure in failures:
+            sys.stderr.write(f"  - {failure}\n")
+        return 1
     return 0
 
 
