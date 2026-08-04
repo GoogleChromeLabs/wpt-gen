@@ -1415,3 +1415,65 @@ def test_manifest_golden_sets_non_int_rejected(tmp_path: Path) -> None:
     data["golden_sets"] = {"bad": ["43400"]}
     with pytest.raises(ManifestError, match="non-integer"):
         load_manifest(_write_manifest(tmp_path, data))
+
+
+# --- Smoke / regression tier ------------------------------------------------
+
+
+def _manifest_with_id_sets(
+    tmp_path: Path,
+    corpus_sets: dict[str, list[str]] | None = None,
+    seed_sets: dict[str, list[str]] | None = None,
+) -> Any:
+    data = _valid_manifest_dict()
+    if corpus_sets is not None:
+        data["corpus_sets"] = corpus_sets
+    if seed_sets is not None:
+        data["seed_sets"] = seed_sets
+    return load_manifest(_write_manifest(tmp_path, data))
+
+
+def test_manifest_id_sets_parsed(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path, corpus_sets={"smoke": ["corpus-a"]}, seed_sets={}
+    )
+    assert manifest.corpus_sets == {"smoke": ["corpus-a"]}
+    assert manifest.seed_sets == {}
+
+
+def test_manifest_id_sets_non_string_rejected(tmp_path: Path) -> None:
+    data = _valid_manifest_dict()
+    data["corpus_sets"] = {"smoke": [123]}
+    with pytest.raises(ManifestError, match="non-string"):
+        load_manifest(_write_manifest(tmp_path, data))
+
+
+def test_select_smoke_narrows_corpus_and_seeds(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path,
+        corpus_sets={"smoke": ["corpus-a"]},
+        seed_sets={"smoke": ["seed-a"]},
+    )
+    corpus, seeds = run_benchmark.select_smoke(
+        manifest, manifest.corpus, manifest.seeds
+    )
+    assert [c.entry_id for c in corpus] == ["corpus-a"]
+    assert [s.entry_id for s in seeds] == ["seed-a"]
+
+
+def test_select_smoke_empty_set_selects_nothing(tmp_path: Path) -> None:
+    # No `smoke` entry for a type -> that type contributes nothing.
+    manifest = _manifest_with_id_sets(tmp_path, corpus_sets={"smoke": []})
+    corpus, seeds = run_benchmark.select_smoke(
+        manifest, manifest.corpus, manifest.seeds
+    )
+    assert corpus == []
+    assert seeds == []
+
+
+def test_select_smoke_unknown_id_errors(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path, corpus_sets={"smoke": ["corpus-nope"]}
+    )
+    with pytest.raises(run_benchmark.HarnessError, match="corpus-nope"):
+        run_benchmark.select_smoke(manifest, manifest.corpus, manifest.seeds)

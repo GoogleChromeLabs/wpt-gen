@@ -934,6 +934,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "Intersected with --golden-set if both are given.",
     )
     parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Regression tier: the manifest's `smoke` corpus/seed/golden sets "
+        "only. Composes with --filter; repeats stay --repeats.",
+    )
+    parser.add_argument(
         "--score-only",
         action="store_true",
         help="Re-score existing run dirs in --out; do not run the agent.",
@@ -1008,6 +1014,33 @@ def select_golden(
     return [by_pr[pr] for pr in sorted(wanted & by_pr.keys())]
 
 
+SMOKE_SET_NAME = "smoke"
+
+
+def select_smoke(
+    manifest: Manifest, corpus: list[CorpusEntry], seeds: list[SeedEntry]
+) -> tuple[list[CorpusEntry], list[SeedEntry]]:
+    """Narrows corpus/seeds to their ``smoke`` set (the regression tier).
+
+    An id listed in a set but absent from the manifest is a stale grouping;
+    fail loudly rather than silently run a smaller tier.
+    """
+    return (
+        _by_ids(corpus, manifest.corpus_sets.get(SMOKE_SET_NAME, []), "corpus"),
+        _by_ids(seeds, manifest.seed_sets.get(SMOKE_SET_NAME, []), "seed"),
+    )
+
+
+def _by_ids(entries: list[Any], ids: list[str], label: str) -> list[Any]:
+    by_id = {e.entry_id: e for e in entries}
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        raise HarnessError(
+            f"{label} smoke set names unknown ids: {', '.join(missing)}"
+        )
+    return [by_id[i] for i in ids]
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
@@ -1034,15 +1067,19 @@ def main(argv: list[str] | None = None) -> int:
     seeds_root = args.manifest.parent / "seeds"
 
     try:
+        corpus, seeds = manifest.corpus, manifest.seeds
+        golden_set = args.golden_set
+        if args.smoke:
+            corpus, seeds = select_smoke(manifest, corpus, seeds)
+            # Smoke drives golden via its own set unless one was named.
+            golden_set = golden_set or SMOKE_SET_NAME
         golden_entries = select_golden(
             _load_golden(args.golden_dir),
             manifest,
-            args.golden_set,
+            golden_set,
             args.golden_prs,
         )
-        entries = apply_filter(
-            [*manifest.entries, *golden_entries], args.filter
-        )
+        entries = apply_filter([*corpus, *seeds, *golden_entries], args.filter)
     except HarnessError as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
