@@ -45,13 +45,15 @@ For each finding:
     may be legitimate reasons for such tests, but the absence of a
     matching requirement is worth surfacing.
   - `info` and `nit` are not used by this skill.
-- **Line reference** into the test file under evaluation.
-- **Short evidence quote** from the test file (the assertion in
-  question).
+- **`citation`**: the exact verbatim assertion/snippet from the test file
+  the finding concerns — obtained from the `locate` tool, never written
+  from memory. Leave empty when there is no snippet to quote. The line
+  reference is derived from it; do not provide `test_line` yourself.
 - **Source citation**: the requirement ID (e.g. `R3`) that the finding
   relates to, formatted as `requirements.xml#R3`. For `warn` findings
   where no requirement matches, use `requirements.xml#none-matched`.
-- **One-sentence summary** of the contradiction or gap.
+- **`summary`**: one or two sentences stating the requirement and how this
+  test contradicts or gaps it.
 
 ### Prohibited outputs
 

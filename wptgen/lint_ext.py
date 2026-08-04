@@ -44,9 +44,9 @@ Error = tuple[str, str, str, int | None]
 
 
 def is_manual_test(path: str) -> bool:
-    """A test whose filename marks it manual (`-manual` before the ext)."""
-    stem, _ = os.path.splitext(os.path.basename(path))
-    return stem.endswith("-manual")
+    """A test whose filename marks it manual (`-manual` flag before the ext)."""
+    name_stem = os.path.basename(path).split(".", 1)[0]
+    return name_stem.endswith("-manual")
 
 
 def is_worker_js(path: str) -> bool:

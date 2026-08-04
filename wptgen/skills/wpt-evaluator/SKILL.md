@@ -40,11 +40,15 @@ test, or human review. It complements those steps; it does not replace them.
 For each issue, a finding with these fields:
 
 - `severity`: `error`, `warn`, `info`, or `nit`.
-- `test_line`: a line reference into the test file under evaluation.
-- `evidence`: a short verbatim quote from the test file.
+- `citation`: the exact verbatim snippet from the test file the finding
+  points at — obtained from the `locate` tool, never written from memory.
+  Leave empty for a finding about something missing or a whole-file
+  property. The line reference is derived from it; do not provide
+  `test_line` yourself.
 - `source`: provenance for the finding (see the strategy-specific note
   below).
-- `summary`: a one-sentence paraphrase of what the guidance requires.
+- `summary`: one or two sentences stating the governing rule and how it
+  applies to this test.
 
 Strategy-specific fields:
 
@@ -211,18 +215,14 @@ corpus you used.
 Applies when `strategy: distilled`. All rules live in
 [`references/rules.yaml`](references/rules.yaml). Each rule carries:
 
-- `id`: stable identifier, prefixed with the category code (e.g.,
-  `CHECKLIST-017`, `CHECKLIST-012`). This is what you report as a finding's
-  `rule_id`.
+- `id`: stable identifier with a topic prefix (e.g., `CHECKLIST-017`,
+  `GENERAL-005`). This is what you report as a finding's `rule_id`.
 - `source`: provenance — a repo-root-relative path whose first segment
   identifies the originating repository (`wpt/...` for upstream
   `web-platform-tests/wpt`, `wpt-gen/...` for this repository), with a
   `#L<start>-L<end>` line anchor where the location is stable. Copy this
   through to a finding's `source`. See [`UPSTREAM.md`](UPSTREAM.md) for
   the convention.
-- `category`: the topic of the rule. Categories describe *what kind of issue*
-  the rule covers, never *what kind of test* it applies to. See the list
-  below.
 - `applies_to`: which test kinds the rule is relevant to (e.g.,
   `testharness`, `reftest`, `manual`, `idl`, `visual`, `js`, `html`, `css`,
   `any`, `worker`). Used for filtering the corpus when loading into context.
@@ -233,24 +233,10 @@ Applies when `strategy: distilled`. All rules live in
 - `rule`: the normative statement. This is the self-contained text you
   evaluate the test against.
 
-### Categories
-
-| Code     | Category       | Covers                                                       |
-| -------- | -------------- | ------------------------------------------------------------ |
-| `FMT`    | `file-format`  | File format, encoding, boilerplate and harness inclusion.    |
-| `NAME`   | `filename`     | Filename, path length, suffix flags and their ordering.      |
-| `META`   | `metadata`     | `<meta>` elements and `// META:` comment directives.         |
-| `ASSERT` | `assertions`   | Choice and specificity of test assertions.                   |
-| `ASYNC`  | `async-timing` | Timing, timeouts, event-based waits, animation frames.       |
-| `INDEP`  | `independence` | Test isolation, cleanup, and consistency across runs.        |
-| `STRUCT` | `structure`    | Structural shape of a test (e.g., reftest links, refs, instructions). |
-| `API`    | `api-usage`    | Correct use of WPT harness APIs (`idlharness`, `setup()`, etc.). |
-| `PORT`   | `portability`  | Cross-platform and self-containment requirements.            |
-| `FOCUS`  | `focus`        | Test scope, conservatism, and self-description.              |
-| `REV`    | `review`       | General reviewer checklist items not covered above.          |
-
-The full corpus is small enough to load once. Upstream provenance for the
-rule set is documented in [`UPSTREAM.md`](UPSTREAM.md).
+Rules are grouped by the `id` prefix (`GENERAL-*`, `CHECKLIST-*`,
+`TESTHARNESS-*`, `REFTESTS-*`, etc.). Read `references/rules.yaml` directly
+for the authoritative set — it is small enough to load once. Upstream
+provenance is documented in [`UPSTREAM.md`](UPSTREAM.md).
 
 ## Corpus: raw
 

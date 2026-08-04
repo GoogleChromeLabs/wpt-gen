@@ -13,11 +13,13 @@ Model: `{{ run_metadata.model }}` (provider: `{{ run_metadata.provider }}`)
 - **Rule**: `{{ f.rule_id }}`
 {% endif -%}
 - **Severity**: {{ f.severity }}
-- **Test line**: {{ f.test_line }}
-- **Evidence**:
+- **Test line**: {{ f.test_line if f.test_line else "file-scoped (no citation)" }}
+{% if f.citation -%}
+- **Citation**:
   ```
-  {{ f.evidence | indent(2, first=False) }}
+  {{ f.citation | indent(2, first=False) }}
   ```
+{% endif -%}
 - **Source**: `{{ f.source }}`
 - **Summary**: {{ f.summary }}
 
@@ -41,11 +43,13 @@ No findings raised.
 ### Conformance finding {{ loop.index }} — {{ f.title }}
 
 - **Severity**: {{ f.severity }}
-- **Test line**: {{ f.test_line }}
-- **Evidence**:
+- **Test line**: {{ f.test_line if f.test_line else "file-scoped (no citation)" }}
+{% if f.citation -%}
+- **Citation**:
   ```
-  {{ f.evidence | indent(2, first=False) }}
+  {{ f.citation | indent(2, first=False) }}
   ```
+{% endif -%}
 - **Source**: `{{ f.source }}`
 - **Summary**: {{ f.summary }}
 

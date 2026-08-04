@@ -17,7 +17,7 @@ Each check is named with its rules.yaml id; these tests assert the gap-set
 checks fire on violations and stay quiet on clean input.
 """
 
-from wptgen.lint_ext import check_file
+from wptgen.lint_ext import check_file, is_manual_test
 
 
 def _rule_ids(path: str, content: bytes) -> list[str]:
@@ -70,6 +70,26 @@ def test_api_005_quiet_on_non_manual_test() -> None:
     """The gate: an ordinary (non-manual) test's setup() is not flagged."""
     assert "MANUAL-004" not in _rule_ids("m.html", b"setup();\n")
     assert "MANUAL-004" not in _rule_ids("m.any.js", b"setup();\n")
+
+
+def test_api_005_flags_manual_with_compound_extension() -> None:
+    """A `-manual` test keeps its flag before secondary extensions.
+
+    `foo-manual.https.html` is still manual; the check must fire. (Regression
+    for the splitext-based is_manual_test, which left `.https` on the stem and
+    missed it.)
+    """
+    assert "MANUAL-004" in _rule_ids("m-manual.https.html", b"setup();\n")
+    assert "MANUAL-004" in _rule_ids("m-manual.sub.html", b"setup();\n")
+
+
+def test_is_manual_test_compound_extensions() -> None:
+    assert is_manual_test("a/b/foo-manual.html") is True
+    assert is_manual_test("a/b/foo-manual.https.html") is True
+    assert is_manual_test("a/b/foo-manual.sub.html") is True
+    # `-manual` must be the trailing name segment, not merely present.
+    assert is_manual_test("a/b/foo-manual-other.html") is False
+    assert is_manual_test("a/b/foo.https.html") is False
 
 
 def test_name_011_flags_crash_suffix_not_last() -> None:
