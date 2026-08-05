@@ -1,0 +1,48 @@
+{
+  "pr": 43400,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/43400",
+  "merged_at": "2024-07-04T11:26:51Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "afe0767aa79b54c7945d768c857eceab4b6a7a8c",
+      "test_files": [
+        {
+          "path": "WebCryptoAPI/derive_bits_keys/derived_bits_length_testcases.js",
+          "content_b64": "dmFyIHRlc3RDYXNlcyA9IHsKICAgICJIS0RGIjogWwogICAgICAgIHtsZW5n\ndGg6IDI1NiwgZXhwZWN0ZWQ6IGFsZ29yaXRobXNbIkhLREYiXS5kZXJpdmF0\naW9ufSwKICAgICAgICB7bGVuZ3RoOiAwLCBleHBlY3RlZDogZW1wdHlBcnJh\neX0sCiAgICAgICAge2xlbmd0aDogLTEsIGV4cGVjdGVkOiBlbXB0eUFycmF5\nfSwgLy8gY29lcmNlIHRvIDAKICAgICAgICB7bGVuZ3RoOiBudWxsLCBleHBl\nY3RlZDogdW5kZWZpbmVkIH0sIC8vIHNob3VsZCB0aHJvdyBhbiBleGNlcHRp\nb24KICAgICAgICB7bGVuZ3RoOiB1bmRlZmluZWQsIGV4cGVjdGVkOiB1bmRl\nZmluZWQgfSwgLy8gc2hvdWxkIHRocm93IGFuIGV4Y2VwdGlvbgogICAgICAg\nIHtsZW5ndGg6ICJvbWl0dGVkIiwgZXhwZWN0ZWQ6IHVuZGVmaW5lZCB9LCAv\nLyBkZWZhdWx0IHZhbHVlIGlzIG51bGwsIHNvIHNob3VsZCB0aHJvdwogICAg\nXSwKICAgICJQQktERjIiOiBbCiAgICAgICAge2xlbmd0aDogMjU2LCBleHBl\nY3RlZDogYWxnb3JpdGhtc1siUEJLREYyIl0uZGVyaXZhdGlvbn0sCiAgICAg\nICAge2xlbmd0aDogMCwgZXhwZWN0ZWQ6IHVuZGVmaW5lZH0sIC8vIG5vdCBh\nIG11bHRpcGxlIG9mIDgKICAgICAgICB7bGVuZ3RoOiAtMSwgZXhwZWN0ZWQ6\nIHVuZGVmaW5lZH0sIC8vIGNvZXJjZSB0byAwLCB3aGljaCBpcyBub3QgYSBt\ndWx0aXBsZSBvZiA4CiAgICAgICAge2xlbmd0aDogbnVsbCwgZXhwZWN0ZWQ6\nIHVuZGVmaW5lZCB9LCAvLyBzaG91bGQgdGhyb3cgYW4gZXhjZXB0aW9uCiAg\nICAgICAge2xlbmd0aDogdW5kZWZpbmVkLCBleHBlY3RlZDogdW5kZWZpbmVk\nIH0sIC8vIHNob3VsZCB0aHJvdyBhbiBleGNlcHRpb24KICAgICAgICB7bGVu\nZ3RoOiAib21pdHRlZCIsIGV4cGVjdGVkOiB1bmRlZmluZWQgfSwgLy8gZGVm\nYXVsdCB2YWx1ZSBpcyBudWxsLCBzbyBzaG91bGQgdGhyb3cKICAgIF0sCiAg\nICAiRUNESCI6IFsKICAgICAgICB7bGVuZ3RoOiAyNTYsIGV4cGVjdGVkOiBh\nbGdvcml0aG1zWyJFQ0RIIl0uZGVyaXZhdGlvbn0sCiAgICAgICAge2xlbmd0\naDogMCwgZXhwZWN0ZWQ6IGVtcHR5QXJyYXl9LAogICAgICAgIHtsZW5ndGg6\nIC0xLCBleHBlY3RlZDogZW1wdHlBcnJheX0sIC8vIGNvZXJjZSB0byAwCiAg\nICAgICAge2xlbmd0aDogbnVsbCwgZXhwZWN0ZWQ6IGFsZ29yaXRobXNbIkVD\nREgiXS5kZXJpdmF0aW9ufSwKICAgICAgICB7bGVuZ3RoOiB1bmRlZmluZWQs\nIGV4cGVjdGVkOiBhbGdvcml0aG1zWyJFQ0RIIl0uZGVyaXZhdGlvbn0sCiAg\nICAgICAge2xlbmd0aDogIm9taXR0ZWQiLCBleHBlY3RlZDogYWxnb3JpdGht\nc1siRUNESCJdLmRlcml2YXRpb24gfSwgLy8gZGVmYXVsdCB2YWx1ZSBpcyBu\ndWxsCiAgICBdLAogICAgIlgyNTUxOSI6IFsKICAgICAgICB7bGVuZ3RoOiAy\nNTYsIGV4cGVjdGVkOiBhbGdvcml0aG1zWyJYMjU1MTkiXS5kZXJpdmF0aW9u\nfSwKICAgICAgICB7bGVuZ3RoOiAwLCBleHBlY3RlZDogZW1wdHlBcnJheX0s\nCiAgICAgICAge2xlbmd0aDogLTEsIGV4cGVjdGVkOiBlbXB0eUFycmF5fSwg\nLy8gY29lcmNlIHRvIDAKICAgICAgICB7bGVuZ3RoOiBudWxsLCBleHBlY3Rl\nZDogYWxnb3JpdGhtc1siWDI1NTE5Il0uZGVyaXZhdGlvbn0sCiAgICAgICAg\ne2xlbmd0aDogdW5kZWZpbmVkLCBleHBlY3RlZDogYWxnb3JpdGhtc1siWDI1\nNTE5Il0uZGVyaXZhdGlvbn0sCiAgICAgICAge2xlbmd0aDogIm9taXR0ZWQi\nLCBleHBlY3RlZDogYWxnb3JpdGhtc1siRUNESCJdLmRlcml2YXRpb24gfSwg\nLy8gZGVmYXVsdCB2YWx1ZSBpcyBudWxsCiAgICBdLAp9Cg==\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "panva",
+          "path": "WebCryptoAPI/derive_bits_keys/derived_bits_length_testcases.js",
+          "line": 32,
+          "commit_id": "afe0767aa79b54c7945d768c857eceab4b6a7a8c",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/43400#discussion_r1660071683",
+          "body": "```suggestion\r\n        {length: undefined, expected: algorithms[\"X25519\"].derivation},\r\n        {length: \"omitted\", expected: algorithms[\"X25519\"].derivation }, // default value is null\r\n```",
+          "fixed_before_merge": true
+        },
+        {
+          "author": "panva",
+          "path": "WebCryptoAPI/derive_bits_keys/derived_bits_length_testcases.js",
+          "line": 4,
+          "commit_id": "afe0767aa79b54c7945d768c857eceab4b6a7a8c",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/43400#discussion_r1660074609",
+          "body": "This is also incorrect for HKDF. https://w3c.github.io/webcrypto/#hkdf-operations\r\n\r\n```\r\nIf length is null or zero, or is not a multiple of 8, then [throw](https://webidl.spec.whatwg.org/#dfn-throw) an [OperationError](https://webidl.spec.whatwg.org/#operationerror).\r\n```",
+          "fixed_before_merge": true
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "WebCryptoAPI/derive_bits_keys/cfrg_curves_bits.js",
+    "WebCryptoAPI/derive_bits_keys/derived_bits_length.https.any.js",
+    "WebCryptoAPI/derive_bits_keys/derived_bits_length.js",
+    "WebCryptoAPI/derive_bits_keys/derived_bits_length_testcases.js",
+    "WebCryptoAPI/derive_bits_keys/derived_bits_length_vectors.js",
+    "WebCryptoAPI/derive_bits_keys/ecdh_bits.js",
+    "WebCryptoAPI/derive_bits_keys/hkdf.js",
+    "WebCryptoAPI/derive_bits_keys/pbkdf2.js"
+  ]
+}

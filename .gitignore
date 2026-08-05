@@ -15,3 +15,10 @@ dist/
 
 # Benchmark harness run outputs
 bench-runs/
+
+# Golden-PR annotations are the answer key. Holdout-window annotations must
+# stay out of the public repo (contamination policy; see
+# benchmarks/golden/README.md). Ignored by default; a dev-set window's
+# annotations are force-added when it is deliberately published.
+benchmarks/golden/annotated/*
+!benchmarks/golden/annotated/.gitkeep

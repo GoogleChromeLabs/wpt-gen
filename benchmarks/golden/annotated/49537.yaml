@@ -1,0 +1,14 @@
+pr: 49537
+labels:
+  - html_url: https://github.com/web-platform-tests/wpt/pull/49537#discussion_r1871047265
+    commit_id: f8c2bae49bd5e612e815548b43fb2c6824867ea3
+    excerpt: "undo?"
+    rule_id: no-rule   # accidental-change housekeeping
+    path: html/canvas/element/text/2d.text.measure.actualBoundingBox.html
+    lines: [61, 61]
+  - html_url: https://github.com/web-platform-tests/wpt/pull/49537#discussion_r1871049681
+    commit_id: f8c2bae49bd5e612e815548b43fb2c6824867ea3
+    excerpt: "separate this out so it can be tested standalone... test other whitespace code points"
+    rule_id: no-rule   # coverage suggestion
+    path: html/canvas/element/text/2d.text.measure.actualBoundingBox.html
+    lines: [50, 50]

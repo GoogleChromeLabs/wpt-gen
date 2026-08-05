@@ -31,9 +31,13 @@ import yaml
 # ``benchmark`` package resolves here.
 from benchmark import run_benchmark
 from benchmark.manifest import (
+    GOLDEN_STAGING_SUBDIR,
+    REPO_ROOT,
     STAGING_DIRNAME,
+    GoldenEntry,
     ManifestError,
     SeedEntry,
+    load_golden_entries,
     load_manifest,
     load_rule_ids,
     validate_against_checkout,
@@ -42,6 +46,7 @@ from benchmark.scoring import (
     ConsistencyRow,
     EntryRuns,
     ExpectLabel,
+    GoldenLabel,
     MechanicalIssue,
     Prediction,
     check_source_on_reading_list,
@@ -55,6 +60,7 @@ from benchmark.scoring import (
     parse_expect,
     parse_line_range,
     payload_to_predictions,
+    score_golden,
     score_seed,
     warnings_for_row,
 )
@@ -541,7 +547,9 @@ def test_validate_against_checkout_flags_missing_paths(tmp_path: Path) -> None:
     wpt_dir.mkdir()
     seeds_root = tmp_path / "seeds"
     seeds_root.mkdir()
-    problems = validate_against_checkout(manifest, wpt_dir, seeds_root)
+    problems = validate_against_checkout(
+        manifest.corpus, manifest.seeds, wpt_dir, seeds_root
+    )
     # corpus path missing, seed file missing, and the expect doc missing.
     assert any("corpus path not found" in p for p in problems)
     assert any("seed file not found" in p for p in problems)
@@ -561,7 +569,9 @@ def test_validate_against_checkout_clean(tmp_path: Path) -> None:
     seeds_root = tmp_path / "seeds" / "testharness"
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
-    problems = validate_against_checkout(manifest, wpt_dir, tmp_path / "seeds")
+    problems = validate_against_checkout(
+        manifest.corpus, manifest.seeds, wpt_dir, tmp_path / "seeds"
+    )
     assert problems == []
 
 
@@ -596,7 +606,11 @@ def test_validate_flags_unknown_rule_id(tmp_path: Path) -> None:
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids={"TESTHARNESS-005"}
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids={"TESTHARNESS-005"},
     )
     assert any("rule id not in rules.yaml: TH-BOGUS-1" in p for p in problems)
 
@@ -612,7 +626,11 @@ def test_validate_accepts_known_rule_id(tmp_path: Path) -> None:
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids={"TESTHARNESS-005"}
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids={"TESTHARNESS-005"},
     )
     # Rule id resolves; only the (unrelated) corpus path is missing here.
     assert not any("rule id" in p for p in problems)
@@ -631,7 +649,11 @@ def test_validate_skips_rule_id_check_when_corpus_empty(
     seeds_root.mkdir(parents=True)
     (seeds_root / "foo.worker.js").write_text("x", encoding="utf-8")
     problems = validate_against_checkout(
-        manifest, wpt_dir, tmp_path / "seeds", rule_ids=set()
+        manifest.corpus,
+        manifest.seeds,
+        wpt_dir,
+        tmp_path / "seeds",
+        rule_ids=set(),
     )
     assert not any("rule id" in p for p in problems)
 
@@ -851,7 +873,7 @@ def test_stage_and_unstage_roundtrip(tmp_path: Path) -> None:
     # A second stage over the harness-created dir is allowed (marker present).
     run_benchmark.stage_seeds(seeds_root, wpt_dir, seeds)
 
-    run_benchmark.unstage_seeds(wpt_dir)
+    run_benchmark.unstage(wpt_dir)
     assert not staging.exists()
 
 
@@ -860,7 +882,7 @@ def test_unstage_leaves_unmarked_dir_alone(tmp_path: Path) -> None:
     staging = wpt_dir / STAGING_DIRNAME
     staging.mkdir(parents=True)
     (staging / "real.txt").write_text("x", encoding="utf-8")
-    run_benchmark.unstage_seeds(wpt_dir)
+    run_benchmark.unstage(wpt_dir)
     assert staging.exists()  # no marker -> untouched
 
 
@@ -978,3 +1000,301 @@ def test_off_reading_list_citation_is_advisory_note(tmp_path: Path) -> None:
     )
     notes = reports[0].advisory_notes
     assert any(n["check"] == "source" for n in notes)
+
+
+# --- Golden: score_golden ---------------------------------------------------
+
+
+def test_golden_recall_and_unmatched_not_charged() -> None:
+    label = GoldenLabel("CHECKLIST-005", (4, 17))
+    hit = Prediction("CHECKLIST-005", (7, 7), "e", "s", "warn")
+    extra = Prediction("GENERAL-006", (99, 99), "e", "s", "warn")
+    score = score_golden(_runs("g", [[hit, extra]], role="golden"), [label])
+    assert score.true_positives == 1
+    assert score.recall == pytest.approx(1.0)
+    # A prediction with no gold label is unmatched, NOT a false positive.
+    assert score.unmatched_predictions == 1
+
+
+def test_golden_miss_is_false_negative() -> None:
+    label = GoldenLabel("CHECKLIST-005", (4, 17))
+    score = score_golden(_runs("g", [[]], role="golden"), [label])
+    assert score.false_negatives == 1
+    assert score.recall == pytest.approx(0.0)
+
+
+def test_golden_no_labels_still_counts_predictions() -> None:
+    # A PR whose comments were all no-rule: empty expect, no denominator, but
+    # its predictions still land in unmatched (not charged).
+    pred = Prediction("CHECKLIST-004", (3, 3), "e", "s", "warn")
+    score = score_golden(_runs("g", [[pred]], role="golden"), [])
+    assert score.true_positives == 0
+    assert score.false_negatives == 0
+    assert score.unmatched_predictions == 1
+    assert score.recall == pytest.approx(1.0)  # empty denominator
+
+
+# --- Golden: loader ---------------------------------------------------------
+
+
+def _b64(text: str) -> str:
+    import base64
+
+    return base64.b64encode(text.encode("utf-8")).decode("ascii")
+
+
+def _write_golden_fixture(
+    root: Path,
+    pr: int,
+    labels: list[dict[str, Any]],
+    comments: list[dict[str, Any]],
+    files: dict[str, str] | None = None,
+) -> None:
+    candidates = root / "candidates"
+    annotated = root / "annotated"
+    candidates.mkdir(parents=True, exist_ok=True)
+    annotated.mkdir(parents=True, exist_ok=True)
+    commit_id = "3b54d1442da4757e229d56520d77c7581e79d877"
+    files = files or {labels[0]["path"]: "test body\n"}
+    candidate = {
+        "pr": pr,
+        "reviewed_commits": [
+            {
+                "commit_id": commit_id,
+                "test_files": [
+                    {"path": p, "content_b64": _b64(body)}
+                    for p, body in files.items()
+                ],
+                "comments": comments,
+            }
+        ],
+    }
+    (candidates / f"{pr}.json").write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    (annotated / f"{pr}.yaml").write_text(
+        yaml.safe_dump({"pr": pr, "labels": labels}), encoding="utf-8"
+    )
+
+
+def test_load_golden_drops_no_rule_and_joins_fixed(tmp_path: Path) -> None:
+    url_mapped = "https://x/pull/1#discussion_r1"
+    url_norule = "https://x/pull/1#discussion_r2"
+    _write_golden_fixture(
+        tmp_path,
+        pr=1,
+        labels=[
+            {
+                "html_url": url_mapped,
+                "rule_id": "CHECKLIST-005",
+                "path": "a/t.js",
+                "lines": [4, 4],
+            },
+            {
+                "html_url": url_norule,
+                "rule_id": "no-rule",
+                "path": "a/t.js",
+                "lines": [9, 9],
+            },
+        ],
+        comments=[
+            {"html_url": url_mapped, "fixed_before_merge": True},
+            {"html_url": url_norule, "fixed_before_merge": False},
+        ],
+    )
+    entries = load_golden_entries(
+        tmp_path / "candidates", tmp_path / "annotated"
+    )
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.entry_id == "golden-1-3b54d144"
+    # no-rule dropped -> one gold label.
+    assert [label.key for label in entry.expect] == ["CHECKLIST-005"]
+    assert entry.expect[0].fixed_before_merge is True
+
+
+def test_load_golden_all_no_rule_loads_empty_expect(tmp_path: Path) -> None:
+    _write_golden_fixture(
+        tmp_path,
+        pr=2,
+        labels=[
+            {
+                "html_url": "https://x/2#r1",
+                "rule_id": "no-rule",
+                "path": "a/t.js",
+                "lines": [1, 1],
+            }
+        ],
+        comments=[{"html_url": "https://x/2#r1", "fixed_before_merge": False}],
+    )
+    entries = load_golden_entries(
+        tmp_path / "candidates", tmp_path / "annotated"
+    )
+    assert len(entries) == 1  # not skipped
+    assert entries[0].expect == []
+
+
+def test_load_golden_picks_most_commented_block(tmp_path: Path) -> None:
+    candidates = tmp_path / "candidates"
+    annotated = tmp_path / "annotated"
+    candidates.mkdir()
+    annotated.mkdir()
+    candidate = {
+        "pr": 3,
+        "reviewed_commits": [
+            {
+                "commit_id": "a" * 40,
+                "test_files": [{"path": "t.js", "content_b64": _b64("x")}],
+                "comments": [{"html_url": "u1"}],
+            },
+            {
+                "commit_id": "b" * 40,
+                "test_files": [{"path": "t.js", "content_b64": _b64("y")}],
+                "comments": [{"html_url": "u2"}, {"html_url": "u3"}],
+            },
+        ],
+    }
+    (candidates / "3.json").write_text(json.dumps(candidate), encoding="utf-8")
+    (annotated / "3.yaml").write_text(
+        yaml.safe_dump({"pr": 3, "labels": []}), encoding="utf-8"
+    )
+    entry = load_golden_entries(candidates, annotated)[0]
+    assert entry.commit_id == "b" * 40  # the 2-comment block
+
+
+def test_load_golden_skips_candidate_without_annotation(
+    tmp_path: Path,
+) -> None:
+    candidates = tmp_path / "candidates"
+    annotated = tmp_path / "annotated"
+    candidates.mkdir()
+    annotated.mkdir()
+    (candidates / "9.json").write_text(
+        json.dumps({"pr": 9, "reviewed_commits": []}), encoding="utf-8"
+    )
+    assert load_golden_entries(candidates, annotated) == []
+
+
+def test_load_golden_reads_real_dev_set() -> None:
+    # The checked-in dev set loads; #43400 has 2 CHECKLIST-005 labels.
+    golden_dir = REPO_ROOT / "benchmarks" / "golden"
+    entries = load_golden_entries(
+        golden_dir / "candidates", golden_dir / "annotated"
+    )
+    by_pr = {e.pr: e for e in entries}
+    assert 43400 in by_pr
+    keys = [label.key for label in by_pr[43400].expect]
+    assert keys == ["CHECKLIST-005", "CHECKLIST-005"]
+
+
+# --- Golden: staging --------------------------------------------------------
+
+
+def test_stage_golden_decodes_bytes_to_per_pr_path(tmp_path: Path) -> None:
+    wpt_dir = tmp_path / "wpt"
+    wpt_dir.mkdir()
+    entry = GoldenEntry(
+        entry_id="golden-1-abcd1234",
+        kind="js",
+        pr=1,
+        commit_id="abcd1234" + "0" * 32,
+        path="a/t.js",
+        files_b64={"a/t.js": _b64("hello\n")},
+    )
+    run_benchmark.stage_golden(wpt_dir, [entry])
+    staged = (
+        wpt_dir / STAGING_DIRNAME / GOLDEN_STAGING_SUBDIR / "1" / "a" / "t.js"
+    )
+    assert staged.read_text(encoding="utf-8") == "hello\n"
+    # The staged path matches the entry's advertised test_rel_path.
+    assert (wpt_dir / entry.test_rel_path()) == staged
+
+
+# --- Golden: subset selection -----------------------------------------------
+
+
+def _golden_entry(pr: int) -> GoldenEntry:
+    return GoldenEntry(
+        entry_id=f"golden-{pr}-abcd1234",
+        kind="js",
+        pr=pr,
+        commit_id="abcd1234" + "0" * 32,
+        path="a/t.js",
+    )
+
+
+def _manifest_with_sets(tmp_path: Path, sets: dict[str, list[int]]) -> Any:
+    data = _valid_manifest_dict()
+    data["golden_sets"] = sets
+    return load_manifest(_write_manifest(tmp_path, data))
+
+
+def test_select_golden_no_args_returns_all(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {})
+    entries = [_golden_entry(1), _golden_entry(2)]
+    assert run_benchmark.select_golden(entries, manifest, None, None) == entries
+
+
+def test_select_golden_named_set(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {"smoke": [2]})
+    entries = [_golden_entry(1), _golden_entry(2), _golden_entry(3)]
+    got = run_benchmark.select_golden(entries, manifest, "smoke", None)
+    assert [e.pr for e in got] == [2]
+
+
+def test_select_golden_empty_set_means_all(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {"all": []})
+    entries = [_golden_entry(1), _golden_entry(2)]
+    got = run_benchmark.select_golden(entries, manifest, "all", None)
+    assert [e.pr for e in got] == [1, 2]
+
+
+def test_select_golden_pr_csv(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {})
+    entries = [_golden_entry(1), _golden_entry(2), _golden_entry(3)]
+    got = run_benchmark.select_golden(entries, manifest, None, "3,1")
+    assert [e.pr for e in got] == [1, 3]  # sorted
+
+
+def test_select_golden_set_and_prs_intersect(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {"mapped": [1, 2, 3]})
+    entries = [_golden_entry(1), _golden_entry(2), _golden_entry(3)]
+    got = run_benchmark.select_golden(entries, manifest, "mapped", "2,3,99")
+    assert [e.pr for e in got] == [2, 3]
+
+
+def test_select_golden_unknown_set_errors(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {"smoke": [1]})
+    with pytest.raises(run_benchmark.HarnessError, match="nope"):
+        run_benchmark.select_golden([_golden_entry(1)], manifest, "nope", None)
+
+
+def test_select_golden_missing_pr_warns_and_skips(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    manifest = _manifest_with_sets(tmp_path, {})
+    got = run_benchmark.select_golden(
+        [_golden_entry(1)], manifest, None, "1,99999"
+    )
+    assert [e.pr for e in got] == [1]
+    assert "99999" in capsys.readouterr().err
+
+
+def test_select_golden_bad_pr_csv_errors(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {})
+    with pytest.raises(run_benchmark.HarnessError):
+        run_benchmark.select_golden(
+            [_golden_entry(1)], manifest, None, "1,notanint"
+        )
+
+
+def test_manifest_golden_sets_parsed(tmp_path: Path) -> None:
+    manifest = _manifest_with_sets(tmp_path, {"smoke": [43400], "all": []})
+    assert manifest.golden_sets == {"smoke": [43400], "all": []}
+
+
+def test_manifest_golden_sets_non_int_rejected(tmp_path: Path) -> None:
+    data = _valid_manifest_dict()
+    data["golden_sets"] = {"bad": ["43400"]}
+    with pytest.raises(ManifestError, match="non-integer"):
+        load_manifest(_write_manifest(tmp_path, data))

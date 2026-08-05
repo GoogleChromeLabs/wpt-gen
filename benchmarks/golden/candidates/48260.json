@@ -1,0 +1,32 @@
+{
+  "pr": 48260,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/48260",
+  "merged_at": "2024-09-19T12:31:49Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "9220b29553d9c54439134c8aa01f5de7b1b47f8d",
+      "test_files": [
+        {
+          "path": "webdriver/tests/bidi/browsing_context/traverse_history/invalid.py",
+          "content_b64": "aW1wb3J0IHB5dGVzdAppbXBvcnQgd2ViZHJpdmVyLmJpZGkuZXJyb3IgYXMg\nZXJyb3IKCgpweXRlc3RtYXJrID0gcHl0ZXN0Lm1hcmsuYXN5bmNpbwoKCk1B\nWF9JTlQgPSA5MDA3MTk5MjU0NzQwOTkxCk1JTl9JTlQgPSAtTUFYX0lOVAoK\nCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgidmFsdWUiLCBbTm9uZSwgRmFs\nc2UsIDQyLCB7fSwgW11dKQphc3luYyBkZWYgdGVzdF9wYXJhbXNfY29udGV4\ndF9pbnZhbGlkX3R5cGUoYmlkaV9zZXNzaW9uLCB2YWx1ZSk6CiAgICB3aXRo\nIHB5dGVzdC5yYWlzZXMoZXJyb3IuSW52YWxpZEFyZ3VtZW50RXhjZXB0aW9u\nKToKICAgICAgICBhd2FpdCBiaWRpX3Nlc3Npb24uYnJvd3NpbmdfY29udGV4\ndC50cmF2ZXJzZV9oaXN0b3J5KGNvbnRleHQ9dmFsdWUsIGRlbHRhPTEpCgoK\nYXN5bmMgZGVmIHRlc3RfcGFyYW1zX2NvbnRleHRfaW52YWxpZF92YWx1ZShi\naWRpX3Nlc3Npb24pOgogICAgd2l0aCBweXRlc3QucmFpc2VzKGVycm9yLk5v\nU3VjaEZyYW1lRXhjZXB0aW9uKToKICAgICAgICBhd2FpdCBiaWRpX3Nlc3Np\nb24uYnJvd3NpbmdfY29udGV4dC50cmF2ZXJzZV9oaXN0b3J5KGNvbnRleHQ9\nImZvbyIsIGRlbHRhPTEpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKAog\nICAgInZhbHVlIiwgW05vbmUsIEZhbHNlLCAiZm9vIiwgMS41LCBNSU5fSU5U\nIC0gMSwgTUFYX0lOVCArIDEsIHt9LCBbXV0KKQphc3luYyBkZWYgdGVzdF9w\nYXJhbXNfZGVsdGFfaW52YWxpZF90eXBlKGJpZGlfc2Vzc2lvbiwgdG9wX2Nv\nbnRleHQsIHZhbHVlKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhlcnJvci5J\nbnZhbGlkQXJndW1lbnRFeGNlcHRpb24pOgogICAgICAgIGF3YWl0IGJpZGlf\nc2Vzc2lvbi5icm93c2luZ19jb250ZXh0LnRyYXZlcnNlX2hpc3RvcnkoCiAg\nICAgICAgICAgIGNvbnRleHQ9dG9wX2NvbnRleHRbImNvbnRleHQiXSwgZGVs\ndGE9dmFsdWUKICAgICAgICApCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXpl\nKCJ2YWx1ZSIsIFstMiwgMV0pCmFzeW5jIGRlZiB0ZXN0X2RlbHRhX2ludmFs\naWRfdmFsdWUoYmlkaV9zZXNzaW9uLCBjdXJyZW50X3VybCwgbmV3X3RhYiwg\naW5saW5lLCB2YWx1ZSk6CiAgICBwYWdlID0gaW5saW5lKCI8ZGl2PnBhZ2Ug\nMTwvZGl2PiIpCiAgICBhd2FpdCBiaWRpX3Nlc3Npb24uYnJvd3NpbmdfY29u\ndGV4dC5uYXZpZ2F0ZSgKICAgICAgICBjb250ZXh0PW5ld190YWJbImNvbnRl\neHQiXSwgdXJsPXBhZ2UsIHdhaXQ9ImNvbXBsZXRlIgogICAgKQogICAgYXNz\nZXJ0IGF3YWl0IGN1cnJlbnRfdXJsKG5ld190YWJbImNvbnRleHQiXSkgPT0g\ncGFnZQoKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhlcnJvci5Ob1N1Y2hIaXN0\nb3J5RW50cnlFeGNlcHRpb24pOgogICAgICAgIGF3YWl0IGJpZGlfc2Vzc2lv\nbi5icm93c2luZ19jb250ZXh0LnRyYXZlcnNlX2hpc3RvcnkoCiAgICAgICAg\nICAgIGNvbnRleHQ9bmV3X3RhYlsiY29udGV4dCJdLCBkZWx0YT12YWx1ZQog\nICAgICAgICkKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoImRvbWFpbiIs\nIFsiIiwgImFsdCJdLAogICAgICAgICAgICAgICAgICAgICAgICAgaWRzPVsi\nc2FtZV9vcmlnaW4iLCAiY3Jvc3Nfb3JpZ2luIl0pCmFzeW5jIGRlZiB0ZXN0\nX2lmcmFtZShiaWRpX3Nlc3Npb24sIGN1cnJlbnRfdXJsLCB3YWl0X2Zvcl91\ncmwsIG5ld190YWIsIGlubGluZSwKICAgICAgZG9tYWluKToKICAgIGlmcmFt\nZV91cmxfMSA9IGlubGluZSgicGFnZSAxIikKICAgIHBhZ2VfdXJsID0gaW5s\naW5lKGYiPGlmcmFtZSBzcmM9J3tpZnJhbWVfdXJsXzF9Jz48L2lmcmFtZT4i\nLCBkb21haW49ZG9tYWluKQoKICAgIGF3YWl0IGJpZGlfc2Vzc2lvbi5icm93\nc2luZ19jb250ZXh0Lm5hdmlnYXRlKAogICAgICAgIGNvbnRleHQ9bmV3X3Rh\nYlsiY29udGV4dCJdLCB1cmw9cGFnZV91cmwsIHdhaXQ9ImNvbXBsZXRlIgog\nICAgKQoKICAgIGNvbnRleHRzID0gYXdhaXQgYmlkaV9zZXNzaW9uLmJyb3dz\naW5nX2NvbnRleHQuZ2V0X3RyZWUoCiAgICAgICAgcm9vdD1uZXdfdGFiWyJj\nb250ZXh0Il0pCiAgICBpZnJhbWVfY29udGV4dCA9IGNvbnRleHRzWzBdWyJj\naGlsZHJlbiJdWzBdCgogICAgd2l0aCBweXRlc3QucmFpc2VzKGVycm9yLklu\ndmFsaWRBcmd1bWVudEV4Y2VwdGlvbik6CiAgICAgICAgYXdhaXQgYmlkaV9z\nZXNzaW9uLmJyb3dzaW5nX2NvbnRleHQudHJhdmVyc2VfaGlzdG9yeSgKICAg\nICAgICAgICAgY29udGV4dD1pZnJhbWVfY29udGV4dFsiY29udGV4dCJdLCBk\nZWx0YT0tMQogICAgICAgICkK\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "whimboo",
+          "path": "webdriver/tests/bidi/browsing_context/traverse_history/invalid.py",
+          "line": 48,
+          "commit_id": "9220b29553d9c54439134c8aa01f5de7b1b47f8d",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/48260#discussion_r1766716887",
+          "body": "We no longer need the parameterization given that it doesn't matter what kind this iframe will be.",
+          "fixed_before_merge": true
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "webdriver/tests/bidi/browsing_context/traverse_history/context.py",
+    "webdriver/tests/bidi/browsing_context/traverse_history/invalid.py"
+  ]
+}

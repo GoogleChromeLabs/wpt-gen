@@ -1,0 +1,42 @@
+{
+  "pr": 47302,
+  "pr_url": "https://github.com/web-platform-tests/wpt/pull/47302",
+  "merged_at": "2024-07-26T22:13:37Z",
+  "reviewed_commits": [
+    {
+      "commit_id": "c5abc8581a3462040feb36445965a52918458b65",
+      "test_files": [
+        {
+          "path": "css/css-align/self-alignment/block-justify-self.html",
+          "content_b64": "PCFET0NUWVBFIGh0bWw+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPHRpdGxl\nPlNlbGYtQWxpZ25tZW50OiBqdXN0aWZ5LXNlbGYgLSBibG9jay1sZXZlbCBl\nbGVtZW50czwvdGl0bGU+CjxsaW5rIHJlbD0iYXV0aG9yIiB0aXRsZT0iRGF2\naWQgVHJhbiIgaHJlZj0ibWFpbHRvOmRhdmlkdHJhbmhxK3dwdEBnbWFpbC5j\nb20iPgo8bGluayByZWw9Im1hdGNoIiBocmVmPSJibG9jay1qdXN0aWZ5LXNl\nbGYtcmVmLmh0bWwiPgo8bGluayByZWw9ImhlbHAiIGhyZWY9Imh0dHBzOi8v\nd3d3LnczLm9yZy9UUi9jc3MtYWxpZ24tMy8janVzdGlmeS1ibG9jayIgLz4K\nPG1ldGEgbmFtZT0iYXNzZXJ0IiBjb250ZW50PSJqdXN0aWZ5LXNlbGYgYXBw\nbGllcyB0byBibG9jay1sZXZlbCBib3hlcyI+CjxzdHlsZT4KLmdyaWQtY29u\ndGFpbmVyIGRpdiB7CiAgICB3aWR0aDogMTAwcHg7CiAgICBiYWNrZ3JvdW5k\nLWNvbG9yOiBncmVlbjsKfQoKLmJsb2NrLWNvbnRhaW5lciBkaXYsIC5ibG9j\nay1jb250YWluZXItd2l0aC10YWJsZS1pdGVtcyBkaXYgewogICAgd2lkdGg6\nIDEwMHB4OwogICAgYmFja2dyb3VuZC1jb2xvcjogcmVkOwp9CgoKLnN0YWNr\nIHsKICAgIGRpc3BsYXk6IGdyaWQ7Cn0KCi5zdGFjayA+ICogewogICAgZ3Jp\nZC1yb3c6IDE7CiAgICBncmlkLWNvbHVtbjogMTsKfQoKPC9zdHlsZT4KPC9o\nZWFkPgo8cD5UZXN0IHBhc3NlcyBpZiA8c3Ryb25nPm5vIHJlZDwvc3Ryb25n\nPiBpcyB2aXNpYmxlPC9wPgoKPGRpdiBjbGFzcz0ic3RhY2siPgo8YXJ0aWNs\nZSBjbGFzcz0iYmxvY2stY29udGFpbmVyIiBzdHlsZT0iZGlzcGxheTogYmxv\nY2s7IHdpZHRoOiAzMDBweCI+CiAgPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxm\nOiBhdXRvOyI+YXV0bzwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2Vs\nZjogbGVmdDsiPmxlZnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNl\nbGY6IHJpZ2h0OyI+cmlnaHQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5\nLXNlbGY6IHN0YXJ0OyI+c3RhcnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0\naWZ5LXNlbGY6IGNlbnRlcjsiPmNlbnRlcjwvZGl2PgogIDxkaXYgc3R5bGU9\nImp1c3RpZnktc2VsZjogZW5kOyI+ZW5kPC9kaXY+CiAgPGRpdiBzdHlsZT0i\nanVzdGlmeS1zZWxmOiBzZWxmLXN0YXJ0OyI+c2VsZi1zdGFydDwvZGl2Pgog\nIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogc2VsZi1lbmQ7Ij5zZWxmLWVu\nZDwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogZmxleC1zdGFy\ndDsiPmZsZXgtc3RhcnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNl\nbGY6IGZsZXgtZW5kOyI+ZmxleC1lbmQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJk\naXNwbGF5OiBmbG9hdDsganVzdGlmeS1zZWxmOiBjZW50ZXI7Ij5mbG9hdDwv\nZGl2PgogICAgPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxmOiBzZWxmLXN0YXJ0\nOyBkaXJlY3Rpb246IHJ0bCI+c2VsZi1zdGFydCAocnRsKTwvZGl2PgogIDxk\naXYgc3R5bGU9Imp1c3RpZnktc2VsZjogc2VsZi1lbmQ7IGRpcmVjdGlvbjog\ncnRsIj5zZWxmLWVuZCAocnRsKTwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3Rp\nZnktc2VsZjogc3RhcnQ7IGRpcmVjdGlvbjogcnRsIj5zdGFydCAocnRsKTwv\nZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogZW5kOyBkaXJlY3Rp\nb246IHJ0bCI+ZW5kIChydGwpPC9kaXY+CiAgPGRpdiBzdHlsZT0ianVzdGlm\neS1zZWxmOiBlbmQiPmVuZCBwYXJlbnQKICAgIDxkaXYgc3R5bGU9InBvc2l0\naW9uOiBhYnNvbHV0ZTsiPmFic29sdXRlIGNoaWxkPC9kaXY+CiAgPC9kaXY+\nCjwvYXJ0aWNsZT4KCjxhcnRpY2xlIGNsYXNzPSJibG9jay1jb250YWluZXIt\nd2l0aC10YWJsZS1pdGVtcyIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyB3aWR0\naDogMzAwcHgiPgogIDxkaXY+ZGVmYXVsdDwvZGl2PgogIDxkaXYgc3R5bGU9\nImp1c3RpZnktc2VsZjogbGVmdDsiPmxlZnQ8L2Rpdj4KICA8ZGl2IHN0eWxl\nPSJqdXN0aWZ5LXNlbGY6IHJpZ2h0OyI+cmlnaHQ8L2Rpdj4KICA8ZGl2IHN0\neWxlPSJqdXN0aWZ5LXNlbGY6IHN0YXJ0OyI+c3RhcnQ8L2Rpdj4KICA8ZGl2\nIHN0eWxlPSJqdXN0aWZ5LXNlbGY6IGNlbnRlcjsiPmNlbnRlcjwvZGl2Pgog\nIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogZW5kOyI+ZW5kPC9kaXY+CiAg\nPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxmOiBzZWxmLXN0YXJ0OyI+c2VsZi1z\ndGFydDwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogc2VsZi1l\nbmQ7Ij5zZWxmLWVuZDwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2Vs\nZjogZmxleC1zdGFydDsiPmZsZXgtc3RhcnQ8L2Rpdj4KICA8ZGl2IHN0eWxl\nPSJqdXN0aWZ5LXNlbGY6IGZsZXgtZW5kOyI+ZmxleC1lbmQ8L2Rpdj4KICA8\nZGl2IHN0eWxlPSJkaXNwbGF5OiBmbG9hdDsganVzdGlmeS1zZWxmOiBjZW50\nZXI7Ij5mbG9hdDwvZGl2PgogICAgPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxm\nOiBzZWxmLXN0YXJ0OyBkaXJlY3Rpb246IHJ0bCI+c2VsZi1zdGFydCAocnRs\nKTwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogc2VsZi1lbmQ7\nIGRpcmVjdGlvbjogcnRsIj5zZWxmLWVuZCAocnRsKTwvZGl2PgogIDxkaXYg\nc3R5bGU9Imp1c3RpZnktc2VsZjogc3RhcnQ7IGRpcmVjdGlvbjogcnRsIj5z\ndGFydCAocnRsKTwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjog\nZW5kOyBkaXJlY3Rpb246IHJ0bCI+ZW5kIChydGwpPC9kaXY+CiAgPGRpdiBz\ndHlsZT0ianVzdGlmeS1zZWxmOiBlbmQiPmVuZCBwYXJlbnQKICAgIDxkaXYg\nc3R5bGU9InBvc2l0aW9uOiBhYnNvbHV0ZTsiPmFic29sdXRlIGNoaWxkPC9k\naXY+CiAgPC9kaXY+CjwvYXJ0aWNsZT4KCjxhcnRpY2xlIGNsYXNzPSJncmlk\nLWNvbnRhaW5lciIgc3R5bGU9ImRpc3BsYXk6IGdyaWQ7IGdyaWQtdGVtcGxh\ndGUtY29sdW1uczogMWZyOyB3aWR0aDogMzAwcHgiPgogIDxkaXY+ZGVmYXVs\ndDwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogbGVmdDsiPmxl\nZnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNlbGY6IHJpZ2h0OyI+\ncmlnaHQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNlbGY6IHN0YXJ0\nOyI+c3RhcnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNlbGY6IGNl\nbnRlcjsiPmNlbnRlcjwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2Vs\nZjogZW5kOyI+ZW5kPC9kaXY+CiAgPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxm\nOiBzZWxmLXN0YXJ0OyI+c2VsZi1zdGFydDwvZGl2PgogIDxkaXYgc3R5bGU9\nImp1c3RpZnktc2VsZjogc2VsZi1lbmQ7Ij5zZWxmLWVuZDwvZGl2PgogIDxk\naXYgc3R5bGU9Imp1c3RpZnktc2VsZjogZmxleC1zdGFydDsiPmZsZXgtc3Rh\ncnQ8L2Rpdj4KICA8ZGl2IHN0eWxlPSJqdXN0aWZ5LXNlbGY6IGZsZXgtZW5k\nOyI+ZmxleC1lbmQ8L2Rpdj4KICA8IS0tIGp1c3RpZnkgc2VsZiBoYXMgbm8g\nZWZmZWN0IG9uIGZsb2F0cyAtLT4KICA8ZGl2IHN0eWxlPSJkaXNwbGF5OiBm\nbG9hdDsiPmZsb2F0PC9kaXY+CiAgPGRpdiBzdHlsZT0ianVzdGlmeS1zZWxm\nOiBzZWxmLXN0YXJ0OyBkaXJlY3Rpb246IHJ0bCI+c2VsZi1zdGFydCAocnRs\nKTwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjogc2VsZi1lbmQ7\nIGRpcmVjdGlvbjogcnRsIj5zZWxmLWVuZCAocnRsKTwvZGl2PgogIDxkaXYg\nc3R5bGU9Imp1c3RpZnktc2VsZjogc3RhcnQ7IGRpcmVjdGlvbjogcnRsIj5z\ndGFydCAocnRsKTwvZGl2PgogIDxkaXYgc3R5bGU9Imp1c3RpZnktc2VsZjog\nZW5kOyBkaXJlY3Rpb246IHJ0bCI+ZW5kIChydGwpPC9kaXY+CiAgPGRpdiBz\ndHlsZT0ianVzdGlmeS1zZWxmOiBlbmQiPmVuZCBwYXJlbnQKICAgIDxkaXYg\nc3R5bGU9InBvc2l0aW9uOiBhYnNvbHV0ZTsiPmFic29sdXRlIGNoaWxkPC9k\naXY+CiAgPC9kaXY+CjwvYXJ0aWNsZT4KPC9kaXY+Cg==\n"
+        }
+      ],
+      "comments": [
+        {
+          "author": "fantasai",
+          "path": "css/css-align/self-alignment/block-justify-self.html",
+          "line": 45,
+          "commit_id": "c5abc8581a3462040feb36445965a52918458b65",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47302#discussion_r1692298032",
+          "body": "This should be `float: left` / `float: right`; there's no such thing as `display: float`.",
+          "fixed_before_merge": true
+        },
+        {
+          "author": "fantasai",
+          "path": "css/css-align/self-alignment/block-justify-self.html",
+          "line": 52,
+          "commit_id": "c5abc8581a3462040feb36445965a52918458b65",
+          "review_state": "CHANGES_REQUESTED",
+          "html_url": "https://github.com/web-platform-tests/wpt/pull/47302#discussion_r1692298591",
+          "body": "This is good, but also test what happens if the aligned `<div>` itself is absolutely positioned.",
+          "fixed_before_merge": true
+        }
+      ]
+    }
+  ],
+  "final_diff_paths": [
+    "css/css-align/self-alignment/block-justify-self-ref.html",
+    "css/css-align/self-alignment/block-justify-self.html"
+  ]
+}

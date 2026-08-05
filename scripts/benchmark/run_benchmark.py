@@ -36,6 +36,7 @@ Design notes:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import shutil
@@ -53,12 +54,16 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from benchmark.manifest import (  # noqa: E402
+    GOLDEN_STAGING_SUBDIR,
     REPO_ROOT,
     STAGING_DIRNAME,
     BenchmarkEntry,
+    CorpusEntry,
+    GoldenEntry,
     Manifest,
     ManifestError,
     SeedEntry,
+    load_golden_entries,
     load_manifest,
     validate_against_checkout,
 )
@@ -66,6 +71,7 @@ from benchmark.scoring import (  # noqa: E402
     ConsistencyClassification,
     ConsistencyRow,
     EntryRuns,
+    GoldenScore,
     MechanicalIssue,
     SeedScore,
     classify_consistency_rows,
@@ -73,6 +79,7 @@ from benchmark.scoring import (  # noqa: E402
     consistency_rows,
     load_entry_runs,
     mechanical_issues,
+    score_golden,
     score_seed,
     warnings_for_row,
 )
@@ -104,11 +111,7 @@ def apply_filter(
     if field_name == "kind":
         return [e for e in entries if e.kind == value]
     if field_name == "role":
-        if value == "seed":
-            return [e for e in entries if isinstance(e, SeedEntry)]
-        if value == "corpus":
-            return [e for e in entries if not isinstance(e, SeedEntry)]
-        return []
+        return [e for e in entries if _role_of(e) == value]
     raise HarnessError(
         f'--filter supports "kind" and "role", not {field_name!r}'
     )
@@ -117,13 +120,11 @@ def apply_filter(
 # --- Seed staging -----------------------------------------------------------
 
 
-def stage_seeds(
-    seeds_root: Path, wpt_dir: Path, seeds: list[SeedEntry]
-) -> Path:
-    """Stages seed files into ``<wpt_dir>/wpt-gen-bench/``.
+def _ensure_staging(wpt_dir: Path) -> Path:
+    """Creates the marker-protected staging root (idempotent within a run).
 
-    Refuses if the staging dir already exists without the harness's marker
-    (never clobber a real directory). Returns the staging dir.
+    Refuses if the dir already exists without the harness's marker (never
+    clobber a real directory); otherwise (re)creates it fresh on first call.
     """
     staging = wpt_dir / STAGING_DIRNAME
     if staging.exists():
@@ -132,12 +133,23 @@ def stage_seeds(
                 f"{staging} already exists and was not created by the "
                 "harness; refusing to overwrite. Remove it and re-run."
             )
-        shutil.rmtree(staging)
+        return staging
     staging.mkdir(parents=True)
     (staging / STAGING_MARKER).write_text(
         "Created by scripts/benchmark/run_benchmark.py; safe to delete.\n",
         encoding="utf-8",
     )
+    return staging
+
+
+def stage_seeds(
+    seeds_root: Path, wpt_dir: Path, seeds: list[SeedEntry]
+) -> Path:
+    """Stages seed files into ``<wpt_dir>/wpt-gen-bench/``.
+
+    Returns the staging dir.
+    """
+    staging = _ensure_staging(wpt_dir)
 
     for entry in seeds:
         assert entry.seed is not None
@@ -157,7 +169,25 @@ def stage_seeds(
     return staging
 
 
-def unstage_seeds(wpt_dir: Path) -> None:
+def stage_golden(wpt_dir: Path, entries: list[GoldenEntry]) -> Path:
+    """Decodes each golden entry's test bytes into the staging root.
+
+    All of the chosen commit block's ``files_b64`` are written (so a test's
+    same-commit siblings are present), under
+    ``<staging>/golden/<pr>/<path>``. Returns the staging dir.
+    """
+    staging = _ensure_staging(wpt_dir)
+    for entry in entries:
+        for rel_path, content_b64 in entry.files_b64.items():
+            dest_abs = (
+                staging / GOLDEN_STAGING_SUBDIR / str(entry.pr) / rel_path
+            )
+            dest_abs.parent.mkdir(parents=True, exist_ok=True)
+            dest_abs.write_bytes(base64.b64decode(content_b64))
+    return staging
+
+
+def unstage(wpt_dir: Path) -> None:
     """Removes the staging dir, but only if the harness created it."""
     staging = wpt_dir / STAGING_DIRNAME
     if staging.exists() and (staging / STAGING_MARKER).exists():
@@ -281,6 +311,8 @@ class EntryReport:
     consistency: list[dict[str, Any]]
     consistency_histogram: dict[str, int]
     seed_score: dict[str, Any] | None
+    # Recall-vs-human for golden entries; None otherwise.
+    golden_score: dict[str, Any] | None
     # For seed entries: consistency rows bracketed by gold-label match, plus
     # any missed labels. None for corpus entries (no labels to classify by).
     consistency_by_outcome: dict[str, Any] | None
@@ -341,6 +373,16 @@ def _seed_score_to_dict(score: SeedScore) -> dict[str, Any]:
     }
 
 
+def _golden_score_to_dict(score: GoldenScore) -> dict[str, Any]:
+    return {
+        "true_positives": score.true_positives,
+        "false_negatives": score.false_negatives,
+        "unmatched_predictions": score.unmatched_predictions,
+        "recall": round(score.recall, 4),
+        "per_repeat_recall": [round(r, 4) for r in score.per_repeat_recall],
+    }
+
+
 # --- Top-level scoring pass -------------------------------------------------
 
 
@@ -361,8 +403,12 @@ class BenchmarkReport:
 
 
 def _role_of(entry: BenchmarkEntry) -> str:
-    """The role label ("seed" | "corpus") for report metadata."""
-    return "seed" if isinstance(entry, SeedEntry) else "corpus"
+    """The role label ("seed" | "golden" | "corpus") for report metadata."""
+    if isinstance(entry, SeedEntry):
+        return "seed"
+    if isinstance(entry, GoldenEntry):
+        return "golden"
+    return "corpus"
 
 
 def score_all(
@@ -407,12 +453,17 @@ def score_entry(
             )
         )
     seed_score_dict: dict[str, Any] | None = None
+    golden_score_dict: dict[str, Any] | None = None
     classification_dict: dict[str, Any] | None = None
     if isinstance(entry, SeedEntry):
         score = score_seed(runs, entry.expect)
         seed_score_dict = _seed_score_to_dict(score)
         classification_dict = _classification_to_dict(
             classify_consistency_rows(cons_rows, entry.expect), notes
+        )
+    elif isinstance(entry, GoldenEntry):
+        golden_score_dict = _golden_score_to_dict(
+            score_golden(runs, entry.expect)
         )
 
     return EntryReport(
@@ -423,6 +474,7 @@ def score_entry(
         consistency=[_consistency_row_to_dict(r, notes) for r in cons_rows],
         consistency_histogram=consistency_histogram(cons_rows),
         seed_score=seed_score_dict,
+        golden_score=golden_score_dict,
         consistency_by_outcome=classification_dict,
         advisory_notes=[asdict(n) for n in notes],
     )
@@ -431,6 +483,7 @@ def score_entry(
 def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     """Rolls per-entry scores into headline numbers."""
     tp = fp = fn = 0
+    g_tp = g_fn = g_unmatched = 0
     advisory = 0
     hist = {"always": 0, "high": 0, "mid": 0, "low": 0, "never": 0}
     for report in reports:
@@ -438,18 +491,27 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
             tp += report.seed_score["true_positives"]
             fp += report.seed_score["false_positives"]
             fn += report.seed_score["false_negatives"]
+        if report.golden_score:
+            g_tp += report.golden_score["true_positives"]
+            g_fn += report.golden_score["false_negatives"]
+            g_unmatched += report.golden_score["unmatched_predictions"]
         advisory += len(report.advisory_notes)
         for bucket, count in report.consistency_histogram.items():
             hist[bucket] += count
 
     precision = tp / (tp + fp) if (tp + fp) else 1.0
     recall = tp / (tp + fn) if (tp + fn) else 1.0
+    golden_recall = g_tp / (g_tp + g_fn) if (g_tp + g_fn) else 1.0
     return {
         "seed_true_positives": tp,
         "seed_false_positives": fp,
         "seed_false_negatives": fn,
         "seed_precision": round(precision, 4),
         "seed_recall": round(recall, 4),
+        "golden_true_positives": g_tp,
+        "golden_false_negatives": g_fn,
+        "golden_unmatched_predictions": g_unmatched,
+        "golden_recall": round(golden_recall, 4),
         # Advisory only (off-reading-list citations); not a pass/fail gate.
         "advisory_notes": advisory,
         "consistency_histogram": hist,
@@ -575,6 +637,17 @@ def render_report_markdown(report: BenchmarkReport) -> str:
         f'{agg["seed_false_positives"]} / {agg["seed_false_negatives"]} '
         "| FP=0, FN=0 |"
     )
+    lines.append(
+        f'| golden recall (vs. human) | {agg["golden_recall"]} '
+        f'| TP {agg["golden_true_positives"]}, '
+        f'FN {agg["golden_false_negatives"]} |'
+    )
+    lines.append("")
+    lines.append(
+        f'Golden unmatched predictions: {agg["golden_unmatched_predictions"]} '
+        "finding(s) with no gold label — not charged as false positives "
+        "(possible human misses)."
+    )
     lines.append("")
     lines.append("- **TP** — true positive: an expected finding fired.")
     lines.append("- **FP** — false positive: an unexpected finding fired.")
@@ -602,6 +675,13 @@ def render_report_markdown(report: BenchmarkReport) -> str:
                 f'{ss["recall"]} '
                 f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
                 f'FN {ss["false_negatives"]})'
+            )
+        if entry["golden_score"]:
+            gs = entry["golden_score"]
+            lines.append(
+                f'- Golden: recall {gs["recall"]} '
+                f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
+                f'unmatched {gs["unmatched_predictions"]})'
             )
         lines.append("")
         lines.extend(_render_entry_consistency(entry))
@@ -789,11 +869,90 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="wpt-gen config passed through to each evaluate run.",
     )
     parser.add_argument(
+        "--golden-dir",
+        type=Path,
+        default=REPO_ROOT / "benchmarks" / "golden",
+        help="Golden set root (candidates/ + annotated/); "
+        "pass a nonexistent path to skip golden entries.",
+    )
+    parser.add_argument(
+        "--golden-set",
+        default=None,
+        help="Name of a manifest golden_sets entry to run (empty list = all).",
+    )
+    parser.add_argument(
+        "--golden-prs",
+        default=None,
+        help="Ad-hoc comma-separated PR numbers to run, e.g. 43400,47302. "
+        "Intersected with --golden-set if both are given.",
+    )
+    parser.add_argument(
         "--score-only",
         action="store_true",
         help="Re-score existing run dirs in --out; do not run the agent.",
     )
     return parser.parse_args(argv)
+
+
+def _load_golden(golden_dir: Path) -> list[GoldenEntry]:
+    """Loads golden entries from ``<golden_dir>/{candidates,annotated}/``.
+
+    Empty when the dirs are absent (golden set not present in this checkout).
+    """
+    candidates = golden_dir / "candidates"
+    annotated = golden_dir / "annotated"
+    if not candidates.is_dir() or not annotated.is_dir():
+        return []
+    return load_golden_entries(candidates, annotated)
+
+
+def select_golden(
+    entries: list[GoldenEntry],
+    manifest: Manifest,
+    set_name: str | None,
+    pr_csv: str | None,
+) -> list[GoldenEntry]:
+    """Narrows loaded golden entries to a named set and/or a PR list.
+
+    ``--golden-set`` names a manifest ``golden_sets`` entry (empty list = all);
+    ``--golden-prs`` is an ad-hoc comma-separated PR list. Both, if given, are
+    intersected. A requested PR with no loaded entry is warned and skipped.
+    Neither given -> all loaded entries.
+    """
+    wanted: set[int] | None = None
+
+    def add(prs: list[int]) -> None:
+        nonlocal wanted
+        want = set(prs)
+        wanted = want if wanted is None else (wanted & want)
+
+    if set_name is not None:
+        if set_name not in manifest.golden_sets:
+            raise HarnessError(
+                f"--golden-set {set_name!r} not in manifest golden_sets "
+                f"({', '.join(sorted(manifest.golden_sets)) or 'none'})"
+            )
+        prs = manifest.golden_sets[set_name]
+        if prs:  # empty list means "all"
+            add(prs)
+    if pr_csv:
+        try:
+            add([int(p) for p in pr_csv.split(",") if p.strip()])
+        except ValueError as exc:
+            raise HarnessError(
+                f"--golden-prs must be comma-separated integers: {exc}"
+            ) from exc
+
+    if wanted is None:
+        return entries
+
+    by_pr = {e.pr: e for e in entries}
+    for pr in sorted(wanted - by_pr.keys()):
+        sys.stderr.write(
+            f"[warn] golden PR {pr} requested but has no "
+            "candidate/annotation on disk; skipping.\n"
+        )
+    return [by_pr[pr] for pr in sorted(wanted & by_pr.keys())]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -820,20 +979,37 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     seeds_root = args.manifest.parent / "seeds"
-    problems = validate_against_checkout(manifest, args.wpt_dir, seeds_root)
-    if problems:
-        sys.stderr.write("manifest/checkout mismatches:\n")
-        for problem in problems:
-            sys.stderr.write(f"  - {problem}\n")
-        return 2
 
     try:
-        entries = apply_filter(manifest.entries, args.filter)
+        golden_entries = select_golden(
+            _load_golden(args.golden_dir),
+            manifest,
+            args.golden_set,
+            args.golden_prs,
+        )
+        entries = apply_filter(
+            [*manifest.entries, *golden_entries], args.filter
+        )
     except HarnessError as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
     if not entries:
         sys.stderr.write("no entries matched --filter\n")
+        return 2
+
+    # Validate only the selected entries against the checkout, so a scoped run
+    # doesn't hard-fail on drift in entries it never stages. A full run selects
+    # everything and still validates the whole manifest.
+    problems = validate_against_checkout(
+        [e for e in entries if isinstance(e, CorpusEntry)],
+        [e for e in entries if isinstance(e, SeedEntry)],
+        args.wpt_dir,
+        seeds_root,
+    )
+    if problems:
+        sys.stderr.write("manifest/checkout mismatches:\n")
+        for problem in problems:
+            sys.stderr.write(f"  - {problem}\n")
         return 2
 
     actual_commit = wpt_head_commit(args.wpt_dir)
@@ -853,9 +1029,14 @@ def main(argv: list[str] | None = None) -> int:
         reading_list = load_reading_list()
         if not args.score_only:
             seed_entries = [e for e in entries if isinstance(e, SeedEntry)]
+            gold_entries = [e for e in entries if isinstance(e, GoldenEntry)]
+            if seed_entries or gold_entries:
+                unstage(args.wpt_dir)  # clear any stale staging first
+                staged = True
             if seed_entries:
                 stage_seeds(seeds_root, args.wpt_dir, seed_entries)
-                staged = True
+            if gold_entries:
+                stage_golden(args.wpt_dir, gold_entries)
             progress = Progress(total=len(entries) * args.repeats)
             for entry in entries:
                 run_records.extend(
@@ -883,7 +1064,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         if staged:
-            unstage_seeds(args.wpt_dir)
+            unstage(args.wpt_dir)
 
     report = build_report(
         manifest=manifest,
