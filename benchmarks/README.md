@@ -156,26 +156,36 @@ The intended defect (`testharness.md`) is a true positive that fired every
 repeat; the noisy `checklist.md` finding is a false positive that fired only
 once — flaky *and* spurious.
 
-A **golden** entry reports recall against its annotated labels instead — no
-TP/FP split, just a recall line and its findings:
+A **golden** entry reports recall against its annotated labels. It splits its
+findings into **True positives** (matched an annotated label) and **Unmatched**
+(did not) — the same shape as a seed, but the unmatched bucket is *not* charged
+against a score (a golden unmatched finding may be a real issue the reviewer
+missed, not a false positive):
 
 ```
 ### `golden-43400-afe0767a` (golden/testharness)
 
 - Golden: recall 0.5 (TP 1, FN 1, unmatched 1)
 
+**True positives**
+
 | title | source | firing rate | warnings |
 | --- | --- | --- | --- |
 | X25519 derivation length | `CHECKLIST-005` @ L32-32 | 3/3 (1.0) |  |
+
+**Unmatched**
+
+| title | source | firing rate | warnings |
+| --- | --- | --- | --- |
 | Redundant length assertion | `CHECKLIST-002` @ L18-18 | 2/3 (0.667) |  |
 ```
 
 This PR carried two annotated `CHECKLIST-005` labels (L32 and L4). The
-evaluator caught the L32 one every repeat (the TP) and never the L4 one (the
-FN → recall 0.5). The table lists only findings the evaluator *produced*, so
-the never-fired label has no row — it appears only in the FN count. The second
-row matched no annotated label: that is the `unmatched 1`, counted but not
-charged (it may be a real finding the reviewer missed).
+evaluator caught the L32 one every repeat (the true positive) and never the L4
+one (recall 0.5). A never-fired label has no row — it appears only in the
+`FN 1` of the recall line. The `CHECKLIST-002` finding matched no annotated
+label, so it lands under **Unmatched** — the `unmatched 1`, counted but not
+charged.
 
 ### Consistency
 
@@ -369,3 +379,13 @@ tier a labels-free stability signal today. Note the band resolution depends
 on `--repeats`: at the regression tier's 3 repeats only 0 / 0.33 / 0.67 / 1.0
 are reachable, so `high`/`low` collapse and the gate is a coarse
 flaky/not-flaky flag; the release tier's 8 repeats give the graded bands.
+
+### Future idea: rate-limit backoff for `--jobs`
+
+Not implemented, and a prerequisite for trusting `--jobs > 1`. Each run is an
+LLM agent call, so the concurrency bound is the provider's rate limit — and the harness has no 429 retry. A throttled run currently records a
+nonzero exit but still scores as an **empty result** (no findings, counted in
+the denominator), so heavy parallelism can silently corrupt the numbers rather
+than failing loudly. Needs bounded exponential backoff per task plus a way to
+distinguish a throttled run from a genuinely empty one. Until then, raise
+`--jobs` cautiously and watch for `FAILED` lines / unexpectedly empty entries.

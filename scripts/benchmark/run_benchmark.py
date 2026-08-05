@@ -226,6 +226,11 @@ class Progress:
         self.done = 0
         self._lock = threading.Lock()
 
+    def start(self, entry_id: str, repeat: int) -> None:
+        with self._lock:
+            sys.stderr.write(f"[started] {entry_id} rep {repeat + 1}\n")
+            sys.stderr.flush()
+
     def complete(
         self, entry_id: str, repeat: int, exit_code: int, elapsed: float
     ) -> None:
@@ -265,6 +270,8 @@ def run_single(
     if provider:
         cmd += ["--provider", provider]
 
+    if progress:
+        progress.start(entry.entry_id, repeat)
     started = time.monotonic()
     completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
         cmd,
@@ -459,6 +466,10 @@ def score_entry(
     elif isinstance(entry, GoldenEntry):
         golden_score_dict = _golden_score_to_dict(
             score_golden(runs, entry.expect)
+        )
+        # Same classifier as seeds; renders TP vs. unmatched (uncharged).
+        classification_dict = _classification_to_dict(
+            classify_consistency_rows(cons_rows, entry.expect), notes
         )
 
     return EntryReport(
@@ -794,18 +805,28 @@ def _render_entry_consistency(entry: dict[str, Any]) -> list[str]:
     if outcome is None:  # corpus: no labels to classify by
         return ["**Findings**", "", *_finding_table(entry["consistency"])]
 
+    # Golden unmatched findings are not charged (possible human misses), so
+    # they read differently from a seed's false positives.
+    is_golden = entry["role"] == "golden"
+    unmatched_header = "**Unmatched**" if is_golden else "**False positives**"
+    missed_header = (
+        "**Missed labels** (never fired):"
+        if is_golden
+        else "**False negatives** (expected but never fired):"
+    )
+
     lines = [
         "**True positives**",
         "",
         *_finding_table(outcome["true_positives"]),
     ]
     lines += [
-        "**False positives**",
+        unmatched_header,
         "",
         *_finding_table(outcome["false_positives"]),
     ]
     if outcome["missed_labels"]:
-        lines.append("**False negatives** (expected but never fired):")
+        lines.append(missed_header)
         lines.append("")
         for label in outcome["missed_labels"]:
             window = (

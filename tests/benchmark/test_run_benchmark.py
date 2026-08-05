@@ -1154,6 +1154,53 @@ def test_summary_omits_absent_datasets() -> None:
     assert "corpus" not in md
 
 
+def test_progress_start_prints_atomic_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run_benchmark.Progress(total=4).start("seed-a", 1)
+    err = capsys.readouterr().err
+    # One atomic, newline-terminated line naming the started rep (1-indexed).
+    assert err == "[started] seed-a rep 2\n"
+
+
+def _finding_row(key: str, rate: float) -> dict[str, Any]:
+    return {
+        "key": key,
+        "title": key,
+        "line_bucket": [1, 1],
+        "firings": 2,
+        "repeats": 2,
+        "rate": rate,
+        "warnings": {},
+    }
+
+
+def test_golden_entry_renders() -> None:
+    entry = {
+        "entry_id": "golden-1-abcd",
+        "role": "golden",
+        "kind": "testharness",
+        "seed_score": None,
+        "golden_score": {
+            "recall": 1.0,
+            "true_positives": 1,
+            "false_negatives": 0,
+            "unmatched_predictions": 1,
+        },
+        "consistency": [_finding_row("CHECKLIST-005", 1.0)],
+        "consistency_by_outcome": {
+            "true_positives": [_finding_row("CHECKLIST-005", 1.0)],
+            "false_positives": [_finding_row("GENERAL-007", 0.5)],
+            "missed_labels": [],
+        },
+    }
+    md = "\n".join(run_benchmark._render_entry(entry))
+    assert "**True positives**" in md
+    assert "**Unmatched**" in md
+    # Golden must not borrow the seed vocabulary.
+    assert "**False positives**" not in md
+
+
 def test_off_reading_list_citation_is_advisory_note(tmp_path: Path) -> None:
     manifest = load_manifest(_write_manifest(tmp_path, _valid_manifest_dict()))
     out = tmp_path / "out"
