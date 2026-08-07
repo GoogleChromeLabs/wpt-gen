@@ -78,16 +78,18 @@ steps:
           ${_SELECT} \
           ${_PROVIDER:+--provider "${_PROVIDER}"} \
           ${_MIN_RECALL:+--min-recall "${_MIN_RECALL}"}
+        latest_report=$$(find bench-runs -name "report.md" | head -n 1)
+        if [ -n "$${latest_report}" ] && [ -f "$${latest_report}" ]; then
+          echo "=================== BENCHMARK REPORT ==================="
+          cat "$${latest_report}"
+          echo "========================================================"
+        fi
 
 # Agent calls are slow; cap the build rather than let it hang. The release tier
 # (~240 runs) can approach this; drop it for the smaller regression tier.
 timeout: 7200s
 
-# Keep the report regardless of outcome, so a failed run (including a tripped
-# quality gate) stays inspectable.
-artifacts:
-  objects:
-    location: 'gs://${PROJECT_ID}-wpt-gen-bench/$BUILD_ID/'
-    paths:
-      - 'bench-runs/**'
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 
