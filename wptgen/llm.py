@@ -15,6 +15,7 @@
 """LLM client implementations for various providers."""
 
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from typing import Any
@@ -34,6 +35,13 @@ from wptgen.utils import retry
 
 # Default retry configuration for LLM calls
 MAX_RETRIES = 3
+
+
+def _build_http_options(
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+) -> types.HttpOptions:
+    """Converts timeout to milliseconds for the Google GenAI SDK."""
+    return types.HttpOptions(timeout=int(timeout * 1000))
 
 
 class LLMTimeoutError(Exception):
@@ -99,17 +107,25 @@ class GeminiClient(LLMClient):
 
     def __init__(
         self,
-        api_key: str | None,
-        model: str,
+        api_key: str | None = None,
+        model: str = "",
+        project: str | None = None,
+        location: str | None = None,
         max_retries: int = MAX_RETRIES,
         timeout: int = DEFAULT_LLM_TIMEOUT,
         tracer: Tracer | None = None,
     ):
-        super().__init__(api_key, model, max_retries, timeout, tracer)
-        # Initialize the official Google GenAI client
-        # Casting timeout to milliseconds to ensure it's interpreted
-        # correctly by the SDK
-        http_options = types.HttpOptions(timeout=int(self.timeout * 1000))
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            max_retries=max_retries,
+            timeout=timeout,
+            tracer=tracer,
+        )
+        self.project = project
+        self.location = location
+        http_options = _build_http_options(self.timeout)
+
         if self.api_key:
             self.client = genai.Client(
                 api_key=self.api_key,
@@ -118,9 +134,57 @@ class GeminiClient(LLMClient):
         else:
             self.client = genai.Client(
                 vertexai=True,
+                project=self.project or os.environ.get("GOOGLE_CLOUD_PROJECT"),
+                location=self.location
+                or os.environ.get("GOOGLE_CLOUD_LOCATION"),
                 http_options=http_options,
             )
         self.verify_model()
+
+    @classmethod
+    def from_api_key(
+        cls,
+        api_key: str,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ) -> "GeminiClient":
+        """Constructs a GeminiClient using explicit API Key authentication."""
+        if not api_key:
+            raise ValueError(
+                "api_key must be non-empty when using from_api_key()."
+            )
+        return cls(
+            api_key=api_key,
+            model=model,
+            max_retries=max_retries,
+            timeout=timeout,
+            tracer=tracer,
+        )
+
+    @classmethod
+    def from_adc(
+        cls,
+        model: str,
+        project: str | None = None,
+        location: str | None = None,
+        max_retries: int = MAX_RETRIES,
+        timeout: int = DEFAULT_LLM_TIMEOUT,
+        tracer: Tracer | None = None,
+    ) -> "GeminiClient":
+        """Constructs a GeminiClient using ambient Google Cloud ADC
+        authentication.
+        """
+        return cls(
+            api_key=None,
+            model=model,
+            project=project,
+            location=location,
+            max_retries=max_retries,
+            timeout=timeout,
+            tracer=tracer,
+        )
 
     def verify_model(self) -> None:
         try:
@@ -235,6 +299,8 @@ class OpenAIClient(LLMClient):
         tracer: Tracer | None = None,
     ):
         super().__init__(api_key, model, max_retries, timeout, tracer)
+        if not self.api_key:
+            raise ValueError("OpenAI API key must not be empty.")
         self.client = OpenAI(api_key=self.api_key, timeout=float(self.timeout))
         self.verify_model()
 
@@ -346,6 +412,8 @@ class AnthropicClient(LLMClient):
         tracer: Tracer | None = None,
     ):
         super().__init__(api_key, model, max_retries, timeout, tracer)
+        if not self.api_key:
+            raise ValueError("Anthropic API key must not be empty.")
         self.client = anthropic.Anthropic(
             api_key=self.api_key, timeout=float(self.timeout)
         )
@@ -459,8 +527,6 @@ class AnthropicClient(LLMClient):
 
 def get_llm_client(config: Config) -> LLMClient:
     """Factory function to instantiate the correct LLM provider."""
-    assert config.api_key is not None, "api_key must be set in configuration"
-
     tracer = (
         Tracer(save_traces=config.save_traces)
         if getattr(config, "save_traces", False)
@@ -468,14 +534,25 @@ def get_llm_client(config: Config) -> LLMClient:
     )
 
     if config.provider == "gemini":
-        return GeminiClient(
-            api_key=config.api_key,
-            model=config.default_model,
-            max_retries=config.max_retries,
-            timeout=config.timeout,
-            tracer=tracer,
-        )
+        if config.api_key:
+            return GeminiClient.from_api_key(
+                api_key=config.api_key,
+                model=config.default_model,
+                max_retries=config.max_retries,
+                timeout=config.timeout,
+                tracer=tracer,
+            )
+        else:
+            return GeminiClient.from_adc(
+                model=config.default_model,
+                max_retries=config.max_retries,
+                timeout=config.timeout,
+                tracer=tracer,
+            )
     elif config.provider == "openai":
+        assert (
+            config.api_key is not None
+        ), "api_key must be set in configuration"
         return OpenAIClient(
             api_key=config.api_key,
             model=config.default_model,
@@ -484,6 +561,9 @@ def get_llm_client(config: Config) -> LLMClient:
             tracer=tracer,
         )
     elif config.provider == "anthropic":
+        assert (
+            config.api_key is not None
+        ), "api_key must be set in configuration"
         return AnthropicClient(
             api_key=config.api_key,
             model=config.default_model,

@@ -54,6 +54,17 @@ def setup_adk_environment(config: Config) -> str:
             f"Unsupported ADK provider: {config.provider}"
         ) from None
 
+    if (
+        provider in (LLMProvider.GEMINI, LLMProvider.GOOGLE)
+        and not config.api_key
+    ):
+        if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in (
+            "true",
+            "1",
+        ):
+            defaults = _PROVIDER_CONFIG[provider]
+            return config.default_model or defaults.default_model
+
     if not config.api_key:
         raise ValueError(
             f"An API key is required for the {provider.value} provider."

@@ -18,7 +18,7 @@ import importlib.resources
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ class Config:
     api_key: str | None
     categories: dict[str, str]
     phase_model_mapping: dict[str, str]
+    provider_options: dict[str, Any] = field(default_factory=dict)
     wpt_path: str | None = None
     library_mode: bool = False
     output_dir: str | None = None

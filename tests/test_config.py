@@ -90,6 +90,8 @@ def test_load_config_gemini_vertex_ai_adc(
     """Test that GEMINI_API_KEY is not required when GOOGLE_GENAI_USE_VERTEXAI is set."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
     config = load_config(config_path="non_existent_dummy.yaml")
     assert config.provider == "gemini"

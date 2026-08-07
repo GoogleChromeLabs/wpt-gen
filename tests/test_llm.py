@@ -84,13 +84,21 @@ def test_get_llm_client_gemini(
     assert client.model == "gemini-3.1-pro-preview"
 
 
-def test_gemini_client_vertexai_adc(mocker: MockerFixture) -> None:
-    """Test that GeminiClient initializes with vertexai=True when api_key is None."""
+def test_gemini_client_gcp_adc(mocker: MockerFixture) -> None:
+    """Test that GeminiClient initializes with vertexai=True when using ADC."""
     mock_client_class = mocker.patch("wptgen.llm.genai.Client")
-    client = GeminiClient(api_key=None, model="gemini-3.1-pro-preview")
+    client = GeminiClient.from_adc(
+        model="gemini-3.1-pro-preview",
+        project="test-project",
+        location="us-central1",
+    )
     assert client.api_key is None
+    assert client.project == "test-project"
+    assert client.location == "us-central1"
     mock_client_class.assert_called_once_with(
         vertexai=True,
+        project="test-project",
+        location="us-central1",
         http_options=types.HttpOptions(timeout=600000),
     )
 
