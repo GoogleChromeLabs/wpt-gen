@@ -53,7 +53,7 @@ class LLMClient(ABC):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None,
         model: str,
         max_retries: int = MAX_RETRIES,
         timeout: int = DEFAULT_LLM_TIMEOUT,
@@ -99,7 +99,7 @@ class GeminiClient(LLMClient):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None,
         model: str,
         max_retries: int = MAX_RETRIES,
         timeout: int = DEFAULT_LLM_TIMEOUT,
@@ -109,10 +109,17 @@ class GeminiClient(LLMClient):
         # Initialize the official Google GenAI client
         # Casting timeout to milliseconds to ensure it's interpreted
         # correctly by the SDK
-        self.client = genai.Client(
-            api_key=self.api_key,
-            http_options=types.HttpOptions(timeout=int(self.timeout * 1000)),
-        )
+        http_options = types.HttpOptions(timeout=int(self.timeout * 1000))
+        if self.api_key:
+            self.client = genai.Client(
+                api_key=self.api_key,
+                http_options=http_options,
+            )
+        else:
+            self.client = genai.Client(
+                vertexai=True,
+                http_options=http_options,
+            )
         self.verify_model()
 
     def verify_model(self) -> None:

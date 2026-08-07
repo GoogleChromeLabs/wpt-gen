@@ -84,6 +84,18 @@ def test_load_config_missing_api_key_raises_error(
         load_config(config_path="non_existent_dummy.yaml")
 
 
+def test_load_config_gemini_vertex_ai_adc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that GEMINI_API_KEY is not required when GOOGLE_GENAI_USE_VERTEXAI is set."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+
+    config = load_config(config_path="non_existent_dummy.yaml")
+    assert config.provider == "gemini"
+    assert config.api_key is None
+
+
 def test_load_config_unsupported_provider() -> None:
     """Test that requesting a random/unsupported provider raises an error."""
     with pytest.raises(ValueError, match="CRITICAL: Unsupported provider"):

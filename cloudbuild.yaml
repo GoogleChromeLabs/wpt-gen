@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runs the WPT evaluator benchmark on Cloud Build. Trigger it manually
-# (`gcloud builds submit`) or from a manual Cloud Build trigger — not on every
-# push, since a run spends provider API budget. The provider API key is pulled
-# from Secret Manager.
+# Runs the WPT evaluator benchmark on Cloud Build. Triggered on pull requests
+# via standard `/gcbrun` comment control or manually (`gcloud builds submit`).
+# Authenticates using the Cloud Build service account identity (Vertex AI ADC).
 #
 # Two tiers, selected by substitutions (defaults = release):
 #   Release     full manifest, 8 repeats, no quality gate. Establishes the
@@ -29,7 +28,6 @@
 #
 # Substitutions:
 #   _PROVIDER    provider to evaluate with (blank = config default)
-#   _SECRET      Secret Manager secret holding the provider API key
 #   _JOBS        concurrent evaluator runs (raise once rate limits allow)
 #   _REPEATS     repeats per entry (release 8, regression 3)
 #   _SELECT      entry selection (blank = full manifest; `--smoke` = the tier)
@@ -38,19 +36,11 @@
 #                benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
-  _SECRET: 'GEMINI_API_KEY'
   _JOBS: '1'
   _REPEATS: '8'
   _SELECT: ''
   _MIN_RECALL: ''
   _WPT_PIN: 'f5a7deaba2bffac7a534dfafaa3baf14b9a253cf'
-
-# The _SECRET key is decrypted into a generic build-time env; the run step
-# re-exports it under the provider-specific name config.py expects.
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/${_SECRET}/versions/latest
-      env: PROVIDER_API_KEY
 
 steps:
   - id: clone-wpt
@@ -64,19 +54,19 @@ steps:
         git -C /workspace/wpt checkout "${_WPT_PIN}"
 
   # Install and run in one Python step so the venv/deps persist across the
-  # invocation. config.py reads a provider-specific <PROVIDER>_API_KEY, so the
-  # generic secret is re-exported under that name (falling back to _SECRET when
-  # the provider is the config default).
+  # invocation. Authenticates natively with Vertex AI via the service account
+  # identity (Application Default Credentials).
   - id: run-benchmark
     name: python:3.13-slim
     entrypoint: bash
-    secretEnv: ['PROVIDER_API_KEY']
+    env:
+      - 'GOOGLE_GENAI_USE_VERTEXAI=true'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GOOGLE_CLOUD_LOCATION=us-central1'
     args:
       - -c
       - |
         set -euo pipefail
-        key_var="${_PROVIDER:+$(echo "${_PROVIDER}" | tr '[:lower:]' '[:upper:]')_API_KEY}"
-        export "${key_var:-${_SECRET}}"="${PROVIDER_API_KEY}"
         apt-get update && apt-get install -y --no-install-recommends git
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
@@ -100,3 +90,4 @@ artifacts:
     location: 'gs://${PROJECT_ID}-wpt-gen-bench/$BUILD_ID/'
     paths:
       - 'bench-runs/**'
+
