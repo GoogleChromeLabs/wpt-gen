@@ -42,7 +42,9 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -213,87 +215,87 @@ def _rep_dir(out: Path, entry_id: str, repeat: int) -> Path:
 
 
 class Progress:
-    """Prints one stderr line per evaluator invocation"""
+    """Prints one atomic completion line per evaluator invocation.
+
+    Workers run concurrently, each worker emits a single line when its run
+    finishes. The counter increment and write are lock-guarded.
+    """
 
     def __init__(self, total: int) -> None:
         self.total = total
         self.done = 0
+        self._lock = threading.Lock()
 
-    def start_repeat(self, entry_id: str, repeat: int, repeats: int) -> None:
-        sys.stderr.write(
-            f"[{self.done + 1}/{self.total}] {entry_id} "
-            f"rep {repeat + 1}/{repeats} ... "
-        )
-        sys.stderr.flush()
+    def start(self, entry_id: str, repeat: int) -> None:
+        with self._lock:
+            sys.stderr.write(f"[started] {entry_id} rep {repeat + 1}\n")
+            sys.stderr.flush()
 
-    def end_repeat(self, exit_code: int, elapsed: float) -> None:
-        self.done += 1
+    def complete(
+        self, entry_id: str, repeat: int, exit_code: int, elapsed: float
+    ) -> None:
         status = "ok" if exit_code == 0 else f"FAILED ({exit_code})"
-        sys.stderr.write(f"{status} {elapsed:.1f}s\n")
-        sys.stderr.flush()
+        with self._lock:
+            self.done += 1
+            sys.stderr.write(
+                f"[{self.done}/{self.total}] {entry_id} rep {repeat + 1} "
+                f"{status} {elapsed:.1f}s\n"
+            )
+            sys.stderr.flush()
 
 
-def run_entry(
+def run_single(
     entry: BenchmarkEntry,
-    manifest: Manifest,
+    repeat: int,
     wpt_dir: Path,
     out: Path,
-    repeats: int,
     provider: str | None,
     config: Path,
     progress: Progress | None = None,
-) -> list[RunRecord]:
-    """Invokes ``wpt-gen evaluate`` ``repeats`` times for one entry."""
-    records: list[RunRecord] = []
-    test_rel = entry.test_rel_path()
-    test_abs = wpt_dir / test_rel
+) -> RunRecord:
+    """Invokes ``wpt-gen evaluate`` once for one (entry, repeat) pair."""
+    rep_dir = _rep_dir(out, entry.entry_id, repeat)
+    rep_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "wpt-gen",
+        "evaluate",
+        str(wpt_dir / entry.test_rel_path()),
+        "--wpt-dir",
+        str(wpt_dir),
+        "--output-dir",
+        str(rep_dir),
+        "--config",
+        str(config),
+    ]
+    if provider:
+        cmd += ["--provider", provider]
 
-    for i in range(repeats):
-        rep_dir = _rep_dir(out, entry.entry_id, i)
-        rep_dir.mkdir(parents=True, exist_ok=True)
-        cmd = [
-            "wpt-gen",
-            "evaluate",
-            str(test_abs),
-            "--wpt-dir",
-            str(wpt_dir),
-            "--output-dir",
-            str(rep_dir),
-            "--config",
-            str(config),
-        ]
-        if provider:
-            cmd += ["--provider", provider]
-
-        if progress:
-            progress.start_repeat(entry.entry_id, i, repeats)
-        started = time.monotonic()
-        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
+    if progress:
+        progress.start(entry.entry_id, repeat)
+    started = time.monotonic()
+    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    elapsed = time.monotonic() - started
+    if progress:
+        progress.complete(entry.entry_id, repeat, completed.returncode, elapsed)
+    if completed.returncode != 0:
+        # Record it and move on; an errored repeat scores as an empty run
+        # (no findings) and still counts in the denominator.
+        sys.stderr.write(
+            f"[warn] {entry.entry_id} rep-{repeat} exited "
+            f"{completed.returncode}\n{completed.stderr}\n"
         )
-        elapsed = time.monotonic() - started
-        if progress:
-            progress.end_repeat(completed.returncode, elapsed)
-        if completed.returncode != 0:
-            # Record it and move on; an errored repeat scores as an empty
-            # run (no findings) and still counts in the denominator.
-            sys.stderr.write(
-                f"[warn] {entry.entry_id} rep-{i} exited "
-                f"{completed.returncode}\n{completed.stderr}\n"
-            )
-        records.append(
-            RunRecord(
-                entry_id=entry.entry_id,
-                repeat=i,
-                exit_code=completed.returncode,
-                wall_seconds=elapsed,
-                output_dir=str(rep_dir),
-            )
-        )
-    return records
+    return RunRecord(
+        entry_id=entry.entry_id,
+        repeat=repeat,
+        exit_code=completed.returncode,
+        wall_seconds=elapsed,
+        output_dir=str(rep_dir),
+    )
 
 
 # --- Scoring an entry from its run dirs -------------------------------------
@@ -465,6 +467,10 @@ def score_entry(
         golden_score_dict = _golden_score_to_dict(
             score_golden(runs, entry.expect)
         )
+        # Same classifier as seeds; renders TP vs. unmatched (uncharged).
+        classification_dict = _classification_to_dict(
+            classify_consistency_rows(cons_rows, entry.expect), notes
+        )
 
     return EntryReport(
         entry_id=entry.entry_id,
@@ -516,6 +522,51 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
         "advisory_notes": advisory,
         "consistency_histogram": hist,
     }
+
+
+# --- Quality gates ----------------------------------------------------------
+
+
+@dataclass
+class QualityThresholds:
+    """CI pass/fail bounds. None disables a check."""
+
+    min_precision: float | None = None
+    min_recall: float | None = None
+    min_golden_recall: float | None = None
+    max_fn: int | None = None
+
+
+def check_quality_gates(
+    aggregate: dict[str, Any], thresholds: QualityThresholds
+) -> list[str]:
+    """Returns one message per breached threshold (empty = all pass).
+
+    Reads the keys ``_aggregate`` already emits; ``max_fn`` sums seed and
+    golden false negatives.
+    """
+    failures: list[str] = []
+    t = thresholds
+    if t.min_precision is not None:
+        got = aggregate["seed_precision"]
+        if got < t.min_precision:
+            failures.append(f"seed precision {got} < {t.min_precision}")
+    if t.min_recall is not None:
+        got = aggregate["seed_recall"]
+        if got < t.min_recall:
+            failures.append(f"seed recall {got} < {t.min_recall}")
+    if t.min_golden_recall is not None:
+        got = aggregate["golden_recall"]
+        if got < t.min_golden_recall:
+            failures.append(f"golden recall {got} < {t.min_golden_recall}")
+    if t.max_fn is not None:
+        got = (
+            aggregate["seed_false_negatives"]
+            + aggregate["golden_false_negatives"]
+        )
+        if got > t.max_fn:
+            failures.append(f"false negatives {got} > {t.max_fn}")
+    return failures
 
 
 # --- Report emission --------------------------------------------------------
@@ -603,6 +654,40 @@ def _render_consistency_table(hist: dict[str, int]) -> list[str]:
     return lines
 
 
+def _entry_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Entry count per role."""
+    counts = {"seed": 0, "golden": 0, "corpus": 0}
+    for entry in entries:
+        counts[entry["role"]] = counts.get(entry["role"], 0) + 1
+    return counts
+
+
+def _render_summary(report: BenchmarkReport) -> list[str]:
+    """Per-dataset headline table: one row per dataset that has entries."""
+    agg = report.aggregate
+    counts = _entry_counts(report.entries)
+    mid = agg["consistency_histogram"]["mid"]
+    lines = ["## Summary", "", "| dataset | metric | value | entries |"]
+    lines.append("| --- | --- | --- | --- |")
+    if counts["seed"]:
+        lines.append(
+            f'| seed | precision / recall | {agg["seed_precision"]} / '
+            f'{agg["seed_recall"]} | {counts["seed"]} |'
+        )
+    if counts["golden"]:
+        lines.append(
+            f'| golden | recall | {agg["golden_recall"]} '
+            f'| {counts["golden"]} |'
+        )
+    if counts["corpus"]:
+        lines.append(
+            f"| corpus | flaky findings (mid) | {mid} "
+            f'| {counts["corpus"]} |'
+        )
+    lines.append("")
+    return lines
+
+
 def render_report_markdown(report: BenchmarkReport) -> str:
     """Renders the benchmark report as Markdown from its JSON payload."""
     agg = report.aggregate
@@ -611,10 +696,14 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     lines.append("")
     model = report.model or "unknown"
     provider = report.provider or "unknown"
+    counts = _entry_counts(report.entries)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    lines.append(
+        f'- **Scope**: {counts["seed"]} seed, {counts["golden"]} golden, '
+        f'{counts["corpus"]} corpus · {report.repeats} repeats'
+    )
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
-    lines.append(f"- Repeats per entry: {report.repeats}")
     if report.wpt_upstream_commit_expected:
         pinned = report.wpt_upstream_commit_expected
         actual = report.wpt_upstream_commit_actual or "unknown"
@@ -626,67 +715,52 @@ def render_report_markdown(report: BenchmarkReport) -> str:
 
     lines.extend(_render_legend())
 
-    lines.append("## Aggregate")
-    lines.append("")
-    lines.append("| metric | value | target |")
-    lines.append("| --- | --- | --- |")
-    lines.append(f'| seed precision | {agg["seed_precision"]} | 1.0 |')
-    lines.append(f'| seed recall | {agg["seed_recall"]} | 1.0 |')
-    lines.append(
-        f'| seed TP / FP / FN | {agg["seed_true_positives"]} / '
-        f'{agg["seed_false_positives"]} / {agg["seed_false_negatives"]} '
-        "| FP=0, FN=0 |"
-    )
-    lines.append(
-        f'| golden recall (vs. human) | {agg["golden_recall"]} '
-        f'| TP {agg["golden_true_positives"]}, '
-        f'FN {agg["golden_false_negatives"]} |'
-    )
-    lines.append("")
-    lines.append(
-        f'Golden unmatched predictions: {agg["golden_unmatched_predictions"]} '
-        "finding(s) with no gold label — not charged as false positives "
-        "(possible human misses)."
-    )
-    lines.append("")
-    lines.append("- **TP** — true positive: an expected finding fired.")
-    lines.append("- **FP** — false positive: an unexpected finding fired.")
-    lines.append("- **FN** — false negative: an expected finding was missed.")
-    lines.append("")
-    lines.append(
-        f'Advisory notes: {agg["advisory_notes"]} finding(s) cite a source '
-        "doc that is not on the evaluator's curated reading list. Advisory "
-        "only — not a pass/fail gate."
-    )
-    lines.append("")
+    lines.extend(_render_summary(report))
+
+    # Golden unmatched + advisory are not in the summary (neither is scored);
+    # surface them as a compact caveat line so they are not lost.
+    caveats = []
+    if agg["golden_unmatched_predictions"]:
+        caveats.append(
+            f'{agg["golden_unmatched_predictions"]} golden unmatched '
+            "(not charged)"
+        )
+    if agg["advisory_notes"]:
+        caveats.append(f'{agg["advisory_notes"]} advisory note(s)')
+    if caveats:
+        lines.append("_" + "; ".join(caveats) + "._")
+        lines.append("")
+
     lines.extend(_render_consistency_table(agg["consistency_histogram"]))
 
     lines.append("## Per entry")
     lines.append("")
     for entry in report.entries:
-        lines.append(
-            f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})'
-        )
-        lines.append("")
-        if entry["seed_score"]:
-            ss = entry["seed_score"]
-            lines.append(
-                f'- Seed: precision {ss["precision"]}, recall '
-                f'{ss["recall"]} '
-                f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
-                f'FN {ss["false_negatives"]})'
-            )
-        if entry["golden_score"]:
-            gs = entry["golden_score"]
-            lines.append(
-                f'- Golden: recall {gs["recall"]} '
-                f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
-                f'unmatched {gs["unmatched_predictions"]})'
-            )
-        lines.append("")
-        lines.extend(_render_entry_consistency(entry))
+        lines.extend(_render_entry(entry))
 
     return "\n".join(lines) + "\n"
+
+
+def _render_entry(entry: dict[str, Any]) -> list[str]:
+    """One entry's heading, score line, and finding tables."""
+    lines = [f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})', ""]
+    if entry["seed_score"]:
+        ss = entry["seed_score"]
+        lines.append(
+            f'- Seed: precision {ss["precision"]}, recall {ss["recall"]} '
+            f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
+            f'FN {ss["false_negatives"]})'
+        )
+    if entry["golden_score"]:
+        gs = entry["golden_score"]
+        lines.append(
+            f'- Golden: recall {gs["recall"]} '
+            f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
+            f'unmatched {gs["unmatched_predictions"]})'
+        )
+    lines.append("")
+    lines.extend(_render_entry_consistency(entry))
+    return lines
 
 
 def _bucket_label(row: dict[str, Any]) -> str:
@@ -731,18 +805,28 @@ def _render_entry_consistency(entry: dict[str, Any]) -> list[str]:
     if outcome is None:  # corpus: no labels to classify by
         return ["**Findings**", "", *_finding_table(entry["consistency"])]
 
+    # Golden unmatched findings are not charged (possible human misses), so
+    # they read differently from a seed's false positives.
+    is_golden = entry["role"] == "golden"
+    unmatched_header = "**Unmatched**" if is_golden else "**False positives**"
+    missed_header = (
+        "**Missed labels** (never fired):"
+        if is_golden
+        else "**False negatives** (expected but never fired):"
+    )
+
     lines = [
         "**True positives**",
         "",
         *_finding_table(outcome["true_positives"]),
     ]
     lines += [
-        "**False positives**",
+        unmatched_header,
         "",
         *_finding_table(outcome["false_positives"]),
     ]
     if outcome["missed_labels"]:
-        lines.append("**False negatives** (expected but never fired):")
+        lines.append(missed_header)
         lines.append("")
         for label in outcome["missed_labels"]:
             window = (
@@ -858,6 +942,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output/run directory (default: bench-runs/<date>-<time>/).",
     )
     parser.add_argument("--repeats", type=int, default=8)
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Concurrent evaluator runs (default: 1). The bound is provider "
+        "rate limits, not cores; 4-8 is usually safe.",
+    )
     parser.add_argument("--provider", default=None)
     parser.add_argument(
         "--filter", default=None, help="field=value, e.g. kind=reftest"
@@ -887,10 +978,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "Intersected with --golden-set if both are given.",
     )
     parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Regression tier: the manifest's `smoke` corpus/seed/golden sets "
+        "only. Composes with --filter; repeats stay --repeats.",
+    )
+    parser.add_argument(
         "--score-only",
         action="store_true",
         help="Re-score existing run dirs in --out; do not run the agent.",
     )
+    # CI quality gates: reports are always written first; these only affect the
+    # exit code. Omit a flag to leave that check off.
+    parser.add_argument("--min-precision", type=float, default=None)
+    parser.add_argument("--min-recall", type=float, default=None)
+    parser.add_argument("--min-golden-recall", type=float, default=None)
+    parser.add_argument("--max-fn", type=int, default=None)
     return parser.parse_args(argv)
 
 
@@ -930,7 +1033,7 @@ def select_golden(
         if set_name not in manifest.golden_sets:
             raise HarnessError(
                 f"--golden-set {set_name!r} not in manifest golden_sets "
-                f"({', '.join(sorted(manifest.golden_sets)) or 'none'})"
+                f'({", ".join(sorted(manifest.golden_sets)) or "none"})'
             )
         prs = manifest.golden_sets[set_name]
         if prs:  # empty list means "all"
@@ -953,6 +1056,33 @@ def select_golden(
             "candidate/annotation on disk; skipping.\n"
         )
     return [by_pr[pr] for pr in sorted(wanted & by_pr.keys())]
+
+
+SMOKE_SET_NAME = "smoke"
+
+
+def select_smoke(
+    manifest: Manifest, corpus: list[CorpusEntry], seeds: list[SeedEntry]
+) -> tuple[list[CorpusEntry], list[SeedEntry]]:
+    """Narrows corpus/seeds to their ``smoke`` set (the regression tier).
+
+    An id listed in a set but absent from the manifest is a stale grouping;
+    fail loudly rather than silently run a smaller tier.
+    """
+    return (
+        _by_ids(corpus, manifest.corpus_sets.get(SMOKE_SET_NAME, []), "corpus"),
+        _by_ids(seeds, manifest.seed_sets.get(SMOKE_SET_NAME, []), "seed"),
+    )
+
+
+def _by_ids(entries: list[Any], ids: list[str], label: str) -> list[Any]:
+    by_id = {e.entry_id: e for e in entries}
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        raise HarnessError(
+            f"{label} smoke set names unknown ids: {', '.join(missing)}"
+        )
+    return [by_id[i] for i in ids]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -981,15 +1111,19 @@ def main(argv: list[str] | None = None) -> int:
     seeds_root = args.manifest.parent / "seeds"
 
     try:
+        corpus, seeds = manifest.corpus, manifest.seeds
+        golden_set = args.golden_set
+        if args.smoke:
+            corpus, seeds = select_smoke(manifest, corpus, seeds)
+            # Smoke drives golden via its own set unless one was named.
+            golden_set = golden_set or SMOKE_SET_NAME
         golden_entries = select_golden(
             _load_golden(args.golden_dir),
             manifest,
-            args.golden_set,
+            golden_set,
             args.golden_prs,
         )
-        entries = apply_filter(
-            [*manifest.entries, *golden_entries], args.filter
-        )
+        entries = apply_filter([*corpus, *seeds, *golden_entries], args.filter)
     except HarnessError as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
@@ -1037,20 +1171,28 @@ def main(argv: list[str] | None = None) -> int:
                 stage_seeds(seeds_root, args.wpt_dir, seed_entries)
             if gold_entries:
                 stage_golden(args.wpt_dir, gold_entries)
-            progress = Progress(total=len(entries) * args.repeats)
-            for entry in entries:
-                run_records.extend(
-                    run_entry(
+            # Flatten to (entry, repeat) tasks so the pool fills evenly.
+            tasks = [
+                (entry, i) for entry in entries for i in range(args.repeats)
+            ]
+            progress = Progress(total=len(tasks))
+            with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+                futures = [
+                    pool.submit(
+                        run_single,
                         entry=entry,
-                        manifest=manifest,
+                        repeat=i,
                         wpt_dir=args.wpt_dir,
                         out=args.out,
-                        repeats=args.repeats,
                         provider=args.provider,
                         config=args.config,
                         progress=progress,
                     )
-                )
+                    for entry, i in tasks
+                ]
+                run_records = [f.result() for f in as_completed(futures)]
+            # Completion order is nondeterministic; sort for a stable report.
+            run_records.sort(key=lambda r: (r.entry_id, r.repeat))
 
         reports, models = score_all(
             manifest=manifest,
@@ -1077,6 +1219,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     write_reports(args.out, report)
     sys.stderr.write(f'wrote {args.out / "report.md"}\n')
+
+    # Gate the exit code only after reports are on disk, so CI can publish the
+    # full table even on a failing run.
+    failures = check_quality_gates(
+        report.aggregate,
+        QualityThresholds(
+            min_precision=args.min_precision,
+            min_recall=args.min_recall,
+            min_golden_recall=args.min_golden_recall,
+            max_fn=args.max_fn,
+        ),
+    )
+    if failures:
+        sys.stderr.write("quality gate failed:\n")
+        for failure in failures:
+            sys.stderr.write(f"  - {failure}\n")
+        return 1
     return 0
 
 

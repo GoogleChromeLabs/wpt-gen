@@ -480,7 +480,7 @@ class ConsistencyClassification:
 
 
 def classify_consistency_rows(
-    rows: list[ConsistencyRow], expect: list[ExpectLabel]
+    rows: list[ConsistencyRow], expect: Sequence[ExpectLabel]
 ) -> ConsistencyClassification:
     """Partitions consistency rows into TP/FP and finds missed labels."""
 

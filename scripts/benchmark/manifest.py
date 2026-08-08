@@ -151,6 +151,9 @@ class Manifest:
     # commit/bytes/labels still come from the on-disk artifacts. An empty list
     # means "all annotated PRs".
     golden_sets: dict[str, list[int]] = field(default_factory=dict)
+    # Named corpus/seed subsets: set name -> entry ids.
+    corpus_sets: dict[str, list[str]] = field(default_factory=dict)
+    seed_sets: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def entries(self) -> list[BenchmarkEntry]:
@@ -281,7 +284,29 @@ def load_manifest(path: Path) -> Manifest:
         seeds=seeds,
         source_path=path,
         golden_sets=_parse_golden_sets(raw.get("golden_sets")),
+        corpus_sets=_parse_id_sets(raw.get("corpus_sets"), "corpus_sets"),
+        seed_sets=_parse_id_sets(raw.get("seed_sets"), "seed_sets"),
     )
+
+
+def _parse_id_sets(raw: Any, block: str) -> dict[str, list[str]]:
+    """Parses a ``<block>`` mapping (name -> entry ids), if present."""
+    if raw is None:
+        return {}
+    _require(isinstance(raw, dict), f'"{block}" must be a mapping')
+    sets: dict[str, list[str]] = {}
+    for name, ids in raw.items():
+        _require(
+            isinstance(ids, list),
+            f'{block}["{name}"] must be a list of entry ids',
+        )
+        for entry_id in ids:
+            _require(
+                isinstance(entry_id, str),
+                f'{block}["{name}"] has a non-string id: {entry_id!r}',
+            )
+        sets[str(name)] = list(ids)
+    return sets
 
 
 def _parse_golden_sets(raw: Any) -> dict[str, list[int]]:

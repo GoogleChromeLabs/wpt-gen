@@ -21,6 +21,7 @@ against JSON.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -805,6 +806,122 @@ def _seed_entry(seed: str, kind: str = "testharness") -> SeedEntry:
     )
 
 
+class _FakeProc:
+    def __init__(self) -> None:
+        self.returncode = 0
+        self.stdout = ""
+        self.stderr = ""
+
+
+def _fake_run_recording(calls: list[list[str]]) -> Any:
+    """A subprocess.run stand-in that records argv and returns success."""
+
+    def _run(cmd: list[str], *a: Any, **k: Any) -> _FakeProc:
+        calls.append(cmd)
+        return _FakeProc()
+
+    return _run
+
+
+def test_parallel_runs_match_sequential_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The flattened pool produces the same (entry_id, repeat) records as the
+    sequential path, regardless of completion order."""
+    wpt_dir = tmp_path / "wpt"
+    wpt_dir.mkdir()
+    entries = [_seed_entry("testharness/a.js"), _seed_entry("testharness/b.js")]
+    repeats = 3
+    tasks = [(e, i) for e in entries for i in range(repeats)]
+
+    def _run_all(jobs: int) -> set[tuple[str, int]]:
+        calls: list[list[str]] = []
+        monkeypatch.setattr(
+            "benchmark.run_benchmark.subprocess.run",
+            _fake_run_recording(calls),
+        )
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            futures = [
+                pool.submit(
+                    run_benchmark.run_single,
+                    entry=e,
+                    repeat=i,
+                    wpt_dir=wpt_dir,
+                    out=tmp_path / "out",
+                    provider=None,
+                    config=Path("wpt-gen.yml"),
+                )
+                for e, i in tasks
+            ]
+            records = [f.result() for f in as_completed(futures)]
+        return {(r.entry_id, r.repeat) for r in records}
+
+    expected = {(e.entry_id, i) for e, i in tasks}
+    assert _run_all(jobs=1) == expected
+    assert _run_all(jobs=4) == expected
+
+
+# --- Quality gates ----------------------------------------------------------
+
+
+def _agg(
+    seed_precision: float = 1.0,
+    seed_recall: float = 1.0,
+    golden_recall: float = 1.0,
+    seed_fn: int = 0,
+    golden_fn: int = 0,
+) -> dict[str, Any]:
+    return {
+        "seed_precision": seed_precision,
+        "seed_recall": seed_recall,
+        "golden_recall": golden_recall,
+        "seed_false_negatives": seed_fn,
+        "golden_false_negatives": golden_fn,
+    }
+
+
+def test_quality_gates_pass_when_unset() -> None:
+    # No thresholds set -> nothing checked, even on a poor aggregate.
+    agg = _agg(seed_precision=0.0, seed_recall=0.0, golden_recall=0.0)
+    assert (
+        run_benchmark.check_quality_gates(
+            agg, run_benchmark.QualityThresholds()
+        )
+        == []
+    )
+
+
+def test_quality_gates_flag_each_breach() -> None:
+    agg = _agg(
+        seed_precision=0.5, seed_recall=0.5, golden_recall=0.5, seed_fn=3
+    )
+    failures = run_benchmark.check_quality_gates(
+        agg,
+        run_benchmark.QualityThresholds(
+            min_precision=0.9,
+            min_recall=0.9,
+            min_golden_recall=0.9,
+            max_fn=2,
+        ),
+    )
+    assert len(failures) == 4
+
+
+def test_quality_gate_max_fn_sums_seed_and_golden() -> None:
+    agg = _agg(seed_fn=1, golden_fn=2)
+    thresholds = run_benchmark.QualityThresholds(max_fn=2)
+    assert run_benchmark.check_quality_gates(agg, thresholds) == [
+        "false negatives 3 > 2"
+    ]
+
+
+def test_quality_gate_boundary_is_inclusive() -> None:
+    # Exactly meeting a floor passes; exactly at max_fn passes.
+    agg = _agg(seed_precision=0.8, seed_fn=2)
+    thresholds = run_benchmark.QualityThresholds(min_precision=0.8, max_fn=2)
+    assert run_benchmark.check_quality_gates(agg, thresholds) == []
+
+
 def test_stage_seeds_refuses_unmarked_existing_dir(tmp_path: Path) -> None:
     seeds_root = tmp_path / "seeds"
     (seeds_root / "testharness").mkdir(parents=True)
@@ -966,19 +1083,122 @@ def test_score_all_and_report(tmp_path: Path) -> None:
     assert full.aggregate["seed_recall"] == pytest.approx(1.0)
     md = run_benchmark.render_report_markdown(full)
     assert "WPT evaluator benchmark report" in md
-    assert "seed recall" in md
     # The model/provider must appear in the report header.
     assert "claude-opus-4-6" in md
     assert "anthropic" in md
     # Structural anchors only (not prose, which is subject to change): the
-    # legend link, the aggregate bucket table, and the per-entry finding
-    # tables (TP/FP sections + the finding-table column header).
+    # legend link, the per-dataset summary + scope line, the aggregate bucket
+    # table, and the per-entry finding tables.
     assert "#reading-a-benchmark-report" in md
+    assert "## Summary" in md
+    assert "| seed | precision / recall |" in md
+    assert "| corpus | flaky findings (mid) |" in md
+    assert "**Scope**:" in md
     assert "### Consistency buckets" in md
     assert "| bucket | firing rate | count | meaning |" in md
     assert "**True positives**" in md
     assert "**False positives**" in md
     assert "| title | source | firing rate | warnings |" in md
+
+
+def _bench_report(
+    entries: list[dict[str, Any]], aggregate: dict[str, Any]
+) -> Any:
+    return run_benchmark.BenchmarkReport(
+        manifest="m.yaml",
+        provider="p",
+        model="mdl",
+        wpt_dir="/wpt",
+        wpt_upstream_commit_expected=None,
+        wpt_upstream_commit_actual=None,
+        repeats=3,
+        entries=entries,
+        run_records=[],
+        aggregate=aggregate,
+    )
+
+
+def test_summary_renders_a_row_per_present_dataset() -> None:
+    entries = [
+        {"role": "seed", "kind": "testharness"},
+        {"role": "golden", "kind": "js"},
+        {"role": "corpus", "kind": "reftest"},
+    ]
+    agg = {
+        "seed_precision": 0.8,
+        "seed_recall": 1.0,
+        "golden_recall": 0.75,
+        "consistency_histogram": {"mid": 2},
+        "golden_unmatched_predictions": 0,
+        "advisory_notes": 0,
+    }
+    lines = run_benchmark._render_summary(_bench_report(entries, agg))
+    md = "\n".join(lines)
+    assert "| seed | precision / recall | 0.8 / 1.0 | 1 |" in md
+    assert "| golden | recall | 0.75 | 1 |" in md
+    assert "| corpus | flaky findings (mid) | 2 | 1 |" in md
+
+
+def test_summary_omits_absent_datasets() -> None:
+    # A seed-only run has no golden/corpus rows.
+    entries = [{"role": "seed", "kind": "testharness"}]
+    agg = {
+        "seed_precision": 1.0,
+        "seed_recall": 1.0,
+        "golden_recall": 1.0,
+        "consistency_histogram": {"mid": 0},
+    }
+    md = "\n".join(run_benchmark._render_summary(_bench_report(entries, agg)))
+    assert "| seed |" in md
+    assert "golden" not in md
+    assert "corpus" not in md
+
+
+def test_progress_start_prints_atomic_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run_benchmark.Progress(total=4).start("seed-a", 1)
+    err = capsys.readouterr().err
+    # One atomic, newline-terminated line naming the started rep (1-indexed).
+    assert err == "[started] seed-a rep 2\n"
+
+
+def _finding_row(key: str, rate: float) -> dict[str, Any]:
+    return {
+        "key": key,
+        "title": key,
+        "line_bucket": [1, 1],
+        "firings": 2,
+        "repeats": 2,
+        "rate": rate,
+        "warnings": {},
+    }
+
+
+def test_golden_entry_renders() -> None:
+    entry = {
+        "entry_id": "golden-1-abcd",
+        "role": "golden",
+        "kind": "testharness",
+        "seed_score": None,
+        "golden_score": {
+            "recall": 1.0,
+            "true_positives": 1,
+            "false_negatives": 0,
+            "unmatched_predictions": 1,
+        },
+        "consistency": [_finding_row("CHECKLIST-005", 1.0)],
+        "consistency_by_outcome": {
+            "true_positives": [_finding_row("CHECKLIST-005", 1.0)],
+            "false_positives": [_finding_row("GENERAL-007", 0.5)],
+            "missed_labels": [],
+        },
+    }
+    md = "\n".join(run_benchmark._render_entry(entry))
+    assert "**True positives**" in md
+    assert "**Unmatched**" in md
+    # Golden must not borrow the seed vocabulary.
+    assert "**False positives**" not in md
 
 
 def test_off_reading_list_citation_is_advisory_note(tmp_path: Path) -> None:
@@ -1298,3 +1518,65 @@ def test_manifest_golden_sets_non_int_rejected(tmp_path: Path) -> None:
     data["golden_sets"] = {"bad": ["43400"]}
     with pytest.raises(ManifestError, match="non-integer"):
         load_manifest(_write_manifest(tmp_path, data))
+
+
+# --- Smoke / regression tier ------------------------------------------------
+
+
+def _manifest_with_id_sets(
+    tmp_path: Path,
+    corpus_sets: dict[str, list[str]] | None = None,
+    seed_sets: dict[str, list[str]] | None = None,
+) -> Any:
+    data = _valid_manifest_dict()
+    if corpus_sets is not None:
+        data["corpus_sets"] = corpus_sets
+    if seed_sets is not None:
+        data["seed_sets"] = seed_sets
+    return load_manifest(_write_manifest(tmp_path, data))
+
+
+def test_manifest_id_sets_parsed(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path, corpus_sets={"smoke": ["corpus-a"]}, seed_sets={}
+    )
+    assert manifest.corpus_sets == {"smoke": ["corpus-a"]}
+    assert manifest.seed_sets == {}
+
+
+def test_manifest_id_sets_non_string_rejected(tmp_path: Path) -> None:
+    data = _valid_manifest_dict()
+    data["corpus_sets"] = {"smoke": [123]}
+    with pytest.raises(ManifestError, match="non-string"):
+        load_manifest(_write_manifest(tmp_path, data))
+
+
+def test_select_smoke_narrows_corpus_and_seeds(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path,
+        corpus_sets={"smoke": ["corpus-a"]},
+        seed_sets={"smoke": ["seed-a"]},
+    )
+    corpus, seeds = run_benchmark.select_smoke(
+        manifest, manifest.corpus, manifest.seeds
+    )
+    assert [c.entry_id for c in corpus] == ["corpus-a"]
+    assert [s.entry_id for s in seeds] == ["seed-a"]
+
+
+def test_select_smoke_empty_set_selects_nothing(tmp_path: Path) -> None:
+    # No `smoke` entry for a type -> that type contributes nothing.
+    manifest = _manifest_with_id_sets(tmp_path, corpus_sets={"smoke": []})
+    corpus, seeds = run_benchmark.select_smoke(
+        manifest, manifest.corpus, manifest.seeds
+    )
+    assert corpus == []
+    assert seeds == []
+
+
+def test_select_smoke_unknown_id_errors(tmp_path: Path) -> None:
+    manifest = _manifest_with_id_sets(
+        tmp_path, corpus_sets={"smoke": ["corpus-nope"]}
+    )
+    with pytest.raises(run_benchmark.HarnessError, match="corpus-nope"):
+        run_benchmark.select_smoke(manifest, manifest.corpus, manifest.seeds)
