@@ -62,6 +62,8 @@ steps:
       - 'GOOGLE_GENAI_USE_VERTEXAI=true'
       - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
       - 'GOOGLE_CLOUD_LOCATION=global'
+      - 'PR_NUMBER=$_PR_NUMBER'
+      - 'REPO_NAME=$REPO_FULL_NAME'
     secretEnv: ['GH_TOKEN']
     args:
       - -c
@@ -90,10 +92,10 @@ steps:
           cat "$${latest_report}"
           echo "========================================================"
 
-          if [ -n "${_PR_NUMBER:-}" ] && [ -n "$${GH_TOKEN:-}" ]; then
-            echo "Posting benchmark report to PR #${_PR_NUMBER}..."
-            gh pr comment "${_PR_NUMBER}" \
-              --repo "$${REPO_FULL_NAME:-GoogleChromeLabs/wpt-gen}" \
+          if [ -n "$${PR_NUMBER}" ] && [ -n "$${GH_TOKEN:-}" ]; then
+            echo "Posting benchmark report to PR #$${PR_NUMBER}..."
+            gh pr comment "$${PR_NUMBER}" \
+              --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" \
               --body-file "$${latest_report}" || true
           fi
         fi
