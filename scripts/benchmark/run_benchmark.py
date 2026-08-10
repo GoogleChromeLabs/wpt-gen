@@ -45,7 +45,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -321,6 +321,7 @@ class EntryReport:
     # Source-citation warnings — findings whose `source` cites a doc not on
     # the skill's reading list. Advisory: reported, not scored.
     advisory_notes: list[dict[str, Any]]
+    test_rel_path: str = ""
 
 
 def _consistency_row_to_dict(
@@ -402,6 +403,8 @@ class BenchmarkReport:
     entries: list[dict[str, Any]]
     run_records: list[dict[str, Any]]
     aggregate: dict[str, Any]
+    quality_thresholds: dict[str, Any] | None = None
+    quality_gate_failures: list[str] = field(default_factory=list)
 
 
 def _role_of(entry: BenchmarkEntry) -> str:
@@ -483,6 +486,9 @@ def score_entry(
         golden_score=golden_score_dict,
         consistency_by_outcome=classification_dict,
         advisory_notes=[asdict(n) for n in notes],
+        test_rel_path=(
+            entry.test_rel_path() if hasattr(entry, "test_rel_path") else ""
+        ),
     )
 
 
@@ -603,8 +609,12 @@ def build_report(
     reports: list[EntryReport],
     run_records: list[RunRecord],
     actual_commit: str | None,
+    thresholds: QualityThresholds | None = None,
+    quality_gate_failures: list[str] | None = None,
 ) -> BenchmarkReport:
     provider, model = _resolve_run_model(models)
+    thresholds_dict = asdict(thresholds) if thresholds else None
+    failures = quality_gate_failures or []
     return BenchmarkReport(
         manifest=str(manifest.source_path),
         provider=provider,
@@ -616,6 +626,8 @@ def build_report(
         entries=[asdict(r) for r in reports],
         run_records=[asdict(r) for r in run_records],
         aggregate=_aggregate(reports),
+        quality_thresholds=thresholds_dict,
+        quality_gate_failures=failures,
     )
 
 
@@ -628,15 +640,58 @@ _CONSISTENCY_BUCKETS = [
     ("never", "0.0", "never fires"),
 ]
 
-# Link target for the legend. A repo-relative path so it resolves whether
-# the report is viewed in the repo or alongside it under bench-runs/.
-_README_LEGEND_LINK = "../../benchmarks/README.md#reading-a-benchmark-report"
+# Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
+_README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
+_RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
+
+
+def _escape_md_cell(text: str | None) -> str:
+    """Escapes pipe characters, newlines, and raw HTML in table cells."""
+    if not text:
+        return ""
+    clean = str(text).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    clean = clean.replace("|", r"\|")
+    clean = clean.replace("<", "&lt;").replace(">", "&gt;")
+    return clean.strip()
+
+
+def _entry_source_url(
+    entry: dict[str, Any], pinned_commit: str | None
+) -> str | None:
+    """Generates a permalink for an entry's test file on GitHub."""
+    role = entry.get("role", "")
+    path = entry.get("test_rel_path", "")
+    if not path:
+        return None
+    if role == "seed":
+        seed_name = Path(path).name
+        return f"https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/seeds/{seed_name}"
+    commit = pinned_commit or "master"
+    return f"https://github.com/web-platform-tests/wpt/blob/{commit}/{path}"
+
+
+def _render_executive_banner(report: BenchmarkReport) -> list[str]:
+    """Renders the top-level executive pass/fail badge."""
+    lines: list[str] = []
+    failures = report.quality_gate_failures
+    if failures:
+        lines.append(f"### ❌ FAIL · Quality Gate Regression ({len(failures)})")
+        lines.append("")
+        for f in failures:
+            lines.append(f"- ⚠️ **Gate Breached**: `{f}`")
+        lines.append("")
+    elif report.quality_thresholds and any(
+        v is not None for v in report.quality_thresholds.values()
+    ):
+        lines.append("### ✅ PASS · Quality Gates Satisfied")
+        lines.append("")
+    return lines
 
 
 def _render_legend() -> list[str]:
     """A one-line pointer to the report legend in the README."""
     return [
-        f"> How to read this report: see the [README]({_README_LEGEND_LINK})",
+        f"> 📖 How to read this report: see the [Benchmark Guide]({_README_LEGEND_LINK})",
         "",
     ]
 
@@ -667,23 +722,124 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     agg = report.aggregate
     counts = _entry_counts(report.entries)
     mid = agg["consistency_histogram"]["mid"]
-    lines = ["## Summary", "", "| dataset | metric | value | entries |"]
-    lines.append("| --- | --- | --- | --- |")
+    lines = [
+        "## 📈 Summary",
+        "",
+        "| dataset | what it measures | score / value | target | status |",
+        "| :--- | :--- | :---: | :---: | :---: |",
+    ]
     if counts["seed"]:
+        prec = agg["seed_precision"]
+        rec = agg["seed_recall"]
+        status = "✅ Pass" if rec >= 1.0 else "❌ Regression"
         lines.append(
-            f'| seed | precision / recall | {agg["seed_precision"]} / '
-            f'{agg["seed_recall"]} | {counts["seed"]} |'
+            f"| **`seed`** ({counts['seed']}) | Injected defect detection & false"
+            f" alarms | **{prec}** precision / **{rec}** recall | 1.0 Recall |"
+            f" {status} |"
         )
     if counts["golden"]:
+        g_rec = agg["golden_recall"]
         lines.append(
-            f'| golden | recall | {agg["golden_recall"]} '
-            f'| {counts["golden"]} |'
+            f"| **`golden`** ({counts['golden']}) | Agreement with human reviewer"
+            f" comments | **{g_rec}** recall | Informational | ℹ️ Tracked |"
         )
     if counts["corpus"]:
-        lines.append(
-            f"| corpus | flaky findings (mid) | {mid} "
-            f'| {counts["corpus"]} |'
+        status = (
+            "✅ Clean"
+            if mid == 0
+            else f"⚠️ {mid} Flaky" if mid <= 5 else f"❌ {mid} Flaky"
         )
+        lines.append(
+            f"| **`corpus`** ({counts['corpus']}) | Run-to-run output stability /"
+            f" variance | **{mid}** flaky findings | 0 Flaky | {status} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_action_items(report: BenchmarkReport) -> list[str]:
+    """Constructs actionable troubleshooting steps for regressions, false alarms, and crashes."""
+    lines = ["## 🛠️ Action Items & Diagnosis", ""]
+    items: list[str] = []
+
+    # 1. Subprocess Execution Errors (Crashes or Timeouts)
+    errored_runs = [r for r in report.run_records if r.get("exit_code", 0) != 0]
+    if errored_runs:
+        for r in errored_runs:
+            items.append(
+                f"- 🚨 **Subprocess Execution Error in `{r['entry_id']}` (repeat {r['repeat']})**:\n"
+                f"  - **Exit Code**: `{r['exit_code']}`\n"
+                f"  - **Run Directory**: `{r.get('output_dir', '')}`\n"
+                f"  - **Action**: Check run stderr logs in the output directory for agent tracebacks or timeout failures."
+            )
+
+    # 2. Seed False Negatives (Missed Expected Injected Defects)
+    for entry in report.entries:
+        if entry.get("role") == "seed":
+            outcome = entry.get("consistency_by_outcome") or {}
+            missed = outcome.get("missed_labels", [])
+            for label in missed:
+                url = _entry_source_url(
+                    entry, report.wpt_upstream_commit_expected
+                )
+                test_link = (
+                    f"[`{entry.get('test_rel_path', entry['entry_id'])}`]({url})"
+                    if url
+                    else f"`{entry.get('test_rel_path', entry['entry_id'])}`"
+                )
+                window = (
+                    f"L{label['line_window'][0]}-{label['line_window'][1]}"
+                    if label.get("line_window")
+                    else "file"
+                )
+                items.append(
+                    f"- ❌ **Missed Expected Defect in `{entry['entry_id']}`** ({test_link}):\n"
+                    f"  - **Missed Rule**: `{label['key']}` @ {window}\n"
+                    f"  - **Action**: The evaluator failed to identify this injected defect. Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or inspect agent thoughts in `runs/{entry['entry_id']}/rep-1/`."
+                )
+
+    # 3. Seed False Positives (False Alarms on Clean Seeds)
+    for entry in report.entries:
+        if entry.get("role") == "seed":
+            ss = entry.get("seed_score") or {}
+            if ss.get("false_positives", 0) > 0:
+                outcome = entry.get("consistency_by_outcome") or {}
+                fps = outcome.get("false_positives", [])
+                for fp in fps:
+                    url = _entry_source_url(
+                        entry, report.wpt_upstream_commit_expected
+                    )
+                    test_link = (
+                        f"[`{entry.get('test_rel_path', entry['entry_id'])}`]({url})"
+                        if url
+                        else f"`{entry.get('test_rel_path', entry['entry_id'])}`"
+                    )
+                    bucket = (
+                        f"L{fp['line_bucket'][0]}-{fp['line_bucket'][1]}"
+                        if fp.get("line_bucket")
+                        else "file"
+                    )
+                    items.append(
+                        f"- ⚠️ **False Alarm on Test in `{entry['entry_id']}`** ({test_link}):\n"
+                        f"  - **Triggered Rule**: `{fp['key']}` @ {bucket} (fired {fp['firings']}/{fp['repeats']} times)\n"
+                        f"  - **Action**: The evaluator flagged acceptable code. The rule prompt in [rules.yaml]({_RULES_DOC_LINK}) may be overly strict; consider adding negative exceptions."
+                    )
+
+    # 4. Flaky Consistency Notice (Mid-zone)
+    mid_count = report.aggregate["consistency_histogram"].get("mid", 0)
+    if mid_count > 0:
+        items.append(
+            f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing zone)**:\n"
+            f"  - **Action**: Findings in the mid bucket produced inconsistent verdicts across repeat runs. Consider refining rule wording in `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
+        )
+
+    if not items:
+        lines.append(
+            "✅ **No regressions or execution issues detected.** All quality gates"
+            " satisfied and seeds evaluated as expected."
+        )
+    else:
+        lines.extend(items)
     lines.append("")
     return lines
 
@@ -694,13 +850,16 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     lines: list[str] = []
     lines.append("# WPT evaluator benchmark report")
     lines.append("")
+
+    lines.extend(_render_executive_banner(report))
+
     model = report.model or "unknown"
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
-        f'- **Scope**: {counts["seed"]} seed, {counts["golden"]} golden, '
-        f'{counts["corpus"]} corpus · {report.repeats} repeats'
+        f"- **Scope**: {counts['seed']} seed, {counts['golden']} golden,"
+        f" {counts['corpus']} corpus · {report.repeats} repeats"
     )
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
@@ -717,46 +876,60 @@ def render_report_markdown(report: BenchmarkReport) -> str:
 
     lines.extend(_render_summary(report))
 
+    lines.extend(_render_action_items(report))
+
     # Golden unmatched + advisory are not in the summary (neither is scored);
     # surface them as a compact caveat line so they are not lost.
     caveats = []
     if agg["golden_unmatched_predictions"]:
         caveats.append(
-            f'{agg["golden_unmatched_predictions"]} golden unmatched '
-            "(not charged)"
+            f"{agg['golden_unmatched_predictions']} golden unmatched (not charged)"
         )
     if agg["advisory_notes"]:
-        caveats.append(f'{agg["advisory_notes"]} advisory note(s)')
+        caveats.append(f"{agg['advisory_notes']} advisory note(s)")
     if caveats:
         lines.append("_" + "; ".join(caveats) + "._")
         lines.append("")
 
     lines.extend(_render_consistency_table(agg["consistency_histogram"]))
 
+    lines.append("<details>")
+    lines.append(
+        f"<summary><b>🔍 Detailed Per-Entry Breakdown ({len(report.entries)}"
+        " entries)</b></summary>"
+    )
+    lines.append("")
     lines.append("## Per entry")
     lines.append("")
     for entry in report.entries:
-        lines.extend(_render_entry(entry))
+        lines.extend(_render_entry(entry, report.wpt_upstream_commit_expected))
+    lines.append("</details>")
+    lines.append("")
 
     return "\n".join(lines) + "\n"
 
 
-def _render_entry(entry: dict[str, Any]) -> list[str]:
+def _render_entry(
+    entry: dict[str, Any], pinned_commit: str | None = None
+) -> list[str]:
     """One entry's heading, score line, and finding tables."""
-    lines = [f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})', ""]
+    url = _entry_source_url(entry, pinned_commit)
+    title_link = (
+        f"[`{entry['entry_id']}`]({url})" if url else f"`{entry['entry_id']}`"
+    )
+    lines = [f"### {title_link} ({entry['role']}/{entry['kind']})", ""]
     if entry["seed_score"]:
         ss = entry["seed_score"]
         lines.append(
-            f'- Seed: precision {ss["precision"]}, recall {ss["recall"]} '
-            f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
-            f'FN {ss["false_negatives"]})'
+            f"- Seed: precision {ss['precision']}, recall {ss['recall']} (TP"
+            f" {ss['true_positives']}, FP {ss['false_positives']}, FN"
+            f" {ss['false_negatives']})"
         )
     if entry["golden_score"]:
         gs = entry["golden_score"]
         lines.append(
-            f'- Golden: recall {gs["recall"]} '
-            f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
-            f'unmatched {gs["unmatched_predictions"]})'
+            f"- Golden: recall {gs['recall']} (TP {gs['true_positives']}, FN"
+            f" {gs['false_negatives']}, unmatched {gs['unmatched_predictions']})"
         )
     lines.append("")
     lines.extend(_render_entry_consistency(entry))
@@ -788,7 +961,8 @@ def _finding_table(rows: list[dict[str, Any]]) -> list[str]:
         "| --- | --- | --- | --- |",
     ]
     for row in rows:
-        title = row.get("title") or row["key"].rsplit("/", 1)[-1]
+        raw_title = row.get("title") or row["key"].rsplit("/", 1)[-1]
+        title = _escape_md_cell(raw_title)
         source = f'`{row["key"]}` @ {_bucket_label(row)}'
         rate = f'{row["firings"]}/{row["repeats"]} ({row["rate"]})'
         lines.append(f"| {title} | {source} | {rate} | {_warnings_cell(row)} |")
@@ -1208,6 +1382,15 @@ def main(argv: list[str] | None = None) -> int:
         if staged:
             unstage(args.wpt_dir)
 
+    thresholds = QualityThresholds(
+        min_precision=args.min_precision,
+        min_recall=args.min_recall,
+        min_golden_recall=args.min_golden_recall,
+        max_fn=args.max_fn,
+    )
+    agg = _aggregate(reports)
+    failures = check_quality_gates(agg, thresholds)
+
     report = build_report(
         manifest=manifest,
         models=models,
@@ -1216,21 +1399,12 @@ def main(argv: list[str] | None = None) -> int:
         reports=reports,
         run_records=run_records,
         actual_commit=actual_commit,
+        thresholds=thresholds,
+        quality_gate_failures=failures,
     )
     write_reports(args.out, report)
     sys.stderr.write(f'wrote {args.out / "report.md"}\n')
 
-    # Gate the exit code only after reports are on disk, so CI can publish the
-    # full table even on a failing run.
-    failures = check_quality_gates(
-        report.aggregate,
-        QualityThresholds(
-            min_precision=args.min_precision,
-            min_recall=args.min_recall,
-            min_golden_recall=args.min_golden_recall,
-            max_fn=args.max_fn,
-        ),
-    )
     if failures:
         sys.stderr.write("quality gate failed:\n")
         for failure in failures:
