@@ -63,6 +63,8 @@ steps:
       - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
       - 'GOOGLE_CLOUD_LOCATION=global'
       - 'PR_NUMBER=$_PR_NUMBER'
+      - 'HEAD_BRANCH=$_HEAD_BRANCH'
+      - 'BRANCH_NAME=$BRANCH_NAME'
       - 'REPO_NAME=$REPO_FULL_NAME'
     secretEnv: ['GH_TOKEN']
     args:
@@ -92,9 +94,10 @@ steps:
           cat "$${latest_report}"
           echo "========================================================"
 
-          if [ -n "$${PR_NUMBER}" ] && [ -n "$${GH_TOKEN:-}" ]; then
-            echo "Posting benchmark report to PR #$${PR_NUMBER}..."
-            gh pr comment "$${PR_NUMBER}" \
+          pr_target="$${PR_NUMBER:-$${HEAD_BRANCH:-$${BRANCH_NAME}}}"
+          if [ -n "$${pr_target}" ] && [ "$${pr_target}" != "main" ] && [ -n "$${GH_TOKEN:-}" ]; then
+            echo "Posting benchmark report to PR ($${pr_target})..."
+            gh pr comment "$${pr_target}" \
               --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" \
               --body-file "$${latest_report}" || true
           fi
