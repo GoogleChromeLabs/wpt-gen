@@ -85,9 +85,10 @@ steps:
 
 # Agent calls are slow; cap the build rather than let it hang. The release tier
 # (~240 runs) can approach this; drop it for the smaller regression tier.
-timeout: 7200s
+timeout: 14400s
 
 options:
+  machineType: 'E2_HIGHCPU_8'
   logging: CLOUD_LOGGING_ONLY
 
 
