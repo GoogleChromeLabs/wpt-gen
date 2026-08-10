@@ -26,7 +26,7 @@
 #
 # Substitutions:
 #   _PROVIDER    provider to evaluate with (blank = config default)
-#   _JOBS        concurrent evaluator runs (default: 2)
+#   _JOBS        concurrent evaluator runs (default: 8)
 #   _REPEATS     repeats per entry (default: 3 for regression, 8 for release)
 #   _SELECT      entry selection (default: `--smoke` for PRs; blank for full manifest)
 #   _MIN_RECALL  seed-recall gate (default: `1.0` for regression; blank for release)
@@ -34,7 +34,7 @@
 #                benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
-  _JOBS: '2'
+  _JOBS: '8'
   _REPEATS: '3'
   _SELECT: '--smoke'
   _MIN_RECALL: '1.0'
@@ -64,10 +64,13 @@ steps:
     args:
       - -c
       - |
-        set -euo pipefail
+        set -uo pipefail
         apt-get update && apt-get install -y --no-install-recommends git
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
+
+        # Run benchmark and capture exit code so the report is always output
+        set +e
         python scripts/benchmark/run_benchmark.py \
           --manifest benchmarks/manifest.yaml \
           --wpt-dir /workspace/wpt \
@@ -76,12 +79,17 @@ steps:
           ${_SELECT} \
           ${_PROVIDER:+--provider "${_PROVIDER}"} \
           ${_MIN_RECALL:+--min-recall "${_MIN_RECALL}"}
-        latest_report=$$(find bench-runs -name "report.md" | head -n 1)
+        bench_status=$$?
+        set -e
+
+        latest_report=$$(find bench-runs -name "report.md" 2>/dev/null | sort -r | head -n 1)
         if [ -n "$${latest_report}" ] && [ -f "$${latest_report}" ]; then
           echo "=================== BENCHMARK REPORT ==================="
           cat "$${latest_report}"
           echo "========================================================"
         fi
+
+        exit "$${bench_status}"
 
 # Agent calls are slow; cap the build rather than let it hang. The release tier
 # (~240 runs) can approach this; drop it for the smaller regression tier.
