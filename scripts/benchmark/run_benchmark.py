@@ -47,6 +47,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -407,13 +408,31 @@ class BenchmarkReport:
     quality_gate_failures: list[str] = field(default_factory=list)
 
 
-def _role_of(entry: BenchmarkEntry) -> str:
+class EntryRole(StrEnum):
+    """The dataset role of a benchmark entry."""
+
+    SEED = "seed"
+    GOLDEN = "golden"
+    CORPUS = "corpus"
+
+
+class ConsistencyBucket(StrEnum):
+    """Consistency histogram bucket categories."""
+
+    ALWAYS = "always"
+    HIGH = "high"
+    MID = "mid"
+    LOW = "low"
+    NEVER = "never"
+
+
+def _role_of(entry: BenchmarkEntry) -> EntryRole:
     """The role label ("seed" | "golden" | "corpus") for report metadata."""
     if isinstance(entry, SeedEntry):
-        return "seed"
+        return EntryRole.SEED
     if isinstance(entry, GoldenEntry):
-        return "golden"
-    return "corpus"
+        return EntryRole.GOLDEN
+    return EntryRole.CORPUS
 
 
 def score_all(
@@ -632,13 +651,13 @@ def build_report(
 
 
 # Firing-rate buckets, ordered best-to-worst: (name, rate, short meaning).
-_CONSISTENCY_BUCKETS = [
-    ("always", "1.0", "fires every repeat - trustworthy"),
-    ("high", "≥0.75", "usually fires"),
-    ("mid", "0.25–0.75", "flaky zone"),
-    ("low", ">0", "rarely fires"),
-    ("never", "0.0", "never fires"),
-]
+_CONSISTENCY_BUCKETS: tuple[tuple[ConsistencyBucket, str, str], ...] = (
+    (ConsistencyBucket.ALWAYS, "1.0", "fires every repeat - trustworthy"),
+    (ConsistencyBucket.HIGH, "≥0.75", "usually fires"),
+    (ConsistencyBucket.MID, "0.25–0.75", "flaky zone"),
+    (ConsistencyBucket.LOW, ">0", "rarely fires"),
+    (ConsistencyBucket.NEVER, "0.0", "never fires"),
+)
 
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
@@ -663,7 +682,7 @@ def _entry_source_url(
     path = entry.get("test_rel_path", "")
     if not path:
         return None
-    if role == "seed":
+    if role == EntryRole.SEED:
         seed_name = Path(path).name
         return f"https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/seeds/{seed_name}"
     commit = pinned_commit or "master"
@@ -704,16 +723,19 @@ def _render_consistency_table(hist: dict[str, int]) -> list[str]:
     lines.append("| bucket | firing rate | count | meaning |")
     lines.append("| --- | --- | --- | --- |")
     for name, rate, meaning in _CONSISTENCY_BUCKETS:
-        lines.append(f"| {name} | {rate} | {hist[name]} | {meaning} |")
+        lines.append(
+            f"| {name.value} | {rate} | {hist[name.value]} | {meaning} |"
+        )
     lines.append("")
     return lines
 
 
-def _entry_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+def _entry_counts(entries: list[dict[str, Any]]) -> dict[EntryRole, int]:
     """Entry count per role."""
-    counts = {"seed": 0, "golden": 0, "corpus": 0}
+    counts = {EntryRole.SEED: 0, EntryRole.GOLDEN: 0, EntryRole.CORPUS: 0}
     for entry in entries:
-        counts[entry["role"]] = counts.get(entry["role"], 0) + 1
+        role = EntryRole(entry["role"])
+        counts[role] = counts.get(role, 0) + 1
     return counts
 
 
@@ -721,36 +743,36 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     """Per-dataset headline table: one row per dataset that has entries."""
     agg = report.aggregate
     counts = _entry_counts(report.entries)
-    mid = agg["consistency_histogram"]["mid"]
+    mid = agg["consistency_histogram"][ConsistencyBucket.MID]
     lines = [
         "## 📈 Summary",
         "",
         "| dataset | what it measures | score / value | target | status |",
         "| :--- | :--- | :---: | :---: | :---: |",
     ]
-    if counts["seed"]:
+    if counts[EntryRole.SEED]:
         prec = agg["seed_precision"]
         rec = agg["seed_recall"]
         status = "✅ Pass" if rec >= 1.0 else "❌ Regression"
         lines.append(
-            f"| **`seed`** ({counts['seed']}) | Injected defect detection & false"
+            f"| **`seed`** ({counts[EntryRole.SEED]}) | Injected defect detection & false"
             f" alarms | **{prec}** precision / **{rec}** recall | 1.0 Recall |"
             f" {status} |"
         )
-    if counts["golden"]:
+    if counts[EntryRole.GOLDEN]:
         g_rec = agg["golden_recall"]
         lines.append(
-            f"| **`golden`** ({counts['golden']}) | Agreement with human reviewer"
+            f"| **`golden`** ({counts[EntryRole.GOLDEN]}) | Agreement with human reviewer"
             f" comments | **{g_rec}** recall | Informational | ℹ️ Tracked |"
         )
-    if counts["corpus"]:
+    if counts[EntryRole.CORPUS]:
         status = (
             "✅ Clean"
             if mid == 0
             else f"⚠️ {mid} Flaky" if mid <= 5 else f"❌ {mid} Flaky"
         )
         lines.append(
-            f"| **`corpus`** ({counts['corpus']}) | Run-to-run output stability /"
+            f"| **`corpus`** ({counts[EntryRole.CORPUS]}) | Run-to-run output stability /"
             f" variance | **{mid}** flaky findings | 0 Flaky | {status} |"
         )
     lines.append("")
@@ -775,7 +797,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
 
     # 2. Seed False Negatives (Missed Expected Injected Defects)
     for entry in report.entries:
-        if entry.get("role") == "seed":
+        if entry.get("role") == EntryRole.SEED:
             outcome = entry.get("consistency_by_outcome") or {}
             missed = outcome.get("missed_labels", [])
             for label in missed:
@@ -800,7 +822,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
 
     # 3. Seed False Positives (False Alarms on Clean Seeds)
     for entry in report.entries:
-        if entry.get("role") == "seed":
+        if entry.get("role") == EntryRole.SEED:
             ss = entry.get("seed_score") or {}
             if ss.get("false_positives", 0) > 0:
                 outcome = entry.get("consistency_by_outcome") or {}
@@ -826,7 +848,9 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                     )
 
     # 4. Flaky Consistency Notice (Mid-zone)
-    mid_count = report.aggregate["consistency_histogram"].get("mid", 0)
+    mid_count = report.aggregate["consistency_histogram"].get(
+        ConsistencyBucket.MID, 0
+    )
     if mid_count > 0:
         items.append(
             f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing zone)**:\n"
@@ -858,8 +882,8 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     counts = _entry_counts(report.entries)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
-        f"- **Scope**: {counts['seed']} seed, {counts['golden']} golden,"
-        f" {counts['corpus']} corpus · {report.repeats} repeats"
+        f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
+        f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
     )
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
