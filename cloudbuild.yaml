@@ -77,14 +77,23 @@ steps:
 
         # Run benchmark and capture exit code so the report is always output
         set +e
+        provider_arg=""
+        if [ -n "${_PROVIDER}" ]; then
+          provider_arg="--provider ${_PROVIDER}"
+        fi
+        recall_arg=""
+        if [ -n "${_MIN_RECALL}" ]; then
+          recall_arg="--min-recall ${_MIN_RECALL}"
+        fi
+
         python scripts/benchmark/run_benchmark.py \
           --manifest benchmarks/manifest.yaml \
           --wpt-dir /workspace/wpt \
           --jobs "${_JOBS}" \
           --repeats "${_REPEATS}" \
           ${_SELECT} \
-          ${_PROVIDER:+--provider "${_PROVIDER}"} \
-          ${_MIN_RECALL:+--min-recall "${_MIN_RECALL}"}
+          $${provider_arg} \
+          $${recall_arg}
         bench_status=$$?
         set -e
 
