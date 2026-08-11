@@ -45,7 +45,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -405,7 +405,7 @@ class BenchmarkReport:
     run_records: list[dict[str, Any]]
     aggregate: dict[str, Any]
     quality_thresholds: dict[str, Any] | None = None
-    quality_gate_failures: list[str] = field(default_factory=list)
+    quality_gate_failures: tuple[str, ...] = ()
 
 
 class EntryRole(StrEnum):
@@ -629,11 +629,11 @@ def build_report(
     run_records: list[RunRecord],
     actual_commit: str | None,
     thresholds: QualityThresholds | None = None,
-    quality_gate_failures: list[str] | None = None,
+    quality_gate_failures: list[str] | tuple[str, ...] | None = None,
 ) -> BenchmarkReport:
     provider, model = _resolve_run_model(models)
     thresholds_dict = asdict(thresholds) if thresholds else None
-    failures = quality_gate_failures or []
+    failures = tuple(quality_gate_failures) if quality_gate_failures else ()
     return BenchmarkReport(
         manifest=str(manifest.source_path),
         provider=provider,
@@ -779,45 +779,102 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     return lines
 
 
+# --- Action item diagnostic templates ---------------------------------------
+
+
+def _format_error_diagnostic(
+    entry_id: str, repeat: int, exit_code: int, output_dir: str
+) -> str:
+    return (
+        f"- 🚨 **Subprocess Execution Error in `{entry_id}` (repeat {repeat})**:\n"
+        f"  - **Exit Code**: `{exit_code}`\n"
+        f"  - **Run Directory**: `{output_dir}`\n"
+        "  - **Action**: Check run stderr logs in the output directory for agent"
+        " tracebacks or timeout failures."
+    )
+
+
+def _format_missed_defect_diagnostic(
+    entry_id: str, test_link: str, rule_key: str, window: str
+) -> str:
+    return (
+        f"- ❌ **Missed Expected Defect in `{entry_id}`** ({test_link}):\n"
+        f"  - **Missed Rule**: `{rule_key}` @ {window}\n"
+        "  - **Action**: The evaluator failed to identify this injected defect."
+        f" Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or inspect"
+        f" agent thoughts in `runs/{entry_id}/rep-1/`."
+    )
+
+
+def _format_false_alarm_diagnostic(
+    entry_id: str,
+    test_link: str,
+    rule_key: str,
+    bucket: str,
+    firings: int,
+    repeats: int,
+) -> str:
+    return (
+        f"- ⚠️ **False Alarm on Test in `{entry_id}`** ({test_link}):\n"
+        f"  - **Triggered Rule**: `{rule_key}` @ {bucket} (fired"
+        f" {firings}/{repeats} times)\n"
+        "  - **Action**: The evaluator flagged acceptable code. The rule prompt"
+        f" in [rules.yaml]({_RULES_DOC_LINK}) may be overly strict; consider"
+        " adding negative exceptions."
+    )
+
+
+def _format_flaky_diagnostic(mid_count: int) -> str:
+    return (
+        f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing"
+        " zone)**:\n"
+        "  - **Action**: Findings in the mid bucket produced inconsistent"
+        " verdicts across repeat runs. Consider refining rule wording in"
+        " `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
+    )
+
+
 def _render_action_items(report: BenchmarkReport) -> list[str]:
     """Constructs actionable troubleshooting steps for regressions, false alarms, and crashes."""
     lines = ["## 🛠️ Action Items & Diagnosis", ""]
     items: list[str] = []
 
     # 1. Subprocess Execution Errors (Crashes or Timeouts)
-    errored_runs = [r for r in report.run_records if r.get("exit_code", 0) != 0]
-    if errored_runs:
-        for r in errored_runs:
+    for r in report.run_records:
+        if r.get("exit_code", 0) != 0:
             items.append(
-                f"- 🚨 **Subprocess Execution Error in `{r['entry_id']}` (repeat {r['repeat']})**:\n"
-                f"  - **Exit Code**: `{r['exit_code']}`\n"
-                f"  - **Run Directory**: `{r.get('output_dir', '')}`\n"
-                f"  - **Action**: Check run stderr logs in the output directory for agent tracebacks or timeout failures."
+                _format_error_diagnostic(
+                    entry_id=str(r.get("entry_id", "")),
+                    repeat=int(r.get("repeat", 0)),
+                    exit_code=int(r.get("exit_code", 0)),
+                    output_dir=str(r.get("output_dir", "")),
+                )
             )
 
     # 2. Seed False Negatives (Missed Expected Injected Defects)
     for entry in report.entries:
         if entry.get("role") == EntryRole.SEED:
             outcome = entry.get("consistency_by_outcome") or {}
-            missed = outcome.get("missed_labels", [])
-            for label in missed:
+            for label in outcome.get("missed_labels", []):
                 url = _entry_source_url(
                     entry, report.wpt_upstream_commit_expected
                 )
-                test_link = (
-                    f"[`{entry.get('test_rel_path', entry['entry_id'])}`]({url})"
-                    if url
-                    else f"`{entry.get('test_rel_path', entry['entry_id'])}`"
+                path = str(
+                    entry.get("test_rel_path", entry.get("entry_id", ""))
                 )
+                test_link = f"[`{path}`]({url})" if url else f"`{path}`"
                 window = (
                     f"L{label['line_window'][0]}-{label['line_window'][1]}"
                     if label.get("line_window")
                     else "file"
                 )
                 items.append(
-                    f"- ❌ **Missed Expected Defect in `{entry['entry_id']}`** ({test_link}):\n"
-                    f"  - **Missed Rule**: `{label['key']}` @ {window}\n"
-                    f"  - **Action**: The evaluator failed to identify this injected defect. Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or inspect agent thoughts in `runs/{entry['entry_id']}/rep-1/`."
+                    _format_missed_defect_diagnostic(
+                        entry_id=str(entry.get("entry_id", "")),
+                        test_link=test_link,
+                        rule_key=str(label.get("key", "")),
+                        window=window,
+                    )
                 )
 
     # 3. Seed False Positives (False Alarms on Clean Seeds)
@@ -826,25 +883,28 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
             ss = entry.get("seed_score") or {}
             if ss.get("false_positives", 0) > 0:
                 outcome = entry.get("consistency_by_outcome") or {}
-                fps = outcome.get("false_positives", [])
-                for fp in fps:
+                for fp in outcome.get("false_positives", []):
                     url = _entry_source_url(
                         entry, report.wpt_upstream_commit_expected
                     )
-                    test_link = (
-                        f"[`{entry.get('test_rel_path', entry['entry_id'])}`]({url})"
-                        if url
-                        else f"`{entry.get('test_rel_path', entry['entry_id'])}`"
+                    path = str(
+                        entry.get("test_rel_path", entry.get("entry_id", ""))
                     )
+                    test_link = f"[`{path}`]({url})" if url else f"`{path}`"
                     bucket = (
                         f"L{fp['line_bucket'][0]}-{fp['line_bucket'][1]}"
                         if fp.get("line_bucket")
                         else "file"
                     )
                     items.append(
-                        f"- ⚠️ **False Alarm on Test in `{entry['entry_id']}`** ({test_link}):\n"
-                        f"  - **Triggered Rule**: `{fp['key']}` @ {bucket} (fired {fp['firings']}/{fp['repeats']} times)\n"
-                        f"  - **Action**: The evaluator flagged acceptable code. The rule prompt in [rules.yaml]({_RULES_DOC_LINK}) may be overly strict; consider adding negative exceptions."
+                        _format_false_alarm_diagnostic(
+                            entry_id=str(entry.get("entry_id", "")),
+                            test_link=test_link,
+                            rule_key=str(fp.get("key", "")),
+                            bucket=bucket,
+                            firings=int(fp.get("firings", 0)),
+                            repeats=int(fp.get("repeats", 0)),
+                        )
                     )
 
     # 4. Flaky Consistency Notice (Mid-zone)
@@ -852,10 +912,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
         ConsistencyBucket.MID, 0
     )
     if mid_count > 0:
-        items.append(
-            f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing zone)**:\n"
-            f"  - **Action**: Findings in the mid bucket produced inconsistent verdicts across repeat runs. Consider refining rule wording in `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
-        )
+        items.append(_format_flaky_diagnostic(mid_count))
 
     if not items:
         lines.append(

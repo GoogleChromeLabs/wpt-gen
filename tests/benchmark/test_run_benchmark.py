@@ -1122,7 +1122,9 @@ def _bench_report(
         run_records=run_records or [],
         aggregate=aggregate,
         quality_thresholds=quality_thresholds,
-        quality_gate_failures=quality_gate_failures or [],
+        quality_gate_failures=(
+            tuple(quality_gate_failures) if quality_gate_failures else ()
+        ),
     )
 
 
