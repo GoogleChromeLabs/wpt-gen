@@ -1109,6 +1109,7 @@ def _bench_report(
     quality_thresholds: dict[str, Any] | None = None,
     quality_gate_failures: list[str] | None = None,
     run_records: list[dict[str, Any]] | None = None,
+    repo_commit_sha: str | None = None,
 ) -> Any:
     return run_benchmark.BenchmarkReport(
         manifest="m.yaml",
@@ -1125,6 +1126,7 @@ def _bench_report(
         quality_gate_failures=(
             tuple(quality_gate_failures) if quality_gate_failures else ()
         ),
+        repo_commit_sha=repo_commit_sha,
     )
 
 
@@ -1328,6 +1330,19 @@ def test_render_legend_is_collapsible() -> None:
     assert "* **`corpus`**:" in md
     assert "* **`always` (1.0)**:" in md
     assert "</details>" in md
+
+
+def test_render_report_markdown_includes_evaluated_commit() -> None:
+    rep = _bench_report(
+        entries=[],
+        aggregate={"consistency_histogram": {"mid": 0}},
+        repo_commit_sha="b5488ba5b588b4a773af28e9f3391434661b4fbb",
+    )
+    md = run_benchmark.render_report_markdown(rep)
+    assert (
+        "- **Evaluated Commit**: [`b5488ba`](https://github.com/GoogleChromeLabs/wpt-gen/commit/b5488ba5b588b4a773af28e9f3391434661b4fbb)"
+        in md
+    )
 
 
 def test_progress_start_prints_atomic_line(

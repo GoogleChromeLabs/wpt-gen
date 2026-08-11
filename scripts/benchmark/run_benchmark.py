@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -406,6 +407,7 @@ class BenchmarkReport:
     aggregate: dict[str, Any]
     quality_thresholds: dict[str, Any] | None = None
     quality_gate_failures: tuple[str, ...] = ()
+    repo_commit_sha: str | None = None
 
 
 class EntryRole(StrEnum):
@@ -620,6 +622,26 @@ def _resolve_run_model(
     )
 
 
+def _resolve_repo_commit(repo_dir: Path | None = None) -> str | None:
+    """Resolves the current repository git commit SHA."""
+    sha = os.environ.get("COMMIT_SHA")
+    if sha and sha.strip():
+        return sha.strip()
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_dir or Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def build_report(
     manifest: Manifest,
     models: set[tuple[str, str]],
@@ -630,10 +652,12 @@ def build_report(
     actual_commit: str | None,
     thresholds: QualityThresholds | None = None,
     quality_gate_failures: list[str] | tuple[str, ...] | None = None,
+    repo_commit_sha: str | None = None,
 ) -> BenchmarkReport:
     provider, model = _resolve_run_model(models)
     thresholds_dict = asdict(thresholds) if thresholds else None
     failures = tuple(quality_gate_failures) if quality_gate_failures else ()
+    commit_sha = repo_commit_sha or _resolve_repo_commit()
     return BenchmarkReport(
         manifest=str(manifest.source_path),
         provider=provider,
@@ -647,6 +671,7 @@ def build_report(
         aggregate=_aggregate(reports),
         quality_thresholds=thresholds_dict,
         quality_gate_failures=failures,
+        repo_commit_sha=commit_sha,
     )
 
 
@@ -774,7 +799,7 @@ def _render_consistency_table(hist: dict[str, int]) -> list[str]:
     lines.append("| --- | --- | --- | --- |")
     for name, rate, meaning in _CONSISTENCY_BUCKETS:
         lines.append(
-            f"| {name.value} | {rate} | {hist[name.value]} | {meaning} |"
+            f"| {name.value} | {rate} | {hist.get(name.value, 0)} | {meaning} |"
         )
     lines.append("")
     return lines
@@ -1052,6 +1077,13 @@ def render_report_markdown(report: BenchmarkReport) -> str:
         f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
         f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
     )
+    if report.repo_commit_sha:
+        sha = report.repo_commit_sha
+        short_sha = sha[:7]
+        commit_link = (
+            f"https://github.com/GoogleChromeLabs/wpt-gen/commit/{sha}"
+        )
+        lines.append(f"- **Evaluated Commit**: [`{short_sha}`]({commit_link})")
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
     if report.wpt_upstream_commit_expected:
@@ -1072,11 +1104,11 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     # Golden unmatched + advisory are not in the summary (neither is scored);
     # surface them as a compact caveat line so they are not lost.
     caveats = []
-    if agg["golden_unmatched_predictions"]:
+    if agg.get("golden_unmatched_predictions"):
         caveats.append(
             f"{agg['golden_unmatched_predictions']} golden unmatched (not charged)"
         )
-    if agg["advisory_notes"]:
+    if agg.get("advisory_notes"):
         caveats.append(f"{agg['advisory_notes']} advisory note(s)")
     if caveats:
         lines.append("_" + "; ".join(caveats) + "._")
