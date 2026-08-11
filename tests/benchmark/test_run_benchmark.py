@@ -1250,6 +1250,15 @@ def test_render_action_items() -> None:
                 "entry_id": "seed-fail",
                 "test_rel_path": "wpt-gen-bench/seed-fail.html",
                 "seed_score": {"false_positives": 1},
+                "consistency": [
+                    {
+                        "key": "FLAKY-001",
+                        "line_bucket": [12, 12],
+                        "firings": 1,
+                        "repeats": 3,
+                        "rate": 0.3333,
+                    }
+                ],
                 "consistency_by_outcome": {
                     "missed_labels": [
                         {"key": "CHECKLIST-004", "line_window": [10, 20]}
@@ -1263,9 +1272,19 @@ def test_render_action_items() -> None:
                         }
                     ],
                 },
-            }
+            },
+            {
+                "role": "golden",
+                "entry_id": "golden-fail",
+                "test_rel_path": "wpt-gen-bench/golden-fail.html",
+                "consistency_by_outcome": {
+                    "missed_labels": [
+                        {"key": "GOLDEN-RULE-001", "line_window": [30, 35]}
+                    ]
+                },
+            },
         ],
-        aggregate={"consistency_histogram": {"mid": 3}},
+        aggregate={"consistency_histogram": {"mid": 1}},
         run_records=[
             {
                 "entry_id": "seed-fail",
@@ -1277,14 +1296,38 @@ def test_render_action_items() -> None:
     )
     faulty_md = "\n".join(run_benchmark._render_action_items(faulty_report))
     assert "🚨 **Subprocess Execution Error in `seed-fail`" in faulty_md
-    assert "❌ **Missed Expected Defect in `seed-fail`" in faulty_md
+    assert "❌ **Missed Expected Injected Defect in `seed-fail`" in faulty_md
     assert "CHECKLIST-004" in faulty_md
+    assert (
+        "❌ **Missed Expected Human Reviewer Defect in `golden-fail`"
+        in faulty_md
+    )
+    assert "GOLDEN-RULE-001" in faulty_md
     assert "⚠️ **False Alarm on Test in `seed-fail`" in faulty_md
     assert "CHECKLIST-010" in faulty_md
     assert (
-        "ℹ️ **Flaky Findings Detected (3 in the 25–75% firing zone)**"
+        "ℹ️ **Flaky Findings Detected (1 in the 25–75% firing zone)**"
         in faulty_md
     )
+    assert (
+        "`seed-fail`: `FLAKY-001` @ L12-12 (1/3 firings, rate 0.33)"
+        in faulty_md
+    )
+    assert "💡 **Quick Triage Tip**" in faulty_md
+
+
+def test_render_legend_is_collapsible() -> None:
+    lines = run_benchmark._render_legend()
+    md = "\n".join(lines)
+    assert "<details>" in md
+    assert (
+        "<summary><b>📖 How to Read & Interpret This Report</b></summary>" in md
+    )
+    assert "* **`seed`**:" in md
+    assert "* **`golden`**:" in md
+    assert "* **`corpus`**:" in md
+    assert "* **`always` (1.0)**:" in md
+    assert "</details>" in md
 
 
 def test_progress_start_prints_atomic_line(

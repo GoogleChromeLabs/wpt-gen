@@ -708,9 +708,59 @@ def _render_executive_banner(report: BenchmarkReport) -> list[str]:
 
 
 def _render_legend() -> list[str]:
-    """A one-line pointer to the report legend in the README."""
+    """A collapsible guide explaining how to interpret metrics, datasets, and consistency buckets."""
     return [
-        f"> 📖 How to read this report: see the [Benchmark Guide]({_README_LEGEND_LINK})",
+        "<details>",
+        "<summary><b>📖 How to Read & Interpret This Report</b></summary>",
+        "",
+        "### Metrics & Dataset Roles",
+        (
+            "* **`seed`**: Unit tests with intentional bugs injected (`expect:"
+            " [...]`) or clean baseline tests (`expect: []`)."
+        ),
+        (
+            "  * **Precision**: Measures false alarms (1.0 = zero spurious"
+            " findings on clean code)."
+        ),
+        (
+            "  * **Recall**: Measures bug detection (1.0 = caught 100% of"
+            " injected defects)."
+        ),
+        (
+            "* **`golden`**: Real-world WPT test files paired with human"
+            " reviewer comments on historical PRs."
+        ),
+        (
+            "  * **Recall**: Measures agreement with human reviewers"
+            " (informational trend metric)."
+        ),
+        (
+            "* **`corpus`**: Unlabeled real-world WPT test files run across"
+            " multiple repeats."
+        ),
+        (
+            "  * **Stability / Flakiness**: Measures variance across repeat"
+            " runs (target: 0 flaky findings in the 25–75% mid zone)."
+        ),
+        "",
+        "### Consistency Buckets (Firing Rates across Repeats)",
+        (
+            "* **`always` (1.0)**: Fires every repeat — deterministic and"
+            " reliable."
+        ),
+        "* **`high` (≥0.75)**: Usually fires.",
+        (
+            "* **`mid` (0.25–0.75)**: **Flaky zone** — ambiguous rule prompts"
+            " or borderline code patterns."
+        ),
+        "* **`low` (>0)**: Rarely fires — stochastic noise.",
+        "* **`never` (0.0)**: Never fires across repeat runs.",
+        "",
+        (
+            f"For detailed information, see the full [Benchmark"
+            f" Guide]({_README_LEGEND_LINK})."
+        ),
+        "</details>",
         "",
     ]
 
@@ -795,14 +845,26 @@ def _format_error_diagnostic(
 
 
 def _format_missed_defect_diagnostic(
-    entry_id: str, test_link: str, rule_key: str, window: str
+    entry_id: str,
+    test_link: str,
+    rule_key: str,
+    window: str,
+    role: EntryRole | str,
 ) -> str:
+    defect_type = (
+        "Injected Defect" if role == EntryRole.SEED else "Human Reviewer Defect"
+    )
+    source_context = (
+        "injected defect"
+        if role == EntryRole.SEED
+        else "defect flagged by human reviewers"
+    )
     return (
-        f"- ❌ **Missed Expected Defect in `{entry_id}`** ({test_link}):\n"
+        f"- ❌ **Missed Expected {defect_type} in `{entry_id}`** ({test_link}):\n"
         f"  - **Missed Rule**: `{rule_key}` @ {window}\n"
-        "  - **Action**: The evaluator failed to identify this injected defect."
-        f" Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or inspect"
-        f" agent thoughts in `runs/{entry_id}/rep-1/`."
+        f"  - **Action**: The evaluator failed to identify this {source_context}."
+        f" Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or"
+        f" inspect agent thoughts in `runs/{entry_id}/rep-1/`."
     )
 
 
@@ -824,14 +886,31 @@ def _format_false_alarm_diagnostic(
     )
 
 
-def _format_flaky_diagnostic(mid_count: int) -> str:
-    return (
+def _format_flaky_diagnostic(
+    mid_count: int,
+    flaky_findings: list[tuple[str, str, str, int, int, float]],
+) -> str:
+    lines = [
         f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing"
-        " zone)**:\n"
+        " zone)**:"
+    ]
+    for entry_id, key, bucket, firings, repeats, rate in flaky_findings[:10]:
+        lines.append(
+            f"  - `{entry_id}`: `{key}` @ {bucket} ({firings}/{repeats} firings,"
+            f" rate {rate:.2f})"
+        )
+    if len(flaky_findings) > 10:
+        lines.append(
+            f"  - _...and {len(flaky_findings) - 10} more (see detailed breakdown"
+            " below)_"
+        )
+    lines.append(
         "  - **Action**: Findings in the mid bucket produced inconsistent"
         " verdicts across repeat runs. Consider refining rule wording in"
+        f" [rules.yaml]({_RULES_DOC_LINK}) or prompt instructions in"
         " `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
     )
+    return "\n".join(lines)
 
 
 def _render_action_items(report: BenchmarkReport) -> list[str]:
@@ -851,9 +930,10 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                 )
             )
 
-    # 2. Seed False Negatives (Missed Expected Injected Defects)
+    # 2. Seed & Golden False Negatives (Missed Expected Injected / Human Defects)
     for entry in report.entries:
-        if entry.get("role") == EntryRole.SEED:
+        role = entry.get("role", "")
+        if role in (EntryRole.SEED, EntryRole.GOLDEN):
             outcome = entry.get("consistency_by_outcome") or {}
             for label in outcome.get("missed_labels", []):
                 url = _entry_source_url(
@@ -874,6 +954,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                         test_link=test_link,
                         rule_key=str(label.get("key", "")),
                         window=window,
+                        role=role,
                     )
                 )
 
@@ -912,7 +993,27 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
         ConsistencyBucket.MID, 0
     )
     if mid_count > 0:
-        items.append(_format_flaky_diagnostic(mid_count))
+        flaky_findings: list[tuple[str, str, str, int, int, float]] = []
+        for entry in report.entries:
+            for row in entry.get("consistency", []):
+                rate = float(row.get("rate", 0.0))
+                if 0.25 <= rate < 0.75:
+                    bucket_str = (
+                        f"L{row['line_bucket'][0]}-{row['line_bucket'][1]}"
+                        if row.get("line_bucket")
+                        else "file"
+                    )
+                    flaky_findings.append(
+                        (
+                            str(entry.get("entry_id", "")),
+                            str(row.get("key", "")),
+                            bucket_str,
+                            int(row.get("firings", 0)),
+                            int(row.get("repeats", 0)),
+                            rate,
+                        )
+                    )
+        items.append(_format_flaky_diagnostic(mid_count, flaky_findings))
 
     if not items:
         lines.append(
@@ -921,6 +1022,15 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
         )
     else:
         lines.extend(items)
+        lines.append("")
+        lines.append(
+            "> 💡 **Quick Triage Tip**: Re-score existing run outputs locally"
+            " without re-calling LLMs:"
+        )
+        lines.append(
+            "> `python scripts/benchmark/run_benchmark.py --score-only --out"
+            " <run_dir>`"
+        )
     lines.append("")
     return lines
 
