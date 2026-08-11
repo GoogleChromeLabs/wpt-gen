@@ -550,3 +550,6 @@ def test_cloudbuild_yaml_structure() -> None:
     assert "provider_arg=" in script
     assert "recall_arg=" in script
     assert "--manifest benchmarks/manifest.yaml" in script
+    assert "check-runs" in script
+    env_vars = run_step.get("env", [])
+    assert any("COMMIT_SHA" in v for v in env_vars)
