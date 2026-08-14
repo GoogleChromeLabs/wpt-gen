@@ -17,6 +17,11 @@
 #     prefix plus `source` fully locate the rule's origin.
 #   - `applies_to`: which test kinds the rule is relevant to, e.g., `reftest`,
 #     `manual`, `idl`, `testharness`, `html`, `js`. Used for filtering.
+#   - `notes`: optional, author-supplied application guidance. Unlike `rule`,
+#     this text is NOT derived from upstream and is NOT backed by `source`;
+#     it scopes or clarifies a rule that is too vague to apply consistently.
+#     Leave `rule` a faithful distillation of the doc and put our own
+#     operational scope here. Do not update `notes` during an upstream refresh.
 #
 # See ../UPSTREAM.md for the pinned upstream commit and refresh procedure.
 # See ../SKILL.md for how this corpus is consumed.
@@ -125,6 +130,11 @@ rules:
       features that aren't supported in the latest stable release of
       Safari, Chrome, and Firefox unless that feature is the one being
       tested.
+    notes: >
+      The focus is extraneous reliance on edge-case or
+      insufficiently-supported features that aren't the subject of the
+      test — not defects in the test's own logic. Does not apply to
+      invalid or no-op values.
 
   - id: GENERAL-008
     source: wpt/docs/writing-tests/general-guidelines.md#L121-L127
@@ -775,6 +785,15 @@ rules:
     layer: semantic
     rule: |
       The test is testing what it thinks it's testing.
+    notes: >
+      This covers defects in the test's own logic that make it not
+      exercise its stated assertion — e.g. a call with wrong arguments,
+      a condition that should not be conditional, a string/regex
+      operation that cannot achieve its evident intent, an invalid value
+      that silently no-ops, or missing an assertion the test claims to
+      cover. The defect must be in the test's logic (what it does), not
+      merely its clarity or naming. Cite the specific line whose behavior
+      contradicts the test's stated purpose.
 
   - id: CHECKLIST-005
     source: wpt/docs/reviewing-tests/checklist.md#L35
