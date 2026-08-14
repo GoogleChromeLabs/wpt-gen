@@ -304,6 +304,25 @@ class LineConsistencyRow:
         return self.detection_rate >= 1.0 and len(self.keys) > 1
 
 
+def _in_line_bucket(
+    pred_range: tuple[int, int] | None, bucket: tuple[int, int] | None
+) -> bool:
+    """Whether a finding belongs to a line-bucket, matching scope exactly.
+
+    Unlike ``_ranges_overlap`` (where a None range overlaps everything, the
+    right rule for label matching), bucketing must keep scopes separate: a
+    file-scoped finding (None) belongs only to the file bucket, and a
+    line-scoped finding belongs only to a real line-bucket. Letting them
+    cross would smear a file-scoped finding across every line-bucket and
+    manufacture phantom label churn.
+    """
+    if bucket is None:
+        return pred_range is None
+    if pred_range is None:
+        return False
+    return pred_range[0] <= bucket[1] and bucket[0] <= pred_range[1]
+
+
 def line_consistency_rows(runs: EntryRuns) -> list[LineConsistencyRow]:
     """Firing rate per merged line-bucket, ignoring rule_id."""
     line_ranges: list[tuple[int, int]] = []
@@ -327,7 +346,7 @@ def line_consistency_rows(runs: EntryRuns) -> list[LineConsistencyRow]:
             matches = [
                 pred
                 for pred in repeat
-                if _ranges_overlap(pred.line_range, bucket)
+                if _in_line_bucket(pred.line_range, bucket)
             ]
             if matches:
                 firings += 1

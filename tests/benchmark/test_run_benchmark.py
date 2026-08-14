@@ -307,6 +307,37 @@ def test_line_row_not_churn_when_detection_flaky() -> None:
     assert row.label_churn is False
 
 
+def test_file_and_line_scoped_findings_do_not_cross_buckets() -> None:
+    # A file-scoped finding (line_range=None) and a line-scoped finding on
+    # the same entry are distinct defects; they must land in separate buckets
+    # each with a single key, not smear together into phantom label churn.
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("LINE-RULE", (22, 22), "e", "s", "warn"),
+                Prediction("FILE-RULE", None, "e", "s", "warn"),
+            ],
+            [
+                Prediction("LINE-RULE", (22, 22), "e", "s", "warn"),
+                Prediction("FILE-RULE", None, "e", "s", "warn"),
+            ],
+        ],
+    )
+    line_rows = line_consistency_rows(runs)
+    assert len(line_rows) == 2
+    by_bucket = {lr.line_bucket: lr for lr in line_rows}
+    line_row = by_bucket[(22, 22)]
+    file_row = by_bucket[None]
+    assert line_row.keys == ["LINE-RULE"]
+    assert file_row.keys == ["FILE-RULE"]
+    # Both detected every repeat, but each has exactly one rule -> no churn.
+    assert line_row.detection_rate == pytest.approx(1.0)
+    assert file_row.detection_rate == pytest.approx(1.0)
+    assert line_row.label_churn is False
+    assert file_row.label_churn is False
+
+
 def test_line_histogram_keys_on_detection() -> None:
     # A line drawing 2 rules every repeat is one `always` line, not two mid.
     runs = _runs(
