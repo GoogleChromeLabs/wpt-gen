@@ -35,6 +35,7 @@ from benchmark.manifest import (
     GOLDEN_STAGING_SUBDIR,
     REPO_ROOT,
     STAGING_DIRNAME,
+    CorpusEntry,
     GoldenEntry,
     ManifestError,
     SeedEntry,
@@ -613,6 +614,69 @@ def test_load_entry_runs_missing_json_is_empty_repeat(tmp_path: Path) -> None:
     )
     assert runs.num_repeats == 1
     assert runs.repeats[0] == []
+
+
+# --- discover_scored_entries (--score-only) ---------------------------------
+
+
+def test_discover_scored_entries_narrows_to_on_disk_and_infers_repeats(
+    tmp_path: Path,
+) -> None:
+    # Two entries selected, but only one actually ran (3 rep dirs). A re-score
+    # must score just that entry, at the 3 reps found -- not the full
+    # selection at some default repeat count.
+    ran = SeedEntry(entry_id="seed-ran", kind="testharness", seed="ran.html")
+    never = SeedEntry(
+        entry_id="seed-never", kind="testharness", seed="never.html"
+    )
+    payload = _payload([_finding()])
+    for i in range(3):
+        _write_run(tmp_path, "seed-ran", i, "ran.html", payload)
+
+    present, repeats = run_benchmark.discover_scored_entries(
+        tmp_path, [ran, never]
+    )
+    assert [e.entry_id for e in present] == ["seed-ran"]
+    assert repeats == 3
+
+
+def test_discover_scored_entries_empty_when_nothing_ran(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "runs").mkdir(parents=True)
+    entry = SeedEntry(entry_id="seed-x", kind="testharness", seed="x.html")
+    present, repeats = run_benchmark.discover_scored_entries(
+        tmp_path, [entry]
+    )
+    assert present == []
+    assert repeats == 0
+
+
+# --- detection-flaky band (score_entry) -------------------------------------
+
+
+def test_detection_flaky_band_caps_at_target_and_has_no_floor() -> None:
+    # At 3 reps warn_at is 0.61. A rare 1/3 (0.33) line is flagged; a 2/3
+    # (0.67) line at/above target and an always-firing line are not.
+    entry = CorpusEntry(entry_id="e", kind="testharness", path="e.html")
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("RARE", (10, 10), "e", "s", "warn"),
+                Prediction("MEETS", (20, 20), "e", "s", "warn"),
+                Prediction("ALWAYS", (30, 30), "e", "s", "warn"),
+            ],
+            [
+                Prediction("MEETS", (20, 20), "e", "s", "warn"),
+                Prediction("ALWAYS", (30, 30), "e", "s", "warn"),
+            ],
+            [Prediction("ALWAYS", (30, 30), "e", "s", "warn")],
+        ],
+    )
+    report = run_benchmark.score_entry(entry, runs, reading_list=set())
+    flagged = {cl["line"] for cl in report.detection_flaky_lines}
+    assert flagged == {"L10"}
 
 
 # --- Manifest validation ----------------------------------------------------

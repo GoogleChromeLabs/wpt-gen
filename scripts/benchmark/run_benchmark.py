@@ -220,6 +220,33 @@ def _rep_dir(out: Path, entry_id: str, repeat: int) -> Path:
     return out / "runs" / entry_id / f"rep-{repeat}"
 
 
+def discover_scored_entries(
+    out: Path, entries: list[BenchmarkEntry]
+) -> tuple[list[BenchmarkEntry], int]:
+    """Narrows ``entries`` to those with run dirs on disk, for ``--score-only``.
+
+    A re-score must reflect what is on disk, not the
+    full manifest or the ``--repeats`` default
+    """
+    runs_root = out / "runs"
+    present: list[BenchmarkEntry] = []
+    max_rep = -1
+    for entry in entries:
+        entry_dir = runs_root / entry.entry_id
+        if not entry_dir.is_dir():
+            continue
+        rep_indices = [
+            int(p.name[len("rep-") :])
+            for p in entry_dir.glob("rep-*")
+            if p.is_dir() and p.name[len("rep-") :].isdigit()
+        ]
+        if not rep_indices:
+            continue
+        present.append(entry)
+        max_rep = max(max_rep, *rep_indices)
+    return present, max_rep + 1
+
+
 class Progress:
     """Prints one atomic completion line per evaluator invocation.
 
@@ -496,6 +523,9 @@ def score_entry(
         for lr in line_rows
         if lr.label_churn
     ]
+    # Fired at least once but below the run's stability target; no lower floor,
+    # so rare firings surface for triage too.
+    warn_at, _ = _stability_bands(runs.num_repeats)
     detection_flaky_lines = [
         {
             "line": _line_label(lr),
@@ -505,7 +535,7 @@ def score_entry(
             "rate": round(lr.detection_rate, 4),
         }
         for lr in line_rows
-        if 0.25 <= lr.detection_rate < 0.75
+        if 0.0 < lr.detection_rate < warn_at
     ]
 
     notes: list[MechanicalIssue] = []
@@ -1663,8 +1693,19 @@ def main(argv: list[str] | None = None) -> int:
 
     run_records: list[RunRecord] = []
     staged = False
+    score_entries = entries
+    score_repeats = args.repeats
     try:
         reading_list = load_reading_list()
+        if args.score_only:
+            score_entries, score_repeats = discover_scored_entries(
+                args.out, entries
+            )
+            if not score_entries:
+                sys.stderr.write(
+                    f"no run dirs found under {args.out / 'runs'} to score\n"
+                )
+                return 2
         if not args.score_only:
             seed_entries = [e for e in entries if isinstance(e, SeedEntry)]
             gold_entries = [e for e in entries if isinstance(e, GoldenEntry)]
@@ -1700,9 +1741,9 @@ def main(argv: list[str] | None = None) -> int:
 
         reports, models = score_all(
             manifest=manifest,
-            entries=entries,
+            entries=score_entries,
             out=args.out,
-            repeats=args.repeats,
+            repeats=score_repeats,
             reading_list=reading_list,
         )
     except HarnessError as exc:
@@ -1725,7 +1766,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest=manifest,
         models=models,
         wpt_dir=args.wpt_dir,
-        repeats=args.repeats,
+        repeats=score_repeats,
         reports=reports,
         run_records=run_records,
         actual_commit=actual_commit,
