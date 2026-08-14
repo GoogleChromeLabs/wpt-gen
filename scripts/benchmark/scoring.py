@@ -279,6 +279,141 @@ def consistency_histogram(rows: list[ConsistencyRow]) -> dict[str, int]:
     return hist
 
 
+# --- Line-vs-rule_id consistency decomposition ------------------------------
+# How stable is *detection* (did runs point at the same line) vs *labeling* (did they
+# attach the same rule_id).
+
+
+@dataclass
+class LineConsistencyRow:
+    """Detection + labeling stability for one merged line-bucket of an entry."""
+
+    entry_id: str
+    line_bucket: tuple[int, int] | None
+    firings: int
+    repeats: int
+    keys: list[str] = field(default_factory=list)
+
+    @property
+    def detection_rate(self) -> float:
+        return self.firings / self.repeats if self.repeats else 0.0
+
+    @property
+    def label_churn(self) -> bool:
+        """Detected reliably, but labeled with more than one rule."""
+        return self.detection_rate >= 1.0 and len(self.keys) > 1
+
+
+def line_consistency_rows(runs: EntryRuns) -> list[LineConsistencyRow]:
+    """Firing rate per merged line-bucket, ignoring rule_id."""
+    line_ranges: list[tuple[int, int]] = []
+    has_file_scope = False
+    for repeat in runs.repeats:
+        for pred in repeat:
+            if pred.line_range is None:
+                has_file_scope = True
+            else:
+                line_ranges.append(pred.line_range)
+
+    buckets: list[tuple[int, int] | None] = list(_merge_ranges(line_ranges))
+    if has_file_scope:
+        buckets.append(None)
+
+    rows: list[LineConsistencyRow] = []
+    for bucket in buckets:
+        firings = 0
+        keys: set[str] = set()
+        for repeat in runs.repeats:
+            matches = [
+                pred
+                for pred in repeat
+                if _ranges_overlap(pred.line_range, bucket)
+            ]
+            if matches:
+                firings += 1
+                keys.update(pred.key for pred in matches)
+        rows.append(
+            LineConsistencyRow(
+                entry_id=runs.entry_id,
+                line_bucket=bucket,
+                firings=firings,
+                repeats=runs.num_repeats,
+                keys=sorted(keys),
+            )
+        )
+    return rows
+
+
+def line_consistency_histogram(
+    line_rows: list[LineConsistencyRow],
+) -> dict[str, int]:
+    """Firing-rate histogram over line-buckets (ignores rule_id)."""
+    hist = {"always": 0, "high": 0, "mid": 0, "low": 0, "never": 0}
+    for lr in line_rows:
+        rate = lr.detection_rate
+        if rate >= 1.0:
+            hist["always"] += 1
+        elif rate >= 0.75:
+            hist["high"] += 1
+        elif rate >= 0.25:
+            hist["mid"] += 1
+        elif rate > 0.0:
+            hist["low"] += 1
+        else:
+            hist["never"] += 1
+    return hist
+
+
+def consistency_decomposition(
+    rows: list[ConsistencyRow], line_rows: list[LineConsistencyRow]
+) -> dict[str, int]:
+    """Compares rule-keyed vs line-keyed consistency for one entry.
+
+    - ``rule_flaky``: (rule_id, line) buckets in the mid band — the raw
+      rule-keyed count, retained for comparison.
+    - ``line_flaky``: line buckets whose *detection* is mid-band — genuine
+      detection instability, rule label aside.
+    - ``label_churn``: lines detected every repeat but attached to >1 rule —
+      flaky by rule_id, stable by line."""
+    rule_flaky = sum(1 for r in rows if 0.25 <= r.rate < 0.75)
+    line_flaky = sum(1 for lr in line_rows if 0.25 <= lr.detection_rate < 0.75)
+    label_churn = sum(1 for lr in line_rows if lr.label_churn)
+    return {
+        "rule_flaky": rule_flaky,
+        "line_flaky": line_flaky,
+        "label_churn": label_churn,
+    }
+
+
+def near_miss_flakiness(rate: float) -> float:
+    """How flaky a firing rate is, 0 (stable extreme) to 1 (rate 0.5)."""
+    return 1.0 - abs(2.0 * rate - 1.0)
+
+
+def corpus_stability(line_rows: list[LineConsistencyRow]) -> float:
+    """Detection-stability score for an entry, 0.0 (unstable) to 1.0 (stable)."""
+    if not line_rows:
+        return 1.0
+    mean_flaky = sum(
+        near_miss_flakiness(lr.detection_rate) for lr in line_rows
+    ) / len(line_rows)
+    return round(1.0 - mean_flaky, 4)
+
+
+def corpus_stability_with_churn(rows: list[ConsistencyRow]) -> float:
+    """Stability including label churn: scored over (rule_id, line) buckets.
+
+    The churn-inclusive variant — a line detected every repeat but labeled
+    with two rules yields two mid-rate rule-buckets here, so both count as
+    flaky. Use when label churn should be treated as instability rather than
+    reported separately. Same 0.0-1.0 near-miss scale as ``corpus_stability``.
+    """
+    if not rows:
+        return 1.0
+    mean_flaky = sum(near_miss_flakiness(r.rate) for r in rows) / len(rows)
+    return round(1.0 - mean_flaky, 4)
+
+
 # --- Seed precision / recall ------------------------------------------------
 
 
