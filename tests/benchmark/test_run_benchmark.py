@@ -55,6 +55,7 @@ from benchmark.scoring import (
     classify_consistency_rows,
     consistency_decomposition,
     consistency_histogram,
+    graded_consistency_histogram,
     consistency_rows,
     corpus_stability,
     corpus_stability_with_churn,
@@ -353,6 +354,27 @@ def test_line_histogram_keys_on_detection() -> None:
     assert hist["mid"] == 0
 
 
+def test_graded_histogram_splits_at_warn_at() -> None:
+    # rates 1.0, 0.67, 0.33 with warn_at 0.61: two stable, one unstable.
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("A", (10, 10), "e", "s", "w"),
+                Prediction("B", (20, 20), "e", "s", "w"),
+                Prediction("C", (30, 30), "e", "s", "w"),
+            ],
+            [
+                Prediction("A", (10, 10), "e", "s", "w"),
+                Prediction("B", (20, 20), "e", "s", "w"),
+            ],
+            [Prediction("A", (10, 10), "e", "s", "w")],
+        ],
+    )
+    hist = graded_consistency_histogram(line_consistency_rows(runs), 0.61)
+    assert hist == {"stable": 2, "unstable": 1, "never": 0}
+
+
 def test_decomposition_separates_detection_from_churn() -> None:
     runs = _runs(
         "e",
@@ -645,9 +667,7 @@ def test_discover_scored_entries_empty_when_nothing_ran(
 ) -> None:
     (tmp_path / "runs").mkdir(parents=True)
     entry = SeedEntry(entry_id="seed-x", kind="testharness", seed="x.html")
-    present, repeats = run_benchmark.discover_scored_entries(
-        tmp_path, [entry]
-    )
+    present, repeats = run_benchmark.discover_scored_entries(tmp_path, [entry])
     assert present == []
     assert repeats == 0
 
@@ -1577,7 +1597,8 @@ def test_render_legend_is_collapsible() -> None:
     assert "* **`seed`**:" in md
     assert "* **`golden`**:" in md
     assert "* **`corpus`**:" in md
-    assert "* **`always` (1.0)**:" in md
+    assert "* **Graded band**:" in md
+    assert "* **Fixed band**:" in md
     assert "</details>" in md
 
 

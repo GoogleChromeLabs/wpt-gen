@@ -383,6 +383,22 @@ def line_consistency_histogram(
     return hist
 
 
+def graded_consistency_histogram(
+    line_rows: list[LineConsistencyRow], warn_at: float
+) -> dict[str, int]:
+    """Line-bucket counts split at the run's stability target ``warn_at``."""
+    hist = {"stable": 0, "unstable": 0, "never": 0}
+    for lr in line_rows:
+        rate = lr.detection_rate
+        if rate >= warn_at:
+            hist["stable"] += 1
+        elif rate > 0.0:
+            hist["unstable"] += 1
+        else:
+            hist["never"] += 1
+    return hist
+
+
 def consistency_decomposition(
     rows: list[ConsistencyRow], line_rows: list[LineConsistencyRow]
 ) -> dict[str, int]:

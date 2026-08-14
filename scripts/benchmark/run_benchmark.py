@@ -83,6 +83,7 @@ from benchmark.scoring import (  # noqa: E402
     consistency_rows,
     corpus_stability,
     corpus_stability_with_churn,
+    graded_consistency_histogram,
     line_consistency_histogram,
     line_consistency_rows,
     load_entry_runs,
@@ -345,6 +346,8 @@ class EntryReport:
     # Flat list of every consistency row (all keys/buckets).
     consistency: list[dict[str, Any]]
     consistency_histogram: dict[str, int]
+    # Same line-buckets split at the run's target (stable/unstable/never).
+    graded_histogram: dict[str, int]
     # Detection-stability score, 0.0-1.0 (near-miss weighted, line-keyed).
     # Scores detection instability only; label churn is excluded.
     stability: float
@@ -575,6 +578,7 @@ def score_entry(
         # Line-keyed histogram: mid = detection-flaky lines (label churn does
         # not inflate it). Churn is surfaced in the Action Items diagnosis.
         consistency_histogram=line_consistency_histogram(line_rows),
+        graded_histogram=graded_consistency_histogram(line_rows, warn_at),
         stability=corpus_stability(line_rows),
         stability_with_churn=corpus_stability_with_churn(cons_rows),
         consistency_decomposition=consistency_decomposition(
@@ -598,6 +602,7 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     g_tp = g_fn = g_unmatched = 0
     advisory = 0
     hist = {"always": 0, "high": 0, "mid": 0, "low": 0, "never": 0}
+    graded = {"stable": 0, "unstable": 0, "never": 0}
     decomp = {"rule_flaky": 0, "line_flaky": 0, "label_churn": 0}
     corpus_stabilities: list[float] = []
     corpus_stabilities_churn: list[float] = []
@@ -616,6 +621,8 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
         advisory += len(report.advisory_notes)
         for bucket, count in report.consistency_histogram.items():
             hist[bucket] += count
+        for bucket, count in report.graded_histogram.items():
+            graded[bucket] += count
         for k, v in report.consistency_decomposition.items():
             decomp[k] += v
 
@@ -635,6 +642,7 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
         # Advisory only (off-reading-list citations); not a pass/fail gate.
         "advisory_notes": advisory,
         "consistency_histogram": hist,
+        "graded_histogram": graded,
         # Advisory: line-vs-rule_id decomposition of the flaky signal.
         "consistency_decomposition": decomp,
         # Mean corpus detection-stability, 0.0-1.0 (1.0 if no corpus entries).
@@ -788,6 +796,13 @@ _CONSISTENCY_BUCKETS: tuple[tuple[ConsistencyBucket, str, str], ...] = (
     (ConsistencyBucket.NEVER, "0.0", "never fires"),
 )
 
+# Graded buckets: (name, meaning). Rate column is built from warn_at at render.
+_GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
+    ("stable", "meets target - trustworthy"),
+    ("unstable", "below target - detection instability"),
+    ("never", "never fires"),
+)
+
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -874,16 +889,25 @@ def _render_legend() -> list[str]:
         "",
         "### Consistency Buckets (Firing Rates across Repeats)",
         (
-            "* **`always` (1.0)**: Fires every repeat — deterministic and"
-            " reliable."
+            "Each line is bucketed once by how often any finding fired there"
+            " across repeats (rule id aside). Two bands are shown:"
         ),
-        "* **`high` (≥0.75)**: Usually fires.",
         (
-            "* **`mid` (0.25–0.75)**: **Flaky zone** — inconsistent across"
-            " repeats; see the Action Items for which findings and to diagnose."
+            "* **Graded band**: splits at this run's stability target"
+            " (`warn_at`, which widens at low repeats). `stable` meets the"
+            " target; `unstable` is below it — genuine detection instability,"
+            " listed in the Action Items."
         ),
-        "* **`low` (>0)**: Rarely fires — stochastic noise.",
-        "* **`never` (0.0)**: Never fires across repeat runs.",
+        (
+            "* **Fixed band**: the same lines on run-independent thresholds"
+            " (`always` 1.0, `high` ≥0.75, `mid` 0.25–0.75, `low` >0, `never`"
+            " 0.0), comparable across runs."
+        ),
+        (
+            "* **Label churn**: lines detected every repeat but labeled with"
+            " competing rules; reported separately, not scored against"
+            " stability."
+        ),
         "",
         (
             f"For detailed information, see the full [Benchmark"
@@ -894,20 +918,49 @@ def _render_legend() -> list[str]:
     ]
 
 
-def _render_consistency_table(hist: dict[str, int]) -> list[str]:
-    """Renders the consistency histogram as a table.
+def _render_consistency_table(
+    hist: dict[str, int],
+    graded: dict[str, int],
+    warn_at: float,
+    repeats: int,
+    churn: int,
+) -> list[str]:
+    """Renders the graded and fixed-band firing-rate tables.
 
-    Buckets each line's detection rate, so a line labeled with
-    competing rules is one stable detection, not several flaky ones.
+    Each line's detection rate is bucketed once (rule id aside): the graded
+    band splits at this run's stability target; the fixed band is comparable
+    across runs.
     """
     lines = ["### Consistency buckets", ""]
-    lines.append("Detection rate across repeats, per line (rule id aside).")
+    lines.append("Firing rate per line across repeats.")
+    lines.append("")
+
+    lines.append(
+        f"**Graded band** — this run's target (≥{warn_at} @ {repeats} reps)."
+    )
+    lines.append("")
+    rates = {
+        "stable": f"≥{warn_at}",
+        "unstable": f">0, <{warn_at}",
+        "never": "0.0",
+    }
+    lines.append("| bucket | firing rate | count | meaning |")
+    lines.append("| --- | --- | --- | --- |")
+    for name, meaning in _GRADED_BUCKETS:
+        count = graded.get(name, 0)
+        lines.append(f"| {name} | {rates[name]} | {count} | {meaning} |")
+    lines.append("")
+
+    lines.append("**Fixed band** — comparable across runs.")
     lines.append("")
     lines.append("| bucket | firing rate | count | meaning |")
     lines.append("| --- | --- | --- | --- |")
     for name, rate, meaning in _CONSISTENCY_BUCKETS:
         count = hist.get(name.value, 0)
         lines.append(f"| {name.value} | {rate} | {count} | {meaning} |")
+    lines.append("")
+
+    lines.append(f"**Label churn:** {churn}  (see Action Items)")
     lines.append("")
     return lines
 
@@ -1251,7 +1304,17 @@ def render_report_markdown(report: BenchmarkReport) -> str:
         lines.append("_" + "; ".join(caveats) + "._")
         lines.append("")
 
-    lines.extend(_render_consistency_table(agg["consistency_histogram"]))
+    warn_at, _ = _stability_bands(report.repeats)
+    churn = (agg.get("consistency_decomposition") or {}).get("label_churn", 0)
+    lines.extend(
+        _render_consistency_table(
+            agg.get("consistency_histogram", {}),
+            agg.get("graded_histogram", {}),
+            warn_at,
+            report.repeats,
+            churn,
+        )
+    )
 
     lines.append("<details>")
     lines.append(
