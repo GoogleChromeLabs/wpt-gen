@@ -761,6 +761,10 @@ rules:
     layer: semantic
     rule: |
       It is obvious what the test is trying to test.
+    notes: >
+      Overlaps GENERAL-012 (tests should be self-describing). When the
+      concern is self-describing clarity, report GENERAL-012 and omit this
+      one.
 
   - id: CHECKLIST-002
     source: wpt/docs/reviewing-tests/checklist.md#L23
@@ -769,6 +773,10 @@ rules:
     layer: semantic
     rule: |
       The test passes when it's supposed to pass.
+    notes: >
+      Duplicates the pass direction of GENERAL-008 (tests should pass when
+      the feature behaves correctly). When both apply, report GENERAL-008
+      and omit this one.
 
   - id: CHECKLIST-003
     source: wpt/docs/reviewing-tests/checklist.md#L27
@@ -777,6 +785,10 @@ rules:
     layer: semantic
     rule: |
       The test fails when it's supposed to fail.
+    notes: >
+      Duplicates the fail direction of GENERAL-008 (tests should fail when
+      the feature is not implemented or is wrong). When both apply, report
+      GENERAL-008 and omit this one.
 
   - id: CHECKLIST-004
     source: wpt/docs/reviewing-tests/checklist.md#L31
@@ -810,6 +822,9 @@ rules:
     layer: deterministic
     rule: |
       The test must not use external resources.
+    notes: >
+      Duplicates GENERAL-011 (no external network resources). When both
+      apply, report GENERAL-011 and omit this one.
 
   - id: CHECKLIST-007
     source: wpt/docs/reviewing-tests/checklist.md#L46-L49
@@ -865,6 +880,10 @@ rules:
       The reference file should use a different technique from the test,
       so that a shared bug does not cause the test to fail in the same
       way (producing a false pass).
+    notes: >
+      Duplicates REFTESTS-002 (reference must not use the technology under
+      test). When both apply to the same reference, report REFTESTS-002 and
+      omit this one.
 
   - id: CHECKLIST-013
     source: wpt/docs/reviewing-tests/checklist.md#L90-L93
@@ -874,6 +893,10 @@ rules:
     rule: |
       The test and reference should render within an 800x600 viewport,
       only displaying scrollbars if their presence is being tested.
+    notes: >
+      Overlaps GENERAL-006 (avoid scrollbars at 800x600). When the concern
+      is the 800x600 viewport / scrollbars, report GENERAL-006 and omit this
+      one.
 
   - id: CHECKLIST-014
     source: wpt/docs/reviewing-tests/checklist.md#L95-L104
@@ -944,3 +967,7 @@ rules:
     rule: |
       Visual tests should render to a fixed, static page with no
       animation, within an 800x600 viewport.
+    notes: >
+      Overlaps VISUAL-002 (visual tests must follow the general and
+      rendering guidelines). When both apply, report VISUAL-002 and omit
+      this one.

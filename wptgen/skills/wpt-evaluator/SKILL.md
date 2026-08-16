@@ -92,7 +92,17 @@ The following are **hard prohibitions**, not preferences:
    rule text itself calls out, it is **out of scope** — omit it, even if
    a rule feels adjacent. Prefer silence: an omitted issue costs recall
    on one test, but a manufactured finding costs precision on every clean
-   test. 
+   test.
+5. **`CHECKLIST-*` rules are a secondary catch-all layer.** They restate,
+   in review-checklist form, guidance the `writing-tests/` docs cover more
+   specifically. When a `CHECKLIST-*` rule and a more specific rule
+   (`REFTESTS-*`, `TESTHARNESS-*`, `GENERAL-*`, etc.) both cover the *same*
+   defect on the *same* line, report only the specific rule and drop the
+   `CHECKLIST-*` one — do not emit both for one defect. Report a
+   `CHECKLIST-*` finding only when no more specific rule covers that
+   defect (e.g. `CHECKLIST-004` for a logic bug no other rule names). This
+   is about one defect drawing two rules, not two distinct defects that
+   happen to share a line.
 
 If you find yourself writing "should be X" or attaching a code
 suggestion, stop. State the problem and cite the source; the human
