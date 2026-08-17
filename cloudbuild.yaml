@@ -20,25 +20,31 @@
 # Two tiers, selected by substitutions (defaults = regression / smoke for PRs):
 #   Regression (default)  the manifest's `smoke` sets only, 3 repeats, gated on seed
 #                         recall. Fast regression guard on PRs and `main`.
-#   Release               full manifest, 8 repeats, no quality gate. Establishes the
+#   Release               full manifest, 8 repeats, gated on corpus stability
+#                         (`auto`, the 8-repeat target). Establishes the
 #                         consistency band; run before a corpus/skill release.
 #                           gcloud builds submit --config cloudbuild.yaml \
-#                             --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="",_JOBS=4
+#                             --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="",_MIN_STABILITY=auto,_JOBS=4
 #
 # Substitutions:
-#   _PROVIDER    provider to evaluate with (blank = config default)
-#   _JOBS        concurrent evaluator runs (default: 8)
-#   _REPEATS     repeats per entry (default: 3 for regression, 8 for release)
-#   _SELECT      entry selection (default: `--smoke` for PRs; blank for full manifest)
-#   _MIN_RECALL  seed-recall gate (default: `1.0` for regression; blank for release)
-#   _WPT_PIN     wpt commit to check out; keep in sync with
-#                benchmarks/manifest.yaml:wpt_upstream_commit
+#   _PROVIDER       provider to evaluate with (blank = config default)
+#   _JOBS           concurrent evaluator runs (default: 8)
+#   _REPEATS        repeats per entry (default: 3 for regression, 8 for release)
+#   _SELECT         entry selection (default: `--smoke` for PRs; blank for full manifest)
+#   _MIN_RECALL     seed-recall gate (default: `1.0` for regression; blank for release)
+#   _MIN_STABILITY  corpus-stability gate: `auto` (repeat-aware target) or a
+#                   float floor; blank = off. Prefer `auto`. Default blank on the
+#                   regression tier (3 reps has too few samples to fail on);
+#                   set `auto` on the release tier (8 reps).
+#   _WPT_PIN        wpt commit to check out; keep in sync with
+#                   benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
   _JOBS: '8'
   _REPEATS: '3'
   _SELECT: '--smoke'
   _MIN_RECALL: '1.0'
+  _MIN_STABILITY: ''
   _WPT_PIN: 'f5a7deaba2bffac7a534dfafaa3baf14b9a253cf'
   _PR_NUMBER: ''
 
@@ -87,6 +93,10 @@ steps:
         if [ -n "${_MIN_RECALL}" ]; then
           recall_arg="--min-recall ${_MIN_RECALL}"
         fi
+        stability_arg=""
+        if [ -n "${_MIN_STABILITY}" ]; then
+          stability_arg="--min-stability ${_MIN_STABILITY}"
+        fi
 
         python scripts/benchmark/run_benchmark.py \
           --manifest benchmarks/manifest.yaml \
@@ -95,7 +105,8 @@ steps:
           --repeats "${_REPEATS}" \
           ${_SELECT} \
           $${provider_arg} \
-          $${recall_arg}
+          $${recall_arg} \
+          $${stability_arg}
         bench_status=$$?
         set -e
 

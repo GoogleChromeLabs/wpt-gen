@@ -519,7 +519,10 @@ def score_entry(
     line_rows = line_consistency_rows(runs)
 
     def _line_label(lr: Any) -> str:
-        return f"L{lr.line_bucket[0]}" if lr.line_bucket else "file"
+        if not lr.line_bucket:
+            return "file"
+        start, end = lr.line_bucket
+        return f"L{start}" if start == end else f"L{start}-{end}"
 
     churn_lines = [
         {"line": _line_label(lr), "keys": lr.keys}
@@ -674,6 +677,10 @@ class QualityThresholds:
     min_recall: float | None = None
     min_golden_recall: float | None = None
     max_fn: int | None = None
+    # Corpus detection-stability floor (0.0-1.0). The CLI resolves `auto` to
+    # the run's repeat-aware warn_at before constructing this, so it is always
+    # a concrete float here.
+    min_stability: float | None = None
 
 
 def check_quality_gates(
@@ -705,6 +712,10 @@ def check_quality_gates(
         )
         if got > t.max_fn:
             failures.append(f"false negatives {got} > {t.max_fn}")
+    if t.min_stability is not None:
+        got = aggregate["corpus_stability"]
+        if got < t.min_stability:
+            failures.append(f"corpus stability {got} < {t.min_stability}")
     return failures
 
 
@@ -842,6 +853,7 @@ def _format_quality_gate_descriptors(
             "min-recall",
             "min-golden-recall",
             "max-fn",
+            "min-stability",
         ]
     if isinstance(thresholds, QualityThresholds):
         t_dict = asdict(thresholds)
@@ -870,6 +882,11 @@ def _format_quality_gate_descriptors(
         active.append(f"max false negatives ≤ {t_dict['max_fn']}")
     else:
         unset.append("max-fn")
+
+    if t_dict.get("min_stability") is not None:
+        active.append(f"corpus stability ≥ {t_dict['min_stability']}")
+    else:
+        unset.append("min-stability")
 
     return active, unset
 
@@ -1278,11 +1295,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                         entry.get("test_rel_path", entry.get("entry_id", ""))
                     )
                     test_link = f"[`{path}`]({url})" if url else f"`{path}`"
-                    bucket = (
-                        f"L{fp['line_bucket'][0]}-{fp['line_bucket'][1]}"
-                        if fp.get("line_bucket")
-                        else "file"
-                    )
+                    bucket = _bucket_label(fp)
                     items.append(
                         _format_false_alarm_diagnostic(
                             entry_id=str(entry.get("entry_id", "")),
@@ -1438,9 +1451,11 @@ def _render_entry(
 
 
 def _bucket_label(row: dict[str, Any]) -> str:
-    if row["line_bucket"]:
-        return f'L{row["line_bucket"][0]}-{row["line_bucket"][1]}'
-    return "file"
+    bucket = row.get("line_bucket")
+    if not bucket:
+        return "file"
+    start, end = bucket
+    return f"L{start}" if start == end else f"L{start}-{end}"
 
 
 def _warnings_cell(row: dict[str, Any]) -> str:
@@ -1669,6 +1684,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-recall", type=float, default=None)
     parser.add_argument("--min-golden-recall", type=float, default=None)
     parser.add_argument("--max-fn", type=int, default=None)
+    parser.add_argument(
+        "--min-stability",
+        default=None,
+        help="Corpus detection-stability floor: a float (e.g. 0.7) or `auto` "
+        "to use the run's repeat-aware target (warn_at). Omit to disable.",
+    )
     return parser.parse_args(argv)
 
 
@@ -1894,11 +1915,20 @@ def main(argv: list[str] | None = None) -> int:
         if staged:
             unstage(args.wpt_dir)
 
+    # `auto` gates on the run's repeat-aware target so the bar matches the
+    # graded summary; a float is a fixed floor.
+    if args.min_stability is None:
+        min_stability = None
+    elif args.min_stability == "auto":
+        min_stability, _ = _stability_bands(score_repeats)
+    else:
+        min_stability = float(args.min_stability)
     thresholds = QualityThresholds(
         min_precision=args.min_precision,
         min_recall=args.min_recall,
         min_golden_recall=args.min_golden_recall,
         max_fn=args.max_fn,
+        min_stability=min_stability,
     )
     agg = _aggregate(reports)
     failures = check_quality_gates(agg, thresholds)

@@ -1116,6 +1116,7 @@ def _agg(
     golden_recall: float = 1.0,
     seed_fn: int = 0,
     golden_fn: int = 0,
+    corpus_stability: float = 1.0,
 ) -> dict[str, Any]:
     return {
         "seed_precision": seed_precision,
@@ -1123,6 +1124,7 @@ def _agg(
         "golden_recall": golden_recall,
         "seed_false_negatives": seed_fn,
         "golden_false_negatives": golden_fn,
+        "corpus_stability": corpus_stability,
     }
 
 
@@ -1166,6 +1168,28 @@ def test_quality_gate_boundary_is_inclusive() -> None:
     agg = _agg(seed_precision=0.8, seed_fn=2)
     thresholds = run_benchmark.QualityThresholds(min_precision=0.8, max_fn=2)
     assert run_benchmark.check_quality_gates(agg, thresholds) == []
+
+
+def test_quality_gate_min_stability() -> None:
+    thresholds = run_benchmark.QualityThresholds(min_stability=0.7)
+    # Below floor -> breach.
+    assert run_benchmark.check_quality_gates(
+        _agg(corpus_stability=0.5), thresholds
+    ) == ["corpus stability 0.5 < 0.7"]
+    # Exactly at floor -> passes (inclusive).
+    assert (
+        run_benchmark.check_quality_gates(
+            _agg(corpus_stability=0.7), thresholds
+        )
+        == []
+    )
+    # Unset -> never breaches.
+    assert (
+        run_benchmark.check_quality_gates(
+            _agg(corpus_stability=0.0), run_benchmark.QualityThresholds()
+        )
+        == []
+    )
 
 
 def test_stage_seeds_refuses_unmarked_existing_dir(tmp_path: Path) -> None:
@@ -1479,6 +1503,7 @@ def test_format_quality_gate_descriptors() -> None:
         "min-recall",
         "min-golden-recall",
         "max-fn",
+        "min-stability",
     ]
 
     # Partial
@@ -1486,12 +1511,21 @@ def test_format_quality_gate_descriptors() -> None:
         {"min_recall": 1.0, "min_precision": None}
     )
     assert active == ["seed recall ≥ 1.0"]
-    assert unset == ["min-precision", "min-golden-recall", "max-fn"]
+    assert unset == [
+        "min-precision",
+        "min-golden-recall",
+        "max-fn",
+        "min-stability",
+    ]
 
     # All set
     active, unset = run_benchmark._format_quality_gate_descriptors(
         run_benchmark.QualityThresholds(
-            min_precision=0.9, min_recall=1.0, min_golden_recall=0.8, max_fn=0
+            min_precision=0.9,
+            min_recall=1.0,
+            min_golden_recall=0.8,
+            max_fn=0,
+            min_stability=0.7,
         )
     )
     assert active == [
@@ -1499,6 +1533,7 @@ def test_format_quality_gate_descriptors() -> None:
         "seed precision ≥ 0.9",
         "golden recall ≥ 0.8",
         "max false negatives ≤ 0",
+        "corpus stability ≥ 0.7",
     ]
     assert unset == []
 
@@ -1516,8 +1551,8 @@ def test_render_executive_banner() -> None:
     assert "### ✅ PASS · Quality Gates Satisfied" in banner_pass
     assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_pass
     assert (
-        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
-        in banner_pass
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn,"
+        " min-stability)_" in banner_pass
     )
 
     # 3. Failing thresholds
@@ -1532,8 +1567,8 @@ def test_render_executive_banner() -> None:
     assert "seed recall 0.5 < 1.0" in banner_fail
     assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_fail
     assert (
-        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
-        in banner_fail
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn,"
+        " min-stability)_" in banner_fail
     )
 
 

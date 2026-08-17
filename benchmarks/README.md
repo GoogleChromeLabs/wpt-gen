@@ -21,8 +21,8 @@ overridable. Other flags:
 - `--smoke` — the regression tier: run only the manifest's `smoke` sets
   (see [Tiers](#tiers)). Composes with `--filter`.
 - `--golden-set NAME` / `--golden-prs 43400,…` — select golden entries.
-- `--min-precision` / `--min-recall` / `--min-golden-recall` / `--max-fn`
-  — CI quality gates (see [Quality gates](#quality-gates)).
+- `--min-precision` / `--min-recall` / `--min-golden-recall` / `--max-fn` /
+  `--min-stability` — CI quality gates (see [Quality gates](#quality-gates)).
 - `--score-only` — re-score existing run dirs in `--out` without the agent.
 
 The harness stages seeds/golden into `<wpt-dir>/wpt-gen-bench/`, runs
@@ -54,9 +54,16 @@ change that drops seed recall — so the drop blocks the change instead of
 landing silently. The report is always written *first*, so a failing build
 can still post its full table onto the PR.
 
-The four `--min-*`/`--max-fn` flags gate the **exit code**: any breach exits
+The `--min-*`/`--max-fn` flags gate the **exit code**: any breach exits
 non-zero. Omitting a flag leaves that check off, so by default a run always
 exits 0. `--max-fn` sums seed and golden false negatives.
+
+`--min-stability` gates the corpus **stability score** (see
+[Consistency](#consistency)). It takes either a fixed floor (e.g.
+`--min-stability 0.7`) or `auto`. **Prefer `auto`** — it gates on the run's
+own repeat-aware target (`warn_at`), so the bar matches the ✅/⚠️/❌ status the
+summary already shows and tightens automatically with more repeats (≈0.61 at 3
+reps, ≈0.72 at 8).
 
 ## Reading a benchmark report
 
@@ -402,17 +409,6 @@ could file and categorize *repeated, known* false positives seen in the wild
 (distinct from novel ones), so a regression that re-introduces a catalogued
 FP is flagged on its own rather than folded into the aggregate. Worth adding
 when the benchmark runs continuously and an FP backlog accumulates.
-
-### Future idea: gate on corpus stability
-
-The corpus **stability score** (0.0–1.0, repeat-aware, near-miss weighted —
-see [Consistency](#consistency)) exists and drives the summary's pass/warn/fail
-status, but it is **display only**: `check_quality_gates` does not read it, so
-no `--min-stability` flag fails the build yet. Wiring one in is the natural
-next step for a labels-free regression gate — the score is already computed and
-repeat-adjusted, so a gate would just threshold `aggregate.corpus_stability`.
-Label churn would stay advisory (it is a rule-taxonomy issue we introduce, not
-an agent regression), so a stability gate should not fold it in.
 
 ### Future idea: rate-limit backoff for `--jobs`
 
