@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -47,6 +48,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -321,6 +323,7 @@ class EntryReport:
     # Source-citation warnings — findings whose `source` cites a doc not on
     # the skill's reading list. Advisory: reported, not scored.
     advisory_notes: list[dict[str, Any]]
+    test_rel_path: str = ""
 
 
 def _consistency_row_to_dict(
@@ -402,15 +405,36 @@ class BenchmarkReport:
     entries: list[dict[str, Any]]
     run_records: list[dict[str, Any]]
     aggregate: dict[str, Any]
+    quality_thresholds: dict[str, Any] | None = None
+    quality_gate_failures: tuple[str, ...] = ()
+    repo_commit_sha: str | None = None
 
 
-def _role_of(entry: BenchmarkEntry) -> str:
+class EntryRole(StrEnum):
+    """The dataset role of a benchmark entry."""
+
+    SEED = "seed"
+    GOLDEN = "golden"
+    CORPUS = "corpus"
+
+
+class ConsistencyBucket(StrEnum):
+    """Consistency histogram bucket categories."""
+
+    ALWAYS = "always"
+    HIGH = "high"
+    MID = "mid"
+    LOW = "low"
+    NEVER = "never"
+
+
+def _role_of(entry: BenchmarkEntry) -> EntryRole:
     """The role label ("seed" | "golden" | "corpus") for report metadata."""
     if isinstance(entry, SeedEntry):
-        return "seed"
+        return EntryRole.SEED
     if isinstance(entry, GoldenEntry):
-        return "golden"
-    return "corpus"
+        return EntryRole.GOLDEN
+    return EntryRole.CORPUS
 
 
 def score_all(
@@ -483,6 +507,9 @@ def score_entry(
         golden_score=golden_score_dict,
         consistency_by_outcome=classification_dict,
         advisory_notes=[asdict(n) for n in notes],
+        test_rel_path=(
+            entry.test_rel_path() if hasattr(entry, "test_rel_path") else ""
+        ),
     )
 
 
@@ -595,6 +622,26 @@ def _resolve_run_model(
     )
 
 
+def _resolve_repo_commit(repo_dir: Path | None = None) -> str | None:
+    """Resolves the current repository git commit SHA."""
+    sha = os.environ.get("COMMIT_SHA")
+    if sha and sha.strip():
+        return sha.strip()
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_dir or Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def build_report(
     manifest: Manifest,
     models: set[tuple[str, str]],
@@ -603,8 +650,14 @@ def build_report(
     reports: list[EntryReport],
     run_records: list[RunRecord],
     actual_commit: str | None,
+    thresholds: QualityThresholds | None = None,
+    quality_gate_failures: list[str] | tuple[str, ...] | None = None,
+    repo_commit_sha: str | None = None,
 ) -> BenchmarkReport:
     provider, model = _resolve_run_model(models)
+    thresholds_dict = asdict(thresholds) if thresholds else None
+    failures = tuple(quality_gate_failures) if quality_gate_failures else ()
+    commit_sha = repo_commit_sha or _resolve_repo_commit()
     return BenchmarkReport(
         manifest=str(manifest.source_path),
         provider=provider,
@@ -616,27 +669,178 @@ def build_report(
         entries=[asdict(r) for r in reports],
         run_records=[asdict(r) for r in run_records],
         aggregate=_aggregate(reports),
+        quality_thresholds=thresholds_dict,
+        quality_gate_failures=failures,
+        repo_commit_sha=commit_sha,
     )
 
 
 # Firing-rate buckets, ordered best-to-worst: (name, rate, short meaning).
-_CONSISTENCY_BUCKETS = [
-    ("always", "1.0", "fires every repeat - trustworthy"),
-    ("high", "≥0.75", "usually fires"),
-    ("mid", "0.25–0.75", "flaky zone"),
-    ("low", ">0", "rarely fires"),
-    ("never", "0.0", "never fires"),
-]
+_CONSISTENCY_BUCKETS: tuple[tuple[ConsistencyBucket, str, str], ...] = (
+    (ConsistencyBucket.ALWAYS, "1.0", "fires every repeat - trustworthy"),
+    (ConsistencyBucket.HIGH, "≥0.75", "usually fires"),
+    (ConsistencyBucket.MID, "0.25–0.75", "flaky zone"),
+    (ConsistencyBucket.LOW, ">0", "rarely fires"),
+    (ConsistencyBucket.NEVER, "0.0", "never fires"),
+)
 
-# Link target for the legend. A repo-relative path so it resolves whether
-# the report is viewed in the repo or alongside it under bench-runs/.
-_README_LEGEND_LINK = "../../benchmarks/README.md#reading-a-benchmark-report"
+# Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
+_README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
+_RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
+
+
+def _escape_md_cell(text: str | None) -> str:
+    """Escapes pipe characters, newlines, and raw HTML in table cells."""
+    if not text:
+        return ""
+    clean = str(text).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    clean = clean.replace("|", r"\|")
+    clean = clean.replace("<", "&lt;").replace(">", "&gt;")
+    return clean.strip()
+
+
+def _entry_source_url(
+    entry: dict[str, Any], pinned_commit: str | None
+) -> str | None:
+    """Generates a permalink for an entry's test file on GitHub."""
+    role = entry.get("role", "")
+    path = entry.get("test_rel_path", "")
+    if not path:
+        return None
+    if role == EntryRole.SEED:
+        seed_name = Path(path).name
+        return f"https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/seeds/{seed_name}"
+    commit = pinned_commit or "master"
+    return f"https://github.com/web-platform-tests/wpt/blob/{commit}/{path}"
+
+
+def _format_quality_gate_descriptors(
+    thresholds: QualityThresholds | dict[str, Any] | None,
+) -> tuple[list[str], list[str]]:
+    """Returns (active_gate_descriptions, unset_gate_names)."""
+    if thresholds is None:
+        return [], [
+            "min-precision",
+            "min-recall",
+            "min-golden-recall",
+            "max-fn",
+        ]
+    if isinstance(thresholds, QualityThresholds):
+        t_dict = asdict(thresholds)
+    else:
+        t_dict = thresholds
+
+    active: list[str] = []
+    unset: list[str] = []
+
+    if t_dict.get("min_recall") is not None:
+        active.append(f"seed recall ≥ {t_dict['min_recall']}")
+    else:
+        unset.append("min-recall")
+
+    if t_dict.get("min_precision") is not None:
+        active.append(f"seed precision ≥ {t_dict['min_precision']}")
+    else:
+        unset.append("min-precision")
+
+    if t_dict.get("min_golden_recall") is not None:
+        active.append(f"golden recall ≥ {t_dict['min_golden_recall']}")
+    else:
+        unset.append("min-golden-recall")
+
+    if t_dict.get("max_fn") is not None:
+        active.append(f"max false negatives ≤ {t_dict['max_fn']}")
+    else:
+        unset.append("max-fn")
+
+    return active, unset
+
+
+def _render_executive_banner(report: BenchmarkReport) -> list[str]:
+    """Renders the top-level executive pass/fail badge."""
+    lines: list[str] = []
+    failures = report.quality_gate_failures
+    active_gates, unset_gates = _format_quality_gate_descriptors(
+        report.quality_thresholds
+    )
+
+    if failures:
+        lines.append(f"### ❌ FAIL · Quality Gate Regression ({len(failures)})")
+        lines.append("")
+        for f in failures:
+            lines.append(f"- ⚠️ **Gate Breached**: `{f}`")
+        if active_gates:
+            lines.append(
+                f"- **Active Gates**: {', '.join(f'`{g}`' for g in active_gates)}"
+            )
+        if unset_gates:
+            lines.append(f"- _(Unset thresholds: {', '.join(unset_gates)})_")
+        lines.append("")
+    elif active_gates:
+        lines.append("### ✅ PASS · Quality Gates Satisfied")
+        lines.append(
+            f"- **Active Gates**: {', '.join(f'`{g}`' for g in active_gates)}"
+        )
+        if unset_gates:
+            lines.append(f"- _(Unset thresholds: {', '.join(unset_gates)})_")
+        lines.append("")
+    return lines
 
 
 def _render_legend() -> list[str]:
-    """A one-line pointer to the report legend in the README."""
+    """A collapsible guide explaining how to interpret metrics, datasets, and consistency buckets."""
     return [
-        f"> How to read this report: see the [README]({_README_LEGEND_LINK})",
+        "<details>",
+        "<summary><b>📖 How to Read & Interpret This Report</b></summary>",
+        "",
+        "### Metrics & Dataset Roles",
+        (
+            "* **`seed`**: Unit tests with intentional bugs injected (`expect:"
+            " [...]`) or clean baseline tests (`expect: []`)."
+        ),
+        (
+            "  * **Precision**: Measures false alarms (1.0 = zero spurious"
+            " findings on clean code)."
+        ),
+        (
+            "  * **Recall**: Measures bug detection (1.0 = caught 100% of"
+            " injected defects)."
+        ),
+        (
+            "* **`golden`**: Real-world WPT test files paired with human"
+            " reviewer comments on historical PRs."
+        ),
+        (
+            "  * **Recall**: Measures agreement with human reviewers"
+            " (informational trend metric)."
+        ),
+        (
+            "* **`corpus`**: Unlabeled real-world WPT test files run across"
+            " multiple repeats."
+        ),
+        (
+            "  * **Stability / Flakiness**: Measures variance across repeat"
+            " runs (target: 0 flaky findings in the 25–75% mid zone)."
+        ),
+        "",
+        "### Consistency Buckets (Firing Rates across Repeats)",
+        (
+            "* **`always` (1.0)**: Fires every repeat — deterministic and"
+            " reliable."
+        ),
+        "* **`high` (≥0.75)**: Usually fires.",
+        (
+            "* **`mid` (0.25–0.75)**: **Flaky zone** — ambiguous rule prompts"
+            " or borderline code patterns."
+        ),
+        "* **`low` (>0)**: Rarely fires — stochastic noise.",
+        "* **`never` (0.0)**: Never fires across repeat runs.",
+        "",
+        (
+            f"For detailed information, see the full [Benchmark"
+            f" Guide]({_README_LEGEND_LINK})."
+        ),
+        "</details>",
         "",
     ]
 
@@ -649,16 +853,19 @@ def _render_consistency_table(hist: dict[str, int]) -> list[str]:
     lines.append("| bucket | firing rate | count | meaning |")
     lines.append("| --- | --- | --- | --- |")
     for name, rate, meaning in _CONSISTENCY_BUCKETS:
-        lines.append(f"| {name} | {rate} | {hist[name]} | {meaning} |")
+        lines.append(
+            f"| {name.value} | {rate} | {hist.get(name.value, 0)} | {meaning} |"
+        )
     lines.append("")
     return lines
 
 
-def _entry_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+def _entry_counts(entries: list[dict[str, Any]]) -> dict[EntryRole, int]:
     """Entry count per role."""
-    counts = {"seed": 0, "golden": 0, "corpus": 0}
+    counts = {EntryRole.SEED: 0, EntryRole.GOLDEN: 0, EntryRole.CORPUS: 0}
     for entry in entries:
-        counts[entry["role"]] = counts.get(entry["role"], 0) + 1
+        role = EntryRole(entry["role"])
+        counts[role] = counts.get(role, 0) + 1
     return counts
 
 
@@ -666,23 +873,267 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     """Per-dataset headline table: one row per dataset that has entries."""
     agg = report.aggregate
     counts = _entry_counts(report.entries)
-    mid = agg["consistency_histogram"]["mid"]
-    lines = ["## Summary", "", "| dataset | metric | value | entries |"]
-    lines.append("| --- | --- | --- | --- |")
-    if counts["seed"]:
+    mid = agg["consistency_histogram"][ConsistencyBucket.MID]
+    t = report.quality_thresholds or {}
+    lines = [
+        "## 📈 Summary",
+        "",
+        "| dataset | what it measures | score / value | target | status |",
+        "| :--- | :--- | :---: | :---: | :---: |",
+    ]
+    if counts[EntryRole.SEED]:
+        prec = agg["seed_precision"]
+        rec = agg["seed_recall"]
+        targets: list[str] = []
+        if t.get("min_recall") is not None:
+            targets.append(f"{t['min_recall']} Recall")
+        if t.get("min_precision") is not None:
+            targets.append(f"{t['min_precision']} Precision")
+        target_str = ", ".join(targets) if targets else "Informational"
+
+        seed_failed = any("seed" in f for f in report.quality_gate_failures)
+        if targets:
+            status = "❌ Regression" if seed_failed else "✅ Pass"
+        else:
+            status = "ℹ️ Tracked"
+
         lines.append(
-            f'| seed | precision / recall | {agg["seed_precision"]} / '
-            f'{agg["seed_recall"]} | {counts["seed"]} |'
+            f"| **`seed`** ({counts[EntryRole.SEED]}) | Injected defect detection & false"
+            f" alarms | **{prec}** precision / **{rec}** recall | {target_str} |"
+            f" {status} |"
         )
-    if counts["golden"]:
-        lines.append(
-            f'| golden | recall | {agg["golden_recall"]} '
-            f'| {counts["golden"]} |'
+    if counts[EntryRole.GOLDEN]:
+        g_rec = agg["golden_recall"]
+        g_target = (
+            f"{t['min_golden_recall']} Recall"
+            if t.get("min_golden_recall") is not None
+            else "Informational"
         )
-    if counts["corpus"]:
+        golden_failed = any("golden" in f for f in report.quality_gate_failures)
+        if t.get("min_golden_recall") is not None:
+            g_status = "❌ Regression" if golden_failed else "✅ Pass"
+        else:
+            g_status = "ℹ️ Tracked"
+
         lines.append(
-            f"| corpus | flaky findings (mid) | {mid} "
-            f'| {counts["corpus"]} |'
+            f"| **`golden`** ({counts[EntryRole.GOLDEN]}) | Agreement with human reviewer"
+            f" comments | **{g_rec}** recall | {g_target} | {g_status} |"
+        )
+    if counts[EntryRole.CORPUS]:
+        status = (
+            "✅ Clean"
+            if mid == 0
+            else f"⚠️ {mid} Flaky" if mid <= 5 else f"❌ {mid} Flaky"
+        )
+        lines.append(
+            f"| **`corpus`** ({counts[EntryRole.CORPUS]}) | Run-to-run output stability /"
+            f" variance | **{mid}** flaky findings | 0 Flaky | {status} |"
+        )
+    lines.append("")
+    return lines
+
+
+# --- Action item diagnostic templates ---------------------------------------
+
+
+def _format_error_diagnostic(
+    entry_id: str, repeat: int, exit_code: int, output_dir: str
+) -> str:
+    return (
+        f"- 🚨 **Subprocess Execution Error in `{entry_id}` (repeat {repeat})**:\n"
+        f"  - **Exit Code**: `{exit_code}`\n"
+        f"  - **Run Directory**: `{output_dir}`\n"
+        "  - **Action**: Check run stderr logs in the output directory for agent"
+        " tracebacks or timeout failures."
+    )
+
+
+def _format_missed_defect_diagnostic(
+    entry_id: str,
+    test_link: str,
+    rule_key: str,
+    window: str,
+    role: EntryRole | str,
+) -> str:
+    defect_type = (
+        "Injected Defect" if role == EntryRole.SEED else "Human Reviewer Defect"
+    )
+    source_context = (
+        "injected defect"
+        if role == EntryRole.SEED
+        else "defect flagged by human reviewers"
+    )
+    return (
+        f"- ❌ **Missed Expected {defect_type} in `{entry_id}`** ({test_link}):\n"
+        f"  - **Missed Rule**: `{rule_key}` @ {window}\n"
+        f"  - **Action**: The evaluator failed to identify this {source_context}."
+        f" Review rule instructions in [rules.yaml]({_RULES_DOC_LINK}) or"
+        f" inspect agent thoughts in `runs/{entry_id}/rep-1/`."
+    )
+
+
+def _format_false_alarm_diagnostic(
+    entry_id: str,
+    test_link: str,
+    rule_key: str,
+    bucket: str,
+    firings: int,
+    repeats: int,
+) -> str:
+    return (
+        f"- ⚠️ **False Alarm on Test in `{entry_id}`** ({test_link}):\n"
+        f"  - **Triggered Rule**: `{rule_key}` @ {bucket} (fired"
+        f" {firings}/{repeats} times)\n"
+        "  - **Action**: The evaluator flagged acceptable code. The rule prompt"
+        f" in [rules.yaml]({_RULES_DOC_LINK}) may be overly strict; consider"
+        " adding negative exceptions."
+    )
+
+
+def _format_flaky_diagnostic(
+    mid_count: int,
+    flaky_findings: list[tuple[str, str, str, int, int, float]],
+) -> str:
+    lines = [
+        f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing"
+        " zone)**:"
+    ]
+    for entry_id, key, bucket, firings, repeats, rate in flaky_findings[:10]:
+        lines.append(
+            f"  - `{entry_id}`: `{key}` @ {bucket} ({firings}/{repeats} firings,"
+            f" rate {rate:.2f})"
+        )
+    if len(flaky_findings) > 10:
+        lines.append(
+            f"  - _...and {len(flaky_findings) - 10} more (see detailed breakdown"
+            " below)_"
+        )
+    lines.append(
+        "  - **Action**: Findings in the mid bucket produced inconsistent"
+        " verdicts across repeat runs. Consider refining rule wording in"
+        f" [rules.yaml]({_RULES_DOC_LINK}) or prompt instructions in"
+        " `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
+    )
+    return "\n".join(lines)
+
+
+def _render_action_items(report: BenchmarkReport) -> list[str]:
+    """Constructs actionable troubleshooting steps for regressions, false alarms, and crashes."""
+    lines = ["## 🛠️ Action Items & Diagnosis", ""]
+    items: list[str] = []
+
+    # 1. Subprocess Execution Errors (Crashes or Timeouts)
+    for r in report.run_records:
+        if r.get("exit_code", 0) != 0:
+            items.append(
+                _format_error_diagnostic(
+                    entry_id=str(r.get("entry_id", "")),
+                    repeat=int(r.get("repeat", 0)),
+                    exit_code=int(r.get("exit_code", 0)),
+                    output_dir=str(r.get("output_dir", "")),
+                )
+            )
+
+    # 2. Seed & Golden False Negatives (Missed Expected Injected / Human Defects)
+    for entry in report.entries:
+        role = entry.get("role", "")
+        if role in (EntryRole.SEED, EntryRole.GOLDEN):
+            outcome = entry.get("consistency_by_outcome") or {}
+            for label in outcome.get("missed_labels", []):
+                url = _entry_source_url(
+                    entry, report.wpt_upstream_commit_expected
+                )
+                path = str(
+                    entry.get("test_rel_path", entry.get("entry_id", ""))
+                )
+                test_link = f"[`{path}`]({url})" if url else f"`{path}`"
+                window = (
+                    f"L{label['line_window'][0]}-{label['line_window'][1]}"
+                    if label.get("line_window")
+                    else "file"
+                )
+                items.append(
+                    _format_missed_defect_diagnostic(
+                        entry_id=str(entry.get("entry_id", "")),
+                        test_link=test_link,
+                        rule_key=str(label.get("key", "")),
+                        window=window,
+                        role=role,
+                    )
+                )
+
+    # 3. Seed False Positives (False Alarms on Clean Seeds)
+    for entry in report.entries:
+        if entry.get("role") == EntryRole.SEED:
+            ss = entry.get("seed_score") or {}
+            if ss.get("false_positives", 0) > 0:
+                outcome = entry.get("consistency_by_outcome") or {}
+                for fp in outcome.get("false_positives", []):
+                    url = _entry_source_url(
+                        entry, report.wpt_upstream_commit_expected
+                    )
+                    path = str(
+                        entry.get("test_rel_path", entry.get("entry_id", ""))
+                    )
+                    test_link = f"[`{path}`]({url})" if url else f"`{path}`"
+                    bucket = (
+                        f"L{fp['line_bucket'][0]}-{fp['line_bucket'][1]}"
+                        if fp.get("line_bucket")
+                        else "file"
+                    )
+                    items.append(
+                        _format_false_alarm_diagnostic(
+                            entry_id=str(entry.get("entry_id", "")),
+                            test_link=test_link,
+                            rule_key=str(fp.get("key", "")),
+                            bucket=bucket,
+                            firings=int(fp.get("firings", 0)),
+                            repeats=int(fp.get("repeats", 0)),
+                        )
+                    )
+
+    # 4. Flaky Consistency Notice (Mid-zone)
+    mid_count = report.aggregate["consistency_histogram"].get(
+        ConsistencyBucket.MID, 0
+    )
+    if mid_count > 0:
+        flaky_findings: list[tuple[str, str, str, int, int, float]] = []
+        for entry in report.entries:
+            for row in entry.get("consistency", []):
+                rate = float(row.get("rate", 0.0))
+                if 0.25 <= rate < 0.75:
+                    bucket_str = (
+                        f"L{row['line_bucket'][0]}-{row['line_bucket'][1]}"
+                        if row.get("line_bucket")
+                        else "file"
+                    )
+                    flaky_findings.append(
+                        (
+                            str(entry.get("entry_id", "")),
+                            str(row.get("key", "")),
+                            bucket_str,
+                            int(row.get("firings", 0)),
+                            int(row.get("repeats", 0)),
+                            rate,
+                        )
+                    )
+        items.append(_format_flaky_diagnostic(mid_count, flaky_findings))
+
+    if not items:
+        lines.append(
+            "✅ **No regressions or execution issues detected.** All quality gates"
+            " satisfied and seeds evaluated as expected."
+        )
+    else:
+        lines.extend(items)
+        lines.append("")
+        lines.append(
+            "> 💡 **Quick Triage Tip**: Re-score existing run outputs locally"
+            " without re-calling LLMs:"
+        )
+        lines.append(
+            "> `python scripts/benchmark/run_benchmark.py --score-only --out"
+            " <run_dir>`"
         )
     lines.append("")
     return lines
@@ -694,14 +1145,24 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     lines: list[str] = []
     lines.append("# WPT evaluator benchmark report")
     lines.append("")
+
+    lines.extend(_render_executive_banner(report))
+
     model = report.model or "unknown"
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
-        f'- **Scope**: {counts["seed"]} seed, {counts["golden"]} golden, '
-        f'{counts["corpus"]} corpus · {report.repeats} repeats'
+        f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
+        f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
     )
+    if report.repo_commit_sha:
+        sha = report.repo_commit_sha
+        short_sha = sha[:7]
+        commit_link = (
+            f"https://github.com/GoogleChromeLabs/wpt-gen/commit/{sha}"
+        )
+        lines.append(f"- **Evaluated Commit**: [`{short_sha}`]({commit_link})")
     lines.append(f"- Manifest: `{report.manifest}`")
     lines.append(f"- wpt checkout: `{report.wpt_dir}`")
     if report.wpt_upstream_commit_expected:
@@ -717,46 +1178,60 @@ def render_report_markdown(report: BenchmarkReport) -> str:
 
     lines.extend(_render_summary(report))
 
+    lines.extend(_render_action_items(report))
+
     # Golden unmatched + advisory are not in the summary (neither is scored);
     # surface them as a compact caveat line so they are not lost.
     caveats = []
-    if agg["golden_unmatched_predictions"]:
+    if agg.get("golden_unmatched_predictions"):
         caveats.append(
-            f'{agg["golden_unmatched_predictions"]} golden unmatched '
-            "(not charged)"
+            f"{agg['golden_unmatched_predictions']} golden unmatched (not charged)"
         )
-    if agg["advisory_notes"]:
-        caveats.append(f'{agg["advisory_notes"]} advisory note(s)')
+    if agg.get("advisory_notes"):
+        caveats.append(f"{agg['advisory_notes']} advisory note(s)")
     if caveats:
         lines.append("_" + "; ".join(caveats) + "._")
         lines.append("")
 
     lines.extend(_render_consistency_table(agg["consistency_histogram"]))
 
+    lines.append("<details>")
+    lines.append(
+        f"<summary><b>🔍 Detailed Per-Entry Breakdown ({len(report.entries)}"
+        " entries)</b></summary>"
+    )
+    lines.append("")
     lines.append("## Per entry")
     lines.append("")
     for entry in report.entries:
-        lines.extend(_render_entry(entry))
+        lines.extend(_render_entry(entry, report.wpt_upstream_commit_expected))
+    lines.append("</details>")
+    lines.append("")
 
     return "\n".join(lines) + "\n"
 
 
-def _render_entry(entry: dict[str, Any]) -> list[str]:
+def _render_entry(
+    entry: dict[str, Any], pinned_commit: str | None = None
+) -> list[str]:
     """One entry's heading, score line, and finding tables."""
-    lines = [f'### `{entry["entry_id"]}` ({entry["role"]}/{entry["kind"]})', ""]
+    url = _entry_source_url(entry, pinned_commit)
+    title_link = (
+        f"[`{entry['entry_id']}`]({url})" if url else f"`{entry['entry_id']}`"
+    )
+    lines = [f"### {title_link} ({entry['role']}/{entry['kind']})", ""]
     if entry["seed_score"]:
         ss = entry["seed_score"]
         lines.append(
-            f'- Seed: precision {ss["precision"]}, recall {ss["recall"]} '
-            f'(TP {ss["true_positives"]}, FP {ss["false_positives"]}, '
-            f'FN {ss["false_negatives"]})'
+            f"- Seed: precision {ss['precision']}, recall {ss['recall']} (TP"
+            f" {ss['true_positives']}, FP {ss['false_positives']}, FN"
+            f" {ss['false_negatives']})"
         )
     if entry["golden_score"]:
         gs = entry["golden_score"]
         lines.append(
-            f'- Golden: recall {gs["recall"]} '
-            f'(TP {gs["true_positives"]}, FN {gs["false_negatives"]}, '
-            f'unmatched {gs["unmatched_predictions"]})'
+            f"- Golden: recall {gs['recall']} (TP {gs['true_positives']}, FN"
+            f" {gs['false_negatives']}, unmatched {gs['unmatched_predictions']})"
         )
     lines.append("")
     lines.extend(_render_entry_consistency(entry))
@@ -788,7 +1263,8 @@ def _finding_table(rows: list[dict[str, Any]]) -> list[str]:
         "| --- | --- | --- | --- |",
     ]
     for row in rows:
-        title = row.get("title") or row["key"].rsplit("/", 1)[-1]
+        raw_title = row.get("title") or row["key"].rsplit("/", 1)[-1]
+        title = _escape_md_cell(raw_title)
         source = f'`{row["key"]}` @ {_bucket_label(row)}'
         rate = f'{row["firings"]}/{row["repeats"]} ({row["rate"]})'
         lines.append(f"| {title} | {source} | {rate} | {_warnings_cell(row)} |")
@@ -1208,6 +1684,15 @@ def main(argv: list[str] | None = None) -> int:
         if staged:
             unstage(args.wpt_dir)
 
+    thresholds = QualityThresholds(
+        min_precision=args.min_precision,
+        min_recall=args.min_recall,
+        min_golden_recall=args.min_golden_recall,
+        max_fn=args.max_fn,
+    )
+    agg = _aggregate(reports)
+    failures = check_quality_gates(agg, thresholds)
+
     report = build_report(
         manifest=manifest,
         models=models,
@@ -1216,21 +1701,12 @@ def main(argv: list[str] | None = None) -> int:
         reports=reports,
         run_records=run_records,
         actual_commit=actual_commit,
+        thresholds=thresholds,
+        quality_gate_failures=failures,
     )
     write_reports(args.out, report)
     sys.stderr.write(f'wrote {args.out / "report.md"}\n')
 
-    # Gate the exit code only after reports are on disk, so CI can publish the
-    # full table even on a failing run.
-    failures = check_quality_gates(
-        report.aggregate,
-        QualityThresholds(
-            min_precision=args.min_precision,
-            min_recall=args.min_recall,
-            min_golden_recall=args.min_golden_recall,
-            max_fn=args.max_fn,
-        ),
-    )
     if failures:
         sys.stderr.write("quality gate failed:\n")
         for failure in failures:

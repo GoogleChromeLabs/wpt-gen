@@ -12,45 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runs the WPT evaluator benchmark on Cloud Build. Trigger it manually
-# (`gcloud builds submit`) or from a manual Cloud Build trigger — not on every
-# push, since a run spends provider API budget. The provider API key is pulled
-# from Secret Manager.
+# Runs the WPT evaluator benchmark on Cloud Build. Triggered on pull requests
+# via standard `/gcbrun` comment control, automatically on push to `main`, or
+# manually (`gcloud builds submit`). Authenticates using the Cloud Build service
+# account identity (Vertex AI ADC) and publishes reports to PR comments and GitHub Checks.
 #
-# Two tiers, selected by substitutions (defaults = release):
-#   Release     full manifest, 8 repeats, no quality gate. Establishes the
-#               consistency band; run before a corpus/skill release or after a
-#               model change. ~240 agent runs.
-#                 gcloud builds submit --config cloudbuild.yaml
-#   Regression  the manifest's `smoke` sets only, 3 repeats, gated on seed
-#               recall. Guards against regressions on a skill/evaluator change.
-#                 gcloud builds submit --config cloudbuild.yaml \
-#                   --substitutions=_SELECT=--smoke,_REPEATS=3,_MIN_RECALL=1.0
+# Two tiers, selected by substitutions (defaults = regression / smoke for PRs):
+#   Regression (default)  the manifest's `smoke` sets only, 3 repeats, gated on seed
+#                         recall. Fast regression guard on PRs and `main`.
+#   Release               full manifest, 8 repeats, no quality gate. Establishes the
+#                         consistency band; run before a corpus/skill release.
+#                           gcloud builds submit --config cloudbuild.yaml \
+#                             --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="",_JOBS=4
 #
 # Substitutions:
 #   _PROVIDER    provider to evaluate with (blank = config default)
-#   _SECRET      Secret Manager secret holding the provider API key
-#   _JOBS        concurrent evaluator runs (raise once rate limits allow)
-#   _REPEATS     repeats per entry (release 8, regression 3)
-#   _SELECT      entry selection (blank = full manifest; `--smoke` = the tier)
-#   _MIN_RECALL  seed-recall gate; blank leaves it off (release doesn't gate)
+#   _JOBS        concurrent evaluator runs (default: 8)
+#   _REPEATS     repeats per entry (default: 3 for regression, 8 for release)
+#   _SELECT      entry selection (default: `--smoke` for PRs; blank for full manifest)
+#   _MIN_RECALL  seed-recall gate (default: `1.0` for regression; blank for release)
 #   _WPT_PIN     wpt commit to check out; keep in sync with
 #                benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
-  _SECRET: 'GEMINI_API_KEY'
-  _JOBS: '1'
-  _REPEATS: '8'
-  _SELECT: ''
-  _MIN_RECALL: ''
+  _JOBS: '8'
+  _REPEATS: '3'
+  _SELECT: '--smoke'
+  _MIN_RECALL: '1.0'
   _WPT_PIN: 'f5a7deaba2bffac7a534dfafaa3baf14b9a253cf'
-
-# The _SECRET key is decrypted into a generic build-time env; the run step
-# re-exports it under the provider-specific name config.py expects.
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/${_SECRET}/versions/latest
-      env: PROVIDER_API_KEY
+  _PR_NUMBER: ''
 
 steps:
   - id: clone-wpt
@@ -64,39 +54,115 @@ steps:
         git -C /workspace/wpt checkout "${_WPT_PIN}"
 
   # Install and run in one Python step so the venv/deps persist across the
-  # invocation. config.py reads a provider-specific <PROVIDER>_API_KEY, so the
-  # generic secret is re-exported under that name (falling back to _SECRET when
-  # the provider is the config default).
+  # invocation. Authenticates natively with Vertex AI via the service account
+  # identity (Application Default Credentials).
   - id: run-benchmark
     name: python:3.13-slim
     entrypoint: bash
-    secretEnv: ['PROVIDER_API_KEY']
+    env:
+      - 'GOOGLE_GENAI_USE_VERTEXAI=true'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GOOGLE_CLOUD_LOCATION=global'
+      - 'COMMIT_SHA=$COMMIT_SHA'
+      - 'PR_NUMBER=$_PR_NUMBER'
+      - 'HEAD_BRANCH=$_HEAD_BRANCH'
+      - 'BRANCH_NAME=$BRANCH_NAME'
+      - 'REPO_NAME=$REPO_FULL_NAME'
+    secretEnv: ['GH_TOKEN']
     args:
       - -c
       - |
-        set -euo pipefail
-        key_var="${_PROVIDER:+$(echo "${_PROVIDER}" | tr '[:lower:]' '[:upper:]')_API_KEY}"
-        export "${key_var:-${_SECRET}}"="${PROVIDER_API_KEY}"
-        apt-get update && apt-get install -y --no-install-recommends git
+        set -uo pipefail
+        apt-get update && apt-get install -y --no-install-recommends git gh
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
+
+        # Run benchmark and capture exit code so the report is always output
+        set +e
+        provider_arg=""
+        if [ -n "${_PROVIDER}" ]; then
+          provider_arg="--provider ${_PROVIDER}"
+        fi
+        recall_arg=""
+        if [ -n "${_MIN_RECALL}" ]; then
+          recall_arg="--min-recall ${_MIN_RECALL}"
+        fi
+
         python scripts/benchmark/run_benchmark.py \
           --manifest benchmarks/manifest.yaml \
           --wpt-dir /workspace/wpt \
           --jobs "${_JOBS}" \
           --repeats "${_REPEATS}" \
           ${_SELECT} \
-          ${_PROVIDER:+--provider "${_PROVIDER}"} \
-          ${_MIN_RECALL:+--min-recall "${_MIN_RECALL}"}
+          $${provider_arg} \
+          $${recall_arg}
+        bench_status=$$?
+        set -e
+
+        latest_report=$$(find bench-runs -name "report.md" 2>/dev/null | sort -r | head -n 1)
+        if [ -n "$${latest_report}" ] && [ -f "$${latest_report}" ]; then
+          echo "=================== BENCHMARK REPORT ==================="
+          cat "$${latest_report}"
+          echo "========================================================"
+
+          # 1. Post comment to PR (if running in a pull request context)
+          pr_target="$${PR_NUMBER:-$${HEAD_BRANCH:-$${BRANCH_NAME}}}"
+          if [ -n "$${pr_target}" ] && [ "$${pr_target}" != "main" ] && [ -n "$${GH_TOKEN:-}" ]; then
+            echo "Posting benchmark report to PR ($${pr_target})..."
+            gh pr comment "$${pr_target}" \
+              --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" \
+              --body-file "$${latest_report}" || true
+          fi
+
+          # 2. Post summary to GitHub Check Run (works for PRs and pushes to main)
+          if [ -n "$${COMMIT_SHA:-}" ] && [ -n "$${GH_TOKEN:-}" ]; then
+            echo "Posting benchmark check run for commit $${COMMIT_SHA}..."
+            conclusion="success"
+            if [ "$${bench_status}" -ne 0 ]; then
+              conclusion="failure"
+            fi
+
+            python3 -c '
+              import json, os, subprocess, sys
+              report_path = sys.argv[1]
+              conclusion = sys.argv[2]
+              try:
+                  with open(report_path, encoding="utf-8") as f:
+                      summary = f.read()
+                  commit_sha = os.environ.get("COMMIT_SHA")
+                  repo = os.environ.get("REPO_NAME", "GoogleChromeLabs/wpt-gen")
+                  payload = {
+                      "name": "WPT Evaluator Benchmark",
+                      "head_sha": commit_sha,
+                      "status": "completed",
+                      "conclusion": conclusion,
+                      "output": {
+                          "title": f"Benchmark Report ({conclusion.upper()})",
+                          "summary": summary[:65500],
+                      },
+                  }
+                  with open("/tmp/check_run.json", "w", encoding="utf-8") as f:
+                      json.dump(payload, f)
+                  subprocess.run(["gh", "api", f"/repos/{repo}/check-runs", "--input", "/tmp/check_run.json"], check=False)
+              except Exception as e:
+                  sys.stderr.write(f"Warning: failed to post check run: {e}\n")
+            ' "$${latest_report}" "$${conclusion}" || true
+          fi
+        fi
+
+        exit "$${bench_status}"
 
 # Agent calls are slow; cap the build rather than let it hang. The release tier
 # (~240 runs) can approach this; drop it for the smaller regression tier.
-timeout: 7200s
+timeout: 14400s
 
-# Keep the report regardless of outcome, so a failed run (including a tripped
-# quality gate) stays inspectable.
-artifacts:
-  objects:
-    location: 'gs://${PROJECT_ID}-wpt-gen-bench/$BUILD_ID/'
-    paths:
-      - 'bench-runs/**'
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/interop-bot-gh-token/versions/latest
+      env: 'GH_TOKEN'
+
+

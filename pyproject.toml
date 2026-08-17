@@ -39,7 +39,7 @@ classifiers = [
 ]
 dependencies = [
     # Core LLM Integration
-    "google-adk>=1.27.2",
+    "google-adk>=2.7.0,<3.0.0",
     "google-cloud-storage>=2.18.0",
     "google-genai>=1.62.0",
     "openai>=2.20.0",

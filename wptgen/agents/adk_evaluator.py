@@ -241,7 +241,7 @@ async def evaluate_test_with_adk(
 
     agent = Agent(**agent_kwargs)
 
-    session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
+    session_service = InMemorySessionService()
     session = await session_service.create_session(
         app_name="wpt-gen",
         user_id="cli_user",
@@ -278,7 +278,7 @@ async def evaluate_test_with_adk(
         return reported_payload[-1], stream_manager.token_usage
 
     finally:
-        await runner.close()  # type: ignore[no-untyped-call]
+        await runner.close()
         await session_service.delete_session(
             app_name="wpt-gen", user_id="cli_user", session_id=session.id
         )

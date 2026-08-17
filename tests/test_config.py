@@ -84,6 +84,20 @@ def test_load_config_missing_api_key_raises_error(
         load_config(config_path="non_existent_dummy.yaml")
 
 
+def test_load_config_gemini_vertex_ai_adc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that GEMINI_API_KEY is not required when GOOGLE_GENAI_USE_VERTEXAI is set."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+
+    config = load_config(config_path="non_existent_dummy.yaml")
+    assert config.provider == "gemini"
+    assert config.api_key is None
+
+
 def test_load_config_unsupported_provider() -> None:
     """Test that requesting a random/unsupported provider raises an error."""
     with pytest.raises(ValueError, match="CRITICAL: Unsupported provider"):
@@ -513,3 +527,29 @@ def test_get_model_info_for_phase() -> None:
         config.get_model_info_for_phase("phase_unknown")
         == "reasoning [heavy-model] (Overridden by --use-reasoning)"
     )
+
+
+def test_cloudbuild_yaml_structure() -> None:
+    """Verifies that cloudbuild.yaml is valid YAML and correctly configured."""
+    import yaml
+
+    cloudbuild_path = Path("cloudbuild.yaml")
+    assert cloudbuild_path.is_file()
+
+    data = yaml.safe_load(cloudbuild_path.read_text())
+    assert isinstance(data, dict)
+    assert "steps" in data
+
+    step_ids = [s.get("id") for s in data["steps"] if isinstance(s, dict)]
+    assert "clone-wpt" in step_ids
+    assert "run-benchmark" in step_ids
+
+    run_step = next(s for s in data["steps"] if s.get("id") == "run-benchmark")
+    script = "".join(run_step.get("args", []))
+    assert "run_benchmark.py" in script
+    assert "provider_arg=" in script
+    assert "recall_arg=" in script
+    assert "--manifest benchmarks/manifest.yaml" in script
+    assert "check-runs" in script
+    env_vars = run_step.get("env", [])
+    assert any("COMMIT_SHA" in v for v in env_vars)

@@ -1090,31 +1090,43 @@ def test_score_all_and_report(tmp_path: Path) -> None:
     # legend link, the per-dataset summary + scope line, the aggregate bucket
     # table, and the per-entry finding tables.
     assert "#reading-a-benchmark-report" in md
-    assert "## Summary" in md
-    assert "| seed | precision / recall |" in md
-    assert "| corpus | flaky findings (mid) |" in md
+    assert "Summary" in md
+    assert "seed" in md
+    assert "corpus" in md
     assert "**Scope**:" in md
     assert "### Consistency buckets" in md
     assert "| bucket | firing rate | count | meaning |" in md
     assert "**True positives**" in md
     assert "**False positives**" in md
     assert "| title | source | firing rate | warnings |" in md
+    assert "## 🛠️ Action Items & Diagnosis" in md
+    assert "<details>" in md
 
 
 def _bench_report(
-    entries: list[dict[str, Any]], aggregate: dict[str, Any]
+    entries: list[dict[str, Any]],
+    aggregate: dict[str, Any],
+    quality_thresholds: dict[str, Any] | None = None,
+    quality_gate_failures: list[str] | None = None,
+    run_records: list[dict[str, Any]] | None = None,
+    repo_commit_sha: str | None = None,
 ) -> Any:
     return run_benchmark.BenchmarkReport(
         manifest="m.yaml",
         provider="p",
         model="mdl",
         wpt_dir="/wpt",
-        wpt_upstream_commit_expected=None,
+        wpt_upstream_commit_expected="pinned123",
         wpt_upstream_commit_actual=None,
         repeats=3,
         entries=entries,
-        run_records=[],
+        run_records=run_records or [],
         aggregate=aggregate,
+        quality_thresholds=quality_thresholds,
+        quality_gate_failures=(
+            tuple(quality_gate_failures) if quality_gate_failures else ()
+        ),
+        repo_commit_sha=repo_commit_sha,
     )
 
 
@@ -1134,9 +1146,12 @@ def test_summary_renders_a_row_per_present_dataset() -> None:
     }
     lines = run_benchmark._render_summary(_bench_report(entries, agg))
     md = "\n".join(lines)
-    assert "| seed | precision / recall | 0.8 / 1.0 | 1 |" in md
-    assert "| golden | recall | 0.75 | 1 |" in md
-    assert "| corpus | flaky findings (mid) | 2 | 1 |" in md
+    assert "| **`seed`** (1) |" in md
+    assert "**0.8** precision / **1.0** recall" in md
+    assert "| **`golden`** (1) |" in md
+    assert "**0.75** recall" in md
+    assert "| **`corpus`** (1) |" in md
+    assert "**2** flaky findings" in md
 
 
 def test_summary_omits_absent_datasets() -> None:
@@ -1149,9 +1164,258 @@ def test_summary_omits_absent_datasets() -> None:
         "consistency_histogram": {"mid": 0},
     }
     md = "\n".join(run_benchmark._render_summary(_bench_report(entries, agg)))
-    assert "| seed |" in md
-    assert "golden" not in md
-    assert "corpus" not in md
+    assert "| **`seed`** (1) |" in md
+    assert "**`golden`**" not in md
+
+
+def test_summary_reflects_quality_thresholds() -> None:
+    entries = [
+        {"role": "seed", "kind": "testharness"},
+        {"role": "golden", "kind": "js"},
+    ]
+    agg = {
+        "seed_precision": 1.0,
+        "seed_recall": 1.0,
+        "golden_recall": 0.8,
+        "consistency_histogram": {"mid": 0},
+    }
+    # 1. Configured thresholds
+    rep_with_t = _bench_report(
+        entries,
+        agg,
+        quality_thresholds={
+            "min_recall": 1.0,
+            "min_precision": 0.9,
+            "min_golden_recall": 0.8,
+        },
+    )
+    md_with_t = "\n".join(run_benchmark._render_summary(rep_with_t))
+    assert "1.0 Recall, 0.9 Precision | ✅ Pass" in md_with_t
+    assert "0.8 Recall | ✅ Pass" in md_with_t
+
+    # 2. Informational (no thresholds)
+    rep_info = _bench_report(entries, agg, quality_thresholds=None)
+    md_info = "\n".join(run_benchmark._render_summary(rep_info))
+    assert "Informational | ℹ️ Tracked" in md_info
+
+
+def test_format_quality_gate_descriptors() -> None:
+    # None / empty
+    active, unset = run_benchmark._format_quality_gate_descriptors(None)
+    assert active == []
+    assert unset == [
+        "min-precision",
+        "min-recall",
+        "min-golden-recall",
+        "max-fn",
+    ]
+
+    # Partial
+    active, unset = run_benchmark._format_quality_gate_descriptors(
+        {"min_recall": 1.0, "min_precision": None}
+    )
+    assert active == ["seed recall ≥ 1.0"]
+    assert unset == ["min-precision", "min-golden-recall", "max-fn"]
+
+    # All set
+    active, unset = run_benchmark._format_quality_gate_descriptors(
+        run_benchmark.QualityThresholds(
+            min_precision=0.9, min_recall=1.0, min_golden_recall=0.8, max_fn=0
+        )
+    )
+    assert active == [
+        "seed recall ≥ 1.0",
+        "seed precision ≥ 0.9",
+        "golden recall ≥ 0.8",
+        "max false negatives ≤ 0",
+    ]
+    assert unset == []
+
+
+def test_render_executive_banner() -> None:
+    # 1. No thresholds -> empty
+    rep_none = _bench_report([], {})
+    assert run_benchmark._render_executive_banner(rep_none) == []
+
+    # 2. Passing thresholds
+    rep_pass = _bench_report(
+        [], {}, quality_thresholds={"min_recall": 1.0}, quality_gate_failures=[]
+    )
+    banner_pass = "\n".join(run_benchmark._render_executive_banner(rep_pass))
+    assert "### ✅ PASS · Quality Gates Satisfied" in banner_pass
+    assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_pass
+    assert (
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
+        in banner_pass
+    )
+
+    # 3. Failing thresholds
+    rep_fail = _bench_report(
+        [],
+        {},
+        quality_thresholds={"min_recall": 1.0},
+        quality_gate_failures=["seed recall 0.5 < 1.0"],
+    )
+    banner_fail = "\n".join(run_benchmark._render_executive_banner(rep_fail))
+    assert "### ❌ FAIL · Quality Gate Regression (1)" in banner_fail
+    assert "seed recall 0.5 < 1.0" in banner_fail
+    assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_fail
+    assert (
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
+        in banner_fail
+    )
+
+
+def test_escape_md_cell() -> None:
+    assert run_benchmark._escape_md_cell("Simple title") == "Simple title"
+    assert (
+        run_benchmark._escape_md_cell("Title with | pipe")
+        == r"Title with \| pipe"
+    )
+    assert (
+        run_benchmark._escape_md_cell("Tag <script>alert(1)</script>")
+        == "Tag &lt;script&gt;alert(1)&lt;/script&gt;"
+    )
+    assert (
+        run_benchmark._escape_md_cell("Multi\nline\r\ntitle")
+        == "Multi line title"
+    )
+
+
+def test_entry_source_url() -> None:
+    seed_entry = {"role": "seed", "test_rel_path": "wpt-gen-bench/foo.html"}
+    assert (
+        run_benchmark._entry_source_url(seed_entry, "pinned_sha")
+        == "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/seeds/foo.html"
+    )
+
+    corpus_entry = {"role": "corpus", "test_rel_path": "dom/nodes/foo.html"}
+    assert (
+        run_benchmark._entry_source_url(corpus_entry, "pinned_sha")
+        == "https://github.com/web-platform-tests/wpt/blob/pinned_sha/dom/nodes/foo.html"
+    )
+
+    golden_entry = {"role": "golden", "test_rel_path": "golden/pr123/bar.html"}
+    assert (
+        run_benchmark._entry_source_url(golden_entry, "pinned_sha")
+        == "https://github.com/web-platform-tests/wpt/blob/pinned_sha/golden/pr123/bar.html"
+    )
+
+
+def test_render_action_items() -> None:
+    # 1. Clean run
+    clean_report = _bench_report(
+        entries=[
+            {
+                "role": "seed",
+                "entry_id": "seed-1",
+                "test_rel_path": "wpt-gen-bench/seed1.html",
+            }
+        ],
+        aggregate={"consistency_histogram": {"mid": 0}},
+    )
+    clean_md = "\n".join(run_benchmark._render_action_items(clean_report))
+    assert "✅ **No regressions or execution issues detected.**" in clean_md
+
+    # 2. Subprocess crash + False Negative + False Positive + Flaky
+    faulty_report = _bench_report(
+        entries=[
+            {
+                "role": "seed",
+                "entry_id": "seed-fail",
+                "test_rel_path": "wpt-gen-bench/seed-fail.html",
+                "seed_score": {"false_positives": 1},
+                "consistency": [
+                    {
+                        "key": "FLAKY-001",
+                        "line_bucket": [12, 12],
+                        "firings": 1,
+                        "repeats": 3,
+                        "rate": 0.3333,
+                    }
+                ],
+                "consistency_by_outcome": {
+                    "missed_labels": [
+                        {"key": "CHECKLIST-004", "line_window": [10, 20]}
+                    ],
+                    "false_positives": [
+                        {
+                            "key": "CHECKLIST-010",
+                            "line_bucket": [5, 5],
+                            "firings": 2,
+                            "repeats": 3,
+                        }
+                    ],
+                },
+            },
+            {
+                "role": "golden",
+                "entry_id": "golden-fail",
+                "test_rel_path": "wpt-gen-bench/golden-fail.html",
+                "consistency_by_outcome": {
+                    "missed_labels": [
+                        {"key": "GOLDEN-RULE-001", "line_window": [30, 35]}
+                    ]
+                },
+            },
+        ],
+        aggregate={"consistency_histogram": {"mid": 1}},
+        run_records=[
+            {
+                "entry_id": "seed-fail",
+                "repeat": 0,
+                "exit_code": 1,
+                "output_dir": "/tmp/out",
+            }
+        ],
+    )
+    faulty_md = "\n".join(run_benchmark._render_action_items(faulty_report))
+    assert "🚨 **Subprocess Execution Error in `seed-fail`" in faulty_md
+    assert "❌ **Missed Expected Injected Defect in `seed-fail`" in faulty_md
+    assert "CHECKLIST-004" in faulty_md
+    assert (
+        "❌ **Missed Expected Human Reviewer Defect in `golden-fail`"
+        in faulty_md
+    )
+    assert "GOLDEN-RULE-001" in faulty_md
+    assert "⚠️ **False Alarm on Test in `seed-fail`" in faulty_md
+    assert "CHECKLIST-010" in faulty_md
+    assert (
+        "ℹ️ **Flaky Findings Detected (1 in the 25–75% firing zone)**"
+        in faulty_md
+    )
+    assert (
+        "`seed-fail`: `FLAKY-001` @ L12-12 (1/3 firings, rate 0.33)"
+        in faulty_md
+    )
+    assert "💡 **Quick Triage Tip**" in faulty_md
+
+
+def test_render_legend_is_collapsible() -> None:
+    lines = run_benchmark._render_legend()
+    md = "\n".join(lines)
+    assert "<details>" in md
+    assert (
+        "<summary><b>📖 How to Read & Interpret This Report</b></summary>" in md
+    )
+    assert "* **`seed`**:" in md
+    assert "* **`golden`**:" in md
+    assert "* **`corpus`**:" in md
+    assert "* **`always` (1.0)**:" in md
+    assert "</details>" in md
+
+
+def test_render_report_markdown_includes_evaluated_commit() -> None:
+    rep = _bench_report(
+        entries=[],
+        aggregate={"consistency_histogram": {"mid": 0}},
+        repo_commit_sha="b5488ba5b588b4a773af28e9f3391434661b4fbb",
+    )
+    md = run_benchmark.render_report_markdown(rep)
+    assert (
+        "- **Evaluated Commit**: [`b5488ba`](https://github.com/GoogleChromeLabs/wpt-gen/commit/b5488ba5b588b4a773af28e9f3391434661b4fbb)"
+        in md
+    )
 
 
 def test_progress_start_prints_atomic_line(

@@ -18,7 +18,7 @@ import importlib.resources
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ class Config:
     api_key: str | None
     categories: dict[str, str]
     phase_model_mapping: dict[str, str]
+    provider_options: dict[str, Any] = field(default_factory=dict)
     wpt_path: str | None = None
     library_mode: bool = False
     output_dir: str | None = None
@@ -324,11 +325,18 @@ def load_config(
 
     # Enforce the environment variable constraint for the active provider
     api_key = os.environ.get(env_var_name)
+    use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in (
+        "true",
+        "1",
+    )
     if require_api_key and not api_key:
-        raise ValueError(
-            f"CRITICAL: {env_var_name} environment variable is missing. "
-            f"Required when using the '{active_provider}' provider."
-        )
+        if active_provider == "gemini" and use_vertex:
+            api_key = None
+        else:
+            raise ValueError(
+                f"CRITICAL: {env_var_name} environment variable is missing. "
+                f"Required when using the '{active_provider}' provider."
+            )
 
     wpt_path = wpt_dir_override or yaml_data.get("wpt_path", WPT_DEFAULT_PATH)
     output_dir_raw = output_dir_override or yaml_data.get("output_dir")
