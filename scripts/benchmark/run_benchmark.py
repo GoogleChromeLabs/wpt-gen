@@ -1036,7 +1036,7 @@ def _stability_bands(repeats: int) -> tuple[float, float]:
     (you cannot confidently fail flakiness on few samples). At 8 repeats the
     fail line is ~0.52; at 3 repeats ~0.41.
     """
-    slack = 0.5 / (repeats**0.5) if repeats else 0.5
+    slack = 0.5 / (repeats**0.5) if repeats > 0 else 0.5
     return round(0.90 - slack, 2), round(0.70 - slack, 2)
 
 
