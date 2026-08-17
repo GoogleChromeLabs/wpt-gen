@@ -802,7 +802,6 @@ _GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
     ("unstable", "below target - detection instability"),
     ("never", "never fires"),
 )
-
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -833,20 +832,75 @@ def _entry_source_url(
     return f"https://github.com/web-platform-tests/wpt/blob/{commit}/{path}"
 
 
+def _format_quality_gate_descriptors(
+    thresholds: QualityThresholds | dict[str, Any] | None,
+) -> tuple[list[str], list[str]]:
+    """Returns (active_gate_descriptions, unset_gate_names)."""
+    if thresholds is None:
+        return [], [
+            "min-precision",
+            "min-recall",
+            "min-golden-recall",
+            "max-fn",
+        ]
+    if isinstance(thresholds, QualityThresholds):
+        t_dict = asdict(thresholds)
+    else:
+        t_dict = thresholds
+
+    active: list[str] = []
+    unset: list[str] = []
+
+    if t_dict.get("min_recall") is not None:
+        active.append(f"seed recall ≥ {t_dict['min_recall']}")
+    else:
+        unset.append("min-recall")
+
+    if t_dict.get("min_precision") is not None:
+        active.append(f"seed precision ≥ {t_dict['min_precision']}")
+    else:
+        unset.append("min-precision")
+
+    if t_dict.get("min_golden_recall") is not None:
+        active.append(f"golden recall ≥ {t_dict['min_golden_recall']}")
+    else:
+        unset.append("min-golden-recall")
+
+    if t_dict.get("max_fn") is not None:
+        active.append(f"max false negatives ≤ {t_dict['max_fn']}")
+    else:
+        unset.append("max-fn")
+
+    return active, unset
+
+
 def _render_executive_banner(report: BenchmarkReport) -> list[str]:
     """Renders the top-level executive pass/fail badge."""
     lines: list[str] = []
     failures = report.quality_gate_failures
+    active_gates, unset_gates = _format_quality_gate_descriptors(
+        report.quality_thresholds
+    )
+
     if failures:
         lines.append(f"### ❌ FAIL · Quality Gate Regression ({len(failures)})")
         lines.append("")
         for f in failures:
             lines.append(f"- ⚠️ **Gate Breached**: `{f}`")
+        if active_gates:
+            lines.append(
+                f"- **Active Gates**: {', '.join(f'`{g}`' for g in active_gates)}"
+            )
+        if unset_gates:
+            lines.append(f"- _(Unset thresholds: {', '.join(unset_gates)})_")
         lines.append("")
-    elif report.quality_thresholds and any(
-        v is not None for v in report.quality_thresholds.values()
-    ):
+    elif active_gates:
         lines.append("### ✅ PASS · Quality Gates Satisfied")
+        lines.append(
+            f"- **Active Gates**: {', '.join(f'`{g}`' for g in active_gates)}"
+        )
+        if unset_gates:
+            lines.append(f"- _(Unset thresholds: {', '.join(unset_gates)})_")
         lines.append("")
     return lines
 
@@ -1000,6 +1054,7 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     """Per-dataset headline table: one row per dataset that has entries."""
     agg = report.aggregate
     counts = _entry_counts(report.entries)
+    t = report.quality_thresholds or {}
     lines = [
         "## 📈 Summary",
         "",
@@ -1009,17 +1064,40 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
     if counts[EntryRole.SEED]:
         prec = agg["seed_precision"]
         rec = agg["seed_recall"]
-        status = "✅ Pass" if rec >= 1.0 else "❌ Regression"
+        targets: list[str] = []
+        if t.get("min_recall") is not None:
+            targets.append(f"{t['min_recall']} Recall")
+        if t.get("min_precision") is not None:
+            targets.append(f"{t['min_precision']} Precision")
+        target_str = ", ".join(targets) if targets else "Informational"
+
+        seed_failed = any("seed" in f for f in report.quality_gate_failures)
+        if targets:
+            status = "❌ Regression" if seed_failed else "✅ Pass"
+        else:
+            status = "ℹ️ Tracked"
+
         lines.append(
             f"| **`seed`** ({counts[EntryRole.SEED]}) | Injected defect detection & false"
-            f" alarms | **{prec}** precision / **{rec}** recall | 1.0 Recall |"
+            f" alarms | **{prec}** precision / **{rec}** recall | {target_str} |"
             f" {status} |"
         )
     if counts[EntryRole.GOLDEN]:
         g_rec = agg["golden_recall"]
+        g_target = (
+            f"{t['min_golden_recall']} Recall"
+            if t.get("min_golden_recall") is not None
+            else "Informational"
+        )
+        golden_failed = any("golden" in f for f in report.quality_gate_failures)
+        if t.get("min_golden_recall") is not None:
+            g_status = "❌ Regression" if golden_failed else "✅ Pass"
+        else:
+            g_status = "ℹ️ Tracked"
+
         lines.append(
             f"| **`golden`** ({counts[EntryRole.GOLDEN]}) | Agreement with human reviewer"
-            f" comments | **{g_rec}** recall | Informational | ℹ️ Tracked |"
+            f" comments | **{g_rec}** recall | {g_target} | {g_status} |"
         )
     if counts[EntryRole.CORPUS]:
         decomp = agg.get("consistency_decomposition") or {}
