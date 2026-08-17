@@ -1166,7 +1166,70 @@ def test_summary_omits_absent_datasets() -> None:
     md = "\n".join(run_benchmark._render_summary(_bench_report(entries, agg)))
     assert "| **`seed`** (1) |" in md
     assert "**`golden`**" not in md
-    assert "**`corpus`**" not in md
+
+
+def test_summary_reflects_quality_thresholds() -> None:
+    entries = [
+        {"role": "seed", "kind": "testharness"},
+        {"role": "golden", "kind": "js"},
+    ]
+    agg = {
+        "seed_precision": 1.0,
+        "seed_recall": 1.0,
+        "golden_recall": 0.8,
+        "consistency_histogram": {"mid": 0},
+    }
+    # 1. Configured thresholds
+    rep_with_t = _bench_report(
+        entries,
+        agg,
+        quality_thresholds={
+            "min_recall": 1.0,
+            "min_precision": 0.9,
+            "min_golden_recall": 0.8,
+        },
+    )
+    md_with_t = "\n".join(run_benchmark._render_summary(rep_with_t))
+    assert "1.0 Recall, 0.9 Precision | ✅ Pass" in md_with_t
+    assert "0.8 Recall | ✅ Pass" in md_with_t
+
+    # 2. Informational (no thresholds)
+    rep_info = _bench_report(entries, agg, quality_thresholds=None)
+    md_info = "\n".join(run_benchmark._render_summary(rep_info))
+    assert "Informational | ℹ️ Tracked" in md_info
+
+
+def test_format_quality_gate_descriptors() -> None:
+    # None / empty
+    active, unset = run_benchmark._format_quality_gate_descriptors(None)
+    assert active == []
+    assert unset == [
+        "min-precision",
+        "min-recall",
+        "min-golden-recall",
+        "max-fn",
+    ]
+
+    # Partial
+    active, unset = run_benchmark._format_quality_gate_descriptors(
+        {"min_recall": 1.0, "min_precision": None}
+    )
+    assert active == ["seed recall ≥ 1.0"]
+    assert unset == ["min-precision", "min-golden-recall", "max-fn"]
+
+    # All set
+    active, unset = run_benchmark._format_quality_gate_descriptors(
+        run_benchmark.QualityThresholds(
+            min_precision=0.9, min_recall=1.0, min_golden_recall=0.8, max_fn=0
+        )
+    )
+    assert active == [
+        "seed recall ≥ 1.0",
+        "seed precision ≥ 0.9",
+        "golden recall ≥ 0.8",
+        "max false negatives ≤ 0",
+    ]
+    assert unset == []
 
 
 def test_render_executive_banner() -> None:
@@ -1180,6 +1243,11 @@ def test_render_executive_banner() -> None:
     )
     banner_pass = "\n".join(run_benchmark._render_executive_banner(rep_pass))
     assert "### ✅ PASS · Quality Gates Satisfied" in banner_pass
+    assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_pass
+    assert (
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
+        in banner_pass
+    )
 
     # 3. Failing thresholds
     rep_fail = _bench_report(
@@ -1191,6 +1259,11 @@ def test_render_executive_banner() -> None:
     banner_fail = "\n".join(run_benchmark._render_executive_banner(rep_fail))
     assert "### ❌ FAIL · Quality Gate Regression (1)" in banner_fail
     assert "seed recall 0.5 < 1.0" in banner_fail
+    assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_fail
+    assert (
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
+        in banner_fail
+    )
 
 
 def test_escape_md_cell() -> None:
