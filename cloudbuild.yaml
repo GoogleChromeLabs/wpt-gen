@@ -42,9 +42,9 @@ substitutions:
   _PROVIDER: ''
   _JOBS: '8'
   _REPEATS: '8'
-  _SELECT: '--smoke'
+  _SELECT: ''
   _MIN_RECALL: '1.0'
-  _MIN_STABILITY: ''
+  _MIN_STABILITY: 'auto'
   _WPT_PIN: 'f5a7deaba2bffac7a534dfafaa3baf14b9a253cf'
   _PR_NUMBER: ''
 
