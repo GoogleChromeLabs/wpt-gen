@@ -1132,6 +1132,15 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
             f"(@{report.repeats} reps) | {status} |"
         )
     lines.append("")
+    if report.repeats < 5 or any(0 < c < 5 for c in counts.values()):
+        lines.append(
+            f"> ℹ️ **Sample Size Notice**: Evaluated with {report.repeats} repeats"
+            f" across {len(report.entries)} entries. With small sample sizes, a"
+            " single finding variance produces an expected aggregate fluctuation"
+            " of ±10–15%. For release gating and baseline comparisons, run with"
+            " `_REPEATS=8` on the full manifest."
+        )
+        lines.append("")
     return lines
 
 
@@ -1337,6 +1346,12 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
             "> `python scripts/benchmark/run_benchmark.py --score-only --out"
             " <run_dir>`"
         )
+        lines.append("")
+        lines.append(
+            "> 🚀 **Run Full Release Benchmark in Cloud Build**:\n"
+            "> `gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops"
+            ' --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto"`'
+        )
     lines.append("")
     return lines
 
@@ -1353,10 +1368,15 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     model = report.model or "unknown"
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
+    total_entries = len(report.entries)
+    tier_name = "Smoke Tier" if total_entries < 15 else "Full Manifest"
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
+        f"- **Suite**: **{tier_name}** ({total_entries} entries · {report.repeats} repeats · {total_entries * report.repeats} evaluations)"
+    )
+    lines.append(
         f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
-        f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
+        f" {counts[EntryRole.CORPUS]} corpus"
     )
     if report.repo_commit_sha:
         sha = report.repo_commit_sha

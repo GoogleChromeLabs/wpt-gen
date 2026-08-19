@@ -47,6 +47,24 @@ Tiers are selection, not schema: the manifest defines which entries are in
 `smoke` (see [Manifest schema](#manifest-schema)); `--repeats` and any
 quality gate stay on the command line.
 
+### Running in Cloud Build
+
+The benchmark suite runs natively on Google Cloud Build using Vertex AI authentication (Application Default Credentials) with 8 parallel worker jobs:
+
+#### 1. Fast PR Regression Tier (Smoke · 3 repeats)
+Triggered automatically on pull requests via `/gcbrun` comment, or manually:
+```bash
+gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops \
+  --substitutions=_SELECT="--smoke",_REPEATS=3,_MIN_RECALL="1.0"
+```
+
+#### 2. Full Release & Model Evaluation Tier (Full Manifest · 8 repeats)
+Runs all 26+ benchmark entries across 8 repeats to establish a high-confidence consistency baseline:
+```bash
+gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops \
+  --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto",_JOBS=8
+```
+
 ### Quality gates
 
 For CI. A gate lets a build **fail on a quality regression** — e.g. a skill
