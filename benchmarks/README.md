@@ -21,8 +21,8 @@ overridable. Other flags:
 - `--smoke` — the regression tier: run only the manifest's `smoke` sets
   (see [Tiers](#tiers)). Composes with `--filter`.
 - `--golden-set NAME` / `--golden-prs 43400,…` — select golden entries.
-- `--min-precision` / `--min-recall` / `--min-golden-recall` / `--max-fn`
-  — CI quality gates (see [Quality gates](#quality-gates)).
+- `--min-precision` / `--min-recall` / `--min-golden-recall` / `--max-fn` /
+  `--min-stability` — CI quality gates (see [Quality gates](#quality-gates)).
 - `--score-only` — re-score existing run dirs in `--out` without the agent.
 
 The harness stages seeds/golden into `<wpt-dir>/wpt-gen-bench/`, runs
@@ -54,9 +54,16 @@ change that drops seed recall — so the drop blocks the change instead of
 landing silently. The report is always written *first*, so a failing build
 can still post its full table onto the PR.
 
-The four `--min-*`/`--max-fn` flags gate the **exit code**: any breach exits
+The `--min-*`/`--max-fn` flags gate the **exit code**: any breach exits
 non-zero. Omitting a flag leaves that check off, so by default a run always
 exits 0. `--max-fn` sums seed and golden false negatives.
+
+`--min-stability` gates the corpus **stability score** (see
+[Consistency](#consistency)). It takes either a fixed floor (e.g.
+`--min-stability 0.7`) or `auto`. **Prefer `auto`** — it gates on the run's
+own repeat-aware target (`warn_at`), so the bar matches the ✅/⚠️/❌ status the
+summary already shows and tightens automatically with more repeats (≈0.61 at 3
+reps, ≈0.72 at 8).
 
 ## Reading a benchmark report
 
@@ -70,13 +77,13 @@ consistency only.
 
 ### The summary table
 
-One row per dataset present in the run — its headline number and entry count:
+One row per dataset present in the run — its headline number and status:
 
-| dataset | metric | value | entries |
-| --- | --- | --- | --- |
-| seed | precision / recall | 0.83 / 1.0 | 12 |
-| golden | recall | 0.75 | 8 |
-| corpus | flaky findings (mid) | 2 | 29 |
+| dataset | what it measures | score / value | target | status |
+| --- | --- | --- | --- | --- |
+| seed | injected-defect detection & false alarms | 0.83 precision / 1.0 recall | 1.0 recall | ✅ Pass |
+| golden | agreement with human review | 0.75 recall | Informational | ℹ️ Tracked |
+| corpus | run-to-run detection stability | 0.94 stability · 3 label-churn (advisory) | ≥0.72 (@8 reps) | ✅ Stable |
 
 **Precision** — of the findings the evaluator emitted, the fraction that were
 expected. Target **1.0** (no false positives).
@@ -84,10 +91,13 @@ expected. Target **1.0** (no false positives).
 **Recall** — of the expected findings, the fraction the evaluator caught.
 Target **1.0** (nothing missed).
 
-The corpus row counts **mid**-band (flaky) findings — see
-[Consistency](#consistency); corpus is not scored for precision or recall.
-A one-line caveat under the table surfaces anything counted-but-not-scored
-(golden unmatched predictions, advisory notes).
+**Stability** — corpus is unlabeled, so it is scored on *detection*
+consistency, not correctness: a 0.0–1.0 score (1.0 = every finding fires
+deterministically across repeats) — see [Consistency](#consistency). Label
+churn (a location detected every repeat but labeled with competing rules) is a
+rule-taxonomy issue, **reported but not scored**. A one-line caveat under the
+table surfaces the other counted-but-not-scored signals (golden unmatched
+predictions, advisory notes).
 
 The seed scores abbreviate as:
 
@@ -189,12 +199,11 @@ charged.
 
 ### Consistency
 
-Every finding also carries a **firing rate** — how often it fired across the
-repeats. There is no single target: a finding *should* sit at an extreme
-(**always** or **never**); the **mid** band is the flaky zone to drive out.
-`corpus` entries are measured for this *only* — a corpus file is a known-real
-merged test, so a finding on one is arguably a false positive, but today corpus
-feeds only this histogram, never precision.
+Every finding carries a **firing rate** — how often it fired across the
+repeats. A finding *should* sit at an extreme (**always** or **never**); the
+**mid** band is the flaky zone. The histogram buckets each finding's rate, keyed
+on **line** (a location the agent flagged) rather than rule id, so a line that
+draws two competing rules is one stable detection, not two flaky ones:
 
 | bucket | firing rate | meaning |
 | --- | --- | --- |
@@ -203,6 +212,38 @@ feeds only this histogram, never precision.
 | mid | 0.25–0.75 | flaky zone |
 | low | >0 | rarely fires |
 | never | 0.0 | never fires |
+
+**Two kinds of instability.** The report separates them, because they have
+different causes and fixes (both surface in the Action Items):
+
+- **Detection instability** — a *line* the agent flagged inconsistently
+  (mid-band detection rate). Genuine agent flakiness. This is what the corpus
+  **stability score** measures — `1 − mean flakiness` over detected lines,
+  from **0.0 (maximally flaky)** to **1.0 (perfectly stable, the target)**.
+  Each line is weighted by *how* flaky its **detection** was — how often *any*
+  finding landed there across repeats (rule id aside). Detected half the time
+  is maximally flaky; 1-of-4 counts as half. This is a continuous weight, not
+  just a yes/no mid-band check.
+
+  That makes the score repeat-aware: a 3-repeat smoke run literally can't
+  produce as flaky a rate as an 8-repeat release run, so the pass/warn/fail
+  bands widen when repeats are low — you can't confidently fail flakiness on
+  few samples. The summary shows the effective threshold for the run:
+
+  | run | repeats | ✅ pass ≥ |
+  | --- | --- | --- |
+  | smoke | 3 | 0.61 |
+  | release | 8 | 0.72 |
+- **Label churn** — a line detected *every* repeat but labeled with competing
+  rule ids (e.g. `CHECKLIST-004` one run, `GENERAL-007` the next). This is a
+  rule-taxonomy overlap the benchmark introduces, not agent flakiness, so it is
+  **reported (with the competing rules listed) but not scored** against
+  stability.
+
+`corpus` entries are scored on stability *only* — a corpus file is a known-real
+merged test, so it carries no gold labels (precision/recall need labels). Seed
+and golden entries also carry a stability signal, but their headline metric is
+precision/recall.
 
 ### Advisory notes
 
@@ -242,7 +283,7 @@ split for annotations.
 
 | dataset | ground truth | measures |
 | --- | --- | --- |
-| consistency corpus (`corpus:` entries) | none | run-to-run variance per finding key |
+| consistency corpus (`corpus:` entries) | none | run-to-run detection stability (0.0–1.0) |
 | seeded-defect set (`seeds:` with non-empty `expect`) | exact (injected) | precision / recall |
 | known-clean (`seeds:` with empty `expect`) | exact (no findings) | precision |
 | golden set (`golden/`) | human PR review | recall vs. review (see `golden/README.md`) |
@@ -368,17 +409,6 @@ could file and categorize *repeated, known* false positives seen in the wild
 (distinct from novel ones), so a regression that re-introduces a catalogued
 FP is flagged on its own rather than folded into the aggregate. Worth adding
 when the benchmark runs continuously and an FP backlog accumulates.
-
-### Future idea: a consistency gate (`--max-mid`)
-
-Not implemented. The consistency histogram is currently **informational
-only** — rendered in the report, but not a quality gate. The `mid` band is
-"the flaky zone to drive out," but nothing enforces it. A `--max-mid` (max
-flaky rows) gate would make the histogram gateable, giving the regression
-tier a labels-free stability signal today. Note the band resolution depends
-on `--repeats`: at the regression tier's 3 repeats only 0 / 0.33 / 0.67 / 1.0
-are reachable, so `high`/`low` collapse and the gate is a coarse
-flaky/not-flaky flag; the release tier's 8 repeats give the graded bands.
 
 ### Future idea: rate-limit backoff for `--jobs`
 

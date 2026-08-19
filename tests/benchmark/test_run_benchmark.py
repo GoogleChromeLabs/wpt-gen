@@ -35,6 +35,7 @@ from benchmark.manifest import (
     GOLDEN_STAGING_SUBDIR,
     REPO_ROOT,
     STAGING_DIRNAME,
+    CorpusEntry,
     GoldenEntry,
     ManifestError,
     SeedEntry,
@@ -52,11 +53,18 @@ from benchmark.scoring import (
     Prediction,
     check_source_on_reading_list,
     classify_consistency_rows,
+    consistency_decomposition,
     consistency_histogram,
+    graded_consistency_histogram,
     consistency_rows,
+    corpus_stability,
+    corpus_stability_with_churn,
     finding_key,
+    line_consistency_histogram,
+    line_consistency_rows,
     load_entry_runs,
     mechanical_issues,
+    near_miss_flakiness,
     normalize_source_doc,
     parse_expect,
     parse_line_range,
@@ -255,6 +263,183 @@ def test_consistency_histogram_buckets() -> None:
     assert sum(hist.values()) == 1
 
 
+# --- Line-vs-rule_id decomposition ------------------------------------------
+
+
+def test_line_rows_collapse_competing_rules_to_one_line() -> None:
+    # Two rules on the same line every repeat -> one line, detected 2/2.
+    runs = _runs(
+        "e",
+        [
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+            [Prediction("RULE-B", (5, 5), "e", "s", "warn")],
+        ],
+    )
+    line_rows = line_consistency_rows(runs)
+    assert len(line_rows) == 1
+    row = line_rows[0]
+    assert row.detection_rate == pytest.approx(1.0)
+    assert row.keys == ["RULE-A", "RULE-B"]
+    assert row.label_churn is True  # stable detection, >1 rule
+
+
+def test_line_row_not_churn_when_single_rule() -> None:
+    runs = _runs(
+        "e",
+        [
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+        ],
+    )
+    (row,) = line_consistency_rows(runs)
+    assert row.label_churn is False
+
+
+def test_line_row_not_churn_when_detection_flaky() -> None:
+    # Detected only 1/2 -> flaky detection, so not "churn" even with 2 rules.
+    runs = _runs(
+        "e",
+        [
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+            [],
+        ],
+    )
+    (row,) = line_consistency_rows(runs)
+    assert row.detection_rate == pytest.approx(0.5)
+    assert row.label_churn is False
+
+
+def test_file_and_line_scoped_findings_do_not_cross_buckets() -> None:
+    # A file-scoped finding (line_range=None) and a line-scoped finding on
+    # the same entry are distinct defects; they must land in separate buckets
+    # each with a single key, not smear together into phantom label churn.
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("LINE-RULE", (22, 22), "e", "s", "warn"),
+                Prediction("FILE-RULE", None, "e", "s", "warn"),
+            ],
+            [
+                Prediction("LINE-RULE", (22, 22), "e", "s", "warn"),
+                Prediction("FILE-RULE", None, "e", "s", "warn"),
+            ],
+        ],
+    )
+    line_rows = line_consistency_rows(runs)
+    assert len(line_rows) == 2
+    by_bucket = {lr.line_bucket: lr for lr in line_rows}
+    line_row = by_bucket[(22, 22)]
+    file_row = by_bucket[None]
+    assert line_row.keys == ["LINE-RULE"]
+    assert file_row.keys == ["FILE-RULE"]
+    # Both detected every repeat, but each has exactly one rule -> no churn.
+    assert line_row.detection_rate == pytest.approx(1.0)
+    assert file_row.detection_rate == pytest.approx(1.0)
+    assert line_row.label_churn is False
+    assert file_row.label_churn is False
+
+
+def test_line_histogram_keys_on_detection() -> None:
+    # A line drawing 2 rules every repeat is one `always` line, not two mid.
+    runs = _runs(
+        "e",
+        [
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+            [Prediction("RULE-B", (5, 5), "e", "s", "warn")],
+        ],
+    )
+    hist = line_consistency_histogram(line_consistency_rows(runs))
+    assert hist["always"] == 1
+    assert hist["mid"] == 0
+
+
+def test_graded_histogram_splits_at_warn_at() -> None:
+    # rates 1.0, 0.67, 0.33 with warn_at 0.61: two stable, one unstable.
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("A", (10, 10), "e", "s", "w"),
+                Prediction("B", (20, 20), "e", "s", "w"),
+                Prediction("C", (30, 30), "e", "s", "w"),
+            ],
+            [
+                Prediction("A", (10, 10), "e", "s", "w"),
+                Prediction("B", (20, 20), "e", "s", "w"),
+            ],
+            [Prediction("A", (10, 10), "e", "s", "w")],
+        ],
+    )
+    hist = graded_consistency_histogram(line_consistency_rows(runs), 0.61)
+    assert hist == {"stable": 2, "unstable": 1, "never": 0}
+
+
+def test_decomposition_separates_detection_from_churn() -> None:
+    runs = _runs(
+        "e",
+        [
+            # L5: stable detection, two rules -> churn.
+            # L9: flaky detection -> detection instability.
+            [
+                Prediction("RULE-A", (5, 5), "e", "s", "warn"),
+                Prediction("RULE-X", (9, 9), "e", "s", "warn"),
+            ],
+            [Prediction("RULE-B", (5, 5), "e", "s", "warn")],
+        ],
+    )
+    rule_rows = consistency_rows(runs)
+    line_rows = line_consistency_rows(runs)
+    d = consistency_decomposition(rule_rows, line_rows)
+    assert d["line_flaky"] == 1  # L9
+    assert d["label_churn"] == 1  # L5
+
+
+@pytest.mark.parametrize(
+    ("rate", "expected"),
+    [(0.0, 0.0), (1.0, 0.0), (0.5, 1.0), (0.25, 0.5), (0.75, 0.5)],
+)
+def test_near_miss_flakiness(rate: float, expected: float) -> None:
+    assert near_miss_flakiness(rate) == pytest.approx(expected)
+
+
+def test_corpus_stability_extremes_and_midpoint() -> None:
+    # All lines fire every repeat -> perfectly stable (1.0).
+    stable = _runs(
+        "e",
+        [
+            [Prediction("A", (1, 1), "e", "s", "w")],
+            [Prediction("A", (1, 1), "e", "s", "w")],
+        ],
+    )
+    assert corpus_stability(line_consistency_rows(stable)) == pytest.approx(1.0)
+
+    # One line at rate 0.5 -> maximally flaky (0.0).
+    flaky = _runs("e", [[Prediction("A", (1, 1), "e", "s", "w")], []])
+    assert corpus_stability(line_consistency_rows(flaky)) == pytest.approx(0.0)
+
+
+def test_corpus_stability_no_detections_is_one() -> None:
+    assert corpus_stability([]) == pytest.approx(1.0)
+
+
+def test_stability_excludes_churn_but_with_churn_includes_it() -> None:
+    # One line, detected every repeat, drawing two rules (pure churn).
+    runs = _runs(
+        "e",
+        [
+            [Prediction("RULE-A", (5, 5), "e", "s", "warn")],
+            [Prediction("RULE-B", (5, 5), "e", "s", "warn")],
+        ],
+    )
+    line_rows = line_consistency_rows(runs)
+    rule_rows = consistency_rows(runs)
+    # Detection-only: the line fires 2/2 -> perfectly stable.
+    assert corpus_stability(line_rows) == pytest.approx(1.0)
+    # Churn-inclusive: two rule-buckets each fire 1/2 (rate 0.5) -> 0.0.
+    assert corpus_stability_with_churn(rule_rows) == pytest.approx(0.0)
+
+
 # --- Seed precision / recall ------------------------------------------------
 
 
@@ -451,6 +636,67 @@ def test_load_entry_runs_missing_json_is_empty_repeat(tmp_path: Path) -> None:
     )
     assert runs.num_repeats == 1
     assert runs.repeats[0] == []
+
+
+# --- discover_scored_entries (--score-only) ---------------------------------
+
+
+def test_discover_scored_entries_narrows_to_on_disk_and_infers_repeats(
+    tmp_path: Path,
+) -> None:
+    # Two entries selected, but only one actually ran (3 rep dirs). A re-score
+    # must score just that entry, at the 3 reps found -- not the full
+    # selection at some default repeat count.
+    ran = SeedEntry(entry_id="seed-ran", kind="testharness", seed="ran.html")
+    never = SeedEntry(
+        entry_id="seed-never", kind="testharness", seed="never.html"
+    )
+    payload = _payload([_finding()])
+    for i in range(3):
+        _write_run(tmp_path, "seed-ran", i, "ran.html", payload)
+
+    present, repeats = run_benchmark.discover_scored_entries(
+        tmp_path, [ran, never]
+    )
+    assert [e.entry_id for e in present] == ["seed-ran"]
+    assert repeats == 3
+
+
+def test_discover_scored_entries_empty_when_nothing_ran(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "runs").mkdir(parents=True)
+    entry = SeedEntry(entry_id="seed-x", kind="testharness", seed="x.html")
+    present, repeats = run_benchmark.discover_scored_entries(tmp_path, [entry])
+    assert present == []
+    assert repeats == 0
+
+
+# --- detection-flaky band (score_entry) -------------------------------------
+
+
+def test_detection_flaky_band_caps_at_target_and_has_no_floor() -> None:
+    # At 3 reps warn_at is 0.61. A rare 1/3 (0.33) line is flagged; a 2/3
+    # (0.67) line at/above target and an always-firing line are not.
+    entry = CorpusEntry(entry_id="e", kind="testharness", path="e.html")
+    runs = _runs(
+        "e",
+        [
+            [
+                Prediction("RARE", (10, 10), "e", "s", "warn"),
+                Prediction("MEETS", (20, 20), "e", "s", "warn"),
+                Prediction("ALWAYS", (30, 30), "e", "s", "warn"),
+            ],
+            [
+                Prediction("MEETS", (20, 20), "e", "s", "warn"),
+                Prediction("ALWAYS", (30, 30), "e", "s", "warn"),
+            ],
+            [Prediction("ALWAYS", (30, 30), "e", "s", "warn")],
+        ],
+    )
+    report = run_benchmark.score_entry(entry, runs, reading_list=set())
+    flagged = {cl["line"] for cl in report.detection_flaky_lines}
+    assert flagged == {"L10"}
 
 
 # --- Manifest validation ----------------------------------------------------
@@ -870,6 +1116,7 @@ def _agg(
     golden_recall: float = 1.0,
     seed_fn: int = 0,
     golden_fn: int = 0,
+    corpus_stability: float = 1.0,
 ) -> dict[str, Any]:
     return {
         "seed_precision": seed_precision,
@@ -877,6 +1124,7 @@ def _agg(
         "golden_recall": golden_recall,
         "seed_false_negatives": seed_fn,
         "golden_false_negatives": golden_fn,
+        "corpus_stability": corpus_stability,
     }
 
 
@@ -920,6 +1168,28 @@ def test_quality_gate_boundary_is_inclusive() -> None:
     agg = _agg(seed_precision=0.8, seed_fn=2)
     thresholds = run_benchmark.QualityThresholds(min_precision=0.8, max_fn=2)
     assert run_benchmark.check_quality_gates(agg, thresholds) == []
+
+
+def test_quality_gate_min_stability() -> None:
+    thresholds = run_benchmark.QualityThresholds(min_stability=0.7)
+    # Below floor -> breach.
+    assert run_benchmark.check_quality_gates(
+        _agg(corpus_stability=0.5), thresholds
+    ) == ["corpus stability 0.5 < 0.7"]
+    # Exactly at floor -> passes (inclusive).
+    assert (
+        run_benchmark.check_quality_gates(
+            _agg(corpus_stability=0.7), thresholds
+        )
+        == []
+    )
+    # Unset -> never breaches.
+    assert (
+        run_benchmark.check_quality_gates(
+            _agg(corpus_stability=0.0), run_benchmark.QualityThresholds()
+        )
+        == []
+    )
 
 
 def test_stage_seeds_refuses_unmarked_existing_dir(tmp_path: Path) -> None:
@@ -1141,6 +1411,8 @@ def test_summary_renders_a_row_per_present_dataset() -> None:
         "seed_recall": 1.0,
         "golden_recall": 0.75,
         "consistency_histogram": {"mid": 2},
+        "consistency_decomposition": {"label_churn": 3},
+        "corpus_stability": 0.95,
         "golden_unmatched_predictions": 0,
         "advisory_notes": 0,
     }
@@ -1151,7 +1423,9 @@ def test_summary_renders_a_row_per_present_dataset() -> None:
     assert "| **`golden`** (1) |" in md
     assert "**0.75** recall" in md
     assert "| **`corpus`** (1) |" in md
-    assert "**2** flaky findings" in md
+    # Corpus centres the stability score; churn is advisory, not scored.
+    assert "**0.95** stability" in md
+    assert "3 label-churn (advisory)" in md
 
 
 def test_summary_omits_absent_datasets() -> None:
@@ -1162,10 +1436,30 @@ def test_summary_omits_absent_datasets() -> None:
         "seed_recall": 1.0,
         "golden_recall": 1.0,
         "consistency_histogram": {"mid": 0},
+        "corpus_stability": 1.0,
     }
     md = "\n".join(run_benchmark._render_summary(_bench_report(entries, agg)))
     assert "| **`seed`** (1) |" in md
     assert "**`golden`**" not in md
+    assert "**`corpus`**" not in md
+
+
+@pytest.mark.parametrize(
+    ("stability", "repeats", "expected"),
+    [
+        (1.0, 8, "✅ Stable"),
+        (0.6, 8, "⚠️ Variable"),  # warn<0.72, fail<0.52 at 8 reps
+        (0.4, 8, "❌ Unstable"),
+        # Bands widen at low repeats: 0.65 passes at 3 reps (warn<0.61) but
+        # would only warn at 8 reps (warn<0.72).
+        (0.65, 3, "✅ Stable"),
+        (0.65, 8, "⚠️ Variable"),
+    ],
+)
+def test_stability_status_widens_with_repeats(
+    stability: float, repeats: int, expected: str
+) -> None:
+    assert run_benchmark._stability_status(stability, repeats) == expected
 
 
 def test_summary_reflects_quality_thresholds() -> None:
@@ -1178,6 +1472,7 @@ def test_summary_reflects_quality_thresholds() -> None:
         "seed_recall": 1.0,
         "golden_recall": 0.8,
         "consistency_histogram": {"mid": 0},
+        "corpus_stability": 1.0,
     }
     # 1. Configured thresholds
     rep_with_t = _bench_report(
@@ -1208,6 +1503,7 @@ def test_format_quality_gate_descriptors() -> None:
         "min-recall",
         "min-golden-recall",
         "max-fn",
+        "min-stability",
     ]
 
     # Partial
@@ -1215,12 +1511,21 @@ def test_format_quality_gate_descriptors() -> None:
         {"min_recall": 1.0, "min_precision": None}
     )
     assert active == ["seed recall ≥ 1.0"]
-    assert unset == ["min-precision", "min-golden-recall", "max-fn"]
+    assert unset == [
+        "min-precision",
+        "min-golden-recall",
+        "max-fn",
+        "min-stability",
+    ]
 
     # All set
     active, unset = run_benchmark._format_quality_gate_descriptors(
         run_benchmark.QualityThresholds(
-            min_precision=0.9, min_recall=1.0, min_golden_recall=0.8, max_fn=0
+            min_precision=0.9,
+            min_recall=1.0,
+            min_golden_recall=0.8,
+            max_fn=0,
+            min_stability=0.7,
         )
     )
     assert active == [
@@ -1228,6 +1533,7 @@ def test_format_quality_gate_descriptors() -> None:
         "seed precision ≥ 0.9",
         "golden recall ≥ 0.8",
         "max false negatives ≤ 0",
+        "corpus stability ≥ 0.7",
     ]
     assert unset == []
 
@@ -1245,8 +1551,8 @@ def test_render_executive_banner() -> None:
     assert "### ✅ PASS · Quality Gates Satisfied" in banner_pass
     assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_pass
     assert (
-        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
-        in banner_pass
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn,"
+        " min-stability)_" in banner_pass
     )
 
     # 3. Failing thresholds
@@ -1261,8 +1567,8 @@ def test_render_executive_banner() -> None:
     assert "seed recall 0.5 < 1.0" in banner_fail
     assert "- **Active Gates**: `seed recall ≥ 1.0`" in banner_fail
     assert (
-        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn)_"
-        in banner_fail
+        "- _(Unset thresholds: min-precision, min-golden-recall, max-fn,"
+        " min-stability)_" in banner_fail
     )
 
 
@@ -1325,14 +1631,17 @@ def test_render_action_items() -> None:
                 "entry_id": "seed-fail",
                 "test_rel_path": "wpt-gen-bench/seed-fail.html",
                 "seed_score": {"false_positives": 1},
-                "consistency": [
+                "detection_flaky_lines": [
                     {
-                        "key": "FLAKY-001",
-                        "line_bucket": [12, 12],
+                        "line": "L12",
+                        "keys": ["FLAKY-001"],
                         "firings": 1,
                         "repeats": 3,
                         "rate": 0.3333,
                     }
+                ],
+                "label_churn_lines": [
+                    {"line": "L4", "keys": ["RULE-A", "RULE-B"]}
                 ],
                 "consistency_by_outcome": {
                     "missed_labels": [
@@ -1380,14 +1689,11 @@ def test_render_action_items() -> None:
     assert "GOLDEN-RULE-001" in faulty_md
     assert "⚠️ **False Alarm on Test in `seed-fail`" in faulty_md
     assert "CHECKLIST-010" in faulty_md
-    assert (
-        "ℹ️ **Flaky Findings Detected (1 in the 25–75% firing zone)**"
-        in faulty_md
-    )
-    assert (
-        "`seed-fail`: `FLAKY-001` @ L12-12 (1/3 firings, rate 0.33)"
-        in faulty_md
-    )
+    # Flakiness is bracketed: detection instability (scored) vs. label churn.
+    assert "⚠️ **Detection Instability (1)**" in faulty_md
+    assert "`seed-fail` @ L12 (1/3, rate 0.33): `FLAKY-001`" in faulty_md
+    assert "ℹ️ **Label Churn (1)**" in faulty_md
+    assert "`seed-fail` @ L4: `RULE-A`, `RULE-B`" in faulty_md
     assert "💡 **Quick Triage Tip**" in faulty_md
 
 
@@ -1401,7 +1707,8 @@ def test_render_legend_is_collapsible() -> None:
     assert "* **`seed`**:" in md
     assert "* **`golden`**:" in md
     assert "* **`corpus`**:" in md
-    assert "* **`always` (1.0)**:" in md
+    assert "* **Graded band**:" in md
+    assert "* **Fixed band**:" in md
     assert "</details>" in md
 
 

@@ -3,7 +3,7 @@ labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/47302#discussion_r1692298032
     commit_id: c5abc8581a3462040feb36445965a52918458b65
     excerpt: "should be `float: left`/`float: right`; there's no such thing as `display: float`"
-    rule_id: GENERAL-007   # invalid CSS -> could also be CHECKLIST-004
+    rule_id: CHECKLIST-004  # invalid CSS
     source_doc: wpt/docs/reviewing-tests/checklist.md
     path: css/css-align/self-alignment/block-justify-self.html
     lines: [45, 45]

@@ -79,8 +79,13 @@ from benchmark.scoring import (  # noqa: E402
     MechanicalIssue,
     SeedScore,
     classify_consistency_rows,
-    consistency_histogram,
+    consistency_decomposition,
     consistency_rows,
+    corpus_stability,
+    corpus_stability_with_churn,
+    graded_consistency_histogram,
+    line_consistency_histogram,
+    line_consistency_rows,
     load_entry_runs,
     mechanical_issues,
     score_golden,
@@ -216,6 +221,33 @@ def _rep_dir(out: Path, entry_id: str, repeat: int) -> Path:
     return out / "runs" / entry_id / f"rep-{repeat}"
 
 
+def discover_scored_entries(
+    out: Path, entries: list[BenchmarkEntry]
+) -> tuple[list[BenchmarkEntry], int]:
+    """Narrows ``entries`` to those with run dirs on disk, for ``--score-only``.
+
+    A re-score must reflect what is on disk, not the
+    full manifest or the ``--repeats`` default
+    """
+    runs_root = out / "runs"
+    present: list[BenchmarkEntry] = []
+    max_rep = -1
+    for entry in entries:
+        entry_dir = runs_root / entry.entry_id
+        if not entry_dir.is_dir():
+            continue
+        rep_indices = [
+            int(p.name[len("rep-") :])
+            for p in entry_dir.glob("rep-*")
+            if p.is_dir() and p.name[len("rep-") :].isdigit()
+        ]
+        if not rep_indices:
+            continue
+        present.append(entry)
+        max_rep = max(max_rep, *rep_indices)
+    return present, max_rep + 1
+
+
 class Progress:
     """Prints one atomic completion line per evaluator invocation.
 
@@ -314,6 +346,23 @@ class EntryReport:
     # Flat list of every consistency row (all keys/buckets).
     consistency: list[dict[str, Any]]
     consistency_histogram: dict[str, int]
+    # Same line-buckets split at the run's target (stable/unstable/never).
+    graded_histogram: dict[str, int]
+    # Detection-stability score, 0.0-1.0 (near-miss weighted, line-keyed).
+    # Scores detection instability only; label churn is excluded.
+    stability: float
+    # Alt score that folds label churn in (rule-keyed). For comparison; the
+    # headline metric is `stability`.
+    stability_with_churn: float
+    # Line-vs-rule_id decomposition (advisory): rule_flaky / line_flaky /
+    # label_churn. Separates genuine detection flakiness from rule-label churn.
+    consistency_decomposition: dict[str, int]
+    # Lines detected every repeat but labeled with >1 rule (rule-taxonomy
+    # noise). Each: {line, keys}. Advisory detail for the churn count.
+    label_churn_lines: list[dict[str, Any]]
+    # Lines whose detection rate is mid-band (genuine detection instability).
+    # Each: {line, keys, firings, repeats, rate}.
+    detection_flaky_lines: list[dict[str, Any]]
     seed_score: dict[str, Any] | None
     # Recall-vs-human for golden entries; None otherwise.
     golden_score: dict[str, Any] | None
@@ -467,6 +516,33 @@ def score_entry(
 ) -> EntryReport:
     """Scores a single entry from its loaded runs."""
     cons_rows = consistency_rows(runs)
+    line_rows = line_consistency_rows(runs)
+
+    def _line_label(lr: Any) -> str:
+        if not lr.line_bucket:
+            return "file"
+        start, end = lr.line_bucket
+        return f"L{start}" if start == end else f"L{start}-{end}"
+
+    churn_lines = [
+        {"line": _line_label(lr), "keys": lr.keys}
+        for lr in line_rows
+        if lr.label_churn
+    ]
+    # Fired at least once but below the run's stability target; no lower floor,
+    # so rare firings surface for triage too.
+    warn_at, _ = _stability_bands(runs.num_repeats)
+    detection_flaky_lines = [
+        {
+            "line": _line_label(lr),
+            "keys": lr.keys,
+            "firings": lr.firings,
+            "repeats": lr.repeats,
+            "rate": round(lr.detection_rate, 4),
+        }
+        for lr in line_rows
+        if 0.0 < lr.detection_rate < warn_at
+    ]
 
     notes: list[MechanicalIssue] = []
     for i, repeat in enumerate(runs.repeats):
@@ -502,7 +578,17 @@ def score_entry(
         kind=entry.kind,
         num_repeats=runs.num_repeats,
         consistency=[_consistency_row_to_dict(r, notes) for r in cons_rows],
-        consistency_histogram=consistency_histogram(cons_rows),
+        # Line-keyed histogram: mid = detection-flaky lines (label churn does
+        # not inflate it). Churn is surfaced in the Action Items diagnosis.
+        consistency_histogram=line_consistency_histogram(line_rows),
+        graded_histogram=graded_consistency_histogram(line_rows, warn_at),
+        stability=corpus_stability(line_rows),
+        stability_with_churn=corpus_stability_with_churn(cons_rows),
+        consistency_decomposition=consistency_decomposition(
+            cons_rows, line_rows
+        ),
+        label_churn_lines=churn_lines,
+        detection_flaky_lines=detection_flaky_lines,
         seed_score=seed_score_dict,
         golden_score=golden_score_dict,
         consistency_by_outcome=classification_dict,
@@ -519,7 +605,14 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     g_tp = g_fn = g_unmatched = 0
     advisory = 0
     hist = {"always": 0, "high": 0, "mid": 0, "low": 0, "never": 0}
+    graded = {"stable": 0, "unstable": 0, "never": 0}
+    decomp = {"rule_flaky": 0, "line_flaky": 0, "label_churn": 0}
+    corpus_stabilities: list[float] = []
+    corpus_stabilities_churn: list[float] = []
     for report in reports:
+        if report.role == EntryRole.CORPUS:
+            corpus_stabilities.append(report.stability)
+            corpus_stabilities_churn.append(report.stability_with_churn)
         if report.seed_score:
             tp += report.seed_score["true_positives"]
             fp += report.seed_score["false_positives"]
@@ -531,6 +624,10 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
         advisory += len(report.advisory_notes)
         for bucket, count in report.consistency_histogram.items():
             hist[bucket] += count
+        for bucket, count in report.graded_histogram.items():
+            graded[bucket] += count
+        for k, v in report.consistency_decomposition.items():
+            decomp[k] += v
 
     precision = tp / (tp + fp) if (tp + fp) else 1.0
     recall = tp / (tp + fn) if (tp + fn) else 1.0
@@ -548,6 +645,24 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
         # Advisory only (off-reading-list citations); not a pass/fail gate.
         "advisory_notes": advisory,
         "consistency_histogram": hist,
+        "graded_histogram": graded,
+        # Advisory: line-vs-rule_id decomposition of the flaky signal.
+        "consistency_decomposition": decomp,
+        # Mean corpus detection-stability, 0.0-1.0 (1.0 if no corpus entries).
+        "corpus_stability": (
+            round(sum(corpus_stabilities) / len(corpus_stabilities), 4)
+            if corpus_stabilities
+            else 1.0
+        ),
+        # Same, but with label churn folded in (for comparison).
+        "corpus_stability_with_churn": (
+            round(
+                sum(corpus_stabilities_churn) / len(corpus_stabilities_churn),
+                4,
+            )
+            if corpus_stabilities_churn
+            else 1.0
+        ),
     }
 
 
@@ -562,6 +677,10 @@ class QualityThresholds:
     min_recall: float | None = None
     min_golden_recall: float | None = None
     max_fn: int | None = None
+    # Corpus detection-stability floor (0.0-1.0). The CLI resolves `auto` to
+    # the run's repeat-aware warn_at before constructing this, so it is always
+    # a concrete float here.
+    min_stability: float | None = None
 
 
 def check_quality_gates(
@@ -593,6 +712,10 @@ def check_quality_gates(
         )
         if got > t.max_fn:
             failures.append(f"false negatives {got} > {t.max_fn}")
+    if t.min_stability is not None:
+        got = aggregate["corpus_stability"]
+        if got < t.min_stability:
+            failures.append(f"corpus stability {got} < {t.min_stability}")
     return failures
 
 
@@ -684,6 +807,12 @@ _CONSISTENCY_BUCKETS: tuple[tuple[ConsistencyBucket, str, str], ...] = (
     (ConsistencyBucket.NEVER, "0.0", "never fires"),
 )
 
+# Graded buckets: (name, meaning). Rate column is built from warn_at at render.
+_GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
+    ("stable", "meets target - trustworthy"),
+    ("unstable", "below target - detection instability"),
+    ("never", "never fires"),
+)
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -724,6 +853,7 @@ def _format_quality_gate_descriptors(
             "min-recall",
             "min-golden-recall",
             "max-fn",
+            "min-stability",
         ]
     if isinstance(thresholds, QualityThresholds):
         t_dict = asdict(thresholds)
@@ -752,6 +882,11 @@ def _format_quality_gate_descriptors(
         active.append(f"max false negatives ≤ {t_dict['max_fn']}")
     else:
         unset.append("max-fn")
+
+    if t_dict.get("min_stability") is not None:
+        active.append(f"corpus stability ≥ {t_dict['min_stability']}")
+    else:
+        unset.append("min-stability")
 
     return active, unset
 
@@ -819,22 +954,31 @@ def _render_legend() -> list[str]:
             " multiple repeats."
         ),
         (
-            "  * **Stability / Flakiness**: Measures variance across repeat"
-            " runs (target: 0 flaky findings in the 25–75% mid zone)."
+            "  * **Stability**: Detection consistency across repeats, scored"
+            " 0.0–1.0 (1.0 = every finding fires deterministically)."
         ),
         "",
         "### Consistency Buckets (Firing Rates across Repeats)",
         (
-            "* **`always` (1.0)**: Fires every repeat — deterministic and"
-            " reliable."
+            "Each line is bucketed once by how often any finding fired there"
+            " across repeats (rule id aside). Two bands are shown:"
         ),
-        "* **`high` (≥0.75)**: Usually fires.",
         (
-            "* **`mid` (0.25–0.75)**: **Flaky zone** — ambiguous rule prompts"
-            " or borderline code patterns."
+            "* **Graded band**: splits at this run's stability target"
+            " (`warn_at`, which widens at low repeats). `stable` meets the"
+            " target; `unstable` is below it — genuine detection instability,"
+            " listed in the Action Items."
         ),
-        "* **`low` (>0)**: Rarely fires — stochastic noise.",
-        "* **`never` (0.0)**: Never fires across repeat runs.",
+        (
+            "* **Fixed band**: the same lines on run-independent thresholds"
+            " (`always` 1.0, `high` ≥0.75, `mid` 0.25–0.75, `low` >0, `never`"
+            " 0.0), comparable across runs."
+        ),
+        (
+            "* **Label churn**: lines detected every repeat but labeled with"
+            " competing rules; reported separately, not scored against"
+            " stability."
+        ),
         "",
         (
             f"For detailed information, see the full [Benchmark"
@@ -845,17 +989,49 @@ def _render_legend() -> list[str]:
     ]
 
 
-def _render_consistency_table(hist: dict[str, int]) -> list[str]:
-    """Renders the consistency histogram as a table with short meanings."""
+def _render_consistency_table(
+    hist: dict[str, int],
+    graded: dict[str, int],
+    warn_at: float,
+    repeats: int,
+    churn: int,
+) -> list[str]:
+    """Renders the graded and fixed-band firing-rate tables.
+
+    Each line's detection rate is bucketed once (rule id aside): the graded
+    band splits at this run's stability target; the fixed band is comparable
+    across runs.
+    """
     lines = ["### Consistency buckets", ""]
-    lines.append("Firing rate across repeats, per finding.")
+    lines.append("Firing rate per line across repeats.")
+    lines.append("")
+
+    lines.append(
+        f"**Graded band** — this run's target (≥{warn_at} @ {repeats} reps)."
+    )
+    lines.append("")
+    rates = {
+        "stable": f"≥{warn_at}",
+        "unstable": f">0, <{warn_at}",
+        "never": "0.0",
+    }
+    lines.append("| bucket | firing rate | count | meaning |")
+    lines.append("| --- | --- | --- | --- |")
+    for name, meaning in _GRADED_BUCKETS:
+        count = graded.get(name, 0)
+        lines.append(f"| {name} | {rates[name]} | {count} | {meaning} |")
+    lines.append("")
+
+    lines.append("**Fixed band** — comparable across runs.")
     lines.append("")
     lines.append("| bucket | firing rate | count | meaning |")
     lines.append("| --- | --- | --- | --- |")
     for name, rate, meaning in _CONSISTENCY_BUCKETS:
-        lines.append(
-            f"| {name.value} | {rate} | {hist.get(name.value, 0)} | {meaning} |"
-        )
+        count = hist.get(name.value, 0)
+        lines.append(f"| {name.value} | {rate} | {count} | {meaning} |")
+    lines.append("")
+
+    lines.append(f"**Label churn:** {churn}  (see Action Items)")
     lines.append("")
     return lines
 
@@ -869,11 +1045,32 @@ def _entry_counts(entries: list[dict[str, Any]]) -> dict[EntryRole, int]:
     return counts
 
 
+def _stability_bands(repeats: int) -> tuple[float, float]:
+    """(warn_at, fail_at) stability thresholds, widened at low repeats.
+
+    Base bands are warn <0.90 / fail <0.70; both shift down by ``0.5/√repeats``
+    so a low-repeat run needs a genuinely worse score to trip the same status
+    (you cannot confidently fail flakiness on few samples). At 8 repeats the
+    fail line is ~0.52; at 3 repeats ~0.41.
+    """
+    slack = 0.5 / (repeats**0.5) if repeats > 0 else 0.5
+    return round(0.90 - slack, 2), round(0.70 - slack, 2)
+
+
+def _stability_status(stability: float, repeats: int) -> str:
+    """Pass/warn/fail for a 0.0-1.0 stability score, widened at low repeats."""
+    warn_at, fail_at = _stability_bands(repeats)
+    if stability < fail_at:
+        return "❌ Unstable"
+    if stability < warn_at:
+        return "⚠️ Variable"
+    return "✅ Stable"
+
+
 def _render_summary(report: BenchmarkReport) -> list[str]:
     """Per-dataset headline table: one row per dataset that has entries."""
     agg = report.aggregate
     counts = _entry_counts(report.entries)
-    mid = agg["consistency_histogram"][ConsistencyBucket.MID]
     t = report.quality_thresholds or {}
     lines = [
         "## 📈 Summary",
@@ -920,14 +1117,19 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
             f" comments | **{g_rec}** recall | {g_target} | {g_status} |"
         )
     if counts[EntryRole.CORPUS]:
-        status = (
-            "✅ Clean"
-            if mid == 0
-            else f"⚠️ {mid} Flaky" if mid <= 5 else f"❌ {mid} Flaky"
-        )
+        decomp = agg.get("consistency_decomposition") or {}
+        churn = decomp.get("label_churn", 0)
+        # Uses a 0.0-1.0 detection-stability score
+        stability = float(agg.get("corpus_stability", 1.0))
+        status = _stability_status(stability, report.repeats)
+        warn_at, _ = _stability_bands(report.repeats)
+        value = f"**{stability}** stability"
+        if churn:
+            value += f" · {churn} label-churn (advisory)"
         lines.append(
-            f"| **`corpus`** ({counts[EntryRole.CORPUS]}) | Run-to-run output stability /"
-            f" variance | **{mid}** flaky findings | 0 Flaky | {status} |"
+            f"| **`corpus`** ({counts[EntryRole.CORPUS]}) | Run-to-run detection"
+            f" stability (1.0 = deterministic) | {value} | ≥{warn_at} "
+            f"(@{report.repeats} reps) | {status} |"
         )
     lines.append("")
     return lines
@@ -991,29 +1193,46 @@ def _format_false_alarm_diagnostic(
 
 
 def _format_flaky_diagnostic(
-    mid_count: int,
-    flaky_findings: list[tuple[str, str, str, int, int, float]],
+    detection_lines: list[tuple[str, dict[str, Any]]],
+    churn_lines: list[tuple[str, dict[str, Any]]],
 ) -> str:
-    lines = [
-        f"- ℹ️ **Flaky Findings Detected ({mid_count} in the 25–75% firing"
-        " zone)**:"
-    ]
-    for entry_id, key, bucket, firings, repeats, rate in flaky_findings[:10]:
+    """Two brackets: detection instability (scored) and label churn (advisory)."""
+    lines: list[str] = []
+    if detection_lines:
         lines.append(
-            f"  - `{entry_id}`: `{key}` @ {bucket} ({firings}/{repeats} firings,"
-            f" rate {rate:.2f})"
+            f"- ⚠️ **Detection Instability ({len(detection_lines)})** — the"
+            " agent flagged a location inconsistently across repeats:"
         )
-    if len(flaky_findings) > 10:
+        for entry_id, cl in detection_lines[:15]:
+            lines.append(
+                f"  - `{entry_id}` @ {cl['line']} "
+                f"({cl['firings']}/{cl['repeats']}, rate {cl['rate']:.2f}): "
+                f"{', '.join(f'`{k}`' for k in cl['keys'])}"
+            )
+        if len(detection_lines) > 15:
+            lines.append(f"  - _…and {len(detection_lines) - 15} more_")
         lines.append(
-            f"  - _...and {len(flaky_findings) - 10} more (see detailed breakdown"
-            " below)_"
+            "  - **Action**: Refine prompt instructions in"
+            " `wptgen/skills/wpt-evaluator/` or rule wording in"
+            f" [rules.yaml]({_RULES_DOC_LINK}) for deterministic verdicts."
         )
-    lines.append(
-        "  - **Action**: Findings in the mid bucket produced inconsistent"
-        " verdicts across repeat runs. Consider refining rule wording in"
-        f" [rules.yaml]({_RULES_DOC_LINK}) or prompt instructions in"
-        " `wptgen/skills/wpt-evaluator/` for deterministic evaluation."
-    )
+    if churn_lines:
+        lines.append(
+            f"- ℹ️ **Label Churn ({len(churn_lines)})** — a location detected"
+            " every repeat but labeled with competing rules (rule-taxonomy"
+            " overlap, not agent flakiness):"
+        )
+        for entry_id, cl in churn_lines[:15]:
+            lines.append(
+                f"  - `{entry_id}` @ {cl['line']}: "
+                f"{', '.join(f'`{k}`' for k in cl['keys'])}"
+            )
+        if len(churn_lines) > 15:
+            lines.append(f"  - _…and {len(churn_lines) - 15} more_")
+        lines.append(
+            "  - **Action**: Disambiguate the competing rules in"
+            f" [rules.yaml]({_RULES_DOC_LINK}); not scored against stability."
+        )
     return "\n".join(lines)
 
 
@@ -1076,11 +1295,7 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                         entry.get("test_rel_path", entry.get("entry_id", ""))
                     )
                     test_link = f"[`{path}`]({url})" if url else f"`{path}`"
-                    bucket = (
-                        f"L{fp['line_bucket'][0]}-{fp['line_bucket'][1]}"
-                        if fp.get("line_bucket")
-                        else "file"
-                    )
+                    bucket = _bucket_label(fp)
                     items.append(
                         _format_false_alarm_diagnostic(
                             entry_id=str(entry.get("entry_id", "")),
@@ -1092,32 +1307,19 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
                         )
                     )
 
-    # 4. Flaky Consistency Notice (Mid-zone)
-    mid_count = report.aggregate["consistency_histogram"].get(
-        ConsistencyBucket.MID, 0
-    )
-    if mid_count > 0:
-        flaky_findings: list[tuple[str, str, str, int, int, float]] = []
-        for entry in report.entries:
-            for row in entry.get("consistency", []):
-                rate = float(row.get("rate", 0.0))
-                if 0.25 <= rate < 0.75:
-                    bucket_str = (
-                        f"L{row['line_bucket'][0]}-{row['line_bucket'][1]}"
-                        if row.get("line_bucket")
-                        else "file"
-                    )
-                    flaky_findings.append(
-                        (
-                            str(entry.get("entry_id", "")),
-                            str(row.get("key", "")),
-                            bucket_str,
-                            int(row.get("firings", 0)),
-                            int(row.get("repeats", 0)),
-                            rate,
-                        )
-                    )
-        items.append(_format_flaky_diagnostic(mid_count, flaky_findings))
+    # 4. Flakiness — detection instability (scored) + label churn (advisory).
+    detection_lines = [
+        (e["entry_id"], cl)
+        for e in report.entries
+        for cl in e.get("detection_flaky_lines", [])
+    ]
+    churn_lines = [
+        (e["entry_id"], cl)
+        for e in report.entries
+        for cl in e.get("label_churn_lines", [])
+    ]
+    if detection_lines or churn_lines:
+        items.append(_format_flaky_diagnostic(detection_lines, churn_lines))
 
     if not items:
         lines.append(
@@ -1193,7 +1395,17 @@ def render_report_markdown(report: BenchmarkReport) -> str:
         lines.append("_" + "; ".join(caveats) + "._")
         lines.append("")
 
-    lines.extend(_render_consistency_table(agg["consistency_histogram"]))
+    warn_at, _ = _stability_bands(report.repeats)
+    churn = (agg.get("consistency_decomposition") or {}).get("label_churn", 0)
+    lines.extend(
+        _render_consistency_table(
+            agg.get("consistency_histogram", {}),
+            agg.get("graded_histogram", {}),
+            warn_at,
+            report.repeats,
+            churn,
+        )
+    )
 
     lines.append("<details>")
     lines.append(
@@ -1239,9 +1451,11 @@ def _render_entry(
 
 
 def _bucket_label(row: dict[str, Any]) -> str:
-    if row["line_bucket"]:
-        return f'L{row["line_bucket"][0]}-{row["line_bucket"][1]}'
-    return "file"
+    bucket = row.get("line_bucket")
+    if not bucket:
+        return "file"
+    start, end = bucket
+    return f"L{start}" if start == end else f"L{start}-{end}"
 
 
 def _warnings_cell(row: dict[str, Any]) -> str:
@@ -1470,6 +1684,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-recall", type=float, default=None)
     parser.add_argument("--min-golden-recall", type=float, default=None)
     parser.add_argument("--max-fn", type=int, default=None)
+    parser.add_argument(
+        "--min-stability",
+        default=None,
+        help="Corpus detection-stability floor: a float (e.g. 0.7) or `auto` "
+        "to use the run's repeat-aware target (warn_at). Omit to disable.",
+    )
     return parser.parse_args(argv)
 
 
@@ -1635,8 +1855,19 @@ def main(argv: list[str] | None = None) -> int:
 
     run_records: list[RunRecord] = []
     staged = False
+    score_entries = entries
+    score_repeats = args.repeats
     try:
         reading_list = load_reading_list()
+        if args.score_only:
+            score_entries, score_repeats = discover_scored_entries(
+                args.out, entries
+            )
+            if not score_entries:
+                sys.stderr.write(
+                    f"no run dirs found under {args.out / 'runs'} to score\n"
+                )
+                return 2
         if not args.score_only:
             seed_entries = [e for e in entries if isinstance(e, SeedEntry)]
             gold_entries = [e for e in entries if isinstance(e, GoldenEntry)]
@@ -1672,9 +1903,9 @@ def main(argv: list[str] | None = None) -> int:
 
         reports, models = score_all(
             manifest=manifest,
-            entries=entries,
+            entries=score_entries,
             out=args.out,
-            repeats=args.repeats,
+            repeats=score_repeats,
             reading_list=reading_list,
         )
     except HarnessError as exc:
@@ -1684,11 +1915,20 @@ def main(argv: list[str] | None = None) -> int:
         if staged:
             unstage(args.wpt_dir)
 
+    # `auto` gates on the run's repeat-aware target so the bar matches the
+    # graded summary; a float is a fixed floor.
+    if args.min_stability is None:
+        min_stability = None
+    elif args.min_stability == "auto":
+        min_stability, _ = _stability_bands(score_repeats)
+    else:
+        min_stability = float(args.min_stability)
     thresholds = QualityThresholds(
         min_precision=args.min_precision,
         min_recall=args.min_recall,
         min_golden_recall=args.min_golden_recall,
         max_fn=args.max_fn,
+        min_stability=min_stability,
     )
     agg = _aggregate(reports)
     failures = check_quality_gates(agg, thresholds)
@@ -1697,7 +1937,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest=manifest,
         models=models,
         wpt_dir=args.wpt_dir,
-        repeats=args.repeats,
+        repeats=score_repeats,
         reports=reports,
         run_records=run_records,
         actual_commit=actual_commit,

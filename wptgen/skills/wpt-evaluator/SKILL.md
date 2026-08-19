@@ -84,6 +84,25 @@ The following are **hard prohibitions**, not preferences:
    a problem is covered by no rule, do not report it. For `raw`, the
    source citation (upstream doc path + line range) is the identifier —
    do not invent rule IDs.
+4. **No reaching.** A finding is valid only when the rule's own text
+   *directly and specifically* prohibits what the test does — not merely
+   relates to the same topic. Do not stretch a general
+   clarity or quality rule to flag a specific convention or preference
+   the rule does not name. If the concrete defect is not something the
+   rule text itself calls out, it is **out of scope** — omit it, even if
+   a rule feels adjacent. Prefer silence: an omitted issue costs recall
+   on one test, but a manufactured finding costs precision on every clean
+   test.
+5. **`CHECKLIST-*` rules are a secondary catch-all layer.** They restate,
+   in review-checklist form, guidance the `writing-tests/` docs cover more
+   specifically. When a `CHECKLIST-*` rule and a more specific rule
+   (`REFTESTS-*`, `TESTHARNESS-*`, `GENERAL-*`, etc.) both cover the *same*
+   defect on the *same* line, report only the specific rule and drop the
+   `CHECKLIST-*` one — do not emit both for one defect. Report a
+   `CHECKLIST-*` finding only when no more specific rule covers that
+   defect (e.g. `CHECKLIST-004` for a logic bug no other rule names). This
+   is about one defect drawing two rules, not two distinct defects that
+   happen to share a line.
 
 If you find yourself writing "should be X" or attaching a code
 suggestion, stop. State the problem and cite the source; the human
@@ -126,6 +145,12 @@ reviewer decides the remediation.
      about the same rule risks contradictory or duplicate findings). If
      you believe a deterministic rule is violated but neither linter
      flagged it, trust the linters and move on.
+     Before attaching any finding to a rule, apply the **fit test** —
+     both must hold, or the observation is out of scope (omit it):
+     (a) you can point to the specific clause in the **rule text** (not
+     just its topic) that the test violates; and (b) you can quote the
+     offending line, and a reviewer would agree the rule *names* this
+     defect. When only one holds, you are reaching — prefer silence.
    - **`raw`**: evaluate the test against each normative statement you
      identified.
 5. **Consult the source only to disambiguate** (`distilled`): the rule
@@ -232,6 +257,11 @@ Applies when `strategy: distilled`. All rules live in
   hand) or `semantic` (requires the judge — these are yours to evaluate).
 - `rule`: the normative statement. This is the self-contained text you
   evaluate the test against.
+- `notes` (optional): application guidance for a rule that is otherwise
+  too vague to apply consistently. Where present, treat it as binding
+  scope on the rule — apply the rule only as `notes` describes, and
+  honor any constraints it states (e.g. what does *not* count, or what
+  to cite). It refines `rule`; it does not replace it.
 
 Rules are grouped by the `id` prefix (`GENERAL-*`, `CHECKLIST-*`,
 `TESTHARNESS-*`, `REFTESTS-*`, etc.). Read `references/rules.yaml` directly
