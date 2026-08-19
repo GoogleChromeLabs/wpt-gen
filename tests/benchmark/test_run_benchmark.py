@@ -932,21 +932,52 @@ def test_load_entry_runs_collects_model_from_metadata(tmp_path: Path) -> None:
 def test_resolve_run_model_single() -> None:
     assert run_benchmark._resolve_run_model(
         {("anthropic", "claude-opus-4-6")}
-    ) == ("anthropic", "claude-opus-4-6")
+    ) == (
+        "anthropic",
+        "claude-opus-4-6",
+        {
+            "default": "claude-opus-4-6",
+            "lightweight": "claude-opus-4-6",
+            "reasoning": "claude-opus-4-6",
+        },
+    )
+
+
+def test_resolve_run_model_single_with_categories() -> None:
+    assert run_benchmark._resolve_run_model(
+        {
+            (
+                "gemini",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+            )
+        }
+    ) == (
+        "gemini",
+        "gemini-3.7-flash",
+        {
+            "default": "gemini-3.7-flash",
+            "lightweight": "gemini-3.7-flash",
+            "reasoning": "gemini-3.7-flash",
+        },
+    )
 
 
 def test_resolve_run_model_empty_is_unknown() -> None:
-    assert run_benchmark._resolve_run_model(set()) == (None, None)
+    assert run_benchmark._resolve_run_model(set()) == (None, None, None)
 
 
 def test_resolve_run_model_mixed_is_flagged() -> None:
-    provider, model = run_benchmark._resolve_run_model(
+    provider, model, categories = run_benchmark._resolve_run_model(
         {("anthropic", "claude-opus-4-6"), ("gemini", "gemini-3.1-pro")}
     )
     assert provider is not None
     assert provider.startswith("MIXED")
     assert model is not None
     assert model.startswith("MIXED")
+    assert categories is None
     assert "claude-opus-4-6" in model
     assert "gemini-3.1-pro" in model
 
@@ -1380,11 +1411,15 @@ def _bench_report(
     quality_gate_failures: list[str] | None = None,
     run_records: list[dict[str, Any]] | None = None,
     repo_commit_sha: str | None = None,
+    provider: str | None = "p",
+    model: str | None = "mdl",
+    categories: dict[str, str] | None = None,
 ) -> Any:
     return run_benchmark.BenchmarkReport(
         manifest="m.yaml",
-        provider="p",
-        model="mdl",
+        provider=provider,
+        model=model,
+        categories=categories,
         wpt_dir="/wpt",
         wpt_upstream_commit_expected="pinned123",
         wpt_upstream_commit_actual=None,
@@ -1721,6 +1756,25 @@ def test_render_report_markdown_includes_evaluated_commit() -> None:
     md = run_benchmark.render_report_markdown(rep)
     assert (
         "- **Evaluated Commit**: [`b5488ba`](https://github.com/GoogleChromeLabs/wpt-gen/commit/b5488ba5b588b4a773af28e9f3391434661b4fbb)"
+        in md
+    )
+
+
+def test_render_report_markdown_includes_explicit_categories() -> None:
+    rep = _bench_report(
+        entries=[],
+        aggregate={"consistency_histogram": {"mid": 0}},
+        provider="gemini",
+        model="gemini-3.7-flash",
+        categories={
+            "default": "gemini-3.7-flash",
+            "lightweight": "gemini-3.7-flash",
+            "reasoning": "gemini-3.7-flash",
+        },
+    )
+    md = run_benchmark.render_report_markdown(rep)
+    assert (
+        "- **Model**: `gemini-3.7-flash` (provider: `gemini` · default: `gemini-3.7-flash` · lightweight: `gemini-3.7-flash` · reasoning: `gemini-3.7-flash`)"
         in md
     )
 

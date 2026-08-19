@@ -457,6 +457,7 @@ class BenchmarkReport:
     quality_thresholds: dict[str, Any] | None = None
     quality_gate_failures: tuple[str, ...] = ()
     repo_commit_sha: str | None = None
+    categories: dict[str, str] | None = None
 
 
 class EntryRole(StrEnum):
@@ -492,10 +493,10 @@ def score_all(
     out: Path,
     repeats: int,
     reading_list: set[str],
-) -> tuple[list[EntryReport], set[tuple[str, str]]]:
+) -> tuple[list[EntryReport], set[tuple[str, ...]]]:
     """Loads every entry's run dirs and scores them."""
     reports: list[EntryReport] = []
-    models: set[tuple[str, str]] = set()
+    models: set[tuple[str, ...]] = set()
     for entry in entries:
         repeat_dirs = [_rep_dir(out, entry.entry_id, i) for i in range(repeats)]
         runs = load_entry_runs(
@@ -723,25 +724,45 @@ def check_quality_gates(
 
 
 def _resolve_run_model(
-    models: set[tuple[str, str]],
-) -> tuple[str | None, str | None]:
-    """Derives the report's (provider, model) from what the runs recorded.
+    models: set[tuple[str, ...]],
+) -> tuple[str | None, str | None, dict[str, str] | None]:
+    """Derives the report's (provider, model, categories) from what the runs recorded.
 
-    Empty (no run_metadata found) -> (None, None), rendered "unknown". A
-    single pair -> that pair. More than one -> a mixed marker, because the
+    Empty (no run_metadata found) -> (None, None, None), rendered "unknown". A
+    single configuration -> that configuration. More than one -> a mixed marker, because the
     runs were not all produced on the same model and their numbers should
     not be read as one model's result.
     """
     if not models:
-        return None, None
+        return None, None, None
     if len(models) == 1:
-        provider, model = next(iter(models))
-        return provider or None, model or None
-    providers = sorted({p for p, _ in models})
-    model_names = sorted({m for _, m in models})
+        entry = next(iter(models))
+        provider = entry[0] or None
+        model = entry[1] or None
+        categories: dict[str, str] | None
+        if len(entry) >= 5:
+            categories = {
+                "default": entry[2] or (model or ""),
+                "lightweight": entry[3] or (model or ""),
+                "reasoning": entry[4] or (model or ""),
+            }
+        else:
+            categories = (
+                {
+                    "default": model or "",
+                    "lightweight": model or "",
+                    "reasoning": model or "",
+                }
+                if model
+                else None
+            )
+        return provider, model, categories
+    providers = sorted({entry[0] for entry in models if entry[0]})
+    model_names = sorted({entry[1] for entry in models if entry[1]})
     return (
         "MIXED: " + ", ".join(providers),
         "MIXED: " + ", ".join(model_names),
+        None,
     )
 
 
@@ -767,7 +788,7 @@ def _resolve_repo_commit(repo_dir: Path | None = None) -> str | None:
 
 def build_report(
     manifest: Manifest,
-    models: set[tuple[str, str]],
+    models: set[tuple[str, ...]],
     wpt_dir: Path,
     repeats: int,
     reports: list[EntryReport],
@@ -777,7 +798,7 @@ def build_report(
     quality_gate_failures: list[str] | tuple[str, ...] | None = None,
     repo_commit_sha: str | None = None,
 ) -> BenchmarkReport:
-    provider, model = _resolve_run_model(models)
+    provider, model, categories = _resolve_run_model(models)
     thresholds_dict = asdict(thresholds) if thresholds else None
     failures = tuple(quality_gate_failures) if quality_gate_failures else ()
     commit_sha = repo_commit_sha or _resolve_repo_commit()
@@ -785,6 +806,7 @@ def build_report(
         manifest=str(manifest.source_path),
         provider=provider,
         model=model,
+        categories=categories,
         wpt_dir=str(wpt_dir),
         wpt_upstream_commit_expected=manifest.wpt_upstream_commit,
         wpt_upstream_commit_actual=actual_commit,
@@ -1416,7 +1438,15 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     counts = _entry_counts(report.entries)
     total_entries = len(report.entries)
     tier_name = _resolve_suite_tier(report)
-    lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    if report.categories:
+        def_m = report.categories.get("default") or model
+        light_m = report.categories.get("lightweight") or model
+        reason_m = report.categories.get("reasoning") or model
+        lines.append(
+            f"- **Model**: `{model}` (provider: `{provider}` · default: `{def_m}` · lightweight: `{light_m}` · reasoning: `{reason_m}`)"
+        )
+    else:
+        lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
         f"- **Suite**: **{tier_name}** ({total_entries} entries · {report.repeats} repeats · {total_entries * report.repeats} evaluations)"
     )

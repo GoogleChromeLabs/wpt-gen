@@ -142,7 +142,7 @@ class EntryRuns:
     entry_id: str
     role: str
     repeats: list[list[Prediction]] = field(default_factory=list)
-    models: set[tuple[str, str]] = field(default_factory=set)
+    models: set[tuple[str, ...]] = field(default_factory=set)
 
     @property
     def num_repeats(self) -> int:
@@ -764,7 +764,7 @@ def load_entry_runs(
     import json
 
     repeats: list[list[Prediction]] = []
-    models: set[tuple[str, str]] = set()
+    models: set[tuple[str, ...]] = set()
     for rep_dir in repeat_dirs:
         json_path = rep_dir / f"{test_file_name}.json"
         try:
@@ -772,7 +772,16 @@ def load_entry_runs(
             repeats.append(payload_to_predictions(payload))
             meta = payload.get("run_metadata")
             if isinstance(meta, dict) and meta.get("model"):
-                models.add((str(meta.get("provider", "")), str(meta["model"])))
+                provider = str(meta.get("provider", ""))
+                model = str(meta["model"])
+                cats = meta.get("categories")
+                if isinstance(cats, dict):
+                    def_m = str(cats.get("default", model))
+                    light_m = str(cats.get("lightweight", model))
+                    reason_m = str(cats.get("reasoning", model))
+                    models.add((provider, model, def_m, light_m, reason_m))
+                else:
+                    models.add((provider, model))
         except (OSError, ValueError):
             repeats.append([])
     return EntryRuns(
