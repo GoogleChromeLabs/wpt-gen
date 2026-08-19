@@ -41,7 +41,7 @@
 substitutions:
   _PROVIDER: ''
   _JOBS: '8'
-  _REPEATS: '3'
+  _REPEATS: '8'
   _SELECT: '--smoke'
   _MIN_RECALL: '1.0'
   _MIN_STABILITY: ''
