@@ -16,20 +16,22 @@
 
 import os
 
-from wptgen.config import Config
+from wptgen.config import DEFAULT_PROVIDER_MODELS, Config
 from wptgen.models import LLMProvider, ProviderDefaults
 
 _PROVIDER_CONFIG: dict[LLMProvider, ProviderDefaults] = {
     LLMProvider.GEMINI: ProviderDefaults(
-        "GOOGLE_API_KEY", "gemini-3.1-pro-preview"
+        "GOOGLE_API_KEY", DEFAULT_PROVIDER_MODELS["gemini"]["default"]
     ),
     LLMProvider.GOOGLE: ProviderDefaults(
-        "GOOGLE_API_KEY", "gemini-3.1-pro-preview"
+        "GOOGLE_API_KEY", DEFAULT_PROVIDER_MODELS["gemini"]["default"]
     ),
     LLMProvider.ANTHROPIC: ProviderDefaults(
-        "ANTHROPIC_API_KEY", "claude-opus-4-6"
+        "ANTHROPIC_API_KEY", DEFAULT_PROVIDER_MODELS["anthropic"]["default"]
     ),
-    LLMProvider.OPENAI: ProviderDefaults("OPENAI_API_KEY", "gpt-5.2-high"),
+    LLMProvider.OPENAI: ProviderDefaults(
+        "OPENAI_API_KEY", DEFAULT_PROVIDER_MODELS["openai"]["default"]
+    ),
 }
 
 
