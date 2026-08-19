@@ -40,7 +40,7 @@
 #                   benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
-  _JOBS: '8'
+  _JOBS: '32'
   _REPEATS: '8'
   _SELECT: ''
   _MIN_RECALL: '1.0'
@@ -174,7 +174,7 @@ steps:
 timeout: 14400s
 
 options:
-  machineType: 'E2_HIGHCPU_8'
+  machineType: 'E2_HIGHCPU_32'
   logging: CLOUD_LOGGING_ONLY
 
 availableSecrets:
