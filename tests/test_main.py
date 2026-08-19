@@ -463,11 +463,11 @@ def test_init_command_global(
     assert "gemini" in config_data["providers"]
     assert (
         config_data["providers"]["gemini"]["default_model"]
-        == "gemini-3.1-pro-preview"
+        == "gemini-3.7-flash"
     )
     assert (
         config_data["providers"]["gemini"]["categories"]["lightweight"]
-        == "gemini-3-flash-preview"
+        == "gemini-3.7-flash"
     )
     assert (
         config_data["providers"]["gemini"]["categories"]["reasoning"]
