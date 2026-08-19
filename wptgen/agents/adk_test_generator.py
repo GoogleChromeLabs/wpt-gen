@@ -27,7 +27,7 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
-from wptgen.agents.provider import setup_adk_environment
+from wptgen.agents.provider import create_adk_model, setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig
 from wptgen.agents.tools import _validate_safe_path, create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
@@ -138,7 +138,7 @@ async def generate_test_with_adk(
     safe_root_name = root_name.replace("-", "_").replace(".", "_")
     agent_kwargs: dict[str, Any] = {
         "name": f"wpt_generator_{safe_root_name}",
-        "model": model_string,
+        "model": create_adk_model(config, model_string),
         "instruction": instruction,
         "tools": list(tools),
     }

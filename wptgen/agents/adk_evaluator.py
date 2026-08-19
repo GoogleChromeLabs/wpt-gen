@@ -27,7 +27,7 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from jinja2 import Environment
 
-from wptgen.agents.provider import setup_adk_environment
+from wptgen.agents.provider import create_adk_model, setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
@@ -224,7 +224,7 @@ async def evaluate_test_with_adk(
     safe_name = re.sub(r"[^A-Za-z0-9_]", "_", test_path.stem)
     agent_kwargs: dict[str, Any] = {
         "name": f"wpt_evaluator_{safe_name}",
-        "model": model_string,
+        "model": create_adk_model(config, model_string),
         "instruction": instruction,
         "tools": list(tools),
     }

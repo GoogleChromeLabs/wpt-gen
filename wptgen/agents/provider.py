@@ -15,6 +15,7 @@
 """Provider setup and environment configuration for ADK agents."""
 
 import os
+from typing import Any
 
 from wptgen.config import DEFAULT_PROVIDER_MODELS, Config
 from wptgen.models import LLMProvider, ProviderDefaults
@@ -76,3 +77,27 @@ def setup_adk_environment(config: Config) -> str:
     os.environ[defaults.env_var] = config.api_key
 
     return config.default_model or defaults.default_model
+
+
+def create_adk_model(config: Config, model_string: str) -> Any:
+    """Creates the ADK model instance with configured retry options."""
+    if config.provider.lower() in ("gemini", "google"):
+        try:
+            from google.adk.models.google_llm import Gemini
+            from google.genai import types
+
+            retry_opts = types.HttpRetryOptions(
+                attempts=5,
+                initial_delay=2.0,
+                max_delay=30.0,
+                exp_base=2.0,
+                jitter=0.5,
+                http_status_codes=[429, 500, 503, 504],
+            )
+            return Gemini(
+                model=model_string,
+                retry_options=retry_opts,
+            )
+        except Exception:
+            return model_string
+    return model_string

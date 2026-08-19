@@ -307,12 +307,35 @@ def run_single(
     if progress:
         progress.start(entry.entry_id, repeat)
     started = time.monotonic()
-    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    max_retries = 3
+    completed = None
+    for attempt in range(max_retries):
+        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            break
+        err = completed.stderr or ""
+        if (
+            any(
+                term in err
+                for term in (
+                    "429",
+                    "RESOURCE_EXHAUSTED",
+                    "ResourceExhausted",
+                    "503",
+                )
+            )
+            and attempt < max_retries - 1
+        ):
+            time.sleep((2**attempt) * 2 + 1.0)
+            continue
+        break
+
+    assert completed is not None
     elapsed = time.monotonic() - started
     if progress:
         progress.complete(entry.entry_id, repeat, completed.returncode, elapsed)
