@@ -131,16 +131,6 @@ steps:
               --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" \
               --body-file "$${latest_report}" || true
           fi
-
-          # 2. Post status to GitHub Commit Statuses (works for PRs, commits, and with PAT/bot tokens)
-          if [ -n "$${COMMIT_SHA:-}" ] && [ -n "$${GH_TOKEN:-}" ]; then
-            echo "Posting benchmark commit status for commit $${COMMIT_SHA}..."
-            conclusion="success"
-            if [ "$${bench_status}" -ne 0 ]; then
-              conclusion="failure"
-            fi
-            python3 -c "import json, os, subprocess, sys; conclusion = sys.argv[1]; commit_sha = os.environ.get('COMMIT_SHA'); repo = os.environ.get('REPO_NAME', 'GoogleChromeLabs/wpt-gen'); state = 'success' if conclusion == 'success' else 'failure'; desc = 'Benchmark passed' if state == 'success' else 'Benchmark quality gate failed'; payload = {'state': state, 'description': desc, 'context': 'WPT Evaluator Benchmark'}; open('/tmp/commit_status.json', 'w', encoding='utf-8').write(json.dumps(payload)); subprocess.run(['gh', 'api', f'/repos/{repo}/statuses/{commit_sha}', '--input', '/tmp/commit_status.json'], check=False)" "$${conclusion}" || true
-          fi
         fi
 
         exit "$${bench_status}"
