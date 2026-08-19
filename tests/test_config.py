@@ -38,7 +38,7 @@ def test_load_config_default_gemini_happy_path(
     assert config.api_key == "mock-gemini-key-123"
     assert config.categories == {
         "lightweight": "gemini-3.7-flash",
-        "reasoning": "gemini-3.1-pro-preview",
+        "reasoning": "gemini-3.7-flash",
     }
     assert config.phase_model_mapping == {
         "requirements_extraction": "reasoning",
@@ -247,7 +247,7 @@ def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
         config_path="non_existent_dummy.yaml", use_reasoning_override=True
     )
     assert config.use_reasoning is True
-    assert config.default_model == "gemini-3.1-pro-preview"
+    assert config.default_model == "gemini-3.7-flash"
 
 
 def test_get_default_cache_path_windows(
@@ -430,7 +430,7 @@ providers:
     # The lightweight category should be overridden
     assert config.categories["lightweight"] == "gemini-custom-flash"
     # The reasoning default category should be preserved
-    assert config.categories["reasoning"] == "gemini-3.1-pro-preview"
+    assert config.categories["reasoning"] == "gemini-3.7-flash"
 
 
 def test_load_config_audit_partition_size(

@@ -471,7 +471,7 @@ def test_init_command_global(
     )
     assert (
         config_data["providers"]["gemini"]["categories"]["reasoning"]
-        == "gemini-3.1-pro-preview"
+        == "gemini-3.7-flash"
     )
 
 

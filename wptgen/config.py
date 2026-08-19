@@ -51,7 +51,7 @@ DEFAULT_PROVIDER_MODELS = {
     "gemini": {
         "default": "gemini-3.7-flash",
         "lightweight": "gemini-3.7-flash",
-        "reasoning": "gemini-3.1-pro-preview",
+        "reasoning": "gemini-3.7-flash",
     },
     "openai": {
         "default": "gpt-5.2-high",
