@@ -17,10 +17,10 @@ default_provider: gemini
 wpt_path: ../wpt
 providers:
   gemini:
-    default_model: gemini-3.7-flash
+    default_model: gemini-3.1-pro-preview
     categories:
-      lightweight: gemini-3.7-flash
-      reasoning: gemini-3.7-flash
+      lightweight: gemini-2.5-flash
+      reasoning: gemini-3.1-pro-preview
   openai:
     default_model: gpt-5.4
     categories:
