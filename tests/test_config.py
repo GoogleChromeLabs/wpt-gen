@@ -34,10 +34,10 @@ def test_load_config_default_gemini_happy_path(
 
     assert isinstance(config, Config)
     assert config.provider == "gemini"
-    assert config.default_model == "gemini-3.1-pro-preview"
+    assert config.default_model == "gemini-3.7-flash"
     assert config.api_key == "mock-gemini-key-123"
     assert config.categories == {
-        "lightweight": "gemini-3-flash-preview",
+        "lightweight": "gemini-3.7-flash",
         "reasoning": "gemini-3.1-pro-preview",
     }
     assert config.phase_model_mapping == {
@@ -240,7 +240,7 @@ def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
         config_path="non_existent_dummy.yaml", use_lightweight_override=True
     )
     assert config.use_lightweight is True
-    assert config.default_model == "gemini-3-flash-preview"
+    assert config.default_model == "gemini-3.7-flash"
 
     # Case 2: use_reasoning_override
     config = load_config(

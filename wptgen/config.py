@@ -49,8 +49,8 @@ DEFAULT_AUDIT_PARTITION_SIZE = 40
 
 DEFAULT_PROVIDER_MODELS = {
     "gemini": {
-        "default": "gemini-3.1-pro-preview",
-        "lightweight": "gemini-3-flash-preview",
+        "default": "gemini-3.7-flash",
+        "lightweight": "gemini-3.7-flash",
         "reasoning": "gemini-3.1-pro-preview",
     },
     "openai": {
