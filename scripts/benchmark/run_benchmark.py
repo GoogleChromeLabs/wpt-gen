@@ -813,6 +813,11 @@ _GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
     ("unstable", "below target - detection instability"),
     ("never", "never fires"),
 )
+# The standard target repeat count for release benchmarks (defined in README/harness).
+TARGET_RELEASE_REPEATS = 8
+# Single-decision sensitivity threshold (%) above which a category note is highlighted.
+CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT = 5.0
+
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -1131,14 +1136,24 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
             f" stability (1.0 = deterministic) | {value} | ≥{warn_at} "
             f"(@{report.repeats} reps) | {status} |"
         )
-    lines.append("")
-    if report.repeats < 5 or any(0 < c < 5 for c in counts.values()):
+    sensitivities: list[str] = []
+    for role, count in counts.items():
+        if count > 0 and report.repeats > 0:
+            step_pct = round(100.0 / (report.repeats * count), 1)
+            if step_pct >= CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT:
+                sensitivities.append(f"`{role.value}` ±{step_pct}%/decision")
+
+    if sensitivities or report.repeats < TARGET_RELEASE_REPEATS:
+        sens_str = (
+            f"category sensitivity: {', '.join(sensitivities)}"
+            if sensitivities
+            else "low sampling variance"
+        )
         lines.append(
             f"> ℹ️ **Sample Size Notice**: Evaluated with {report.repeats} repeats"
-            f" across {len(report.entries)} entries. With small sample sizes, a"
-            " single finding variance produces an expected aggregate fluctuation"
-            " of ±10–15%. For release gating and baseline comparisons, run with"
-            " `_REPEATS=8` on the full manifest."
+            f" across {len(report.entries)} entries ({sens_str})."
+            f" For release gating and stable model comparisons, run with `{TARGET_RELEASE_REPEATS}` repeats"
+            " on the full manifest."
         )
         lines.append("")
     return lines
@@ -1356,6 +1371,37 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
     return lines
 
 
+def _resolve_suite_tier(report: BenchmarkReport) -> str:
+    """Dynamically determines the suite tier by matching executed entries against the manifest."""
+    try:
+        manifest_path = Path(report.manifest)
+        if not manifest_path.is_file():
+            return f"Selection ({len(report.entries)} entries)"
+        manifest_obj = load_manifest(manifest_path)
+        smoke_ids = (
+            set(manifest_obj.corpus_sets.get("smoke", []))
+            | set(manifest_obj.seed_sets.get("smoke", []))
+            | set(manifest_obj.golden_sets.get("smoke", []))
+        )
+        total_manifest_ids = {c.entry_id for c in manifest_obj.corpus} | {
+            s.entry_id for s in manifest_obj.seeds
+        }
+        executed_ids = {str(e.get("entry_id", "")) for e in report.entries}
+        if (
+            executed_ids
+            and total_manifest_ids
+            and total_manifest_ids.issubset(executed_ids)
+        ):
+            return "Full Manifest"
+        if executed_ids and executed_ids == smoke_ids:
+            return "Smoke Tier"
+        if smoke_ids and executed_ids.issubset(smoke_ids):
+            return "Smoke Subset"
+        return f"Filtered Selection ({len(executed_ids)}/{len(total_manifest_ids)} entries)"
+    except Exception:
+        return f"Selection ({len(report.entries)} entries)"
+
+
 def render_report_markdown(report: BenchmarkReport) -> str:
     """Renders the benchmark report as Markdown from its JSON payload."""
     agg = report.aggregate
@@ -1369,7 +1415,7 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
     total_entries = len(report.entries)
-    tier_name = "Smoke Tier" if total_entries < 15 else "Full Manifest"
+    tier_name = _resolve_suite_tier(report)
     lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
     lines.append(
         f"- **Suite**: **{tier_name}** ({total_entries} entries · {report.repeats} repeats · {total_entries * report.repeats} evaluations)"
