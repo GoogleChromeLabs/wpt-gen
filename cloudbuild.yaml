@@ -68,7 +68,7 @@ steps:
     env:
       - 'GOOGLE_GENAI_USE_VERTEXAI=true'
       - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
-      - 'GOOGLE_CLOUD_LOCATION=global'
+      - 'GOOGLE_CLOUD_LOCATION=us-central1'
       - 'COMMIT_SHA=$COMMIT_SHA'
       - 'PR_NUMBER=$_PR_NUMBER'
       - 'HEAD_BRANCH=$_HEAD_BRANCH'
