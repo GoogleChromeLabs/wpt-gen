@@ -103,6 +103,13 @@ The following are **hard prohibitions**, not preferences:
    defect (e.g. `CHECKLIST-004` for a logic bug no other rule names). This
    is about one defect drawing two rules, not two distinct defects that
    happen to share a line.
+6. **Report the clearest instance, not every instance.** For a judgment
+   rule that could plausibly apply to several lines (logic-quality rules
+   like `CHECKLIST-004`, style nits like `CHECKLIST-017` / `CHECKLIST-010`),
+   report only the line where the defect is plainest — the one a reviewer
+   would flag first. Do not enumerate secondary or arguable occurrences on
+   other lines; a scattered rule that fires on a different line each run is
+   noise, not coverage. If no single line plainly holds, prefer silence.
 
 If you find yourself writing "should be X" or attaching a code
 suggestion, stop. State the problem and cite the source; the human
