@@ -17,7 +17,6 @@
 import httpx
 import openai
 import pytest
-from google.genai import types
 from pytest_mock import MockerFixture
 
 from wptgen.config import DEFAULT_LLM_TIMEOUT, Config
@@ -25,6 +24,7 @@ from wptgen.llm import (
     GeminiClient,
     LLMTimeoutError,
     OpenAIClient,
+    _build_http_options,
     get_llm_client,
 )
 
@@ -71,7 +71,7 @@ def test_gemini_client_timeout_passed(
     )
 
     mock_genai_client.assert_called_once_with(
-        api_key="mock-key", http_options=types.HttpOptions(timeout=123000)
+        api_key="mock-key", http_options=_build_http_options(123)
     )
 
 

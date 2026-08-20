@@ -39,9 +39,22 @@ MAX_RETRIES = 3
 
 def _build_http_options(
     timeout: int = DEFAULT_LLM_TIMEOUT,
+    retry_options: types.HttpRetryOptions | None = None,
 ) -> types.HttpOptions:
-    """Converts timeout to milliseconds for the Google GenAI SDK."""
-    return types.HttpOptions(timeout=int(timeout * 1000))
+    """Converts timeout to milliseconds for the Google GenAI SDK and adds retry options."""
+    if retry_options is None:
+        retry_options = types.HttpRetryOptions(
+            attempts=5,
+            initial_delay=2.0,
+            max_delay=30.0,
+            exp_base=2.0,
+            jitter=0.5,
+            http_status_codes=[429, 500, 503, 504],
+        )
+    return types.HttpOptions(
+        timeout=int(timeout * 1000),
+        retry_options=retry_options,
+    )
 
 
 class LLMTimeoutError(Exception):

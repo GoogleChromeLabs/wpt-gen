@@ -42,8 +42,8 @@ def _create_config(provider: str, api_key: str, default_model: str) -> Config:
 @pytest.mark.parametrize(
     ("provider", "expected_env_var", "expected_model"),
     [
-        ("gemini", "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
-        ("google", "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
+        ("gemini", "GOOGLE_API_KEY", "gemini-3.7-flash"),
+        ("google", "GOOGLE_API_KEY", "gemini-3.7-flash"),
         ("anthropic", "ANTHROPIC_API_KEY", "claude-opus-4-6"),
         ("openai", "OPENAI_API_KEY", "gpt-5.2-high"),
     ],

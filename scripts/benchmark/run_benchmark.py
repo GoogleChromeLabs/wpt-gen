@@ -307,12 +307,35 @@ def run_single(
     if progress:
         progress.start(entry.entry_id, repeat)
     started = time.monotonic()
-    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    max_retries = 3
+    completed = None
+    for attempt in range(max_retries):
+        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            break
+        err = completed.stderr or ""
+        if (
+            any(
+                term in err
+                for term in (
+                    "429",
+                    "RESOURCE_EXHAUSTED",
+                    "ResourceExhausted",
+                    "503",
+                )
+            )
+            and attempt < max_retries - 1
+        ):
+            time.sleep((2**attempt) * 2 + 1.0)
+            continue
+        break
+
+    assert completed is not None
     elapsed = time.monotonic() - started
     if progress:
         progress.complete(entry.entry_id, repeat, completed.returncode, elapsed)
@@ -457,6 +480,7 @@ class BenchmarkReport:
     quality_thresholds: dict[str, Any] | None = None
     quality_gate_failures: tuple[str, ...] = ()
     repo_commit_sha: str | None = None
+    categories: dict[str, str] | None = None
 
 
 class EntryRole(StrEnum):
@@ -492,10 +516,10 @@ def score_all(
     out: Path,
     repeats: int,
     reading_list: set[str],
-) -> tuple[list[EntryReport], set[tuple[str, str]]]:
+) -> tuple[list[EntryReport], set[tuple[str, ...]]]:
     """Loads every entry's run dirs and scores them."""
     reports: list[EntryReport] = []
-    models: set[tuple[str, str]] = set()
+    models: set[tuple[str, ...]] = set()
     for entry in entries:
         repeat_dirs = [_rep_dir(out, entry.entry_id, i) for i in range(repeats)]
         runs = load_entry_runs(
@@ -723,25 +747,45 @@ def check_quality_gates(
 
 
 def _resolve_run_model(
-    models: set[tuple[str, str]],
-) -> tuple[str | None, str | None]:
-    """Derives the report's (provider, model) from what the runs recorded.
+    models: set[tuple[str, ...]],
+) -> tuple[str | None, str | None, dict[str, str] | None]:
+    """Derives the report's (provider, model, categories) from what the runs recorded.
 
-    Empty (no run_metadata found) -> (None, None), rendered "unknown". A
-    single pair -> that pair. More than one -> a mixed marker, because the
+    Empty (no run_metadata found) -> (None, None, None), rendered "unknown". A
+    single configuration -> that configuration. More than one -> a mixed marker, because the
     runs were not all produced on the same model and their numbers should
     not be read as one model's result.
     """
     if not models:
-        return None, None
+        return None, None, None
     if len(models) == 1:
-        provider, model = next(iter(models))
-        return provider or None, model or None
-    providers = sorted({p for p, _ in models})
-    model_names = sorted({m for _, m in models})
+        entry = next(iter(models))
+        provider = entry[0] or None
+        model = entry[1] or None
+        categories: dict[str, str] | None
+        if len(entry) >= 5:
+            categories = {
+                "default": entry[2] or (model or ""),
+                "lightweight": entry[3] or (model or ""),
+                "reasoning": entry[4] or (model or ""),
+            }
+        else:
+            categories = (
+                {
+                    "default": model or "",
+                    "lightweight": model or "",
+                    "reasoning": model or "",
+                }
+                if model
+                else None
+            )
+        return provider, model, categories
+    providers = sorted({entry[0] for entry in models if entry[0]})
+    model_names = sorted({entry[1] for entry in models if entry[1]})
     return (
         "MIXED: " + ", ".join(providers),
         "MIXED: " + ", ".join(model_names),
+        None,
     )
 
 
@@ -767,7 +811,7 @@ def _resolve_repo_commit(repo_dir: Path | None = None) -> str | None:
 
 def build_report(
     manifest: Manifest,
-    models: set[tuple[str, str]],
+    models: set[tuple[str, ...]],
     wpt_dir: Path,
     repeats: int,
     reports: list[EntryReport],
@@ -777,7 +821,7 @@ def build_report(
     quality_gate_failures: list[str] | tuple[str, ...] | None = None,
     repo_commit_sha: str | None = None,
 ) -> BenchmarkReport:
-    provider, model = _resolve_run_model(models)
+    provider, model, categories = _resolve_run_model(models)
     thresholds_dict = asdict(thresholds) if thresholds else None
     failures = tuple(quality_gate_failures) if quality_gate_failures else ()
     commit_sha = repo_commit_sha or _resolve_repo_commit()
@@ -785,6 +829,7 @@ def build_report(
         manifest=str(manifest.source_path),
         provider=provider,
         model=model,
+        categories=categories,
         wpt_dir=str(wpt_dir),
         wpt_upstream_commit_expected=manifest.wpt_upstream_commit,
         wpt_upstream_commit_actual=actual_commit,
@@ -813,6 +858,11 @@ _GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
     ("unstable", "below target - detection instability"),
     ("never", "never fires"),
 )
+# The standard target repeat count for release benchmarks (defined in README/harness).
+TARGET_RELEASE_REPEATS = 8
+# Single-decision sensitivity threshold (%) above which a category note is highlighted.
+CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT = 5.0
+
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -1131,7 +1181,26 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
             f" stability (1.0 = deterministic) | {value} | ≥{warn_at} "
             f"(@{report.repeats} reps) | {status} |"
         )
-    lines.append("")
+    sensitivities: list[str] = []
+    for role, count in counts.items():
+        if count > 0 and report.repeats > 0:
+            step_pct = round(100.0 / (report.repeats * count), 1)
+            if step_pct >= CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT:
+                sensitivities.append(f"`{role.value}` ±{step_pct}%/decision")
+
+    if sensitivities or report.repeats < TARGET_RELEASE_REPEATS:
+        sens_str = (
+            f"category sensitivity: {', '.join(sensitivities)}"
+            if sensitivities
+            else "low sampling variance"
+        )
+        lines.append(
+            f"> ℹ️ **Sample Size Notice**: Evaluated with {report.repeats} repeats"
+            f" across {len(report.entries)} entries ({sens_str})."
+            f" For release gating and stable model comparisons, run with `{TARGET_RELEASE_REPEATS}` repeats"
+            " on the full manifest."
+        )
+        lines.append("")
     return lines
 
 
@@ -1337,8 +1406,45 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
             "> `python scripts/benchmark/run_benchmark.py --score-only --out"
             " <run_dir>`"
         )
+        lines.append("")
+        lines.append(
+            "> 🚀 **Run Full Release Benchmark in Cloud Build**:\n"
+            "> `gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops"
+            ' --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto"`'
+        )
     lines.append("")
     return lines
+
+
+def _resolve_suite_tier(report: BenchmarkReport) -> str:
+    """Dynamically determines the suite tier by matching executed entries against the manifest."""
+    try:
+        manifest_path = Path(report.manifest)
+        if not manifest_path.is_file():
+            return f"Selection ({len(report.entries)} entries)"
+        manifest_obj = load_manifest(manifest_path)
+        smoke_ids = (
+            set(manifest_obj.corpus_sets.get("smoke", []))
+            | set(manifest_obj.seed_sets.get("smoke", []))
+            | set(manifest_obj.golden_sets.get("smoke", []))
+        )
+        total_manifest_ids = {c.entry_id for c in manifest_obj.corpus} | {
+            s.entry_id for s in manifest_obj.seeds
+        }
+        executed_ids = {str(e.get("entry_id", "")) for e in report.entries}
+        if (
+            executed_ids
+            and total_manifest_ids
+            and total_manifest_ids.issubset(executed_ids)
+        ):
+            return "Full Manifest"
+        if executed_ids and executed_ids == smoke_ids:
+            return "Smoke Tier"
+        if smoke_ids and executed_ids.issubset(smoke_ids):
+            return "Smoke Subset"
+        return f"Filtered Selection ({len(executed_ids)}/{len(total_manifest_ids)} entries)"
+    except Exception:
+        return f"Selection ({len(report.entries)} entries)"
 
 
 def render_report_markdown(report: BenchmarkReport) -> str:
@@ -1353,10 +1459,23 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     model = report.model or "unknown"
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
-    lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    total_entries = len(report.entries)
+    tier_name = _resolve_suite_tier(report)
+    if report.categories:
+        def_m = report.categories.get("default") or model
+        light_m = report.categories.get("lightweight") or model
+        reason_m = report.categories.get("reasoning") or model
+        lines.append(
+            f"- **Model**: `{model}` (provider: `{provider}` · default: `{def_m}` · lightweight: `{light_m}` · reasoning: `{reason_m}`)"
+        )
+    else:
+        lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    lines.append(
+        f"- **Suite**: **{tier_name}** ({total_entries} entries · {report.repeats} repeats · {total_entries * report.repeats} evaluations)"
+    )
     lines.append(
         f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
-        f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
+        f" {counts[EntryRole.CORPUS]} corpus"
     )
     if report.repo_commit_sha:
         sha = report.repo_commit_sha
