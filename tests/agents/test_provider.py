@@ -77,3 +77,26 @@ def test_setup_adk_environment_unsupported_provider() -> None:
     config = _create_config("unknown", "test-key", "")
     with pytest.raises(ValueError, match="Unsupported ADK provider: unknown"):
         setup_adk_environment(config)
+
+
+def _phase_config() -> Config:
+    return Config(
+        provider="gemini",
+        api_key="test-key",
+        default_model="default-model",
+        wpt_path="/dummy/path",
+        categories={"lightweight": "light-model", "reasoning": "reason-model"},
+        phase_model_mapping={"evaluation": "reasoning"},
+    )
+
+
+def test_explicit_model_overrides_default() -> None:
+    """A model passed in wins over the config's default_model."""
+    model = setup_adk_environment(_phase_config(), "reason-model")
+    assert model == "reason-model"
+
+
+def test_none_model_falls_back_to_default() -> None:
+    """Omitting the model keeps the config's flat default."""
+    model = setup_adk_environment(_phase_config(), None)
+    assert model == "default-model"

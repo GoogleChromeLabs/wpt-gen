@@ -32,6 +32,7 @@ from wptgen.agents.provider import create_adk_model, setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
+from wptgen.models import WorkflowPhase
 from wptgen.ui import UIProvider
 from wptgen.utils import locate_snippet, read_test_source
 
@@ -80,7 +81,10 @@ async def evaluate_conformance_with_adk(
         what was read). The phase wrapper is responsible for rendering
         the report Markdown.
     """
-    model_string = setup_adk_environment(config)
+    model_string = setup_adk_environment(
+        config,
+        config.get_model_for_phase(WorkflowPhase.CONFORMANCE_EVALUATION),
+    )
     if config.provider.lower() == "anthropic" and not model_string.startswith(
         "anthropic/"
     ):

@@ -44,6 +44,8 @@ def test_load_config_default_gemini_happy_path(
         "requirements_extraction": "reasoning",
         "coverage_audit": "reasoning",
         "generation": "lightweight",
+        "evaluation": "reasoning",
+        "conformance_evaluation": "reasoning",
     }
 
 
@@ -229,6 +231,12 @@ def test_config_get_model_for_phase_overrides() -> None:
     config.use_reasoning = True
     assert config.get_model_for_phase("phase1") == "heavy-model"
     assert config.get_model_for_phase("phase2") == "heavy-model"
+
+    # An explicit model_override wins over everything, including the
+    # category flags and the phase mapping.
+    config.model_override = "pinned-model"
+    assert config.get_model_for_phase("phase1") == "pinned-model"
+    assert config.get_model_for_phase("phase2") == "pinned-model"
 
 
 def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

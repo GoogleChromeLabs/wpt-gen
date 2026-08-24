@@ -15,6 +15,9 @@ and `--out` to a timestamped `bench-runs/<date>-<time>/`. All are
 overridable. Other flags:
 
 - `--provider`, `--config` — passed through to each `wpt-gen evaluate`.
+- `--model-category {lightweight,reasoning}` — override the model the
+  evaluator runs on for this benchmark (see [Model selection](#model-selection)).
+  Default: the `evaluation` phase mapping in the config (`reasoning`).
 - `--filter field=value` — `role=` (`seed`/`corpus`/`golden`) or `kind=`.
 - `--jobs N` — concurrent evaluator runs (default 1; the bound is provider
   rate limits, not cores).
@@ -64,6 +67,21 @@ Runs all 26+ benchmark entries across 8 repeats to establish a high-confidence c
 gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops \
   --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto",_JOBS=8
 ```
+
+### Model selection
+
+The evaluator resolves its model from the config's `phase_model_mapping` like
+any other phase: the `evaluation` (and `conformance_evaluation`) phase maps to a
+category (`reasoning` by default), which resolves to a concrete model under the
+active provider's `categories` in `wpt-gen.yml`. So the benchmark runs whatever
+the config says the evaluator uses in a real end-to-end run.
+
+To benchmark a *different* model without editing the shared config, pass
+`--model-category lightweight` (or `reasoning`).
+
+A run's resolved model is recorded in the report header, so it is always
+unambiguous which model produced a given set of numbers. Comparisons are only
+meaningful within one fixed model.
 
 ### Quality gates
 

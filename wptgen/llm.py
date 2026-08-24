@@ -41,7 +41,8 @@ def _build_http_options(
     timeout: int = DEFAULT_LLM_TIMEOUT,
     retry_options: types.HttpRetryOptions | None = None,
 ) -> types.HttpOptions:
-    """Converts timeout to milliseconds for the Google GenAI SDK and adds retry options."""
+    """Converts timeout to milliseconds for the Google GenAI SDK and adds
+    retry options."""
     if retry_options is None:
         retry_options = types.HttpRetryOptions(
             attempts=5,

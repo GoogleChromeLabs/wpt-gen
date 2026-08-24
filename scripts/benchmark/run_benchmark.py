@@ -285,6 +285,7 @@ def run_single(
     out: Path,
     provider: str | None,
     config: Path,
+    model: str | None = None,
     progress: Progress | None = None,
 ) -> RunRecord:
     """Invokes ``wpt-gen evaluate`` once for one (entry, repeat) pair."""
@@ -303,6 +304,8 @@ def run_single(
     ]
     if provider:
         cmd += ["--provider", provider]
+    if model:
+        cmd += ["--model", model]
 
     if progress:
         progress.start(entry.entry_id, repeat)
@@ -1690,6 +1693,39 @@ def wpt_dir_from_config(config_path: Path) -> Path | None:
     return (config_path.resolve().parent / wpt_path).resolve()
 
 
+# The evaluator's model category is mapped to the config's `evaluation` phase
+# unless the run overrides it.
+_EVALUATION_PHASE = "evaluation"
+
+
+def resolve_model(
+    config_path: Path, provider: str | None, category: str | None
+) -> str | None:
+    """Resolves the concrete evaluator model for this run.
+
+    Precedence: an explicit ``category`` override, else the config's
+    ``evaluation`` phase mapping; the chosen category is looked up in the
+    active provider's ``categories``. Returns ``None`` if nothing resolves,
+    in which case the evaluator falls back to its own config default.
+    """
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+
+    active = provider or raw.get("default_provider")
+    provider_block = (raw.get("providers") or {}).get(active, {})
+    categories = provider_block.get("categories") or {}
+
+    chosen = category or (raw.get("phase_model_mapping") or {}).get(
+        _EVALUATION_PHASE
+    )
+    model = categories.get(chosen)
+    return str(model) if model else None
+
+
 # The evaluator skill whose curated reading list is the source of truth for
 # the source-citation check. A finding may only cite a doc the skill lists.
 _SKILL_PATH = REPO_ROOT / "wptgen" / "skills" / "wpt-evaluator" / "SKILL.md"
@@ -1759,6 +1795,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "rate limits, not cores; 4-8 is usually safe.",
     )
     parser.add_argument("--provider", default=None)
+    parser.add_argument(
+        "--model-category",
+        choices=["lightweight", "reasoning"],
+        default=None,
+        help=(
+            "Override the evaluator's model category for this run. The "
+            "resolved model is passed to each child as --model. Default: the "
+            "`evaluation` phase mapping in the config."
+        ),
+    )
     parser.add_argument(
         "--filter", default=None, help="field=value, e.g. kind=reftest"
     )
@@ -1997,6 +2043,11 @@ def main(argv: list[str] | None = None) -> int:
                 stage_seeds(seeds_root, args.wpt_dir, seed_entries)
             if gold_entries:
                 stage_golden(args.wpt_dir, gold_entries)
+            # Resolve the evaluator model once (category override -> phase
+            # mapping) so every child runs the same explicit model.
+            model = resolve_model(
+                args.config, args.provider, args.model_category
+            )
             # Flatten to (entry, repeat) tasks so the pool fills evenly.
             tasks = [
                 (entry, i) for entry in entries for i in range(args.repeats)
@@ -2012,6 +2063,7 @@ def main(argv: list[str] | None = None) -> int:
                         out=args.out,
                         provider=args.provider,
                         config=args.config,
+                        model=model,
                         progress=progress,
                     )
                     for entry, i in tasks

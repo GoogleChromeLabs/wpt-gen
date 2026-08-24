@@ -36,12 +36,14 @@ _PROVIDER_CONFIG: dict[LLMProvider, ProviderDefaults] = {
 }
 
 
-def setup_adk_environment(config: Config) -> str:
+def setup_adk_environment(config: Config, model: str | None = None) -> str:
     """Configures the ADK environment with the appropriate API keys
     and returns the model string.
 
     Args:
       config: The WPT-Gen configuration object.
+      model: Optional model. When ``None``, the
+        config's ``default_model`` (then the provider default) is used.
 
     Returns:
       The fully qualified ADK model string.
@@ -57,6 +59,9 @@ def setup_adk_environment(config: Config) -> str:
             f"Unsupported ADK provider: {config.provider}"
         ) from None
 
+    defaults = _PROVIDER_CONFIG[provider]
+    resolved_model = model or config.default_model or defaults.default_model
+
     if (
         provider in (LLMProvider.GEMINI, LLMProvider.GOOGLE)
         and not config.api_key
@@ -65,18 +70,16 @@ def setup_adk_environment(config: Config) -> str:
             "true",
             "1",
         ):
-            defaults = _PROVIDER_CONFIG[provider]
-            return config.default_model or defaults.default_model
+            return resolved_model
 
     if not config.api_key:
         raise ValueError(
             f"An API key is required for the {provider.value} provider."
         )
 
-    defaults = _PROVIDER_CONFIG[provider]
     os.environ[defaults.env_var] = config.api_key
 
-    return config.default_model or defaults.default_model
+    return resolved_model
 
 
 def create_adk_model(config: Config, model_string: str) -> Any:

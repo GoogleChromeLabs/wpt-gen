@@ -1010,6 +1010,50 @@ def test_wpt_dir_from_config_missing_returns_none(tmp_path: Path) -> None:
     assert run_benchmark.wpt_dir_from_config(tmp_path / "nope.yml") is None
 
 
+_MODEL_CONFIG = """\
+default_provider: gemini
+providers:
+  gemini:
+    categories:
+      lightweight: flash
+      reasoning: pro
+phase_model_mapping:
+  evaluation: reasoning
+"""
+
+
+def test_resolve_model_uses_evaluation_phase(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(_MODEL_CONFIG, encoding="utf-8")
+    assert run_benchmark.resolve_model(cfg, None, None) == "pro"
+
+
+def test_resolve_model_category_override_wins(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(_MODEL_CONFIG, encoding="utf-8")
+    assert run_benchmark.resolve_model(cfg, None, "lightweight") == "flash"
+
+
+def test_resolve_model_none_when_phase_absent(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(
+        "default_provider: gemini\n"
+        "providers:\n  gemini:\n    categories:\n"
+        "      lightweight: flash\n      reasoning: pro\n",
+        encoding="utf-8",
+    )
+    # No evaluation phase mapping -> nothing resolves here; the evaluator
+    # falls back to its own config default.
+    assert run_benchmark.resolve_model(cfg, None, None) is None
+
+
+def test_resolve_model_none_when_unresolvable(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text("default_provider: gemini\n", encoding="utf-8")
+    # No categories block -> nothing to resolve; evaluator falls back itself.
+    assert run_benchmark.resolve_model(cfg, None, None) is None
+
+
 def test_wpt_dir_from_config_no_wpt_path_returns_none(tmp_path: Path) -> None:
     cfg = tmp_path / "wpt-gen.yml"
     cfg.write_text("default_provider: gemini\n", encoding="utf-8")
