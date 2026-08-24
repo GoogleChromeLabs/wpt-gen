@@ -39,6 +39,7 @@ import argparse
 import base64
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -311,6 +312,7 @@ def run_single(
         progress.start(entry.entry_id, repeat)
     started = time.monotonic()
     max_retries = 3
+    base_delay = 5.0
     completed = None
     for attempt in range(max_retries):
         completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
@@ -322,19 +324,21 @@ def run_single(
         if completed.returncode == 0:
             break
         err = completed.stderr or ""
-        if (
-            any(
-                term in err
-                for term in (
-                    "429",
-                    "RESOURCE_EXHAUSTED",
-                    "ResourceExhausted",
-                    "503",
-                )
+        is_rate_limit = any(
+            term in err
+            for term in (
+                "429",
+                "RESOURCE_EXHAUSTED",
+                "ResourceExhausted",
+                "503",
             )
-            and attempt < max_retries - 1
-        ):
-            time.sleep((2**attempt) * 2 + 1.0)
+        )
+        if is_rate_limit and attempt < max_retries - 1:
+            # Full-jitter exponential backoff: sleep a random point in
+            # [0, base * 2**attempt) — ~[0,5), [0,10), [0,20) seconds. The
+            # jitter desynchronizes concurrent workers that all hit the same
+            # rate-limit window, avoiding a thundering-herd retry.
+            time.sleep(random.uniform(0, base_delay * 2**attempt))
             continue
         break
 

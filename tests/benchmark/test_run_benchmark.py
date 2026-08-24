@@ -1182,6 +1182,81 @@ def test_parallel_runs_match_sequential_set(
     assert _run_all(jobs=4) == expected
 
 
+class _FailThenPass:
+    """subprocess.run stand-in: fails with `stderr` for the first
+    `fail_times` calls, then succeeds."""
+
+    def __init__(self, fail_times: int, stderr: str) -> None:
+        self.fail_times = fail_times
+        self.stderr = stderr
+        self.calls = 0
+
+    def __call__(self, cmd: list[str], *a: Any, **k: Any) -> _FakeProc:
+        self.calls += 1
+        proc = _FakeProc()
+        if self.calls <= self.fail_times:
+            proc.returncode = 1
+            proc.stderr = self.stderr
+        return proc
+
+
+def test_rate_limit_retries_with_full_jitter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 429 is retried, and the backoff sleep is full-jittered within
+    [0, base * 2**attempt)."""
+    fake = _FailThenPass(fail_times=1, stderr="Error: 429 RESOURCE_EXHAUSTED")
+    monkeypatch.setattr("benchmark.run_benchmark.subprocess.run", fake)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.time.sleep", lambda s: sleeps.append(s)
+    )
+    # Deterministic jitter: return the high end of the [0, hi) range.
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.random.uniform", lambda lo, hi: hi
+    )
+
+    record = run_benchmark.run_single(
+        entry=_seed_entry("testharness/s.js"),
+        repeat=0,
+        wpt_dir=tmp_path / "wpt",
+        out=tmp_path / "out",
+        provider=None,
+        config=Path("wpt-gen.yml"),
+    )
+
+    assert record.exit_code == 0  # retry recovered
+    assert fake.calls == 2  # one failure, one success
+    # First attempt's jitter window is [0, base_delay * 2**0) = [0, 5).
+    assert sleeps == [5.0]
+
+
+def test_non_rate_limit_error_is_not_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-429 failure exits immediately without a backoff sleep."""
+    fake = _FailThenPass(fail_times=3, stderr="Error: something else")
+    monkeypatch.setattr("benchmark.run_benchmark.subprocess.run", fake)
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.time.sleep", lambda s: sleeps.append(s)
+    )
+
+    record = run_benchmark.run_single(
+        entry=_seed_entry("testharness/s.js"),
+        repeat=0,
+        wpt_dir=tmp_path / "wpt",
+        out=tmp_path / "out",
+        provider=None,
+        config=Path("wpt-gen.yml"),
+    )
+
+    assert record.exit_code == 1
+    assert fake.calls == 1  # no retry
+    assert sleeps == []
+
+
 # --- Quality gates ----------------------------------------------------------
 
 
