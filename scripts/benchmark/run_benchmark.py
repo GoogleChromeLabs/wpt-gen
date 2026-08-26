@@ -630,6 +630,67 @@ def score_entry(
     )
 
 
+def _blank_kind_row() -> dict[str, Any]:
+    return {
+        "corpus_stabilities": [],
+        "seed_tp": 0,
+        "seed_fp": 0,
+        "seed_fn": 0,
+        "seed_entries": 0,
+        "golden_tp": 0,
+        "golden_fn": 0,
+        "golden_entries": 0,
+    }
+
+
+def _new_kind_accumulator() -> dict[str, dict[str, Any]]:
+    return {}
+
+
+def _finalize_kind_rows(
+    by_kind: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Turns raw per-kind sums into a rendered-ready row per kind.
+
+    Precision/recall are computed from summed TP/FP/FN (not averaged rates),
+    matching the headline aggregate. Corpus stability is the per-kind mean.
+    Each score carries its entry count ``n`` so a low-sample kind is not
+    over-read.
+    """
+    rows: dict[str, dict[str, Any]] = {}
+    for kind, acc in by_kind.items():
+        stabilities = acc["corpus_stabilities"]
+        seed_denom_p = acc["seed_tp"] + acc["seed_fp"]
+        seed_denom_r = acc["seed_tp"] + acc["seed_fn"]
+        g_denom = acc["golden_tp"] + acc["golden_fn"]
+        rows[kind] = {
+            "corpus_n": len(stabilities),
+            "corpus_stability": (
+                round(sum(stabilities) / len(stabilities), 4)
+                if stabilities
+                else None
+            ),
+            "seed_n": acc["seed_entries"],
+            "seed_precision": (
+                round(acc["seed_tp"] / seed_denom_p, 4)
+                if seed_denom_p
+                else (1.0 if acc["seed_entries"] else None)
+            ),
+            "seed_recall": (
+                round(acc["seed_tp"] / seed_denom_r, 4)
+                if seed_denom_r
+                else (1.0 if acc["seed_entries"] else None)
+            ),
+            "golden_n": acc["golden_entries"],
+            "golden_recall": (
+                round(acc["golden_tp"] / g_denom, 4)
+                if g_denom
+                else (1.0 if acc["golden_entries"] else None)
+            ),
+        }
+    return rows
+
+
 def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     """Rolls per-entry scores into headline numbers."""
     tp = fp = fn = 0
@@ -640,18 +701,28 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     decomp = {"rule_flaky": 0, "line_flaky": 0, "label_churn": 0}
     corpus_stabilities: list[float] = []
     corpus_stabilities_churn: list[float] = []
+    by_kind = _new_kind_accumulator()
     for report in reports:
+        kind = by_kind.setdefault(report.kind, _blank_kind_row())
         if report.role == EntryRole.CORPUS:
             corpus_stabilities.append(report.stability)
             corpus_stabilities_churn.append(report.stability_with_churn)
+            kind["corpus_stabilities"].append(report.stability)
         if report.seed_score:
             tp += report.seed_score["true_positives"]
             fp += report.seed_score["false_positives"]
             fn += report.seed_score["false_negatives"]
+            kind["seed_tp"] += report.seed_score["true_positives"]
+            kind["seed_fp"] += report.seed_score["false_positives"]
+            kind["seed_fn"] += report.seed_score["false_negatives"]
+            kind["seed_entries"] += 1
         if report.golden_score:
             g_tp += report.golden_score["true_positives"]
             g_fn += report.golden_score["false_negatives"]
             g_unmatched += report.golden_score["unmatched_predictions"]
+            kind["golden_tp"] += report.golden_score["true_positives"]
+            kind["golden_fn"] += report.golden_score["false_negatives"]
+            kind["golden_entries"] += 1
         advisory += len(report.advisory_notes)
         for bucket, count in report.consistency_histogram.items():
             hist[bucket] += count
@@ -664,6 +735,7 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     recall = tp / (tp + fn) if (tp + fn) else 1.0
     golden_recall = g_tp / (g_tp + g_fn) if (g_tp + g_fn) else 1.0
     return {
+        "scores_by_kind": _finalize_kind_rows(by_kind),
         "seed_true_positives": tp,
         "seed_false_positives": fp,
         "seed_false_negatives": fn,
@@ -1089,6 +1161,55 @@ def _render_consistency_table(
     lines.append("")
 
     lines.append(f"**Label churn:** {churn}  (see Action Items)")
+    lines.append("")
+    return lines
+
+
+def _render_scores_by_kind(
+    scores_by_kind: dict[str, dict[str, Any]],
+) -> list[str]:
+    """A kind × (corpus stability, seed precision/recall, golden recall)
+    matrix. Each cell shows its entry count ``n``; a dash marks a kind with no
+    entries of that role. Rows are ordered most-stable first.
+    """
+    if not scores_by_kind:
+        return []
+
+    def cell_stability(row: dict[str, Any]) -> str:
+        val, n = row["corpus_stability"], row["corpus_n"]
+        return f"{val} (n={n})" if val is not None else "—"
+
+    def cell_seed(row: dict[str, Any]) -> str:
+        n = row["seed_n"]
+        if not n:
+            return "—"
+        return f"{row['seed_precision']}/{row['seed_recall']} ({n})"
+
+    def cell_golden(row: dict[str, Any]) -> str:
+        n = row["golden_n"]
+        return f"{row['golden_recall']} ({n})" if n else "—"
+
+    lines = ["### Scores by test type", ""]
+    lines.append("One row per test kind; `n` is the entry count.")
+    lines.append("")
+    lines.append(
+        "| kind | corpus stability | seed precision/recall | golden recall |"
+    )
+    lines.append("| --- | :---: | :---: | :---: |")
+    # Stable kinds first; ties broken by name for a deterministic order.
+    order = sorted(
+        scores_by_kind.items(),
+        key=lambda kv: (
+            kv[1]["corpus_stability"] is None,
+            -(kv[1]["corpus_stability"] or 0.0),
+            kv[0],
+        ),
+    )
+    for kind, row in order:
+        lines.append(
+            f"| {kind} | {cell_stability(row)} | {cell_seed(row)} "
+            f"| {cell_golden(row)} |"
+        )
     lines.append("")
     return lines
 
@@ -1532,6 +1653,8 @@ def render_report_markdown(report: BenchmarkReport) -> str:
             churn,
         )
     )
+
+    lines.extend(_render_scores_by_kind(agg.get("scores_by_kind", {})))
 
     lines.append("<details>")
     lines.append(

@@ -1726,6 +1726,111 @@ def test_render_executive_banner() -> None:
     )
 
 
+def _kind_report(
+    kind: str,
+    role: str,
+    *,
+    stability: float = 0.0,
+    seed: dict[str, Any] | None = None,
+    golden: dict[str, Any] | None = None,
+) -> Any:
+    return run_benchmark.EntryReport(
+        entry_id=f"{role}-{kind}",
+        role=role,
+        kind=kind,
+        num_repeats=8,
+        consistency=[],
+        consistency_histogram={},
+        graded_histogram={},
+        stability=stability,
+        stability_with_churn=0.0,
+        consistency_decomposition={},
+        label_churn_lines=[],
+        detection_flaky_lines=[],
+        seed_score=seed,
+        golden_score=golden,
+        consistency_by_outcome=None,
+        advisory_notes=[],
+    )
+
+
+def test_aggregate_groups_scores_by_kind() -> None:
+    reports = [
+        _kind_report("testharness", "corpus", stability=0.8),
+        _kind_report("testharness", "corpus", stability=0.9),
+        _kind_report(
+            "testharness",
+            "seed",
+            seed={
+                "true_positives": 8,
+                "false_positives": 0,
+                "false_negatives": 2,
+            },
+        ),
+        _kind_report(
+            "reftest",
+            "golden",
+            golden={
+                "true_positives": 1,
+                "false_negatives": 3,
+                "unmatched_predictions": 0,
+            },
+        ),
+    ]
+    by_kind = run_benchmark._aggregate(reports)["scores_by_kind"]
+
+    th = by_kind["testharness"]
+    assert th["corpus_n"] == 2
+    assert th["corpus_stability"] == 0.85  # mean of 0.8, 0.9
+    assert th["seed_n"] == 1
+    assert th["seed_precision"] == 1.0  # 8 / (8+0)
+    assert th["seed_recall"] == 0.8  # 8 / (8+2)
+    assert th["golden_n"] == 0
+    assert th["golden_recall"] is None
+
+    rt = by_kind["reftest"]
+    assert rt["corpus_stability"] is None  # no corpus entries of this kind
+    assert rt["golden_recall"] == 0.25  # 1 / (1+3)
+
+
+def test_render_scores_by_kind_matrix() -> None:
+    scores: dict[str, dict[str, Any]] = {
+        "testharness": {
+            "corpus_n": 2,
+            "corpus_stability": 0.85,
+            "seed_n": 1,
+            "seed_precision": 1.0,
+            "seed_recall": 0.8,
+            "golden_n": 1,
+            "golden_recall": 0.11,
+        },
+        "crashtest": {
+            "corpus_n": 1,
+            "corpus_stability": 0.9,
+            "seed_n": 0,
+            "seed_precision": None,
+            "seed_recall": None,
+            "golden_n": 0,
+            "golden_recall": None,
+        },
+    }
+    md = "\n".join(run_benchmark._render_scores_by_kind(scores))
+    assert "### Scores by test type" in md
+    assert (
+        "| kind | corpus stability | seed precision/recall | golden recall |"
+        in md
+    )
+    # Stable-first ordering: crashtest (0.9) before testharness (0.85).
+    assert md.index("| crashtest |") < md.index("| testharness |")
+    assert "| testharness | 0.85 (n=2) | 1.0/0.8 (1) | 0.11 (1) |" in md
+    # Absent roles render as a dash.
+    assert "| crashtest | 0.9 (n=1) | — | — |" in md
+
+
+def test_render_scores_by_kind_empty_is_omitted() -> None:
+    assert run_benchmark._render_scores_by_kind({}) == []
+
+
 def test_escape_md_cell() -> None:
     assert run_benchmark._escape_md_cell("Simple title") == "Simple title"
     assert (

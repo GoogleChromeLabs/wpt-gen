@@ -281,6 +281,28 @@ merged test, so it carries no gold labels (precision/recall need labels). Seed
 and golden entries also carry a stability signal, but their headline metric is
 precision/recall.
 
+### Scores by test type
+
+A single matrix, one row per test `kind`, folding the three headline signals
+together so a per-kind weakness is visible at a glance:
+
+| kind        | corpus stability | seed precision/recall | golden recall |
+| :---------- | :--------------: | :-------------------: | :-----------: |
+| crashtest   | 0.90 (n=3)       | —                     | —             |
+| testharness | 0.81 (n=8)       | 1.0/0.73 (6)          | 0.11 (6)      |
+| reftest     | 0.72 (n=6)       | 0.57/1.0 (1)          | 1.0 (1)       |
+| js          | —                | —                     | 0.02 (3)      |
+
+Each cell carries its entry count `n`; a dash means no entries of that role and
+kind. Per-kind precision/recall are computed from that kind's summed
+TP/FP/FN (not by averaging per-entry rates), so they read the same way as the
+headline numbers. Rows are ordered most-stable first.
+
+**Read these as directional.** A full run spreads ~29 corpus entries across
+~6 kinds — a handful each — so a per-kind mean is a *hint* to investigate, not
+a verdict. The `n` column is there precisely so a 3-entry kind is not
+over-read.
+
 ### Advisory notes
 
 Findings whose `source` cites an upstream doc *not* on the evaluator's curated
