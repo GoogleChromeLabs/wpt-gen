@@ -3,6 +3,6 @@ labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/49133#discussion_r1839496664
     commit_id: b44e2ba6f3b32b037172a396fea4bf3a06c23a47
     excerpt: "This should not be conditional."
-    rule_id: CHECKLIST-004   # test-logic point, no specific governing rule
+    rule_id: no-rule   # test-logic point, no specific governing rule
     path: webidl/ecmascript-binding/es-exceptions/DOMException-is-error.any.js
     lines: [6, 6]
