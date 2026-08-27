@@ -26,7 +26,7 @@
 # See ../UPSTREAM.md for the pinned upstream commit and refresh procedure.
 # See ../SKILL.md for how this corpus is consumed.
 
-version: 0.2.0
+version: 0.3.0
 wpt_upstream_commit: f5a7deaba2bffac7a534dfafaa3baf14b9a253cf
 
 # Source-document prefixes (used as rule ID prefixes):
@@ -806,6 +806,13 @@ rules:
       cover. The defect must be in the test's logic (what it does), not
       merely its clarity or naming. Cite the specific line whose behavior
       contradicts the test's stated purpose.
+
+      Report this rule at most once per test, for the single clearest
+      logic defect. Do not enumerate secondary or arguable weaknesses on
+      other lines — a line only warrants a finding if, on its own, a
+      reviewer would agree the test fails to test what it claims. When
+      several lines seem arguable but one is plainly the defect, report
+      only that one; when none is plainly defective, report nothing.
 
   - id: CHECKLIST-005
     source: wpt/docs/reviewing-tests/checklist.md#L35

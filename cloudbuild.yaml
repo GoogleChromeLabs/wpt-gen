@@ -40,11 +40,11 @@
 #                   benchmarks/manifest.yaml:wpt_upstream_commit
 substitutions:
   _PROVIDER: ''
-  _JOBS: '8'
-  _REPEATS: '3'
-  _SELECT: '--smoke'
+  _JOBS: '16'
+  _REPEATS: '8'
+  _SELECT: ''
   _MIN_RECALL: '1.0'
-  _MIN_STABILITY: ''
+  _MIN_STABILITY: 'auto'
   _WPT_PIN: 'f5a7deaba2bffac7a534dfafaa3baf14b9a253cf'
   _PR_NUMBER: ''
 
@@ -119,45 +119,17 @@ steps:
           # 1. Post comment to PR (if running in a pull request context)
           pr_target="$${PR_NUMBER:-$${HEAD_BRANCH:-$${BRANCH_NAME}}}"
           if [ -n "$${pr_target}" ] && [ "$${pr_target}" != "main" ] && [ -n "$${GH_TOKEN:-}" ]; then
+            # Resolve PR number if a branch name was passed from a fork
+            if ! [[ "$${pr_target}" =~ ^[0-9]+$$ ]]; then
+              resolved_pr=$$(gh pr list --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" --head "$${pr_target}" --json number -q '.[0].number' 2>/dev/null || true)
+              if [ -n "$${resolved_pr}" ]; then
+                pr_target="$${resolved_pr}"
+              fi
+            fi
             echo "Posting benchmark report to PR ($${pr_target})..."
             gh pr comment "$${pr_target}" \
               --repo "$${REPO_NAME:-GoogleChromeLabs/wpt-gen}" \
               --body-file "$${latest_report}" || true
-          fi
-
-          # 2. Post summary to GitHub Check Run (works for PRs and pushes to main)
-          if [ -n "$${COMMIT_SHA:-}" ] && [ -n "$${GH_TOKEN:-}" ]; then
-            echo "Posting benchmark check run for commit $${COMMIT_SHA}..."
-            conclusion="success"
-            if [ "$${bench_status}" -ne 0 ]; then
-              conclusion="failure"
-            fi
-
-            python3 -c '
-              import json, os, subprocess, sys
-              report_path = sys.argv[1]
-              conclusion = sys.argv[2]
-              try:
-                  with open(report_path, encoding="utf-8") as f:
-                      summary = f.read()
-                  commit_sha = os.environ.get("COMMIT_SHA")
-                  repo = os.environ.get("REPO_NAME", "GoogleChromeLabs/wpt-gen")
-                  payload = {
-                      "name": "WPT Evaluator Benchmark",
-                      "head_sha": commit_sha,
-                      "status": "completed",
-                      "conclusion": conclusion,
-                      "output": {
-                          "title": f"Benchmark Report ({conclusion.upper()})",
-                          "summary": summary[:65500],
-                      },
-                  }
-                  with open("/tmp/check_run.json", "w", encoding="utf-8") as f:
-                      json.dump(payload, f)
-                  subprocess.run(["gh", "api", f"/repos/{repo}/check-runs", "--input", "/tmp/check_run.json"], check=False)
-              except Exception as e:
-                  sys.stderr.write(f"Warning: failed to post check run: {e}\n")
-            ' "$${latest_report}" "$${conclusion}" || true
           fi
         fi
 
@@ -168,7 +140,7 @@ steps:
 timeout: 14400s
 
 options:
-  machineType: 'E2_HIGHCPU_8'
+  machineType: 'E2_HIGHCPU_32'
   logging: CLOUD_LOGGING_ONLY
 
 availableSecrets:

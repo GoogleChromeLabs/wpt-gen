@@ -35,6 +35,8 @@ class WorkflowPhase(StrEnum):
     REQUIREMENTS_EXTRACTION = "requirements_extraction"
     COVERAGE_AUDIT = "coverage_audit"
     GENERATION = "generation"
+    EVALUATION = "evaluation"
+    CONFORMANCE_EVALUATION = "conformance_evaluation"
 
 
 class TestType(Enum):

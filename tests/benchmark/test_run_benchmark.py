@@ -932,21 +932,52 @@ def test_load_entry_runs_collects_model_from_metadata(tmp_path: Path) -> None:
 def test_resolve_run_model_single() -> None:
     assert run_benchmark._resolve_run_model(
         {("anthropic", "claude-opus-4-6")}
-    ) == ("anthropic", "claude-opus-4-6")
+    ) == (
+        "anthropic",
+        "claude-opus-4-6",
+        {
+            "default": "claude-opus-4-6",
+            "lightweight": "claude-opus-4-6",
+            "reasoning": "claude-opus-4-6",
+        },
+    )
+
+
+def test_resolve_run_model_single_with_categories() -> None:
+    assert run_benchmark._resolve_run_model(
+        {
+            (
+                "gemini",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+            )
+        }
+    ) == (
+        "gemini",
+        "gemini-3.7-flash",
+        {
+            "default": "gemini-3.7-flash",
+            "lightweight": "gemini-3.7-flash",
+            "reasoning": "gemini-3.7-flash",
+        },
+    )
 
 
 def test_resolve_run_model_empty_is_unknown() -> None:
-    assert run_benchmark._resolve_run_model(set()) == (None, None)
+    assert run_benchmark._resolve_run_model(set()) == (None, None, None)
 
 
 def test_resolve_run_model_mixed_is_flagged() -> None:
-    provider, model = run_benchmark._resolve_run_model(
+    provider, model, categories = run_benchmark._resolve_run_model(
         {("anthropic", "claude-opus-4-6"), ("gemini", "gemini-3.1-pro")}
     )
     assert provider is not None
     assert provider.startswith("MIXED")
     assert model is not None
     assert model.startswith("MIXED")
+    assert categories is None
     assert "claude-opus-4-6" in model
     assert "gemini-3.1-pro" in model
 
@@ -977,6 +1008,50 @@ def test_wpt_dir_from_config_relative_parent(tmp_path: Path) -> None:
 
 def test_wpt_dir_from_config_missing_returns_none(tmp_path: Path) -> None:
     assert run_benchmark.wpt_dir_from_config(tmp_path / "nope.yml") is None
+
+
+_MODEL_CONFIG = """\
+default_provider: gemini
+providers:
+  gemini:
+    categories:
+      lightweight: flash
+      reasoning: pro
+phase_model_mapping:
+  evaluation: reasoning
+"""
+
+
+def test_resolve_model_uses_evaluation_phase(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(_MODEL_CONFIG, encoding="utf-8")
+    assert run_benchmark.resolve_model(cfg, None, None) == "pro"
+
+
+def test_resolve_model_category_override_wins(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(_MODEL_CONFIG, encoding="utf-8")
+    assert run_benchmark.resolve_model(cfg, None, "lightweight") == "flash"
+
+
+def test_resolve_model_none_when_phase_absent(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text(
+        "default_provider: gemini\n"
+        "providers:\n  gemini:\n    categories:\n"
+        "      lightweight: flash\n      reasoning: pro\n",
+        encoding="utf-8",
+    )
+    # No evaluation phase mapping -> nothing resolves here; the evaluator
+    # falls back to its own config default.
+    assert run_benchmark.resolve_model(cfg, None, None) is None
+
+
+def test_resolve_model_none_when_unresolvable(tmp_path: Path) -> None:
+    cfg = tmp_path / "wpt-gen.yml"
+    cfg.write_text("default_provider: gemini\n", encoding="utf-8")
+    # No categories block -> nothing to resolve; evaluator falls back itself.
+    assert run_benchmark.resolve_model(cfg, None, None) is None
 
 
 def test_wpt_dir_from_config_no_wpt_path_returns_none(tmp_path: Path) -> None:
@@ -1105,6 +1180,81 @@ def test_parallel_runs_match_sequential_set(
     expected = {(e.entry_id, i) for e, i in tasks}
     assert _run_all(jobs=1) == expected
     assert _run_all(jobs=4) == expected
+
+
+class _FailThenPass:
+    """subprocess.run stand-in: fails with `stderr` for the first
+    `fail_times` calls, then succeeds."""
+
+    def __init__(self, fail_times: int, stderr: str) -> None:
+        self.fail_times = fail_times
+        self.stderr = stderr
+        self.calls = 0
+
+    def __call__(self, cmd: list[str], *a: Any, **k: Any) -> _FakeProc:
+        self.calls += 1
+        proc = _FakeProc()
+        if self.calls <= self.fail_times:
+            proc.returncode = 1
+            proc.stderr = self.stderr
+        return proc
+
+
+def test_rate_limit_retries_with_full_jitter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 429 is retried, and the backoff sleep is full-jittered within
+    [0, base * 2**attempt)."""
+    fake = _FailThenPass(fail_times=1, stderr="Error: 429 RESOURCE_EXHAUSTED")
+    monkeypatch.setattr("benchmark.run_benchmark.subprocess.run", fake)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.time.sleep", lambda s: sleeps.append(s)
+    )
+    # Deterministic jitter: return the high end of the [0, hi) range.
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.random.uniform", lambda lo, hi: hi
+    )
+
+    record = run_benchmark.run_single(
+        entry=_seed_entry("testharness/s.js"),
+        repeat=0,
+        wpt_dir=tmp_path / "wpt",
+        out=tmp_path / "out",
+        provider=None,
+        config=Path("wpt-gen.yml"),
+    )
+
+    assert record.exit_code == 0  # retry recovered
+    assert fake.calls == 2  # one failure, one success
+    # First attempt's jitter window is [0, base_delay * 2**0) = [0, 5).
+    assert sleeps == [5.0]
+
+
+def test_non_rate_limit_error_is_not_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-429 failure exits immediately without a backoff sleep."""
+    fake = _FailThenPass(fail_times=3, stderr="Error: something else")
+    monkeypatch.setattr("benchmark.run_benchmark.subprocess.run", fake)
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "benchmark.run_benchmark.time.sleep", lambda s: sleeps.append(s)
+    )
+
+    record = run_benchmark.run_single(
+        entry=_seed_entry("testharness/s.js"),
+        repeat=0,
+        wpt_dir=tmp_path / "wpt",
+        out=tmp_path / "out",
+        provider=None,
+        config=Path("wpt-gen.yml"),
+    )
+
+    assert record.exit_code == 1
+    assert fake.calls == 1  # no retry
+    assert sleeps == []
 
 
 # --- Quality gates ----------------------------------------------------------
@@ -1380,11 +1530,15 @@ def _bench_report(
     quality_gate_failures: list[str] | None = None,
     run_records: list[dict[str, Any]] | None = None,
     repo_commit_sha: str | None = None,
+    provider: str | None = "p",
+    model: str | None = "mdl",
+    categories: dict[str, str] | None = None,
 ) -> Any:
     return run_benchmark.BenchmarkReport(
         manifest="m.yaml",
-        provider="p",
-        model="mdl",
+        provider=provider,
+        model=model,
+        categories=categories,
         wpt_dir="/wpt",
         wpt_upstream_commit_expected="pinned123",
         wpt_upstream_commit_actual=None,
@@ -1572,6 +1726,111 @@ def test_render_executive_banner() -> None:
     )
 
 
+def _kind_report(
+    kind: str,
+    role: str,
+    *,
+    stability: float = 0.0,
+    seed: dict[str, Any] | None = None,
+    golden: dict[str, Any] | None = None,
+) -> Any:
+    return run_benchmark.EntryReport(
+        entry_id=f"{role}-{kind}",
+        role=role,
+        kind=kind,
+        num_repeats=8,
+        consistency=[],
+        consistency_histogram={},
+        graded_histogram={},
+        stability=stability,
+        stability_with_churn=0.0,
+        consistency_decomposition={},
+        label_churn_lines=[],
+        detection_flaky_lines=[],
+        seed_score=seed,
+        golden_score=golden,
+        consistency_by_outcome=None,
+        advisory_notes=[],
+    )
+
+
+def test_aggregate_groups_scores_by_kind() -> None:
+    reports = [
+        _kind_report("testharness", "corpus", stability=0.8),
+        _kind_report("testharness", "corpus", stability=0.9),
+        _kind_report(
+            "testharness",
+            "seed",
+            seed={
+                "true_positives": 8,
+                "false_positives": 0,
+                "false_negatives": 2,
+            },
+        ),
+        _kind_report(
+            "reftest",
+            "golden",
+            golden={
+                "true_positives": 1,
+                "false_negatives": 3,
+                "unmatched_predictions": 0,
+            },
+        ),
+    ]
+    by_kind = run_benchmark._aggregate(reports)["scores_by_kind"]
+
+    th = by_kind["testharness"]
+    assert th["corpus_n"] == 2
+    assert th["corpus_stability"] == 0.85  # mean of 0.8, 0.9
+    assert th["seed_n"] == 1
+    assert th["seed_precision"] == 1.0  # 8 / (8+0)
+    assert th["seed_recall"] == 0.8  # 8 / (8+2)
+    assert th["golden_n"] == 0
+    assert th["golden_recall"] is None
+
+    rt = by_kind["reftest"]
+    assert rt["corpus_stability"] is None  # no corpus entries of this kind
+    assert rt["golden_recall"] == 0.25  # 1 / (1+3)
+
+
+def test_render_scores_by_kind_matrix() -> None:
+    scores: dict[str, dict[str, Any]] = {
+        "testharness": {
+            "corpus_n": 2,
+            "corpus_stability": 0.85,
+            "seed_n": 1,
+            "seed_precision": 1.0,
+            "seed_recall": 0.8,
+            "golden_n": 1,
+            "golden_recall": 0.11,
+        },
+        "crashtest": {
+            "corpus_n": 1,
+            "corpus_stability": 0.9,
+            "seed_n": 0,
+            "seed_precision": None,
+            "seed_recall": None,
+            "golden_n": 0,
+            "golden_recall": None,
+        },
+    }
+    md = "\n".join(run_benchmark._render_scores_by_kind(scores))
+    assert "### Scores by test type" in md
+    assert (
+        "| kind | corpus stability | seed precision/recall | golden recall |"
+        in md
+    )
+    # Stable-first ordering: crashtest (0.9) before testharness (0.85).
+    assert md.index("| crashtest |") < md.index("| testharness |")
+    assert "| testharness | 0.85 (n=2) | 1.0/0.8 (1) | 0.11 (1) |" in md
+    # Absent roles render as a dash.
+    assert "| crashtest | 0.9 (n=1) | — | — |" in md
+
+
+def test_render_scores_by_kind_empty_is_omitted() -> None:
+    assert run_benchmark._render_scores_by_kind({}) == []
+
+
 def test_escape_md_cell() -> None:
     assert run_benchmark._escape_md_cell("Simple title") == "Simple title"
     assert (
@@ -1721,6 +1980,25 @@ def test_render_report_markdown_includes_evaluated_commit() -> None:
     md = run_benchmark.render_report_markdown(rep)
     assert (
         "- **Evaluated Commit**: [`b5488ba`](https://github.com/GoogleChromeLabs/wpt-gen/commit/b5488ba5b588b4a773af28e9f3391434661b4fbb)"
+        in md
+    )
+
+
+def test_render_report_markdown_includes_explicit_categories() -> None:
+    rep = _bench_report(
+        entries=[],
+        aggregate={"consistency_histogram": {"mid": 0}},
+        provider="gemini",
+        model="gemini-3.7-flash",
+        categories={
+            "default": "gemini-3.7-flash",
+            "lightweight": "gemini-3.7-flash",
+            "reasoning": "gemini-3.7-flash",
+        },
+    )
+    md = run_benchmark.render_report_markdown(rep)
+    assert (
+        "- **Model**: `gemini-3.7-flash` (provider: `gemini` · default: `gemini-3.7-flash` · lightweight: `gemini-3.7-flash` · reasoning: `gemini-3.7-flash`)"
         in md
     )
 

@@ -34,16 +34,18 @@ def test_load_config_default_gemini_happy_path(
 
     assert isinstance(config, Config)
     assert config.provider == "gemini"
-    assert config.default_model == "gemini-3.1-pro-preview"
+    assert config.default_model == "gemini-3.7-flash"
     assert config.api_key == "mock-gemini-key-123"
     assert config.categories == {
-        "lightweight": "gemini-3-flash-preview",
-        "reasoning": "gemini-3.1-pro-preview",
+        "lightweight": "gemini-3.7-flash",
+        "reasoning": "gemini-3.7-flash",
     }
     assert config.phase_model_mapping == {
         "requirements_extraction": "reasoning",
         "coverage_audit": "reasoning",
         "generation": "lightweight",
+        "evaluation": "reasoning",
+        "conformance_evaluation": "reasoning",
     }
 
 
@@ -230,6 +232,12 @@ def test_config_get_model_for_phase_overrides() -> None:
     assert config.get_model_for_phase("phase1") == "heavy-model"
     assert config.get_model_for_phase("phase2") == "heavy-model"
 
+    # An explicit model_override wins over everything, including the
+    # category flags and the phase mapping.
+    config.model_override = "pinned-model"
+    assert config.get_model_for_phase("phase1") == "pinned-model"
+    assert config.get_model_for_phase("phase2") == "pinned-model"
+
 
 def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that load_config correctly sets default_model based on flags."""
@@ -240,14 +248,14 @@ def test_load_config_model_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
         config_path="non_existent_dummy.yaml", use_lightweight_override=True
     )
     assert config.use_lightweight is True
-    assert config.default_model == "gemini-3-flash-preview"
+    assert config.default_model == "gemini-3.7-flash"
 
     # Case 2: use_reasoning_override
     config = load_config(
         config_path="non_existent_dummy.yaml", use_reasoning_override=True
     )
     assert config.use_reasoning is True
-    assert config.default_model == "gemini-3.1-pro-preview"
+    assert config.default_model == "gemini-3.7-flash"
 
 
 def test_get_default_cache_path_windows(
@@ -430,7 +438,7 @@ providers:
     # The lightweight category should be overridden
     assert config.categories["lightweight"] == "gemini-custom-flash"
     # The reasoning default category should be preserved
-    assert config.categories["reasoning"] == "gemini-3.1-pro-preview"
+    assert config.categories["reasoning"] == "gemini-3.7-flash"
 
 
 def test_load_config_audit_partition_size(
@@ -550,6 +558,6 @@ def test_cloudbuild_yaml_structure() -> None:
     assert "provider_arg=" in script
     assert "recall_arg=" in script
     assert "--manifest benchmarks/manifest.yaml" in script
-    assert "check-runs" in script
+    assert "gh pr comment" in script
     env_vars = run_step.get("env", [])
     assert any("COMMIT_SHA" in v for v in env_vars)

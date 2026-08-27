@@ -128,10 +128,10 @@ wpt_path: /path/to/your/local/wpt  # Path to your local WPT checkout
 
 providers:
   gemini:
-    default_model: gemini-3.1-pro-preview
+    default_model: gemini-3.7-flash
     categories:
-      lightweight: gemini-3-flash-preview
-      reasoning: gemini-3.1-pro-preview
+      lightweight: gemini-3.7-flash
+      reasoning: gemini-3.7-flash
   openai:
     default_model: gpt-5.2-high
     categories:
@@ -160,7 +160,7 @@ You can use the built-in `config` command group to view or modify your settings 
 - **Update Configuration:** Use dot-notation to set specific values.
   ```bash
   wpt-gen config set default_provider "openai"
-  wpt-gen config set providers.gemini.default_model "gemini-3.1-pro-preview"
+  wpt-gen config set providers.gemini.default_model "gemini-3.7-flash"
   ```
 
 ## Usage

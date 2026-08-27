@@ -128,7 +128,7 @@ wpt-gen config set <KEY> <VALUE> [OPTIONS]
 **Examples:**
 ```bash
 wpt-gen config set default_provider openai
-wpt-gen config set providers.gemini.default_model gemini-3.1-pro-preview
+wpt-gen config set providers.gemini.default_model gemini-3.7-flash
 wpt-gen config set show_responses true
 ```
 

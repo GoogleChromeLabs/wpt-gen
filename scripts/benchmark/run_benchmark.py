@@ -39,6 +39,7 @@ import argparse
 import base64
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -285,6 +286,7 @@ def run_single(
     out: Path,
     provider: str | None,
     config: Path,
+    model: str | None = None,
     progress: Progress | None = None,
 ) -> RunRecord:
     """Invokes ``wpt-gen evaluate`` once for one (entry, repeat) pair."""
@@ -303,16 +305,44 @@ def run_single(
     ]
     if provider:
         cmd += ["--provider", provider]
+    if model:
+        cmd += ["--model", model]
 
     if progress:
         progress.start(entry.entry_id, repeat)
     started = time.monotonic()
-    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    max_retries = 3
+    base_delay = 5.0
+    completed = None
+    for attempt in range(max_retries):
+        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            break
+        err = completed.stderr or ""
+        is_rate_limit = any(
+            term in err
+            for term in (
+                "429",
+                "RESOURCE_EXHAUSTED",
+                "ResourceExhausted",
+                "503",
+            )
+        )
+        if is_rate_limit and attempt < max_retries - 1:
+            # Full-jitter exponential backoff: sleep a random point in
+            # [0, base * 2**attempt) — ~[0,5), [0,10), [0,20) seconds. The
+            # jitter desynchronizes concurrent workers that all hit the same
+            # rate-limit window, avoiding a thundering-herd retry.
+            time.sleep(random.uniform(0, base_delay * 2**attempt))
+            continue
+        break
+
+    assert completed is not None
     elapsed = time.monotonic() - started
     if progress:
         progress.complete(entry.entry_id, repeat, completed.returncode, elapsed)
@@ -457,6 +487,7 @@ class BenchmarkReport:
     quality_thresholds: dict[str, Any] | None = None
     quality_gate_failures: tuple[str, ...] = ()
     repo_commit_sha: str | None = None
+    categories: dict[str, str] | None = None
 
 
 class EntryRole(StrEnum):
@@ -492,10 +523,10 @@ def score_all(
     out: Path,
     repeats: int,
     reading_list: set[str],
-) -> tuple[list[EntryReport], set[tuple[str, str]]]:
+) -> tuple[list[EntryReport], set[tuple[str, ...]]]:
     """Loads every entry's run dirs and scores them."""
     reports: list[EntryReport] = []
-    models: set[tuple[str, str]] = set()
+    models: set[tuple[str, ...]] = set()
     for entry in entries:
         repeat_dirs = [_rep_dir(out, entry.entry_id, i) for i in range(repeats)]
         runs = load_entry_runs(
@@ -599,6 +630,67 @@ def score_entry(
     )
 
 
+def _blank_kind_row() -> dict[str, Any]:
+    return {
+        "corpus_stabilities": [],
+        "seed_tp": 0,
+        "seed_fp": 0,
+        "seed_fn": 0,
+        "seed_entries": 0,
+        "golden_tp": 0,
+        "golden_fn": 0,
+        "golden_entries": 0,
+    }
+
+
+def _new_kind_accumulator() -> dict[str, dict[str, Any]]:
+    return {}
+
+
+def _finalize_kind_rows(
+    by_kind: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Turns raw per-kind sums into a rendered-ready row per kind.
+
+    Precision/recall are computed from summed TP/FP/FN (not averaged rates),
+    matching the headline aggregate. Corpus stability is the per-kind mean.
+    Each score carries its entry count ``n`` so a low-sample kind is not
+    over-read.
+    """
+    rows: dict[str, dict[str, Any]] = {}
+    for kind, acc in by_kind.items():
+        stabilities = acc["corpus_stabilities"]
+        seed_denom_p = acc["seed_tp"] + acc["seed_fp"]
+        seed_denom_r = acc["seed_tp"] + acc["seed_fn"]
+        g_denom = acc["golden_tp"] + acc["golden_fn"]
+        rows[kind] = {
+            "corpus_n": len(stabilities),
+            "corpus_stability": (
+                round(sum(stabilities) / len(stabilities), 4)
+                if stabilities
+                else None
+            ),
+            "seed_n": acc["seed_entries"],
+            "seed_precision": (
+                round(acc["seed_tp"] / seed_denom_p, 4)
+                if seed_denom_p
+                else (1.0 if acc["seed_entries"] else None)
+            ),
+            "seed_recall": (
+                round(acc["seed_tp"] / seed_denom_r, 4)
+                if seed_denom_r
+                else (1.0 if acc["seed_entries"] else None)
+            ),
+            "golden_n": acc["golden_entries"],
+            "golden_recall": (
+                round(acc["golden_tp"] / g_denom, 4)
+                if g_denom
+                else (1.0 if acc["golden_entries"] else None)
+            ),
+        }
+    return rows
+
+
 def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     """Rolls per-entry scores into headline numbers."""
     tp = fp = fn = 0
@@ -609,18 +701,28 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     decomp = {"rule_flaky": 0, "line_flaky": 0, "label_churn": 0}
     corpus_stabilities: list[float] = []
     corpus_stabilities_churn: list[float] = []
+    by_kind = _new_kind_accumulator()
     for report in reports:
+        kind = by_kind.setdefault(report.kind, _blank_kind_row())
         if report.role == EntryRole.CORPUS:
             corpus_stabilities.append(report.stability)
             corpus_stabilities_churn.append(report.stability_with_churn)
+            kind["corpus_stabilities"].append(report.stability)
         if report.seed_score:
             tp += report.seed_score["true_positives"]
             fp += report.seed_score["false_positives"]
             fn += report.seed_score["false_negatives"]
+            kind["seed_tp"] += report.seed_score["true_positives"]
+            kind["seed_fp"] += report.seed_score["false_positives"]
+            kind["seed_fn"] += report.seed_score["false_negatives"]
+            kind["seed_entries"] += 1
         if report.golden_score:
             g_tp += report.golden_score["true_positives"]
             g_fn += report.golden_score["false_negatives"]
             g_unmatched += report.golden_score["unmatched_predictions"]
+            kind["golden_tp"] += report.golden_score["true_positives"]
+            kind["golden_fn"] += report.golden_score["false_negatives"]
+            kind["golden_entries"] += 1
         advisory += len(report.advisory_notes)
         for bucket, count in report.consistency_histogram.items():
             hist[bucket] += count
@@ -633,6 +735,7 @@ def _aggregate(reports: list[EntryReport]) -> dict[str, Any]:
     recall = tp / (tp + fn) if (tp + fn) else 1.0
     golden_recall = g_tp / (g_tp + g_fn) if (g_tp + g_fn) else 1.0
     return {
+        "scores_by_kind": _finalize_kind_rows(by_kind),
         "seed_true_positives": tp,
         "seed_false_positives": fp,
         "seed_false_negatives": fn,
@@ -723,25 +826,45 @@ def check_quality_gates(
 
 
 def _resolve_run_model(
-    models: set[tuple[str, str]],
-) -> tuple[str | None, str | None]:
-    """Derives the report's (provider, model) from what the runs recorded.
+    models: set[tuple[str, ...]],
+) -> tuple[str | None, str | None, dict[str, str] | None]:
+    """Derives the report's (provider, model, categories) from what the runs recorded.
 
-    Empty (no run_metadata found) -> (None, None), rendered "unknown". A
-    single pair -> that pair. More than one -> a mixed marker, because the
+    Empty (no run_metadata found) -> (None, None, None), rendered "unknown". A
+    single configuration -> that configuration. More than one -> a mixed marker, because the
     runs were not all produced on the same model and their numbers should
     not be read as one model's result.
     """
     if not models:
-        return None, None
+        return None, None, None
     if len(models) == 1:
-        provider, model = next(iter(models))
-        return provider or None, model or None
-    providers = sorted({p for p, _ in models})
-    model_names = sorted({m for _, m in models})
+        entry = next(iter(models))
+        provider = entry[0] or None
+        model = entry[1] or None
+        categories: dict[str, str] | None
+        if len(entry) >= 5:
+            categories = {
+                "default": entry[2] or (model or ""),
+                "lightweight": entry[3] or (model or ""),
+                "reasoning": entry[4] or (model or ""),
+            }
+        else:
+            categories = (
+                {
+                    "default": model or "",
+                    "lightweight": model or "",
+                    "reasoning": model or "",
+                }
+                if model
+                else None
+            )
+        return provider, model, categories
+    providers = sorted({entry[0] for entry in models if entry[0]})
+    model_names = sorted({entry[1] for entry in models if entry[1]})
     return (
         "MIXED: " + ", ".join(providers),
         "MIXED: " + ", ".join(model_names),
+        None,
     )
 
 
@@ -767,7 +890,7 @@ def _resolve_repo_commit(repo_dir: Path | None = None) -> str | None:
 
 def build_report(
     manifest: Manifest,
-    models: set[tuple[str, str]],
+    models: set[tuple[str, ...]],
     wpt_dir: Path,
     repeats: int,
     reports: list[EntryReport],
@@ -777,7 +900,7 @@ def build_report(
     quality_gate_failures: list[str] | tuple[str, ...] | None = None,
     repo_commit_sha: str | None = None,
 ) -> BenchmarkReport:
-    provider, model = _resolve_run_model(models)
+    provider, model, categories = _resolve_run_model(models)
     thresholds_dict = asdict(thresholds) if thresholds else None
     failures = tuple(quality_gate_failures) if quality_gate_failures else ()
     commit_sha = repo_commit_sha or _resolve_repo_commit()
@@ -785,6 +908,7 @@ def build_report(
         manifest=str(manifest.source_path),
         provider=provider,
         model=model,
+        categories=categories,
         wpt_dir=str(wpt_dir),
         wpt_upstream_commit_expected=manifest.wpt_upstream_commit,
         wpt_upstream_commit_actual=actual_commit,
@@ -813,6 +937,11 @@ _GRADED_BUCKETS: tuple[tuple[str, str], ...] = (
     ("unstable", "below target - detection instability"),
     ("never", "never fires"),
 )
+# The standard target repeat count for release benchmarks (defined in README/harness).
+TARGET_RELEASE_REPEATS = 8
+# Single-decision sensitivity threshold (%) above which a category note is highlighted.
+CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT = 5.0
+
 # Absolute link targets so permalinks work seamlessly in terminal, local markdown, and GitHub PR comments.
 _README_LEGEND_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/benchmarks/README.md#reading-a-benchmark-report"
 _RULES_DOC_LINK = "https://github.com/GoogleChromeLabs/wpt-gen/blob/main/wptgen/skills/wpt-evaluator/references/rules.yaml"
@@ -1036,6 +1165,55 @@ def _render_consistency_table(
     return lines
 
 
+def _render_scores_by_kind(
+    scores_by_kind: dict[str, dict[str, Any]],
+) -> list[str]:
+    """A kind × (corpus stability, seed precision/recall, golden recall)
+    matrix. Each cell shows its entry count ``n``; a dash marks a kind with no
+    entries of that role. Rows are ordered most-stable first.
+    """
+    if not scores_by_kind:
+        return []
+
+    def cell_stability(row: dict[str, Any]) -> str:
+        val, n = row["corpus_stability"], row["corpus_n"]
+        return f"{val} (n={n})" if val is not None else "—"
+
+    def cell_seed(row: dict[str, Any]) -> str:
+        n = row["seed_n"]
+        if not n:
+            return "—"
+        return f"{row['seed_precision']}/{row['seed_recall']} ({n})"
+
+    def cell_golden(row: dict[str, Any]) -> str:
+        n = row["golden_n"]
+        return f"{row['golden_recall']} ({n})" if n else "—"
+
+    lines = ["### Scores by test type", ""]
+    lines.append("One row per test kind; `n` is the entry count.")
+    lines.append("")
+    lines.append(
+        "| kind | corpus stability | seed precision/recall | golden recall |"
+    )
+    lines.append("| --- | :---: | :---: | :---: |")
+    # Stable kinds first; ties broken by name for a deterministic order.
+    order = sorted(
+        scores_by_kind.items(),
+        key=lambda kv: (
+            kv[1]["corpus_stability"] is None,
+            -(kv[1]["corpus_stability"] or 0.0),
+            kv[0],
+        ),
+    )
+    for kind, row in order:
+        lines.append(
+            f"| {kind} | {cell_stability(row)} | {cell_seed(row)} "
+            f"| {cell_golden(row)} |"
+        )
+    lines.append("")
+    return lines
+
+
 def _entry_counts(entries: list[dict[str, Any]]) -> dict[EntryRole, int]:
     """Entry count per role."""
     counts = {EntryRole.SEED: 0, EntryRole.GOLDEN: 0, EntryRole.CORPUS: 0}
@@ -1131,7 +1309,26 @@ def _render_summary(report: BenchmarkReport) -> list[str]:
             f" stability (1.0 = deterministic) | {value} | ≥{warn_at} "
             f"(@{report.repeats} reps) | {status} |"
         )
-    lines.append("")
+    sensitivities: list[str] = []
+    for role, count in counts.items():
+        if count > 0 and report.repeats > 0:
+            step_pct = round(100.0 / (report.repeats * count), 1)
+            if step_pct >= CATEGORY_SENSITIVITY_NOTICE_THRESHOLD_PCT:
+                sensitivities.append(f"`{role.value}` ±{step_pct}%/decision")
+
+    if sensitivities or report.repeats < TARGET_RELEASE_REPEATS:
+        sens_str = (
+            f"category sensitivity: {', '.join(sensitivities)}"
+            if sensitivities
+            else "low sampling variance"
+        )
+        lines.append(
+            f"> ℹ️ **Sample Size Notice**: Evaluated with {report.repeats} repeats"
+            f" across {len(report.entries)} entries ({sens_str})."
+            f" For release gating and stable model comparisons, run with `{TARGET_RELEASE_REPEATS}` repeats"
+            " on the full manifest."
+        )
+        lines.append("")
     return lines
 
 
@@ -1337,8 +1534,45 @@ def _render_action_items(report: BenchmarkReport) -> list[str]:
             "> `python scripts/benchmark/run_benchmark.py --score-only --out"
             " <run_dir>`"
         )
+        lines.append("")
+        lines.append(
+            "> 🚀 **Run Full Release Benchmark in Cloud Build**:\n"
+            "> `gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops"
+            ' --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto"`'
+        )
     lines.append("")
     return lines
+
+
+def _resolve_suite_tier(report: BenchmarkReport) -> str:
+    """Dynamically determines the suite tier by matching executed entries against the manifest."""
+    try:
+        manifest_path = Path(report.manifest)
+        if not manifest_path.is_file():
+            return f"Selection ({len(report.entries)} entries)"
+        manifest_obj = load_manifest(manifest_path)
+        smoke_ids = (
+            set(manifest_obj.corpus_sets.get("smoke", []))
+            | set(manifest_obj.seed_sets.get("smoke", []))
+            | set(manifest_obj.golden_sets.get("smoke", []))
+        )
+        total_manifest_ids = {c.entry_id for c in manifest_obj.corpus} | {
+            s.entry_id for s in manifest_obj.seeds
+        }
+        executed_ids = {str(e.get("entry_id", "")) for e in report.entries}
+        if (
+            executed_ids
+            and total_manifest_ids
+            and total_manifest_ids.issubset(executed_ids)
+        ):
+            return "Full Manifest"
+        if executed_ids and executed_ids == smoke_ids:
+            return "Smoke Tier"
+        if smoke_ids and executed_ids.issubset(smoke_ids):
+            return "Smoke Subset"
+        return f"Filtered Selection ({len(executed_ids)}/{len(total_manifest_ids)} entries)"
+    except Exception:
+        return f"Selection ({len(report.entries)} entries)"
 
 
 def render_report_markdown(report: BenchmarkReport) -> str:
@@ -1353,10 +1587,23 @@ def render_report_markdown(report: BenchmarkReport) -> str:
     model = report.model or "unknown"
     provider = report.provider or "unknown"
     counts = _entry_counts(report.entries)
-    lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    total_entries = len(report.entries)
+    tier_name = _resolve_suite_tier(report)
+    if report.categories:
+        def_m = report.categories.get("default") or model
+        light_m = report.categories.get("lightweight") or model
+        reason_m = report.categories.get("reasoning") or model
+        lines.append(
+            f"- **Model**: `{model}` (provider: `{provider}` · default: `{def_m}` · lightweight: `{light_m}` · reasoning: `{reason_m}`)"
+        )
+    else:
+        lines.append(f"- **Model**: `{model}` (provider: `{provider}`)")
+    lines.append(
+        f"- **Suite**: **{tier_name}** ({total_entries} entries · {report.repeats} repeats · {total_entries * report.repeats} evaluations)"
+    )
     lines.append(
         f"- **Scope**: {counts[EntryRole.SEED]} seed, {counts[EntryRole.GOLDEN]} golden,"
-        f" {counts[EntryRole.CORPUS]} corpus · {report.repeats} repeats"
+        f" {counts[EntryRole.CORPUS]} corpus"
     )
     if report.repo_commit_sha:
         sha = report.repo_commit_sha
@@ -1406,6 +1653,8 @@ def render_report_markdown(report: BenchmarkReport) -> str:
             churn,
         )
     )
+
+    lines.extend(_render_scores_by_kind(agg.get("scores_by_kind", {})))
 
     lines.append("<details>")
     lines.append(
@@ -1571,6 +1820,39 @@ def wpt_dir_from_config(config_path: Path) -> Path | None:
     return (config_path.resolve().parent / wpt_path).resolve()
 
 
+# The evaluator's model category is mapped to the config's `evaluation` phase
+# unless the run overrides it.
+_EVALUATION_PHASE = "evaluation"
+
+
+def resolve_model(
+    config_path: Path, provider: str | None, category: str | None
+) -> str | None:
+    """Resolves the concrete evaluator model for this run.
+
+    Precedence: an explicit ``category`` override, else the config's
+    ``evaluation`` phase mapping; the chosen category is looked up in the
+    active provider's ``categories``. Returns ``None`` if nothing resolves,
+    in which case the evaluator falls back to its own config default.
+    """
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+
+    active = provider or raw.get("default_provider")
+    provider_block = (raw.get("providers") or {}).get(active, {})
+    categories = provider_block.get("categories") or {}
+
+    chosen = category or (raw.get("phase_model_mapping") or {}).get(
+        _EVALUATION_PHASE
+    )
+    model = categories.get(chosen)
+    return str(model) if model else None
+
+
 # The evaluator skill whose curated reading list is the source of truth for
 # the source-citation check. A finding may only cite a doc the skill lists.
 _SKILL_PATH = REPO_ROOT / "wptgen" / "skills" / "wpt-evaluator" / "SKILL.md"
@@ -1640,6 +1922,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "rate limits, not cores; 4-8 is usually safe.",
     )
     parser.add_argument("--provider", default=None)
+    parser.add_argument(
+        "--model-category",
+        choices=["lightweight", "reasoning"],
+        default=None,
+        help=(
+            "Override the evaluator's model category for this run. The "
+            "resolved model is passed to each child as --model. Default: the "
+            "`evaluation` phase mapping in the config."
+        ),
+    )
     parser.add_argument(
         "--filter", default=None, help="field=value, e.g. kind=reftest"
     )
@@ -1878,6 +2170,11 @@ def main(argv: list[str] | None = None) -> int:
                 stage_seeds(seeds_root, args.wpt_dir, seed_entries)
             if gold_entries:
                 stage_golden(args.wpt_dir, gold_entries)
+            # Resolve the evaluator model once (category override -> phase
+            # mapping) so every child runs the same explicit model.
+            model = resolve_model(
+                args.config, args.provider, args.model_category
+            )
             # Flatten to (entry, repeat) tasks so the pool fills evenly.
             tasks = [
                 (entry, i) for entry in entries for i in range(args.repeats)
@@ -1893,6 +2190,7 @@ def main(argv: list[str] | None = None) -> int:
                         out=args.out,
                         provider=args.provider,
                         config=args.config,
+                        model=model,
                         progress=progress,
                     )
                     for entry, i in tasks

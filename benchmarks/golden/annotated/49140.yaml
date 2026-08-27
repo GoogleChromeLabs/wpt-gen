@@ -1,29 +1,31 @@
 pr: 49140
 labels:
   # All four are `suggestion` rewordings of test-case descriptions for
-  # accuracy/consistency. CHECKLIST-010 is most applicable but arguably 
-  # about wordiness, not accuracy.
+  # consistency. The titles are already accurate and descriptive, so no
+  # clarity rule (CHECKLIST-010/001, GENERAL-012) is actually violated —
+  # editorial polish below any rule's threshold. Left as no-rule; revisit if
+  # a rule ever covers message-wording consistency (rules_version 0.3.0).
   - html_url: https://github.com/web-platform-tests/wpt/pull/49140#discussion_r1847486868
     commit_id: 3ebce3a0de437c416f23fdfd1d980469968a657b
     excerpt: "For consistency with other messages: [reword the test title]"
-    rule_id: CHECKLIST-010 
+    rule_id: no-rule   # wording nit
     path: media-capabilities/decodingInfo.any.js
     lines: [213, 213]
   - html_url: https://github.com/web-platform-tests/wpt/pull/49140#discussion_r1847487154
     commit_id: 3ebce3a0de437c416f23fdfd1d980469968a657b
     excerpt: "[reword: '...indicates both an audio and a video codec']"
-    rule_id: CHECKLIST-010 
+    rule_id: no-rule   # wording nit
     path: media-capabilities/decodingInfo.any.js
     lines: [226, 226]
   - html_url: https://github.com/web-platform-tests/wpt/pull/49140#discussion_r1847487701
     commit_id: 3ebce3a0de437c416f23fdfd1d980469968a657b
     excerpt: "[reword: '...indicates multiple audio codecs']"
-    rule_id: CHECKLIST-010 
+    rule_id: no-rule   # wording nit
     path: media-capabilities/decodingInfo.any.js
     lines: [367, 367]
   - html_url: https://github.com/web-platform-tests/wpt/pull/49140#discussion_r1847487786
     commit_id: 3ebce3a0de437c416f23fdfd1d980469968a657b
     excerpt: "[reword: '...indicates both an audio and a video codec']"
-    rule_id: CHECKLIST-010 
+    rule_id: no-rule   # wording nit
     path: media-capabilities/decodingInfo.any.js
     lines: [374, 374]

@@ -21,7 +21,7 @@ labels:
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722337642
     commit_id: 39c10d199384e51ac7da05bd05cff342bfccb963
     excerpt: "What is the difference between this test and enabled-on-self-origin-...?"
-    rule_id: CHECKLIST-004   # duplicate-coverage question
+    rule_id: no-rule   # duplicate-test question
     path: digital-credentials/override-permissions-policy.https.sub.html
     lines: [10, 10]
   - html_url: https://github.com/web-platform-tests/wpt/pull/47662#discussion_r1722338866

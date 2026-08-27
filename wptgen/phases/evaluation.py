@@ -445,6 +445,15 @@ async def run_evaluation(
     run_metadata: dict[str, Any] = {
         "provider": config.provider,
         "model": config.default_model,
+        "categories": {
+            "default": config.default_model,
+            "lightweight": config.categories.get(
+                "lightweight", config.default_model
+            ),
+            "reasoning": config.categories.get(
+                "reasoning", config.default_model
+            ),
+        },
     }
     payload = _build_findings_payload(
         test_path=test_path,

@@ -49,9 +49,9 @@ DEFAULT_AUDIT_PARTITION_SIZE = 40
 
 DEFAULT_PROVIDER_MODELS = {
     "gemini": {
-        "default": "gemini-3.1-pro-preview",
-        "lightweight": "gemini-3-flash-preview",
-        "reasoning": "gemini-3.1-pro-preview",
+        "default": "gemini-3.7-flash",
+        "lightweight": "gemini-3.7-flash",
+        "reasoning": "gemini-3.7-flash",
     },
     "openai": {
         "default": "gpt-5.2-high",
@@ -75,6 +75,10 @@ class Config:
     api_key: str | None
     categories: dict[str, str]
     phase_model_mapping: dict[str, str]
+    # An explicit model id that wins over phase/category resolution. Set by a
+    # caller that has already chosen a concrete model (e.g. the benchmark
+    # harness). None means "resolve normally from the phase mapping".
+    model_override: str | None = None
     provider_options: dict[str, Any] = field(default_factory=dict)
     wpt_path: str | None = None
     library_mode: bool = False
@@ -115,6 +119,8 @@ class Config:
 
     def get_model_for_phase(self, phase: WorkflowPhase | str) -> str | None:
         """Resolves the model name for a given workflow phase."""
+        if self.model_override:
+            return self.model_override
         phase_name = phase.value if isinstance(phase, WorkflowPhase) else phase
         if self.use_lightweight:
             return self.categories.get("lightweight")
@@ -229,6 +235,7 @@ def _deep_merge(
 def load_config(
     config_path: str | None = DEFAULT_CONFIG_PATH,
     provider_override: str | None = None,
+    model_override: str | None = None,
     wpt_dir_override: str | None = None,
     output_dir_override: str | None = None,
     show_responses: bool = False,
@@ -430,6 +437,10 @@ def load_config(
         ),
         WorkflowPhase.COVERAGE_AUDIT.value: ModelCategory.REASONING.value,
         WorkflowPhase.GENERATION.value: ModelCategory.LIGHTWEIGHT.value,
+        WorkflowPhase.EVALUATION.value: ModelCategory.REASONING.value,
+        WorkflowPhase.CONFORMANCE_EVALUATION.value: (
+            ModelCategory.REASONING.value
+        ),
     }
     phase_model_mapping = _deep_merge(
         default_phase_mapping, yaml_data.get("phase_model_mapping", {})
@@ -442,6 +453,7 @@ def load_config(
         wpt_path=wpt_path,
         categories=categories,
         phase_model_mapping=phase_model_mapping,
+        model_override=model_override,
         output_dir=output_dir,
         show_responses=show_responses,
         yes_tokens=yes_tokens,

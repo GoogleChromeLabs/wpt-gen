@@ -15,6 +15,9 @@ and `--out` to a timestamped `bench-runs/<date>-<time>/`. All are
 overridable. Other flags:
 
 - `--provider`, `--config` — passed through to each `wpt-gen evaluate`.
+- `--model-category {lightweight,reasoning}` — override the model the
+  evaluator runs on for this benchmark (see [Model selection](#model-selection)).
+  Default: the `evaluation` phase mapping in the config (`reasoning`).
 - `--filter field=value` — `role=` (`seed`/`corpus`/`golden`) or `kind=`.
 - `--jobs N` — concurrent evaluator runs (default 1; the bound is provider
   rate limits, not cores).
@@ -46,6 +49,39 @@ Two suggestions for how to run, differing only in selection and repeats:
 Tiers are selection, not schema: the manifest defines which entries are in
 `smoke` (see [Manifest schema](#manifest-schema)); `--repeats` and any
 quality gate stay on the command line.
+
+### Running in Cloud Build
+
+The benchmark suite runs natively on Google Cloud Build using Vertex AI authentication (Application Default Credentials) with 8 parallel worker jobs:
+
+#### 1. Fast PR Regression Tier (Smoke · 3 repeats)
+Triggered automatically on pull requests via `/gcbrun` comment, or manually:
+```bash
+gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops \
+  --substitutions=_SELECT="--smoke",_REPEATS=3,_MIN_RECALL="1.0"
+```
+
+#### 2. Full Release & Model Evaluation Tier (Full Manifest · 8 repeats)
+Runs all 26+ benchmark entries across 8 repeats to establish a high-confidence consistency baseline:
+```bash
+gcloud builds submit --config cloudbuild.yaml --project interop-tooling-ops \
+  --substitutions=_SELECT="",_REPEATS=8,_MIN_RECALL="1.0",_MIN_STABILITY="auto",_JOBS=8
+```
+
+### Model selection
+
+The evaluator resolves its model from the config's `phase_model_mapping` like
+any other phase: the `evaluation` (and `conformance_evaluation`) phase maps to a
+category (`reasoning` by default), which resolves to a concrete model under the
+active provider's `categories` in `wpt-gen.yml`. So the benchmark runs whatever
+the config says the evaluator uses in a real end-to-end run.
+
+To benchmark a *different* model without editing the shared config, pass
+`--model-category lightweight` (or `reasoning`).
+
+A run's resolved model is recorded in the report header, so it is always
+unambiguous which model produced a given set of numbers. Comparisons are only
+meaningful within one fixed model.
 
 ### Quality gates
 
@@ -244,6 +280,28 @@ different causes and fixes (both surface in the Action Items):
 merged test, so it carries no gold labels (precision/recall need labels). Seed
 and golden entries also carry a stability signal, but their headline metric is
 precision/recall.
+
+### Scores by test type
+
+A single matrix, one row per test `kind`, folding the three headline signals
+together so a per-kind weakness is visible at a glance:
+
+| kind        | corpus stability | seed precision/recall | golden recall |
+| :---------- | :--------------: | :-------------------: | :-----------: |
+| crashtest   | 0.90 (n=3)       | —                     | —             |
+| testharness | 0.81 (n=8)       | 1.0/0.73 (6)          | 0.11 (6)      |
+| reftest     | 0.72 (n=6)       | 0.57/1.0 (1)          | 1.0 (1)       |
+| js          | —                | —                     | 0.02 (3)      |
+
+Each cell carries its entry count `n`; a dash means no entries of that role and
+kind. Per-kind precision/recall are computed from that kind's summed
+TP/FP/FN (not by averaging per-entry rates), so they read the same way as the
+headline numbers. Rows are ordered most-stable first.
+
+**Read these as directional.** A full run spreads ~29 corpus entries across
+~6 kinds — a handful each — so a per-kind mean is a *hint* to investigate, not
+a verdict. The `n` column is there precisely so a 3-entry kind is not
+over-read.
 
 ### Advisory notes
 

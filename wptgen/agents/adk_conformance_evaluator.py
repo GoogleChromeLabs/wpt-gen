@@ -28,10 +28,11 @@ from google.genai import types
 from jinja2 import Environment
 
 from wptgen.agents.adk_evaluator import EVALUATOR_TOOL_ALLOWLIST
-from wptgen.agents.provider import setup_adk_environment
+from wptgen.agents.provider import create_adk_model, setup_adk_environment
 from wptgen.agents.streaming import ADKStreamManager, StreamConfig, TokenUsage
 from wptgen.agents.tools import create_agent_tools
 from wptgen.config import SKILLS_DIR, Config
+from wptgen.models import WorkflowPhase
 from wptgen.ui import UIProvider
 from wptgen.utils import locate_snippet, read_test_source
 
@@ -80,7 +81,10 @@ async def evaluate_conformance_with_adk(
         what was read). The phase wrapper is responsible for rendering
         the report Markdown.
     """
-    model_string = setup_adk_environment(config)
+    model_string = setup_adk_environment(
+        config,
+        config.get_model_for_phase(WorkflowPhase.CONFORMANCE_EVALUATION),
+    )
     if config.provider.lower() == "anthropic" and not model_string.startswith(
         "anthropic/"
     ):
@@ -195,7 +199,7 @@ async def evaluate_conformance_with_adk(
     safe_name = re.sub(r"[^A-Za-z0-9_]", "_", test_path.stem)
     agent_kwargs: dict[str, Any] = {
         "name": f"wpt_conformance_{safe_name}",
-        "model": model_string,
+        "model": create_adk_model(config, model_string),
         "instruction": instruction,
         "tools": list(tools),
     }

@@ -926,6 +926,17 @@ def evaluate(
             "--config", "-c", help="Path to a custom wpt-gen.yml file."
         ),
     ] = DEFAULT_CONFIG_PATH,
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            "-m",
+            help=(
+                "Model id to evaluate with, overriding the config's "
+                "phase/category resolution."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """
     Evaluate a single WPT test file against upstream WPT guidance and emit
@@ -951,6 +962,7 @@ def evaluate(
         config = load_config(
             config_path=config_path,
             provider_override=provider,
+            model_override=model,
             wpt_dir_override=str(wpt_dir) if wpt_dir else None,
             require_api_key=True,
         )
